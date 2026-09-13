@@ -4,6 +4,8 @@ order: 3
 description: 反馈问题时需提供的材料：当天的日志、「复制诊断信息」的内容，以及常见情况的自查。
 ---
 
+问题与建议请提到 [GitHub Issues](https://github.com/qingjian-team/qingjian/issues/new/choose)，按表单填写即可；表单会要求下面这些材料。
+
 ## 反馈时请提供
 
 1. 「偏好设置 → 关于 → 复制诊断信息」：版本、系统、加载的数据、配置原文、日志目录，写入剪贴板。API 密钥会被抹去。
