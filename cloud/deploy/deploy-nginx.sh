@@ -159,7 +159,8 @@ server {
     location /releases/ {
         alias /opt/qingjian-host/releases/;
         autoindex on;
-        location ~ \.(json|sig)\$ { add_header Cache-Control "no-cache"; }
+        # 索引要及时看到新版；pkg 文件名带版本号，一起不缓存也无妨。别用嵌套的正则 location：它不继承 alias 的路径，json 会 404
+        add_header Cache-Control "no-cache";
     }
 
     location / {
