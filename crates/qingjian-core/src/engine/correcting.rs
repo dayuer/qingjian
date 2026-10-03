@@ -80,8 +80,16 @@ impl Engine {
                     self.learner.typo_count(&typed, &intended)
                 });
             let transpose = matches!(candidate.edit, correction::Edit::Transpose { .. });
-            let score = conversion.score - self.typo_costs.correction_cost(transpose, accepted);
-            let undiscounted = conversion.score - self.typo_costs.correction_cost(false, accepted);
+            // 第二处换键再付一次代价，不打个人折扣
+            let second = if candidate.second.is_some() {
+                self.typo_costs.correction_cost(false, 0)
+            } else {
+                0.0
+            };
+            let score =
+                conversion.score - self.typo_costs.correction_cost(transpose, accepted) - second;
+            let undiscounted =
+                conversion.score - self.typo_costs.correction_cost(false, accepted) - second;
             if best.as_ref().is_none_or(|(best, _, _)| score > *best) {
                 best = Some((score, undiscounted, candidate));
             }

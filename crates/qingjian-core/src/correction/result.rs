@@ -3,7 +3,7 @@ use crate::parser::Segmentation;
 
 use super::edit::Edit;
 
-/// 一次拼写纠正：用户敲的串、纠正后的串、那一处编辑，以及纠正后串的完整音节切分。
+/// 一次拼写纠正：用户敲的串、纠正后的串、那一处编辑（偶尔再加一处换键），以及纠正后串的完整音节切分。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Correction {
     /// 用户敲的（作用域里的拼音，不含 `'`）。
@@ -15,6 +15,10 @@ pub struct Correction {
     /// 从原串到纠正后串的那一处编辑。
     pub edit: Edit,
 
+    /// 第二处编辑：只会是换成相邻键（手机上一个词里敲错两次的多半是两次误触，`dinbushabg` → `dianbushang`），
+    /// 只在一处编辑凑不出完整拼音时才试。换键不改长度，所以 [`Edit::to_original`] 仍只看第一处。
+    pub second: Option<Edit>,
+
     /// 纠正后串的切分：每个音节都完整，或（相邻换位时）只有末尾一个还没敲完。
     pub segmentation: Segmentation,
 }
@@ -24,6 +28,10 @@ impl Correction {
     /// 多敲的字母算在它前面那个音节上（与 [`Edit::to_original`] 一致）。编辑处不在任何音节里时返回 `None`。
     /// `consumed` 是上屏消耗掉的纠正后字母数：没吃到编辑处的上屏不算接受了纠正。
     pub fn typo_pair(&self, consumed: usize) -> Option<(String, String)> {
+        // 两处编辑的纠正说不清用户要的是哪个音节对，不记
+        if self.second.is_some() {
+            return None;
+        }
         let at = match self.edit {
             Edit::Substitute { index, .. }
             | Edit::Insert { index }
@@ -53,32 +61,44 @@ impl Correction {
     }
 
     /// preedit 的分段：纠正后的切分拼音（`'` 连接），被改掉的原字母以 [`MarkedKind::Corrected`] 插在它原来的位置。
-    /// `nihooma` → `ni'h` + ~~o~~ + `ao'ma`。
+    /// `nihooma` → `ni'h` + ~~o~~ + `ao'ma`；有第二处编辑时两处都划。
     pub fn marked_segments(&self) -> Vec<MarkedSegment> {
         let display = self.segmentation.joined("'");
-        let Some((at, struck)) = self.edit.struck() else {
+        let mut struck: Vec<(usize, String)> = [Some(&self.edit), self.second.as_ref()]
+            .into_iter()
+            .flatten()
+            .filter_map(Edit::struck)
+            .collect();
+        struck.sort_by_key(|(at, _)| *at);
+        if struck.is_empty() {
             return vec![MarkedSegment::new(display, MarkedKind::Typed)];
-        };
+        }
         // 纠正后串的字母下标 → 显示串（含 `'`）的下标
-        let mut letters = 0;
-        let mut split = display.len();
-        for (i, c) in display.char_indices() {
-            if c == '\'' {
-                continue;
+        let split_at = |at: usize| {
+            let mut letters = 0;
+            for (i, c) in display.char_indices() {
+                if c == '\'' {
+                    continue;
+                }
+                if letters == at {
+                    return i;
+                }
+                letters += 1;
             }
-            if letters == at {
-                split = i;
-                break;
+            display.len()
+        };
+        let mut segments = Vec::with_capacity(5);
+        let mut from = 0;
+        for (at, text) in struck {
+            let split = split_at(at);
+            if split > from {
+                segments.push(MarkedSegment::new(&display[from..split], MarkedKind::Typed));
             }
-            letters += 1;
+            segments.push(MarkedSegment::new(text, MarkedKind::Corrected));
+            from = split;
         }
-        let mut segments = Vec::with_capacity(3);
-        if split > 0 {
-            segments.push(MarkedSegment::new(&display[..split], MarkedKind::Typed));
-        }
-        segments.push(MarkedSegment::new(struck, MarkedKind::Corrected));
-        if split < display.len() {
-            segments.push(MarkedSegment::new(&display[split..], MarkedKind::Typed));
+        if from < display.len() {
+            segments.push(MarkedSegment::new(&display[from..], MarkedKind::Typed));
         }
         segments
     }
@@ -108,6 +128,7 @@ mod tests {
                 index: 3,
                 from: 'o',
             },
+            second: None,
             segmentation: segmentation(&["ni", "hao", "ma"]),
         };
         assert_eq!(
@@ -129,6 +150,7 @@ mod tests {
                 index: 3,
                 from: 'o',
             },
+            second: None,
             segmentation: segmentation(&["ni", "hao", "ma"]),
         };
         assert_eq!(
@@ -141,6 +163,7 @@ mod tests {
             original: "meiganxi".into(),
             corrected: "meiguanxi".into(),
             edit: Edit::Insert { index: 4 },
+            second: None,
             segmentation: segmentation(&["mei", "guan", "xi"]),
         };
         assert_eq!(
@@ -154,6 +177,7 @@ mod tests {
                 index: 3,
                 removed: 'g',
             },
+            second: None,
             segmentation: segmentation(&["zhe", "ge"]),
         };
         // 多敲的 g 算在前一个音节上
@@ -170,11 +194,35 @@ mod tests {
                 first: 'i',
                 second: 't',
             },
+            second: None,
             segmentation: Segmentation {
                 syllables: vec![Syllable::complete("ming"), Syllable::partial("tia")],
             },
         };
         assert_eq!(correction.typo_pair(7), None);
+    }
+
+    #[test]
+    fn two_edits_strike_both_letters_and_learn_nothing() {
+        let correction = Correction {
+            original: "dinbushabg".into(),
+            corrected: "dianbushang".into(),
+            edit: Edit::Insert { index: 2 },
+            second: Some(Edit::Substitute {
+                index: 9,
+                from: 'b',
+            }),
+            segmentation: segmentation(&["dian", "bu", "shang"]),
+        };
+        assert_eq!(
+            texts(&correction.marked_segments()),
+            [
+                ("dian'bu'sha".to_owned(), MarkedKind::Typed),
+                ("b".to_owned(), MarkedKind::Corrected),
+                ("ng".to_owned(), MarkedKind::Typed),
+            ]
+        );
+        assert_eq!(correction.typo_pair(11), None);
     }
 
     #[test]
@@ -186,6 +234,7 @@ mod tests {
                 index: 5,
                 removed: 'x',
             },
+            second: None,
             segmentation: segmentation(&["ni", "hao"]),
         };
         assert_eq!(
@@ -199,6 +248,7 @@ mod tests {
             original: "nhao".into(),
             corrected: "nihao".into(),
             edit: Edit::Insert { index: 1 },
+            second: None,
             segmentation: segmentation(&["ni", "hao"]),
         };
         assert_eq!(
