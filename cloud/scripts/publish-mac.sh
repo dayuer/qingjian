@@ -110,6 +110,14 @@ ssh "$HOST" "cd '$REMOTE_DIR' && mv releases.json.new releases.json && mv releas
   && for f in *.pkg; do grep -qxF \"\$f\" .keep.txt || rm -f -- \"\$f\"; done && rm -f .keep.txt && ls -l"
 
 say "检查线上"
-curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" | python3 -c 'import json,sys; print("线上最新:", json.load(sys.stdin)["latest"])'
+# 服务器的 nginx 开着 open_file_cache：换了文件后旧的还会再给约一分钟，等它换过来
+online=""
+for _ in $(seq 1 18); do
+  online="$(curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest"])' 2>/dev/null || true)"
+  [[ "$online" == "$version" ]] && break
+  sleep 5
+done
+echo "线上最新: ${online:-读不到}"
+[[ "$online" == "$version" ]] || echo "注意：90 秒后线上还不是 ${version}，去服务器看看 $REMOTE_DIR" >&2
 curl -fsSI -m 20 "https://$DOMAIN/releases/$file" | head -1
 echo "已发布 ${version}。已装的青简一天内会查到；想马上试：偏好设置 → 关于 → 立即检查。"
