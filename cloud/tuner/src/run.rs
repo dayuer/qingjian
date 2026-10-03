@@ -44,6 +44,14 @@ pub fn run_once(args: &Args) -> Result<String, TunerError> {
     let llm = Llm::new(&args.server, &args.token, &args.model);
 
     let lines = logs::fetch(&client)?;
+    // 首轮（状态文件里还没有行数）照跑；之后这段时间打得太少就不问大模型、不回放
+    let new_lines = state.new_lines(lines.len());
+    if saved_state.log_lines > 0 && new_lines < args.min_new_lines {
+        return Ok(format!(
+            "纠错闭环跳过：距上一轮只新增 {new_lines} 行输入日志（不到 {}）",
+            args.min_new_lines
+        ));
+    }
     let snapshot = Snapshot::from_rows(&fetch_learning(&client)?);
     let work = tempfile::tempdir()?;
     let config = match client.config()? {
@@ -102,6 +110,7 @@ pub fn run_once(args: &Args) -> Result<String, TunerError> {
         if matches!(verdict, Verdict::Failed { .. }) {
             state.seen = saved_state.seen;
         }
+        state.log_lines = lines.len();
         state.save(&state_path)?;
     }
 

@@ -47,6 +47,10 @@ pub struct Args {
     #[arg(long, env = "QINGJIAN_TUNER_EVERY_HOURS", default_value_t = 0)]
     pub every_hours: u64,
 
+    /// 距上一轮新增不到这么多行输入日志就跳过这一轮（没怎么打字时不问大模型、不回放）；0 为每轮都跑。
+    #[arg(long, env = "QINGJIAN_TUNER_MIN_NEW_LINES", default_value_t = 50)]
+    pub min_new_lines: usize,
+
     /// 每轮最多体检多少个用户词。
     #[arg(long, default_value_t = 300)]
     pub max_audit: usize,
