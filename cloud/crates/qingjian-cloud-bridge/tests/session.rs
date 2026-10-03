@@ -17,13 +17,13 @@ fn types_and_commits_a_sentence() {
     };
     let user = std::env::temp_dir().join(format!("qj-bridge-{}", std::process::id()));
     std::fs::create_dir_all(&user).unwrap();
-    let mut session = Session::open(&data, Some(&user)).unwrap();
+    let mut session = Session::open(&data, Some(&user), None).unwrap();
     for c in "nihaoshijie".chars() {
         session.push(c);
     }
     assert!(session.composing());
     assert!(!session.preedit().is_empty());
-    assert_eq!(session.candidates()[0].text, "你好世界");
+    assert_eq!(session.entries()[0].text(), "你好世界");
     assert_eq!(session.commit(0).as_deref(), Some("你好世界"));
     assert!(!session.composing());
     assert_eq!(session.punctuate(','), "，");
@@ -36,7 +36,7 @@ fn backspace_and_raw() {
     let Some(data) = data_dir() else {
         return;
     };
-    let mut session = Session::open(&data, None).unwrap();
+    let mut session = Session::open(&data, None, None).unwrap();
     for c in "zhongw".chars() {
         session.push(c);
     }

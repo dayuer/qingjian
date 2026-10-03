@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 把 qingjian-cloud-bridge 编成真机 + 模拟器的静态库，打成 Frameworks/QingjianBridge.xcframework，
-# 再把产品数据（dict.qj、lm.qj）拷进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
+# 再把产品数据（dict.qj、lm.qj）与青简 Cloud 配置（cloud.local.toml，可选）拷进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
 # 用法：scripts/build-bridge.sh [--debug]；数据目录默认取仓库根的 data/generated，可用 QINGJIAN_DATA 覆盖。
 set -euo pipefail
 
@@ -52,4 +52,10 @@ for file in dict.qj lm.qj; do
   # 只在变了时拷，免得每次构建都触发重新签名大文件
   cmp -s "$data/$file" "$ios_dir/Keyboard/Data/$file" || cp "$data/$file" "$ios_dir/Keyboard/Data/$file"
 done
+# 青简 Cloud 的连接配置（服务器地址 + 这台设备的令牌）：本机文件，不进仓库；没有就完全离线
+if [[ -f "$ios_dir/cloud.local.toml" ]]; then
+  cp "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml"
+else
+  rm -f "$ios_dir/Keyboard/Data/cloud.toml"
+fi
 echo "QingjianBridge.xcframework（$profile）与产品数据已就绪"

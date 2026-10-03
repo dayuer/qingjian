@@ -1,0 +1,142 @@
+//! 会话里与青简 Cloud 有关的部分：大模型联想（结果插在首选之后，不抢空格要上屏的那个）、
+//! 润色、学习数据同步（`DataSync` 与 Mac 端同一套基线 + 增量 + 收件箱，收件箱在这里合并）。
+
+use std::io::ErrorKind;
+
+use qingjian_cloud_client::{Client, DataSync, DataSyncConfig, INBOX};
+use qingjian_core::{Candidate, SurroundingText};
+use qingjian_predict::{CloudPredictor, PredictConfig};
+
+use super::Session;
+use crate::cloud_config::CloudConfig;
+use crate::entry::Entry;
+use crate::rewrite::Rewriter;
+
+/// 云端的词与整句插在第几格起：第 0 格留给本地首选。
+const CLOUD_POSITION: usize = 1;
+
+impl Session {
+    pub(super) fn connect(&mut self, cloud: &CloudConfig) {
+        if cloud.llm {
+            let config = PredictConfig {
+                enabled: true,
+                base_url: cloud.llm_base_url(),
+                api_key: Some(cloud.token.clone()),
+                ..PredictConfig::default()
+            };
+            match CloudPredictor::new(&config) {
+                Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
+                Err(error) => tracing::warn!(%error, "大模型联想启动失败"),
+            }
+            self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
+        }
+        if let (true, Some(user_dir)) = (cloud.sync, &self.user_dir) {
+            let started = DataSync::start(DataSyncConfig {
+                server: cloud.server.clone(),
+                token: cloud.token.clone(),
+                ime_dir: user_dir.clone(),
+                state_dir: user_dir.join("cloud"),
+                sync_learning: true,
+                // 键盘不读 config.toml，也不在 iOS 上记输入日志
+                sync_logs: false,
+                log_download_dir: None,
+                sync_config: false,
+            });
+            match started {
+                Ok(sync) => self.data_sync = Some(sync),
+                Err(error) => tracing::warn!(%error, "学习数据同步启动失败"),
+            }
+        }
+    }
+
+    pub fn cloud_enabled(&self) -> bool {
+        self.rewriter.is_some() || self.data_sync.is_some()
+    }
+
+    pub fn rewriter(&self) -> Option<&Rewriter> {
+        self.rewriter.as_ref()
+    }
+
+    /// 宿主光标前后的文字。`before` 末尾若是我们写进去的 marked text（拼音），去掉再存。
+    pub fn set_context(&mut self, before: &str, after: &str) {
+        let before = before.strip_suffix(self.preedit.as_str()).unwrap_or(before);
+        self.context = Some(SurroundingText {
+            before: before.to_owned(),
+            after: after.to_owned(),
+        });
+    }
+
+    pub fn sync_now(&self) {
+        if let Some(sync) = &self.data_sync {
+            sync.sync_now();
+        }
+    }
+
+    /// 键盘可见期间定时调：合并收件箱、取回大模型结果。候选栏变了返回 true。
+    pub fn poll(&mut self) -> bool {
+        self.apply_inbox();
+        let Some(prediction) = self.engine.poll_prediction() else {
+            return false;
+        };
+        if !self.composing() || self.entries.is_empty() {
+            return false;
+        }
+        let mut position = CLOUD_POSITION.min(self.entries.len());
+        let mut inserted = false;
+        let mut insert = |entries: &mut Vec<Entry>, entry: Entry| {
+            if entries.iter().any(|e| e.text() == entry.text()) {
+                return;
+            }
+            entries.insert(position, entry);
+            position += 1;
+            inserted = true;
+        };
+        if let Some(sentence) = prediction.sentence {
+            insert(&mut self.entries, Entry::Sentence(sentence));
+        }
+        for word in prediction.words {
+            let candidate: Candidate = word.into_candidate();
+            insert(&mut self.entries, Entry::Cloud(candidate));
+        }
+        inserted
+    }
+
+    pub(super) fn request_prediction(&mut self) {
+        let local: Vec<Candidate> = self
+            .entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Entry::Local(candidate) => Some(candidate.clone()),
+                _ => None,
+            })
+            .collect();
+        if self
+            .engine
+            .request_prediction(self.context.clone(), &local)
+            .is_none()
+        {
+            self.engine.cancel_prediction();
+        }
+    }
+
+    /// 别的设备的学习增量：先合并、落盘，最后才删文件，中途被杀下次重来（最坏多算一次，不会丢）。
+    pub(super) fn apply_inbox(&mut self) {
+        let Some(path) = self.user_dir.as_ref().map(|dir| dir.join(INBOX)) else {
+            return;
+        };
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == ErrorKind::NotFound => return,
+            Err(error) => {
+                tracing::warn!(%error, "收件箱读不了");
+                return;
+            }
+        };
+        let applied = self.engine.learner_mut().merge_remote(&text);
+        self.engine.flush_learning();
+        if let Err(error) = std::fs::remove_file(&path) {
+            tracing::warn!(%error, "收件箱删不掉");
+        }
+        tracing::info!(applied, "合并了别的设备的学习数据");
+    }
+}

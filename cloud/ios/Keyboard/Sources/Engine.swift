@@ -8,13 +8,13 @@ final class Engine {
     /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。
     private nonisolated(unsafe) let session: OpaquePointer
 
-    /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据。打不开返回 nil。
-    init?(dataDirectory: URL, userDirectory: URL?) {
-        let opened = dataDirectory.path.withCString { data in
-            if let user = userDirectory?.path {
-                return user.withCString { qj_session_open(data, $0) }
+    /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据；
+    /// `cloudConfig` 指向 cloud.toml，没有就完全离线。打不开返回 nil。
+    init?(dataDirectory: URL, userDirectory: URL?, cloudConfig: URL?) {
+        let opened = Self.withOptionalCString(userDirectory?.path) { user in
+            Self.withOptionalCString(cloudConfig?.path) { cloud in
+                dataDirectory.path.withCString { qj_session_open($0, user, cloud) }
             }
-            return qj_session_open(data, nil)
         }
         guard let opened else { return nil }
         session = opened
@@ -28,8 +28,12 @@ final class Engine {
 
     var preedit: String { take(qj_preedit(session)) ?? "" }
 
-    var candidates: [String] {
-        (0..<qj_candidate_count(session)).compactMap { take(qj_candidate_text(session, $0)) }
+    var candidates: [CandidateItem] {
+        (0..<qj_candidate_count(session)).compactMap { index in
+            take(qj_candidate_text(session, index)).map {
+                CandidateItem(text: $0, cloud: qj_candidate_is_cloud(session, index))
+            }
+        }
     }
 
     func push(_ letter: Character) {
@@ -59,9 +63,40 @@ final class Engine {
 
     func flush() { qj_flush(session) }
 
+    var cloudEnabled: Bool { qj_cloud_enabled(session) }
+
+    var rewriteAvailable: Bool { qj_rewrite_available(session) }
+
+    func setContext(before: String, after: String) {
+        before.withCString { b in after.withCString { qj_set_context(session, b, $0) } }
+    }
+
+    /// 合并别的设备的学习数据、取回大模型结果；候选变了返回 true。
+    func poll() -> Bool { qj_poll(session) }
+
+    func syncNow() { qj_sync_now(session) }
+
+    func startRewrite(_ text: String) {
+        text.withCString { qj_rewrite_start(session, $0) }
+    }
+
+    /// 0 空闲、1 等待中、2 就绪、3 失败（与桥的约定一致）。
+    var rewriteStatus: UInt32 { qj_rewrite_status(session) }
+
+    func takeRewrite() -> String? { take(qj_rewrite_take(session)) }
+
+    func cancelRewrite() { qj_rewrite_cancel(session) }
+
     private func take(_ raw: UnsafeMutablePointer<CChar>?) -> String? {
         guard let raw else { return nil }
         defer { qj_string_free(raw) }
         return String(cString: raw)
+    }
+
+    private static func withOptionalCString<T>(
+        _ string: String?, _ body: (UnsafePointer<CChar>?) -> T
+    ) -> T {
+        guard let string else { return body(nil) }
+        return string.withCString { body($0) }
     }
 }

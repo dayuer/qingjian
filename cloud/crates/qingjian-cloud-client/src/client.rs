@@ -4,7 +4,7 @@ use std::io::BufReader;
 use std::time::Duration;
 
 use qingjian_cloud_proto::{
-    ConfigDoc, Event, EventPage, InputLogPage, InputLogPush, LearningPage, LearningPush,
+    ConfigDoc, Event, EventPage, InputLogPage, InputLogPush, LearningPage, LearningPush, PATH_CHAT,
     PATH_CLIPBOARD, PATH_CONFIG, PATH_EVENTS, PATH_INPUT_LOG, PATH_INPUT_LOG_CLEAR, PATH_LEARNING,
     PATH_STREAM, PATH_WHOAMI, PushClip, PutConfig, Whoami,
 };
@@ -99,6 +99,17 @@ impl Client {
             .query("since", since.to_string())
             .query("limit", limit.to_string())
             .call()?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 经服务器的大模型代理发一次非流式聊天请求（OpenAI 兼容格式），原样返回回答的 JSON。
+    /// 服务器用自己的密钥转给上游；模型名以服务器配置为准。
+    pub fn chat(&self, request: &serde_json::Value) -> Result<serde_json::Value, ClientError> {
+        let mut response = self
+            .agent
+            .post(self.url(PATH_CHAT))
+            .header("Authorization", self.bearer())
+            .send_json(request)?;
         json(response.body_mut().read_json())
     }
 

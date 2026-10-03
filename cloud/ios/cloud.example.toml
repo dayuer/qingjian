@@ -1,0 +1,11 @@
+# 复制成 cloud.local.toml（不进仓库）填好，构建时会拷进键盘。没有这个文件键盘完全离线。
+# 令牌每台设备一个，在服务器上生成：qingjian-cloud device add iphone
+
+server = "https://pinyin.synon.ai"
+token = ""
+
+# 组字时让大模型补候选、润色
+llm = true
+
+# 与 Mac 等设备同步学习数据（词频、用户词、个人 n-gram 等）
+sync = true
