@@ -5,7 +5,8 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use crate::UpdateError;
 
 /// 信任的发版公钥（base64 的 32 字节 ed25519 公钥）；换钥时新旧并列一段时间。私钥在 CI 密钥 `QINGJIAN_INDEX_SIGNING_KEY` 里。
-pub const PUBLIC_KEYS: &[&str] = &["2qNCMwKGMzaBOsHQLHUornqcopNzmrVBKAmICEl9rkk="];
+// 分叉补丁：只认自建更新服务器的密钥（私钥在发布机的 ~/.config/qingjian-cloud/），见 cloud/docs/fork-patch.md
+pub const PUBLIC_KEYS: &[&str] = &["rqubcsN1XfdUaTLZDNO6PzTeFlvs8wzlrh8PqomACQI="];
 
 /// 验索引的分离签名：`signature` 是 `releases.json.sig` 的内容（base64 的 64 字节），任何一把信任的公钥验过就算数。
 pub fn verify(message: &[u8], signature: &str) -> Result<(), UpdateError> {

@@ -19,3 +19,4 @@ thiserror.workspace = true
 reqwest = { workspace = true, features = ["native-tls", "system-proxy"] }
 tokio.workspace = true
 tracing.workspace = true
+sha2 = "0.11"

@@ -17,7 +17,8 @@ fn main() {
         check: true,
         channel,
     };
-    let state = std::env::temp_dir().join(format!("qingjian-update-{}.json", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("qingjian-update-{}", std::process::id()));
+    let state = dir.join("update.json");
     let checker = Checker::new(state.clone(), &current);
     checker.poll(&config);
     while checker.checking() {
@@ -31,5 +32,8 @@ fn main() {
         None if checker.checked_at() > 0 => println!("{current}：已是最新"),
         None => println!("{current}：没查成（开发版、断网或验签失败）"),
     }
-    let _ = std::fs::remove_file(state);
+    if let Some(path) = checker.downloaded(&config) {
+        println!("安装包已下载并校验：{}", path.display());
+    }
+    let _ = std::fs::remove_dir_all(dir);
 }

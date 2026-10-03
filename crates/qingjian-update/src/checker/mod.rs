@@ -3,18 +3,24 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 mod available;
+mod package;
 mod state;
 
 pub use available::Available;
+pub use package::Package;
 pub use state::UpdateState;
 
 use qingjian_platform::{UpdateChannel, UpdateConfig};
 
+use crate::download::fetch_package;
 use crate::index::fetch_index;
 use crate::{Target, UpdateError, Version};
 
 /// 查成功后隔多久再查。
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
+
+/// 下载的安装包放在 `update.json` 旁边的这个目录。
+const UPDATES_DIR: &str = "updates";
 
 /// 查失败（断网、验签不过）后隔多久再试。
 const RETRY_INTERVAL_SECS: u64 = 60 * 60;
@@ -103,6 +109,17 @@ impl Checker {
         Self::relevant(&state, version, config).cloned()
     }
 
+    /// 要提示的新版本已经下载并校验过的安装包；还没下完或索引没给下载地址时为 `None`。
+    pub fn downloaded(&self, config: &UpdateConfig) -> Option<PathBuf> {
+        let version = self.version.as_ref()?;
+        let state = self.lock();
+        let found = Self::relevant(&state, version, config)?;
+        let file = &found.package.as_ref()?.file;
+        state.downloaded.clone().filter(|path| {
+            path.is_file() && path.file_name().and_then(|n| n.to_str()) == Some(file)
+        })
+    }
+
     /// 参与比较的版本号：`QINGJIAN_UPDATE_VERSION` 可以顶替壳的版本号（拿 `-dev` 包测提示用）。
     pub fn effective_version(current: &str) -> String {
         std::env::var("QINGJIAN_UPDATE_VERSION").unwrap_or_else(|_| current.to_owned())
@@ -186,10 +203,21 @@ fn check_once(
     channel: UpdateChannel,
 ) -> Result<UpdateState, UpdateError> {
     let index = fetch_index(current)?;
+    let available = index.newest(version, target, channel);
+    let downloaded = available
+        .as_ref()
+        .and_then(|found| found.package.as_ref())
+        .and_then(|package| {
+            let dir = state_path.parent()?.join(UPDATES_DIR);
+            fetch_package(&dir, package, current)
+                .inspect_err(|error| tracing::warn!(%error, "新版本安装包下载失败"))
+                .ok()
+        });
     let next = UpdateState {
         checked_at: UpdateState::now(),
         channel: Some(channel),
-        available: index.newest(version, target, channel),
+        available,
+        downloaded,
     };
     tracing::info!(
         channel = channel.key(),
@@ -216,7 +244,9 @@ mod tests {
                 channel: channel.to_owned(),
                 date: String::new(),
                 notes: Vec::new(),
+                package: None,
             }),
+            downloaded: None,
         }
     }
 

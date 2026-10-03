@@ -53,25 +53,6 @@ codesign --force --sign - "$app"
 echo "已打包 $app"
 
 if [[ "${1:-}" == "--install" ]]; then
-  launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-  mkdir -p "$apps_dir" "$(dirname "$agent_plist")"
-  rm -rf "${apps_dir:?}/$APP_NAME"
-  cp -R "$app" "$apps_dir/"
-  cat > "$agent_plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array><string>$apps_dir/$APP_NAME/Contents/MacOS/qingjian-cloud-mac</string></array>
-  <key>RunAtLoad</key><true/>
-  <!-- 崩溃自动拉起；菜单里点「退出」是正常退出，不拉起 -->
-  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
-  <key>ProcessType</key><string>Interactive</string>
-</dict>
-</plist>
-PLIST
-  launchctl bootstrap "gui/$(id -u)" "$agent_plist"
-  echo "已安装并启动。第一次运行会生成配置文件：菜单栏剪贴板图标 → 打开配置文件…"
+  "$here/scripts/install-app.sh" "$app"
+  echo "第一次运行会生成配置文件：菜单栏剪贴板图标 → 打开配置文件…"
 fi

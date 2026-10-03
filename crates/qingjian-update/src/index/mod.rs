@@ -46,20 +46,21 @@ impl Index {
         self.releases
             .iter()
             .filter(|release| channel.includes(&release.channel))
-            .filter(|release| {
-                release
+            .filter_map(|release| {
+                let asset = release
                     .assets
                     .iter()
-                    .any(|asset| asset.platform == target.platform && asset.cpu == target.cpu)
+                    .find(|asset| asset.platform == target.platform && asset.cpu == target.cpu)?;
+                Some((Version::parse(&release.version)?, release, asset))
             })
-            .filter_map(|release| Some((Version::parse(&release.version)?, release)))
-            .filter(|(version, _)| version > current)
-            .max_by(|(left, _), (right, _)| left.cmp(right))
-            .map(|(_, release)| Available {
+            .filter(|(version, _, _)| version > current)
+            .max_by(|(left, _, _), (right, _, _)| left.cmp(right))
+            .map(|(_, release, asset)| Available {
                 version: release.version.clone(),
                 channel: release.channel.clone(),
                 date: release.date.clone(),
                 notes: release.notes.clone(),
+                package: asset.package(),
             })
     }
 }

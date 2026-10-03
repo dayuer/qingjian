@@ -23,4 +23,7 @@ pub enum UpdateError {
 
     #[error("index schema {0} is not supported")]
     UnsupportedSchema(u32),
+
+    #[error("downloaded package does not match its sha256")]
+    ChecksumMismatch,
 }
