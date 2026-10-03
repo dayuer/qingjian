@@ -368,7 +368,9 @@ impl Engine {
             // 学成英文词会让它下次排第一；随包英文词表里有的照学
             && (self.english_mode || self.listed_english(&raw) || !looks_like_pinyin_typo(&raw));
         if english_word {
-            self.learner.learn_english(&raw);
+            self.note_english_commit(&raw);
+        } else {
+            self.reset_bip39_streak();
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();
