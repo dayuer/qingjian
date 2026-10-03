@@ -25,7 +25,7 @@ struct SetupView: View {
                 } header: {
                     Text("试一试")
                 } footer: {
-                    Text("「完全访问」只用于按键震动，不开也能正常打字。青简不联网，打的字不离开这台设备。")
+                    Text("「完全访问」用于按键震动，以及连接你自己的青简 Cloud 服务器（大模型联想、润色、与 Mac 同步学习数据）。不开也能正常打字；没配 Cloud 时键盘不联网。")
                 }
             }
             .navigationTitle("青简")

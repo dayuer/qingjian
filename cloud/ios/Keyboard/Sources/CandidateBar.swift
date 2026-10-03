@@ -1,4 +1,5 @@
 // 键盘顶部的候选栏：横向滚动的候选，首选灰底；右端 ⌄ 展开全部候选。拼音不在这里，写在宿主的 marked text 里。
+// 没在组字且配了青简 Cloud 时换成润色栏。
 
 import SwiftUI
 
@@ -8,11 +9,19 @@ struct CandidateBar: View {
     private let chevronWidth: CGFloat = 48
 
     var body: some View {
+        if !model.composing && model.rewriteAvailable {
+            RewriteBar(model: model).frame(height: KeyStyle.candidateBarHeight)
+        } else {
+            candidates
+        }
+    }
+
+    private var candidates: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 2) {
-                    ForEach(Array(model.candidates.enumerated()), id: \.offset) { index, text in
-                        CandidateCell(text: text, highlighted: index == 0) {
+                    ForEach(Array(model.candidates.enumerated()), id: \.offset) { index, item in
+                        CandidateCell(text: item.text, highlighted: index == 0, cloud: item.cloud) {
                             model.selectCandidate(index)
                         }
                         .id(index)

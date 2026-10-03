@@ -3,7 +3,10 @@
 //! 头文件在 `include/qingjian_bridge.h`，改了这里的签名要同步改它。约定：
 //! 返回 `char *` 的函数交出所有权，调用方用 [`qj_string_free`] 释放；会话指针只在一个线程（主线程）上用。
 
+mod cloud_config;
+mod entry;
 mod error;
+mod rewrite;
 mod session;
 
 use std::ffi::{CStr, CString, c_char};
@@ -11,23 +14,32 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
+pub use self::cloud_config::CloudConfig;
+pub use self::entry::Entry;
 pub use self::error::BridgeError;
+pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::session::Session;
 
-/// 打开会话；`user_dir` 可为空（只在内存里学习）。失败返回空指针。
+/// 打开会话；`user_dir` 可为空（只在内存里学习），`cloud_config` 可为空或指向不存在的文件（完全离线）。
+/// 失败返回空指针。
 ///
 /// # Safety
-/// `data_dir` 必须是有效的 UTF-8 C 字符串，`user_dir` 为空或同上。
+/// `data_dir` 必须是有效的 UTF-8 C 字符串，`user_dir`、`cloud_config` 为空或同上。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_session_open(
     data_dir: *const c_char,
     user_dir: *const c_char,
+    cloud_config: *const c_char,
 ) -> *mut Session {
     let Some(data_dir) = (unsafe { path_arg(data_dir) }) else {
         return ptr::null_mut();
     };
     let user_dir = unsafe { path_arg(user_dir) };
-    let opened = catch_unwind(|| Session::open(Path::new(data_dir), user_dir.map(Path::new)));
+    let cloud =
+        unsafe { path_arg(cloud_config) }.and_then(|path| CloudConfig::load(Path::new(path)));
+    let opened = catch_unwind(AssertUnwindSafe(|| {
+        Session::open(Path::new(data_dir), user_dir.map(Path::new), cloud)
+    }));
     match opened {
         Ok(Ok(session)) => Box::into_raw(Box::new(session)),
         Ok(Err(error)) => {
@@ -93,7 +105,7 @@ pub unsafe extern "C" fn qj_preedit(session: *mut Session) -> *mut c_char {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_candidate_count(session: *mut Session) -> u32 {
     with(session, 0, |s| {
-        u32::try_from(s.candidates().len()).unwrap_or(u32::MAX)
+        u32::try_from(s.entries().len()).unwrap_or(u32::MAX)
     })
 }
 
@@ -104,9 +116,20 @@ pub unsafe extern "C" fn qj_candidate_count(session: *mut Session) -> u32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_candidate_text(session: *mut Session, index: u32) -> *mut c_char {
     with(session, ptr::null_mut(), |s| {
-        s.candidates()
+        s.entries()
             .get(index as usize)
-            .map_or(ptr::null_mut(), |c| owned(&c.text))
+            .map_or(ptr::null_mut(), |entry| owned(entry.text()))
+    })
+}
+
+/// 第 `index` 格是不是大模型给的（候选栏用别的样式画）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_candidate_is_cloud(session: *mut Session, index: u32) -> bool {
+    with(session, false, |s| {
+        s.entries().get(index as usize).is_some_and(Entry::is_cloud)
     })
 }
 
@@ -150,6 +173,108 @@ pub unsafe extern "C" fn qj_punctuate(session: *mut Session, c: u32) -> *mut c_c
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_flush(session: *mut Session) {
     with(session, (), Session::flush);
+}
+
+/// 宿主光标前后的文字（`documentContextBeforeInput` / `AfterInput`），每次敲键前更新，联想请求带上。
+///
+/// # Safety
+/// 同 [`qj_push`]；两个字符串为空时当空串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_set_context(
+    session: *mut Session,
+    before: *const c_char,
+    after: *const c_char,
+) {
+    let before = unsafe { path_arg(before) }.unwrap_or_default().to_owned();
+    let after = unsafe { path_arg(after) }.unwrap_or_default().to_owned();
+    with(session, (), |s| s.set_context(&before, &after));
+}
+
+/// 键盘可见期间定时调（几百毫秒一次）：合并别的设备的学习数据、取回大模型结果。候选栏变了返回 true。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_poll(session: *mut Session) -> bool {
+    with(session, false, Session::poll)
+}
+
+/// 配了青简 Cloud（大模型或同步至少开了一样）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_cloud_enabled(session: *mut Session) -> bool {
+    with(session, false, |s| s.cloud_enabled())
+}
+
+/// 马上同步一轮学习数据（键盘出现时调）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_sync_now(session: *mut Session) {
+    with(session, (), |s| s.sync_now());
+}
+
+/// 润色能不能用（配了青简 Cloud 且开了大模型）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_available(session: *mut Session) -> bool {
+    with(session, false, |s| s.rewriter().is_some())
+}
+
+/// 开始润色 `text`；之前没回来的那次作废。
+///
+/// # Safety
+/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_start(session: *mut Session, text: *const c_char) {
+    let Some(text) = (unsafe { path_arg(text) }).map(str::to_owned) else {
+        return;
+    };
+    with(session, (), |s| {
+        if let Some(rewriter) = s.rewriter() {
+            rewriter.start(&text);
+        }
+    });
+}
+
+/// 0 空闲、1 等待中、2 结果就绪（用 [`qj_rewrite_take`] 取）、3 失败。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_status(session: *mut Session) -> u32 {
+    with(session, 0, |s| s.rewriter().map_or(0, Rewriter::status))
+}
+
+/// 取走润色结果；没就绪返回空指针。
+///
+/// # Safety
+/// 同 [`qj_preedit`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_take(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.rewriter()
+            .and_then(Rewriter::take)
+            .map_or(ptr::null_mut(), |text| owned(&text))
+    })
+}
+
+/// 放弃润色（用户开始打字、关掉了结果）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_cancel(session: *mut Session) {
+    with(session, (), |s| {
+        if let Some(rewriter) = s.rewriter() {
+            rewriter.cancel();
+        }
+    });
 }
 
 /// # Safety

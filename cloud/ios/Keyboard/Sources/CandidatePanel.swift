@@ -8,8 +8,8 @@ struct CandidatePanel: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 4)], spacing: 6) {
-                ForEach(Array(model.candidates.enumerated()), id: \.offset) { index, text in
-                    CandidateCell(text: text, highlighted: index == 0) {
+                ForEach(Array(model.candidates.enumerated()), id: \.offset) { index, item in
+                    CandidateCell(text: item.text, highlighted: index == 0, cloud: item.cloud) {
                         model.selectCandidate(index)
                     }
                 }

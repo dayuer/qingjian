@@ -10,5 +10,10 @@ protocol TextOutput: AnyObject {
 
     func deleteBackward()
 
+    /// 宿主光标前的文字（可能含我们写的 marked text），拿不到时是空串。
+    var contextBefore: String { get }
+
+    var contextAfter: String { get }
+
     func switchToNextKeyboard()
 }
