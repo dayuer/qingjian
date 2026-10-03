@@ -1,5 +1,7 @@
 [workspace]
 resolver = "3"
+# 分叉补丁：cloud/ 是青简 Cloud 的独立 workspace；排除掉，输入法按路径引用 cloud 的 crate 时才会用 cloud/ 的 workspace 继承字段
+exclude = ["cloud"]
 members = [
     "crates/qingjian-core",
     "crates/qingjian-dictionary",

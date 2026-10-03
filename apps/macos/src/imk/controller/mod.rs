@@ -102,8 +102,6 @@ define_class!(
                     h.indicator.activate();
                     h.watch.start();
                 });
-                // 分叉补丁：青简 Cloud 只在用青简时运行
-                crate::menubar::ensure_cloud_agent();
             });
             if done.is_none() {
                 recover_from_panic(None);

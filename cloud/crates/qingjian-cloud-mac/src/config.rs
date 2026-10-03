@@ -1,18 +1,19 @@
-//! `config.toml`：服务器地址与设备令牌。第一次运行写出一份带注释的模板，用户填好后菜单里点「重新加载配置」。
+//! `QingjianCloud/config.toml`：服务器地址与设备令牌。第一次运行写出一份带注释的模板，用户填好后菜单里点「重新加载配置」。
+//! 不并进输入法的 `config.toml`：那份会同步到别的设备，令牌是每台设备自己的。
 
 use std::path::Path;
 
 use serde::Deserialize;
 
 /// 第一次运行写出的模板。令牌只在本机，文件权限设成仅本人可读。
-const TEMPLATE: &str = r#"# 青简 Cloud 配置。填好后在输入法「中☁」菜单的「青简 Cloud」子菜单里点「重新加载配置」。
+const TEMPLATE: &str = r#"# 青简 Cloud 配置。填好后在输入法「中☁ → 青简 Cloud ›」里点「重新加载配置」。
 # 服务器地址（deploy/.env 里的 QINGJIAN_DOMAIN），带 https://
 server = ""
 
 # 在服务器上运行 `docker compose exec cloud qingjian-cloud device add <设备名>` 得到的令牌
 token = ""
 
-# 同步输入法的学习数据（词频、选择、n-gram、敲错、英文词、用户词）；需要打了 Cloud 补丁的青简
+# 同步输入法的学习数据（词频、选择、n-gram、敲错、英文词、用户词）
 learning = true
 
 # 同步输入法的 config.toml（设置与自定义短语）；两台设备都改过时较新的赢，另一份存成备份
@@ -23,9 +24,6 @@ logs = true
 
 # 把别的设备的输入日志下载到 ~/Library/Application Support/QingjianCloud/input-log/
 download_logs = true
-
-# 在菜单栏显示单独的图标；缺省 false，状态与操作在输入法「中☁」菜单的「青简 Cloud」子菜单里
-menu_bar = false
 "#;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -46,9 +44,6 @@ pub struct AgentConfig {
 
     /// 下载别的设备的输入日志。
     pub download_logs: bool,
-
-    /// 在菜单栏显示自己的图标。缺省关：状态与操作在输入法「中☁」菜单的「青简 Cloud」子菜单里。
-    pub menu_bar: bool,
 }
 
 impl Default for AgentConfig {
@@ -60,7 +55,6 @@ impl Default for AgentConfig {
             settings: true,
             logs: true,
             download_logs: true,
-            menu_bar: false,
         }
     }
 }

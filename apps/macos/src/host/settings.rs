@@ -81,7 +81,7 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => self.open_update(),
-            MenuAction::CloudAgent(tag) => crate::menubar::send_cloud_agent_command(tag),
+            MenuAction::CloudAgent(tag) => qingjian_cloud_mac::perform(tag),
         }
     }
 

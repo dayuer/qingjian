@@ -5,7 +5,7 @@ members = [
     "crates/qingjian-cloud-proto",
     "crates/qingjian-cloud-client",
     "server",
-    "mac-agent",
+    "crates/qingjian-cloud-mac",
     "tuner",
 ]
 

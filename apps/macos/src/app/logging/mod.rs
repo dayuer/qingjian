@@ -68,9 +68,9 @@ pub fn set_level(level: LogLevel) {
 fn filter_for(level: LogLevel) -> EnvFilter {
     match level {
         LogLevel::Info => EnvFilter::new("info"),
-        LogLevel::Debug => {
-            EnvFilter::new("debug,hyper=info,hyper_util=info,reqwest=info,h2=info,rustls=info")
-        }
+        LogLevel::Debug => EnvFilter::new(
+            "debug,hyper=info,hyper_util=info,reqwest=info,h2=info,rustls=info,ureq=info,ureq_proto=info",
+        ),
     }
 }
 

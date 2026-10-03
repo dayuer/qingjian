@@ -7,6 +7,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# 分叉补丁：青简 Cloud 链进输入法进程（cloud/ 是独立 workspace，这里按路径引用），见 cloud/docs/fork-patch.md
+qingjian-cloud-mac = { path = "../../cloud/crates/qingjian-cloud-mac" }
 objc2.workspace = true
 objc2-app-kit.workspace = true
 objc2-foundation.workspace = true

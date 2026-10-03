@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 发一个自用版本到自建更新服务器：打 mac-agent → 打带 Cloud 的输入法 pkg → 更新并签名 releases.json → 传到 VPS。
+# 发一个自用版本到自建更新服务器：打输入法 pkg（青简 Cloud 链在里面）→ 更新并签名 releases.json → 传到 VPS。
 # 在 local 分支的干净检出里运行（版本号用提交数，工作区有改动就拒绝），需要 data/generated/ 的产品数据：
 #
 #   NOTES="回车可选候选|修剪贴板同步" cloud/scripts/publish-mac.sh
@@ -32,17 +32,14 @@ file="qingjian-$version-macos-$cpu.pkg"
 staging="$root/target/publish"
 rm -rf "$staging" && mkdir -p "$staging"
 
-say "打包青简 Cloud 常驻程序"
-cloud/mac-agent/scripts/bundle.sh
-
-say "打包输入法 ${version}（带青简 Cloud）"
-QINGJIAN_VERSION="$version" QINGJIAN_EMBED_CLOUD_AGENT="$root/cloud/mac-agent/build/QingjianCloud.app" \
+say "打包输入法 ${version}"
+QINGJIAN_VERSION="$version" \
   apps/macos/scripts/bundle.sh --pkg
 cp "target/pkg/$file" "$staging/$file"
 
 # 打包过程会让 LaunchServices 把构建目录里的几份同 id 副本也登记上，系统按 id 拉输入法时可能解析到错的那份；注销掉只留正式安装的
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-for stray in "$root/target/Qingjian.app" "$root/target/pkg/$cpu/root/Qingjian.app" "$root/cloud/mac-agent/build/QingjianCloud.app"; do
+for stray in "$root/target/Qingjian.app" "$root/target/pkg/$cpu/root/Qingjian.app"; do
   "$LSREGISTER" -u "$stray" >/dev/null 2>&1 || true
 done
 

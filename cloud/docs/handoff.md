@@ -33,7 +33,6 @@
 装机时踩到的（不是 bug，但要写进安装说明）：
 
 - `apps/macos/scripts/bundle.sh --install` 装上的输入法，`--register` 之后上级输入源仍未启用，系统设置里也找不到；**注销后重新登录**才出现。
-- macOS 26 可能把 mac-agent 的菜单栏图标收起来，要去「系统设置 → 菜单栏」里打开。
 - Claude 会话的沙箱里 `pbcopy` 写不进系统剪贴板，测剪贴板要在沙箱外用 `osascript -e 'set the clipboard to …'`。
 
 还没验的：两台真实 Mac 之间互传（目前用临时设备 `test-b` 拿 curl 模拟）、断网后补传、合盖后恢复、密码不上传、
@@ -57,6 +56,9 @@
 - 输入法连崩几次之后 macOS 会不再拉它的进程、悄悄切回别的输入法，没有任何日志；重启 `imklaunchagent` 也救不回来，
   **注销重新登录**才恢复。另外构建目录里的 `target/Qingjian.app` 等同 id 副本会被 LaunchServices 登记上，`publish-mac.sh` 现在打完包就注销它们。
 - 回车上屏开关（`0e15e56`）还没听到用户反馈。
+- **青简 Cloud 链进输入法进程**（用户不要多一个常驻程序）：`cloud/mac-agent` 改成库 `cloud/crates/qingjian-cloud-mac`，
+  输入法启动时 `start`，「中☁ → 青简 Cloud ›」照 `menu_lines()` 画；不再有 `QingjianCloud.app`、LaunchAgent、`menu.txt`、`commands/`，
+  pkg 的 postinstall 清掉旧的。剪贴板同步按用户要求保留（与苹果通用剪贴板的防回灌在 `service.rs`）。表里早先写的 `mac-agent` 就是它的前身。
 - 踩过的坑：脚本里写 `"$HOST）"`，部分 locale 下 bash 会把全角括号的首字节算进变量名（`73e6e88`）；
   nginx 的 `alias` 里不要嵌正则 location，json 会 404（`8be4759`）。
 

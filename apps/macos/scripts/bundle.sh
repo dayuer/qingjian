@@ -152,11 +152,6 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
 cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
-# 分叉补丁：把青简 Cloud 常驻程序与它的安装脚本带进包里，postinstall 以登录用户身份装到 ~/Applications
-if [[ -n "${QINGJIAN_EMBED_CLOUD_AGENT:-}" ]]; then
-  ditto "$QINGJIAN_EMBED_CLOUD_AGENT" "$APP/Contents/Resources/QingjianCloud.app"
-  cp cloud/mac-agent/scripts/install-app.sh "$APP/Contents/Resources/install-cloud-agent.sh"
-fi
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
 # Apple Silicon 上未签名的二进制不会被系统加载。有 Developer ID 证书就正式签（开 hardened runtime，公证要求），
