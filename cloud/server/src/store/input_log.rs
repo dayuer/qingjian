@@ -84,6 +84,8 @@ impl Store {
             params![GENERATION, next as i64],
         )?;
         tx.commit()?;
+        // WAL 里还有删除前的页面副本：并回主库并截断，清空后磁盘上不留原文
+        conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
         Ok(next)
     }
 

@@ -108,6 +108,8 @@ impl Store {
         // WAL 让备份时拷文件、读写并发都更安全；busy_timeout 防止 CLI 与服务同时写时直接报错
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "busy_timeout", 5000)?;
+        // 删除时把内容写零：输入日志、剪贴板里可能有敏感文字，「清空」后不能还留在数据库文件的空闲页里
+        conn.pragma_update(None, "secure_delete", "ON")?;
         conn.execute_batch(SCHEMA)?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         if version > SCHEMA_VERSION {
