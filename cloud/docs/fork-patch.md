@@ -58,7 +58,7 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 
 ### 自建更新服务器（只在 macOS 生效）
 
-输入法查 `https://pingyin.synon.ai/releases/releases.json`，只认自己的签名密钥；有新版就在后台下好 pkg 并校验 sha256，
+输入法查 `https://pinyin.synon.ai/releases/releases.json`，只认自己的签名密钥；有新版就在后台下好 pkg 并校验 sha256，
 菜单「有新版本」/「关于 → 下载新版」点了打开安装程序（不自动弹，免得打断打字）。
 
 | 文件 | 改动 | 说明 |

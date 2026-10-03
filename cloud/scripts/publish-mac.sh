@@ -11,7 +11,7 @@
 set -euo pipefail
 
 HOST="${HOST:-root@43.156.128.95}"
-DOMAIN="${DOMAIN:-pingyin.synon.ai}"
+DOMAIN="${DOMAIN:-pinyin.synon.ai}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/qingjian-host/releases}"
 KEY_FILE="${KEY_FILE:-$HOME/.config/qingjian-cloud/release-signing.key}"
 NOTES="${NOTES:-}"

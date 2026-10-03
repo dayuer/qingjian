@@ -52,13 +52,13 @@ pub const WEBSITE_URL: &str = "https://qingjian.app";
 pub const REPOSITORY_URL: &str = "https://github.com/qingjian-team";
 
 /// 隐私说明。
-pub const PRIVACY_NOTE: &str = "青简不上传任何数据。开着「自动检查更新」时每天向 pingyin.synon.ai 读一次版本列表，请求不带任何标识，上面可以关。开着云联想或翻译时，光标附近的文字与拼音会发给你在「云服务」页填的 AI 服务商（缺省 DeepSeek）的服务器，不经过作者。「高级」页的输入日志只写在这台电脑的数据目录里，可以关掉或清空。";
+pub const PRIVACY_NOTE: &str = "青简不上传任何数据。开着「自动检查更新」时每天向 pinyin.synon.ai 读一次版本列表，请求不带任何标识，上面可以关。开着云联想或翻译时，光标附近的文字与拼音会发给你在「云服务」页填的 AI 服务商（缺省 DeepSeek）的服务器，不经过作者。「高级」页的输入日志只写在这台电脑的数据目录里，可以关掉或清空。";
 
 /// 反馈方式。
 pub const FEEDBACK_NOTE: &str = "遇到问题点「打包日志到桌面」，把生成的 zip 发给作者即可（含日志与配置文件，不含密钥），再附上「复制诊断信息」的内容。缺省日志不含你敲的内容；排查排序问题时作者可能请你在「高级」页临时打开详细日志。";
 
 /// 检查更新的说明。
-pub const UPDATE_NOTE: &str = "每天向 pingyin.synon.ai 读一次版本列表，有新版就在后台下好安装包（校验过 sha256），点「下载新版」或菜单里的「有新版本」打开安装程序。";
+pub const UPDATE_NOTE: &str = "每天向 pinyin.synon.ai 读一次版本列表，有新版就在后台下好安装包（校验过 sha256），点「下载新版」或菜单里的「有新版本」打开安装程序。";
 
 /// 「关于」页上检查更新那一行要显示的状态。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
