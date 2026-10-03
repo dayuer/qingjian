@@ -4,7 +4,9 @@ use super::commit::LastCommit;
 use super::input_log::{INPUT_LOG_VERSION, InputLogEntry, InputLogger, InputSource};
 use super::learning::Learner;
 use super::mode_keys::QUESTION_PREFIX;
-use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
+use super::{
+    Engine, RECENT_COMMITS, is_raw, looks_like_english_word, mnemonic, segment_longest_prefix,
+};
 use crate::composition::Composition;
 use crate::correction;
 use crate::shortcut;
@@ -366,7 +368,12 @@ impl Engine {
             && (self.english_mode || self.split_english_tail(&raw).is_none())
             // 分叉补丁：改一处就是两个音节以上的完整拼音（`woilaiceshi` → wolaiceshi）是敲错了的中文，
             // 学成英文词会让它下次排第一；随包英文词表里有的照学
-            && (self.english_mode || self.listed_english(&raw) || !looks_like_pinyin_typo(&raw));
+            && (self.english_mode
+                || self.listed_english(&raw)
+                || !looks_like_pinyin_typo(&raw)
+                // BIP-39 词照常经 note_english_commit 计连续命中（助记词转私密输入），不受这条防护影响：
+                // 它们本来就是真英文词，不会是敲错的拼音
+                || mnemonic::is_bip39_word(&raw));
         if english_word {
             self.note_english_commit(&raw);
         } else {
