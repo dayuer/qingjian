@@ -81,3 +81,25 @@ fn logs_only_when_connected() {
     std::fs::remove_dir_all(&offline).ok();
     std::fs::remove_dir_all(&online).ok();
 }
+
+#[test]
+fn candidates_come_back_in_one_string() {
+    let Some(data) = data_dir() else {
+        return;
+    };
+    let session = Box::into_raw(Box::new(Session::open(&data, None, None, None).unwrap()));
+    for c in "nihao".chars() {
+        unsafe { qingjian_cloud_bridge::qj_push(session, c as u32) };
+    }
+    let raw = unsafe { qingjian_cloud_bridge::qj_candidates(session) };
+    let joined = unsafe { std::ffi::CStr::from_ptr(raw) }
+        .to_str()
+        .unwrap()
+        .to_owned();
+    unsafe { qingjian_cloud_bridge::qj_string_free(raw) };
+    let cells: Vec<&str> = joined.split('\u{1e}').collect();
+    let count = unsafe { qingjian_cloud_bridge::qj_candidate_count(session) } as usize;
+    assert_eq!(cells.len(), count);
+    assert_eq!(cells[0], "0你好");
+    unsafe { qingjian_cloud_bridge::qj_session_free(session) };
+}

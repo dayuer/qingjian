@@ -5,7 +5,7 @@ import SwiftUI
 
 enum KeyboardLayout {
     /// 键区里键帽上方的留白（第一行的触摸范围一直到键区顶边）。
-    static let topPadding: CGFloat = 8
+    static let topPadding: CGFloat = 4
 
     static func slots(layer: KeyLayer, showsGlobe: Bool, size: CGSize) -> [KeySlot] {
         let unit = KeyStyle.unit(for: size.width)

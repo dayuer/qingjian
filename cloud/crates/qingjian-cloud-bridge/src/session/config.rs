@@ -13,11 +13,14 @@ impl Session {
         let Some(path) = self.config_path.clone() else {
             return false;
         };
-        let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-        if self.config_modified.is_some() && modified == self.config_modified {
+        // 文件不在时记成 UNIX_EPOCH，免得每次轮询都当成「变了」重读一遍（还会重载领域词库）
+        let modified = std::fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        if self.config_modified == Some(modified) {
             return false;
         }
-        self.config_modified = modified.or(Some(SystemTime::UNIX_EPOCH));
+        self.config_modified = Some(modified);
         let config = match Config::load(&path) {
             Ok(config) => config,
             Err(error) => {

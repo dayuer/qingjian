@@ -23,14 +23,17 @@ struct KeyboardView: View {
             }
             .frame(height: Self.keyAreaHeight)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var keys: some View {
         GeometryReader { geometry in
             let slots = KeyboardLayout.slots(layer: model.layer, showsGlobe: showsGlobe, size: geometry.size)
             ZStack(alignment: .topLeading) {
-                ForEach(Array(slots.enumerated()), id: \.offset) { _, slot in
-                    KeyButton(key: slot.key, model: model, insets: slot.insets)
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, slot in
+                    KeyButton(
+                        key: slot.key, model: model, insets: slot.insets,
+                        pressed: model.pressedSlots.contains(index))
                         .frame(width: slot.cell.width, height: slot.cell.height)
                         .position(x: slot.cell.midX, y: slot.cell.midY)
                 }
