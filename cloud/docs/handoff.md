@@ -45,7 +45,9 @@
 - 「回车上屏高亮候选」开关（`0e15e56`）：`[general] enter_commits_candidate`，偏好设置「通用」页勾选，只在 macOS 生效。
 - 自动更新改走 `https://pingyin.synon.ai/releases/`（`61a759a`）：只认自己的签名密钥，查到新版后在后台下好 pkg 并校验 sha256，
   点菜单「有新版本」打开安装程序；pkg 里带着青简 Cloud，postinstall 一起装上。清单见 [fork-patch.md](fork-patch.md)。
-- 发布：在 `local` 分支的干净检出里运行 `NOTES="…|…" cloud/scripts/publish-mac.sh`，版本号是 `<上游版本>-local.<提交数>`。
+- 发布：在专用检出 `../qingjian-publish`（`git worktree`，`data/` 链到 `../qingjian-local/data`）里
+  `git fetch -q origin local && git checkout -q --detach origin/local && NOTES="…|…" cloud/scripts/publish-mac.sh`，
+  版本号是 `<上游版本>-local.<提交数>`。别再用 `qingjian-local` 发：那里有别的会话在做 iOS（`cloud/ios`、`qingjian-cloud-bridge`，未提交）。
   签名私钥 `~/.config/qingjian-cloud/release-signing.key` 只在这台 Mac 上，**丢了就再也发不了更新**。
 - 已在真机验过：`0.1.5-local.268` 已发布并用 pkg 装上（输入法在 `/Library/Input Methods`，青简 Cloud 跟着装上并重启），
   启动后到自建服务器检查更新，结果是「已是最新」；在本机模拟旧版本查到了新版，139 MB 的 pkg 下载完整、校验通过。
