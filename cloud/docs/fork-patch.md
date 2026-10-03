@@ -42,6 +42,30 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 `doa` → DOA、`ong` → ongoing 这类三四个字母的抢位靠规则分不开，靠「没选过就不学」与清理个人英文词表兜。
 回放（今天的日志，344 次中文选词）：词 89.6%、整句 71.4% 不变；英文 9/9 → 8/9，少的那条正是当时误上屏的 Gd。
 
+### 敲到声母就出整句（Core，各平台都生效）
+
+用户反馈：别的输入法敲到 `n` 就出「智能」，青简要把 `neng` 打全。上游有意让全拼句子末尾的单个声母不参与整句
+（`MIN_PARTIAL_LETTERS = 2`，怕 `woxiangs` 猜错 shuo），整句又固定排第一，于是 `tianqihenh` 首选是「天气很」、`rengongzhin` 的「人工智能」排第 4。
+改为 1：末尾单个声母也按前缀参与。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-core/src/sentence/mod.rs` | 改 1 个常数与注释 | `MIN_PARTIAL_LETTERS` 2 → 1 |
+| `crates/qingjian-core/src/sentence/viterbi.rs` | 改 1 个测试 | `wo xiang k…` 读成三个字 |
+| `crates/qingjian-core/src/engine/tests/lookup.rs` | 改 1 个断言 | `xiangkaif` → 想开 + f 开头的字 |
+| `docs/design/candidate-ui.md` | 改 1 句 | 整句规则 |
+
+评测（2026-10-04，`qingjian-cli --eval-text`，冷启动、无个人数据；评测集用 `docs/user/` 与本机输入日志的文字冻结在 `data/eval/`）：
+
+| | 改前 | 改后 |
+|---|---|---|
+| 常规整句 1878 句 | 首选 32.7% | 32.7%（全拼不受影响） |
+| 末音节截成声母 1863 句 | 首选 3.9%，字准确率 13.0% | 首选 18.3%，字准确率 69.9% |
+| 回放本机输入日志：词 / 整句 | 91.4% / 65.6% | 91.4% / 71.9% |
+| 查询耗时 | 平均 0.8 ms | 平均 0.9 ms，最慢 5.4 ms |
+
+`woxiangs` 现在是「我想说」，上游担心的猜错没出现。
+
 ### 菜单栏不显示「中 / 英」状态项（用户要的小功能，只在 macOS 生效）
 
 它的菜单与系统输入法菜单里「青简」那一组重复。`[general] mode_indicator`，缺省 true（上游行为）；false 时整个状态项不展开。

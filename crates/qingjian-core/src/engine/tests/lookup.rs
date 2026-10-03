@@ -219,9 +219,13 @@ fn sentence_conversion_leads_when_input_spans_several_words() {
     assert_eq!(all[0], "开发");
     assert_eq!(all.iter().filter(|t| *t == "开发").count(), 1);
 
-    // 末尾只有一个字母时整句不算它：xiangkaif → 想开
+    // 末尾只有一个字母时整句也算它（按前缀）：xiangkaif → 想开 + f 开头的字（样例词库里是 想开放）
     let all = texts("xiangkaif");
-    assert_eq!(all[0], "想开");
+    assert!(
+        all[0].starts_with("想开") && all[0].chars().count() == 3,
+        "{}",
+        all[0]
+    );
 }
 
 #[test]
