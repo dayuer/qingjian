@@ -73,5 +73,7 @@ fn main() {
         );
         std::process::exit(1);
     };
+    // 分叉补丁：青简 Cloud 链在输入法进程里，自带定时器与后台线程，见 cloud/docs/fork-patch.md
+    qingjian_cloud_mac::start(mtm);
     NSApplication::sharedApplication(mtm).run();
 }

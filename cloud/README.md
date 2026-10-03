@@ -15,7 +15,7 @@
 |---|---|
 | [server/](server/) | 服务端（Rust：axum + SQLite），Docker 镜像约 56 MB |
 | [deploy/](deploy/) | docker-compose + Caddy 自动 HTTPS、备份脚本；[部署说明](deploy/README.md) |
-| [mac-agent/](mac-agent/) | Mac 菜单栏常驻程序；[安装与验收清单](mac-agent/README.md) |
+| [crates/qingjian-cloud-mac/](crates/qingjian-cloud-mac/) | Mac 端：链进输入法进程的同步模块；[使用与验收清单](crates/qingjian-cloud-mac/README.md) |
 | [tuner/](tuner/) | 纠错闭环：词库体检、一次就学会、话题补词，回放把关（可选服务） |
 | [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用 |
 

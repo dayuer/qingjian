@@ -1,21 +1,24 @@
-//! 程序主体：主线程上 0.5 秒一拍，看本机剪贴板有没有变、取收到的事件、刷新菜单。
-//! 网络都在 `ClipboardSync` 的后台线程里，主线程从不等网络。
+//! 同步本体：主线程上 0.5 秒一拍，看本机剪贴板有没有变、取收到的事件、刷新菜单行。
+//! 网络都在 `ClipboardSync` / `DataSync` 的后台线程里，主线程从不等网络。
+//! 跑在输入法进程里：入口都包 `catch_unwind`，这里出错只停同步，不能把输入法带崩（跨 ObjC 边界的 panic 会直接终止进程）。
 
 use std::cell::RefCell;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::time::{Duration, Instant};
 
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
-use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 use objc2_foundation::NSTimer;
-use qingjian_cloud_client::{ClipboardSync, DataStatus, DataSync, DataSyncConfig, SyncConfig};
+use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
 use qingjian_cloud_proto::EventKind;
 
 use crate::config::AgentConfig;
 use crate::history::History;
 use crate::menu::{
-    Display, StatusMenu, TAG_OPEN_CONFIG, TAG_OPEN_LOGS, TAG_PAUSE, TAG_QUIT, TAG_RELOAD,
-    TAG_SYNC_NOW, TAG_USE_LLM, Target,
+    Display, Line, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD, TAG_SYNC_NOW, TAG_USE_LLM, build_lines,
+    status_line,
 };
+use crate::timer::TimerTarget;
 use crate::watcher::ClipboardWatcher;
 use crate::{ime_config, input_source, pasteboard, paths};
 
@@ -25,69 +28,97 @@ const TICK: f64 = 0.5;
 /// 每隔这么多拍看一次当前输入法（2 秒）。
 const INPUT_SOURCE_EVERY: u32 = 4;
 
-/// 连续这么久不是青简才退出：密码框里系统会临时切到英文键盘，不能一进密码框就退。
-const OTHER_INPUT_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+/// 连续这么久不是青简才暂停同步：密码框里系统会临时切到英文键盘，不能一进密码框就停。
+const OTHER_INPUT_GRACE: Duration = Duration::from_secs(30);
 
 /// 刚上传过或刚收到的同一段文字，这么久之内不再上传：和苹果通用剪贴板之间的最后一道防回灌。
-const ECHO_WINDOW: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+const ECHO_WINDOW: Duration = Duration::from_secs(10 * 60);
 
-/// 状态没变也至少隔这么久重写一次 `menu.txt`：输入法据它的修改时间判断本程序还在不在。
-const MENU_HEARTBEAT: std::time::Duration = std::time::Duration::from_secs(60);
+/// 状态行没变也隔这么久重算一次菜单行：「N 分钟前同步」要跟着走。
+const MENU_REFRESH: Duration = Duration::from_secs(30);
 
 /// 别的设备复制的条目，在这么久以内收到才自动写进本机剪贴板（毫秒）。
 /// 更早的（离线很久后补拉到的）只进菜单里的历史，免得突然覆盖用户正在用的剪贴板。
 const AUTO_PASTE_WINDOW_MS: i64 = 120_000;
 
 thread_local! {
-    static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+    static SERVICE: RefCell<Option<Service>> = const { RefCell::new(None) };
 }
 
-/// 在主线程上取 App；菜单回调重入时（正在处理上一个回调）直接跳过。
-pub fn with(f: impl FnOnce(&mut App)) {
-    APP.with(|cell| {
-        if let Ok(mut guard) = cell.try_borrow_mut()
-            && let Some(app) = guard.as_mut()
-        {
-            f(app);
+/// 输入法启动时调一次：读配置、起同步、挂上定时器。重复调用不做事。
+pub fn start(mtm: MainThreadMarker) {
+    if SERVICE.with(|cell| cell.borrow().is_some()) {
+        return;
+    }
+    let started = catch_unwind(AssertUnwindSafe(|| {
+        let mut service = Service::new();
+        let target = TimerTarget::new(mtm);
+        // NSTimer 持有 target，定时器活着它就活着
+        service.timer = Some(unsafe {
+            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+                TICK,
+                &target,
+                sel!(tick:),
+                None,
+                true,
+            )
+        });
+        service.refresh_menu(true);
+        service
+    }));
+    match started {
+        Ok(service) => {
+            SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
+            tracing::info!("青简 Cloud 已启动");
         }
-    });
+        Err(_) => tracing::error!("青简 Cloud 启动时出错，本次不同步"),
+    }
 }
 
-pub fn run() {
-    let mtm = MainThreadMarker::new().expect("must run on the main thread");
-    let ns_app = NSApplication::sharedApplication(mtm);
-    ns_app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-    let mut app = App::new(mtm);
-    app.refresh_menu(true);
-    let target = Target::new(mtm);
-    let timer = unsafe {
-        NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
-            TICK,
-            &target,
-            sel!(tick:),
-            None,
-            true,
-        )
-    };
-    app.timer = Some(timer);
-    APP.with(|cell| *cell.borrow_mut() = Some(app));
-    tracing::info!("青简 Cloud 已启动");
-    ns_app.run();
+/// 「青简 Cloud ›」子菜单的内容；没启动或出错停了时为空（输入法据此收起子菜单）。
+pub fn menu_lines() -> Vec<Line> {
+    with(|service| service.lines.clone()).unwrap_or_default()
 }
 
-pub struct App {
-    mtm: MainThreadMarker,
+/// 菜单行每变一次加一，输入法据此判断要不要重画子菜单。
+pub fn menu_revision() -> u64 {
+    with(|service| service.revision).unwrap_or(0)
+}
 
-    menu: StatusMenu,
+/// 子菜单里点了一项。
+pub fn perform(tag: isize) {
+    with(|service| service.perform(tag));
+}
 
-    /// 配置好了才有。
+pub(crate) fn tick() {
+    with(Service::tick);
+}
+
+/// 在主线程上取服务；重入时（正在处理上一个回调）跳过。出错就整个停掉，只记日志，输入法照常打字。
+fn with<T>(f: impl FnOnce(&mut Service) -> T) -> Option<T> {
+    SERVICE.with(|cell| {
+        let mut guard = cell.try_borrow_mut().ok()?;
+        let service = guard.as_mut()?;
+        match catch_unwind(AssertUnwindSafe(|| f(service))) {
+            Ok(value) => Some(value),
+            Err(_) => {
+                tracing::error!("青简 Cloud 出错，已停止同步（见上面的日志）");
+                if let Some(timer) = &service.timer {
+                    timer.invalidate();
+                }
+                *guard = None;
+                None
+            }
+        }
+    })
+}
+
+struct Service {
+    /// 剪贴板同步；配置好了且没暂停才有。
     sync: Option<ClipboardSync>,
 
-    /// 学习数据与设置的同步；配置里关掉或没配置时为 `None`。
+    /// 学习数据、设置与输入日志的同步；配置里关掉、没配置或暂停时为 `None`。
     data: Option<DataSync>,
-
-    /// 上次画菜单时的学习数据状态。
-    shown_data: Option<DataStatus>,
 
     /// 服务器地址，「使用 Cloud 的大模型」时写进输入法配置。
     server: Option<String>,
@@ -95,52 +126,58 @@ pub struct App {
     /// 没配置好的原因，菜单里显示。
     unconfigured: Option<String>,
 
+    /// 用户在菜单里点了「暂停同步」。
     paused: bool,
+
+    /// 当前输入法不是青简已超过 [`OTHER_INPUT_GRACE`]，同步线程都停了。
+    suspended: bool,
 
     watcher: ClipboardWatcher,
 
     history: History,
 
-    /// 上次画菜单时的状态，没变就不重建菜单。
-    shown: Option<Display>,
+    /// 给输入法画子菜单的行。
+    lines: Vec<Line>,
 
-    /// 上次写 `menu.txt` 的时间，心跳用。
-    menu_written: std::time::Instant,
+    /// [`Self::lines`] 的版本号，变一次加一。
+    revision: u64,
+
+    /// 上次重算菜单行的时间。
+    menu_built: Instant,
 
     /// 拍数，按 [`INPUT_SOURCE_EVERY`] 看当前输入法。
     ticks: u32,
 
     /// 最近一次上传或收到的文字的哈希与时间，防回灌用。
-    last_synced: Option<(u64, std::time::Instant)>,
+    last_synced: Option<(u64, Instant)>,
 
     /// 从什么时候起当前输入法不是青简。
-    other_input_since: Option<std::time::Instant>,
+    other_input_since: Option<Instant>,
 
     timer: Option<Retained<NSTimer>>,
 }
 
-impl App {
-    fn new(mtm: MainThreadMarker) -> Self {
-        let mut app = Self {
-            mtm,
-            menu: StatusMenu::new(mtm),
+impl Service {
+    fn new() -> Self {
+        let mut service = Self {
             sync: None,
             data: None,
-            shown_data: None,
             server: None,
             unconfigured: None,
             paused: false,
+            suspended: false,
             watcher: ClipboardWatcher::new(),
             history: History::default(),
-            shown: None,
-            menu_written: std::time::Instant::now(),
+            lines: Vec::new(),
+            revision: 0,
+            menu_built: Instant::now(),
             ticks: 0,
             last_synced: None,
             other_input_since: None,
             timer: None,
         };
-        app.load_config();
-        app
+        service.load_config();
+        service
     }
 
     fn load_config(&mut self) {
@@ -155,12 +192,9 @@ impl App {
             return;
         };
         let config = match AgentConfig::load(&config_path) {
-            Ok(config) => {
-                self.menu.set_visible(config.menu_bar);
-                config
-            }
+            Ok(config) => config,
             Err(reason) => {
-                tracing::info!(%reason, "未启用同步");
+                tracing::info!(%reason, "青简 Cloud 未启用同步");
                 self.unconfigured = Some(reason);
                 return;
             }
@@ -201,30 +235,20 @@ impl App {
                 self.unconfigured = None;
             }
             Err(error) => {
-                tracing::warn!(%error, "同步启动失败");
+                tracing::warn!(%error, "剪贴板同步启动失败");
                 self.unconfigured = Some(format!("同步启动失败：{error}"));
             }
         }
     }
 
-    /// 每拍：执行输入法子菜单发来的命令、上传本机新复制的、写入别的设备刚复制的、刷新菜单。
-    pub fn tick(&mut self) {
+    /// 每拍：看当前输入法决定暂停 / 恢复，上传本机新复制的、写入别的设备刚复制的、刷新菜单行。
+    fn tick(&mut self) {
         self.ticks = self.ticks.wrapping_add(1);
         if self.ticks.is_multiple_of(INPUT_SOURCE_EVERY) {
-            if input_source::qingjian_selected() == Some(false) {
-                let since = *self
-                    .other_input_since
-                    .get_or_insert_with(std::time::Instant::now);
-                if since.elapsed() >= OTHER_INPUT_GRACE {
-                    self.quit("切到了别的输入法");
-                    return;
-                }
-            } else {
-                self.other_input_since = None;
-            }
+            self.follow_input_source();
         }
-        for tag in take_commands() {
-            self.perform(tag);
+        if self.suspended {
+            return;
         }
         let copied = self.watcher.poll();
         let Some(sync) = &self.sync else {
@@ -238,7 +262,7 @@ impl App {
             if self.recently_synced(hash) {
                 tracing::debug!("与刚同步过的内容相同，不再上传");
             } else {
-                self.last_synced = Some((hash, std::time::Instant::now()));
+                self.last_synced = Some((hash, Instant::now()));
                 sync.copy(text);
             }
         }
@@ -251,7 +275,7 @@ impl App {
                 && !self.paused
                 && (now - incoming.event.at).abs() < AUTO_PASTE_WINDOW_MS
             {
-                self.last_synced = Some((text_hash(text), std::time::Instant::now()));
+                self.last_synced = Some((text_hash(text), Instant::now()));
                 // 通用剪贴板可能已经把同样的内容送到了：一样就不写，写了会再被它广播回去
                 if pasteboard::current_text().as_deref() == Some(text.as_str()) {
                     tracing::debug!(seq = incoming.event.seq, "剪贴板里已是这段文字，不写");
@@ -265,8 +289,35 @@ impl App {
         self.refresh_menu(changed);
     }
 
-    /// 菜单项的动作。
-    pub fn perform(&mut self, tag: isize) {
+    /// 只在用青简时同步：切走超过 [`OTHER_INPUT_GRACE`] 就停掉同步线程，切回来按配置重新起。
+    fn follow_input_source(&mut self) {
+        match input_source::qingjian_selected() {
+            Some(false) => {
+                let since = *self.other_input_since.get_or_insert_with(Instant::now);
+                if !self.suspended && since.elapsed() >= OTHER_INPUT_GRACE {
+                    tracing::info!("切到了别的输入法，青简 Cloud 暂停同步");
+                    self.suspended = true;
+                    self.sync = None;
+                    self.data = None;
+                }
+            }
+            Some(true) => {
+                self.other_input_since = None;
+                if self.suspended {
+                    tracing::info!("切回青简，青简 Cloud 恢复同步");
+                    self.suspended = false;
+                    // 暂停期间的复制不补传：从当前剪贴板重新开始看
+                    self.watcher = ClipboardWatcher::new();
+                    self.load_config();
+                    self.refresh_menu(true);
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// 子菜单的动作。
+    fn perform(&mut self, tag: isize) {
         match tag {
             TAG_PAUSE => {
                 self.paused = !self.paused;
@@ -297,12 +348,6 @@ impl App {
                     open(&["-t", &path.to_string_lossy()]);
                 }
             }
-            TAG_OPEN_LOGS => {
-                if let Some(dir) = paths::log_dir() {
-                    open(&[&dir.to_string_lossy()]);
-                }
-            }
-            TAG_QUIT => self.quit("菜单里点了退出"),
             index if index >= 0 => {
                 if let Some(entry) = self.history.get(index as usize) {
                     let count = pasteboard::write_text(&entry.text);
@@ -316,16 +361,6 @@ impl App {
     fn recently_synced(&self, hash: u64) -> bool {
         self.last_synced
             .is_some_and(|(last, at)| last == hash && at.elapsed() < ECHO_WINDOW)
-    }
-
-    /// 正常退出：删掉 `menu.txt`（输入法据此收起子菜单、下次切回青简时拉起本程序）。
-    /// launchd 的 KeepAlive 只在异常退出时拉起，正常退出不会被立刻拉回来。
-    fn quit(&mut self, reason: &str) {
-        tracing::info!(reason, "青简 Cloud 退出");
-        if let Some(path) = paths::menu_file() {
-            let _ = std::fs::remove_file(path);
-        }
-        NSApplication::sharedApplication(self.mtm).terminate(None);
     }
 
     fn display(&self) -> Display {
@@ -344,15 +379,19 @@ impl App {
         }
     }
 
+    /// 强制、状态行变了、或隔了 [`MENU_REFRESH`] 才重算；算出来和上次一样就不动版本号。
     fn refresh_menu(&mut self, force: bool) {
         let display = self.display();
+        let status_changed = self.lines.first() != Some(&Line::Text(status_line(&display)));
+        if !force && !status_changed && self.menu_built.elapsed() < MENU_REFRESH {
+            return;
+        }
         let data = self.data.as_ref().map(DataSync::status);
-        let stale = self.menu_written.elapsed() >= MENU_HEARTBEAT;
-        if force || stale || self.shown.as_ref() != Some(&display) || self.shown_data != data {
-            self.menu.update(&display, data.as_ref(), &self.history);
-            self.shown = Some(display);
-            self.shown_data = data;
-            self.menu_written = std::time::Instant::now();
+        let lines = build_lines(&display, data.as_ref(), &self.history);
+        self.menu_built = Instant::now();
+        if lines != self.lines {
+            self.lines = lines;
+            self.revision += 1;
         }
     }
 }
@@ -362,26 +401,6 @@ fn text_hash(text: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     text.hash(&mut hasher);
     hasher.finish()
-}
-
-/// 取走 `commands/` 里输入法写的命令（一个文件一个 tag），按文件名（写入时的纳秒时间）顺序返回。
-fn take_commands() -> Vec<isize> {
-    let Some(dir) = paths::commands_dir() else {
-        return Vec::new();
-    };
-    let Ok(entries) = std::fs::read_dir(&dir) else {
-        return Vec::new();
-    };
-    let mut files: Vec<_> = entries.flatten().map(|entry| entry.path()).collect();
-    files.sort();
-    files
-        .into_iter()
-        .filter_map(|path| {
-            let text = std::fs::read_to_string(&path).ok();
-            let _ = std::fs::remove_file(&path);
-            text?.trim().parse().ok()
-        })
-        .collect()
 }
 
 fn open(args: &[&str]) {

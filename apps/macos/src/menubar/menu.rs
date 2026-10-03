@@ -104,7 +104,7 @@ impl InputMenu {
         }
     }
 
-    /// 每秒一次：照 `QingjianCloud/menu.txt` 刷新「青简 Cloud」子菜单。
+    /// 每秒一次：照青简 Cloud 给的菜单行刷新「青简 Cloud」子菜单。
     pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) {
         self.cloud_agent.sync(mtm, &self._target);
     }

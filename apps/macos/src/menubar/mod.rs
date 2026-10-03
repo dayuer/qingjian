@@ -21,9 +21,6 @@ use objc2_foundation::NSDictionary;
 use objc2_input_method_kit::kIMKCommandMenuItemName;
 
 pub use action::MenuAction;
-pub use cloud_agent::{
-    ensure_agent_running as ensure_cloud_agent, send_command as send_cloud_agent_command,
-};
 pub use indicator::ModeIndicator;
 pub use menu::InputMenu;
 
