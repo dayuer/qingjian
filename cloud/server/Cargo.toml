@@ -1,0 +1,33 @@
+[package]
+name = "qingjian-cloud-server"
+description = "青简 Cloud 服务端：设备令牌、剪贴板事件流、SSE 推送"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "qingjian-cloud"
+path = "src/main.rs"
+
+[dependencies]
+qingjian-cloud-proto.workspace = true
+axum = "0.8.9"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+getrandom = "0.4.3"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11.0"
+thiserror.workspace = true
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1.19", features = ["sync"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+qingjian-cloud-client = { workspace = true, features = ["rustls"] }
+tempfile = "3"
+
+[lints]
+workspace = true
