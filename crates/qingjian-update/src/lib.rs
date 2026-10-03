@@ -18,4 +18,4 @@ pub use version::Version;
 
 /// 下载页，提示里点开的就是它。
 // 分叉补丁：自建更新服务器的目录页
-pub const DOWNLOAD_URL: &str = "https://pingyin.synon.ai/releases/";
+pub const DOWNLOAD_URL: &str = "https://pinyin.synon.ai/releases/";

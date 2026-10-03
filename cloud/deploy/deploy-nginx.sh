@@ -10,7 +10,7 @@ set -euo pipefail
 
 HOST="${HOST:-root@43.156.128.95}"
 SERVER_IP="${SERVER_IP:-43.156.128.95}"
-DOMAIN="${DOMAIN:-pingyin.synon.ai}"
+DOMAIN="${DOMAIN:-pinyin.synon.ai}"
 PORT="${PORT:-18100}"
 REPO="${REPO:-https://github.com/dayuer/qingjian}"
 BRANCH="${BRANCH:-claude/gallant-brown-c1v3zi}"
