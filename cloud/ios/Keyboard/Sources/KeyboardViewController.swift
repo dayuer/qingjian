@@ -13,6 +13,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     private let feedback = KeyFeedback()
 
+    /// 键区的触摸层（SwiftUI 只画键）；展开候选或表情面板时藏起来。
+    private let touchView = KeyTouchView()
+
     /// 键盘可见期间每 0.25 秒一次：大模型候选、润色结果、别的设备的学习数据都靠它取回。
     private var pollTimer: Timer?
 
@@ -31,12 +34,25 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         model.output = self
         model.onKeyDown = { [feedback] in feedback.keyDown() }
         mountKeyboard()
+        mountTouchView()
+        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        touchView.frame = CGRect(
+            x: 0, y: KeyStyle.candidateBarHeight, width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+        syncTouchView()
+    }
+
+    /// 屏幕左右边缘的触摸会被系统边缘手势压住（a、l 慢半拍或丢）：要我们先处理。iOS 在视图切换时会重置，所以 viewWillAppear 再要一次。
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.left, .right] }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // 完全访问用来震动与连青简 Cloud；用户随时可能去设置里开关，每次出现时重读
         feedback.hapticsEnabled = hasFullAccess
+        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
         if currentSignature != engineSignature {
             engineSignature = currentSignature
             model.replaceEngine(Self.openEngine(fullAccess: hasFullAccess))
@@ -46,6 +62,20 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.model.poll() }
+        }
+    }
+
+    /// 边缘手势的第二道：从我们的视图一路到窗口，把系统识别器的「先压住触摸」关掉、边缘滑动识别器禁用。窗口要等出现后才有。
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        var current: UIView? = view
+        while let node = current {
+            for recognizer in node.gestureRecognizers ?? [] {
+                recognizer.delaysTouchesBegan = false
+                recognizer.delaysTouchesEnded = false
+                if recognizer is UIScreenEdgePanGestureRecognizer { recognizer.isEnabled = false }
+            }
+            current = node.superview
         }
     }
 
@@ -128,9 +158,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         hosting.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(hosting)
         view.addSubview(hosting.view)
-        let height = hosting.view.heightAnchor.constraint(
-            equalToConstant: KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight)
+        // 键盘高度由我们定，钉在 inputView 上系统才按这个给（否则沿用上一个键盘的高度，内容被居中撑开、整体下移）；
         // 系统旋转或切换时会临时塞一个冲突的高度约束，留一档优先级让它赢
+        let height = view.heightAnchor.constraint(
+            equalToConstant: KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight)
         height.priority = .defaultHigh
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -141,6 +172,33 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         ])
         hosting.didMove(toParent: self)
         self.hosting = hosting
+    }
+
+    private func mountTouchView() {
+        let model = model!
+        touchView.onPress = { [touchView] index in
+            guard index < touchView.slots.count else { return }
+            model.press(slot: index, key: touchView.slots[index].key)
+        }
+        touchView.onRelease = { [touchView] index, cancelled in
+            guard index < touchView.slots.count else { return }
+            model.release(slot: index, key: touchView.slots[index].key, cancelled: cancelled)
+        }
+        view.addSubview(touchView)
+    }
+
+    /// 格子与 SwiftUI 画键用同一个 KeyboardLayout.slots；切层、开关面板时重算，并盯着下一次变化。
+    private func syncTouchView() {
+        let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+        let (layer, panel) = withObservationTracking {
+            (model.layer, model.panel)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncTouchView() }
+        }
+        touchView.isHidden = panel != .keys
+        let slots = KeyboardLayout.slots(layer: layer, showsGlobe: needsInputModeSwitchKey, size: size)
+        if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
+        touchView.slots = slots
     }
 
     private var currentSignature: String {
@@ -161,3 +219,4 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             cloudConfig: files.cloudFile)
     }
 }
+

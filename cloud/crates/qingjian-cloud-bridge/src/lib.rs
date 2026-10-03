@@ -144,6 +144,30 @@ pub unsafe extern "C" fn qj_candidate_is_cloud(session: *mut Session, index: u32
     })
 }
 
+/// 一次取回整个候选栏：每格是「`0`/`1`（本地 / 云端）+ 文字」，格与格之间用 U+001E 隔开；没有候选返回空串。
+/// 每键只过一次边界，省掉逐格取的上百次分配。
+///
+/// # Safety
+/// 同 [`qj_preedit`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_candidates(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        let mut joined = String::new();
+        for (index, entry) in s.entries().iter().enumerate() {
+            if index > 0 {
+                joined.push(CANDIDATE_SEPARATOR);
+            }
+            joined.push(if entry.is_cloud() { '1' } else { '0' });
+            // 分隔符不会出现在词库与大模型的候选里，万一有就去掉，免得格子错位
+            joined.extend(entry.text().chars().filter(|&c| c != CANDIDATE_SEPARATOR));
+        }
+        owned(&joined)
+    })
+}
+
+/// [`qj_candidates`] 里格与格之间的分隔符（ASCII 记录分隔符）。
+const CANDIDATE_SEPARATOR: char = '\u{1e}';
+
 /// 上屏第 `index` 个候选，返回要插入的文字；越界返回空指针。
 ///
 /// # Safety

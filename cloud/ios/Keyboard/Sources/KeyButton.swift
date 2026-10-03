@@ -1,5 +1,5 @@
-// 一个按键的外观与手势：按下即触发，字符键弹出放大字样，⌫ 按住连删。
-// 触摸范围是整个格子（含四周的缝），键帽按 insets 缩进画在里面。
+// 一个按键的外观：按下变色，字符键弹出放大字样。触摸由 KeyTouchView 收，这里只画。
+// 格子含四周的缝，键帽按 insets 缩进画在里面。
 
 import SwiftUI
 
@@ -11,9 +11,7 @@ struct KeyButton: View {
     /// 键帽相对触摸范围的缩进；不给就是键帽占满。
     var insets = EdgeInsets()
 
-    @State private var pressed = false
-
-    @State private var repeatTask: Task<Void, Never>?
+    var pressed = false
 
     var body: some View {
         RoundedRectangle(cornerRadius: KeyStyle.cornerRadius)
@@ -24,12 +22,6 @@ struct KeyButton: View {
                 if pressed && key.showsCallout { callout }
             }
             .padding(insets)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in press() }
-                    .onEnded { _ in release() }
-            )
             .zIndex(pressed ? 1 : 0)
             .accessibilityLabel(accessibilityText)
             .accessibilityAddTraits(.isKeyboardKey)
@@ -107,26 +99,5 @@ struct KeyButton: View {
         case .space: "空格"
         case .returnKey: "换行"
         }
-    }
-
-    /// 按下即触发（与系统键盘一样，不等抬起）；⌫ 按住 0.4 秒后每 0.08 秒连删一次。
-    private func press() {
-        guard !pressed else { return }
-        pressed = true
-        model.tap(key)
-        guard key == .backspace else { return }
-        repeatTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(400))
-            while !Task.isCancelled {
-                model.tap(.backspace)
-                try? await Task.sleep(for: .milliseconds(80))
-            }
-        }
-    }
-
-    private func release() {
-        pressed = false
-        repeatTask?.cancel()
-        repeatTask = nil
     }
 }

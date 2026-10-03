@@ -1,28 +1,28 @@
-// 键盘的尺寸与颜色，量自 iOS 26 简体拼音键盘（iPhone 竖屏 390pt 宽）。
+// 键盘的尺寸与颜色，量自 iOS 26 简体拼音键盘（iPhone 15 Pro Max 竖屏 430pt 宽的截图）；键宽按屏宽算，其余是固定值。
 
 import SwiftUI
 import UIKit
 
 enum KeyStyle {
-    static let keyHeight: CGFloat = 42
+    static let keyHeight: CGFloat = 44.5
 
-    static let rowSpacing: CGFloat = 12
+    static let rowSpacing: CGFloat = 11.5
 
-    static let keySpacing: CGFloat = 6.5
+    static let keySpacing: CGFloat = 6.3
 
-    static let sideMargin: CGFloat = 6
+    static let sideMargin: CGFloat = 4
 
     static let cornerRadius: CGFloat = 8.5
 
-    static let candidateBarHeight: CGFloat = 48
+    static let candidateBarHeight: CGFloat = 50
 
     /// ⇧ / ⌫ / 切层键的宽度，以字母键宽为 1。
-    static let edgeKeyUnits: CGFloat = 1.38
+    static let edgeKeyUnits: CGFloat = 1.36
 
     /// 底行左边两个键（切层、😀）的宽度。
-    static let bottomSideUnits: CGFloat = 1.3
+    static let bottomSideUnits: CGFloat = 1.31
 
-    static let returnUnits: CGFloat = 2.85
+    static let returnUnits: CGFloat = 2.78
 
     /// 键帽：浅色模式白、深色模式中灰；按下时变暗一档。
     static let keyFill = Color(UIColor { traits in

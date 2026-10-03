@@ -30,11 +30,12 @@ final class Engine {
 
     var preedit: String { take(qj_preedit(session)) ?? "" }
 
+    /// 一次过桥取回整栏（格式见 qj_candidates），每键只分配一次。
     var candidates: [CandidateItem] {
-        (0..<qj_candidate_count(session)).compactMap { index in
-            take(qj_candidate_text(session, index)).map {
-                CandidateItem(text: $0, cloud: qj_candidate_is_cloud(session, index))
-            }
+        guard let joined = take(qj_candidates(session)), !joined.isEmpty else { return [] }
+        return joined.split(separator: "\u{1e}", omittingEmptySubsequences: false).compactMap { cell in
+            guard let flag = cell.first else { return nil }
+            return CandidateItem(text: String(cell.dropFirst()), cloud: flag == "1")
         }
     }
 

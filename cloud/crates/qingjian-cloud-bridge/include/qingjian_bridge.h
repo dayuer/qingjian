@@ -24,6 +24,8 @@ char *qj_preedit(QjSession *session);
 uint32_t qj_candidate_count(QjSession *session);
 char *qj_candidate_text(QjSession *session, uint32_t index);
 bool qj_candidate_is_cloud(QjSession *session, uint32_t index);
+// 整个候选栏一次取回：每格「'0'/'1'（本地 / 云端）+ 文字」，格间用 0x1E 隔开。
+char *qj_candidates(QjSession *session);
 
 char *qj_commit(QjSession *session, uint32_t index);
 char *qj_take_raw(QjSession *session);

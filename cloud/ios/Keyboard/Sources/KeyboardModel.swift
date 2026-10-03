@@ -30,6 +30,13 @@ final class KeyboardModel {
 
     private(set) var shifted = false
 
+    /// 正按着的格子（KeyboardLayout.slots 的下标），键帽据此变色、弹放大字样。
+    private(set) var pressedSlots: Set<Int> = []
+
+    /// 按住 ⌫ 连删的任务，按格子记。
+    @ObservationIgnored private var repeats: [Int: Task<Void, Never>] = [:]
+
+
     /// 引擎打不开（数据缺失）时为 nil，字母直接输出。
     @ObservationIgnored private var engine: Engine?
 
@@ -55,7 +62,6 @@ final class KeyboardModel {
     var rewriteAvailable: Bool { engine?.rewriteAvailable ?? false }
 
     func tap(_ key: Key) {
-        onKeyDown?()
         // 又开始打字了：没用上的润色作废
         if rewrite != .idle, key != .shift, key != .globe { dismissRewrite() }
         switch key {
@@ -69,6 +75,30 @@ final class KeyboardModel {
         case .space: space()
         case .returnKey: returnKey()
         }
+    }
+
+    /// 按下：高亮、反馈；⌫ 按下即删，按住 0.4 秒后每 0.08 秒连删一次。别的键抬起才出字（与系统键盘一致）。
+    func press(slot: Int, key: Key) {
+        guard !pressedSlots.contains(slot) else { return }
+        pressedSlots.insert(slot)
+        onKeyDown?()
+        guard key == .backspace else { return }
+        tap(key)
+        repeats[slot] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            while !Task.isCancelled {
+                self?.onKeyDown?()
+                self?.tap(.backspace)
+                try? await Task.sleep(for: .milliseconds(80))
+            }
+        }
+    }
+
+    /// 抬起出字。被系统取消的触摸（屏幕边缘手势抢的）也按抬起算：用户确实按了这个键。
+    func release(slot: Int, key: Key, cancelled: Bool) {
+        guard pressedSlots.remove(slot) != nil else { return }
+        repeats.removeValue(forKey: slot)?.cancel()
+        if key != .backspace { tap(key) }
     }
 
     func selectCandidate(_ index: Int) {
@@ -230,14 +260,21 @@ final class KeyboardModel {
             refresh()
             return
         }
-        if let output { engine.setContext(before: output.contextBefore, after: output.contextAfter) }
+        // 光标前后文只在开始组字时取一次：每次都问宿主是一次跨进程往返，每个键都要等
+        if !composing, let output {
+            engine.setContext(before: output.contextBefore, after: output.contextAfter)
+        }
         engine.push(letter)
         refresh()
     }
 
+    /// 敲了断句的标点就回字母层，接着打拼音（与系统键盘一致）；数字与 `- / : . @` 这类常夹在数字里的符号留在原层，连着敲。
+    private static let returnsToLetters: Set<String> = ["。", "，", "、", "？", "！", "；", "…", "”", "’", "^_^"]
+
     private func typeSymbol(_ text: String) {
         commitFirst()
         output?.commit(text)
+        if Self.returnsToLetters.contains(text) { layer = .letters }
     }
 
     private func backspace() {
@@ -256,6 +293,7 @@ final class KeyboardModel {
             engine?.notePassthrough(" ")
             output?.commit(" ")
         }
+        layer = .letters
     }
 
     private func returnKey() {
