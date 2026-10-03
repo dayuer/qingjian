@@ -7,7 +7,7 @@ set -euo pipefail
 ios_dir="$(cd "$(dirname "$0")/.." && pwd)"
 team="${QJ_TEAM:-L9YRXEKYN2}"
 
-device="${1:-$(xcrun devicectl list devices | awk '/iPhone/ && /available/ {for (i=1;i<=NF;i++) if ($i ~ /^[0-9A-F-]{36}$/) {print $i; exit}}' || true)}"
+device="${1:-$(xcrun devicectl list devices | awk '/iPhone/ && (/available/ || / connected /) {for (i=1;i<=NF;i++) if ($i ~ /^[0-9A-F-]{36}$/) {print $i; exit}}' || true)}"
 [[ -n "$device" ]] || { echo "没有连着的 iPhone" >&2; exit 1; }
 
 cd "$ios_dir"
