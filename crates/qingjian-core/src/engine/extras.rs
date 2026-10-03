@@ -115,6 +115,15 @@ impl Engine {
         }
         // 英文补全：拼音不像话时（`compa` 切成 co'm'pa），整段多半是在打英文词的前面几个字母，补全紧跟在精确词之后；
         // 个人词表在前，两张表里都有的只出一次。
+        // 分叉补丁：只有三个字母、又没有精确词时补全不抢第一——这么短多半是中文简拼（`wod` 我的 → Wodehouse、
+        // `ong` → ongoing，真机日志里都混进了中文句子）；四个字母起（`compa` → company）照旧
+        if word.is_none()
+            && position == 0
+            && !items.is_empty()
+            && text.len() < LEADING_COMPLETION_LETTERS
+        {
+            position = 1;
+        }
         if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
             let mut budget = ENGLISH_COMPLETIONS;
             for words in &lists {
