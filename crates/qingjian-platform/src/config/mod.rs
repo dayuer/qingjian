@@ -247,6 +247,8 @@ scheme = ""
 shuangpin_raw_preedit = false
 # 中文组句时回车上屏高亮候选，Shift+回车原样上屏所敲字母；缺省 false（回车原样上屏）。英文模式与算式不受影响。只有 macOS 用
 enter_commits_candidate = false
+# 云联想开着时菜单栏的「中 / 英」后面带云朵；false 只是不显示，云联想照常工作。只有 macOS 用
+show_cloud_mark = true
 # 五笔（86 版形码）：留空为关，wubi86 为开。**与上面的拼音方案同时开着就是混输**——
 # 两边都出候选，编码打全的五笔词在前、其次拼音（打不出的字直接打拼音）；候选旁的译文、生词记录与学习照常。
 # 只用五笔的话把 scheme 写成 none；第 5 个字母起五笔已经查不到东西，自动只剩拼音。
