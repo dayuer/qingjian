@@ -43,7 +43,7 @@
 ## 自用补丁与自建更新（2026-10-03）
 
 - 「回车上屏高亮候选」开关（`0e15e56`）：`[general] enter_commits_candidate`，偏好设置「通用」页勾选，只在 macOS 生效。
-- 自动更新改走 `https://pingyin.synon.ai/releases/`（`61a759a`）：只认自己的签名密钥，查到新版后在后台下好 pkg 并校验 sha256，
+- 自动更新改走 `https://pinyin.synon.ai/releases/`（`61a759a`）：只认自己的签名密钥，查到新版后在后台下好 pkg 并校验 sha256，
   点菜单「有新版本」打开安装程序；pkg 里带着青简 Cloud，postinstall 一起装上。清单见 [fork-patch.md](fork-patch.md)。
 - 发布：在专用检出 `../qingjian-publish`（`git worktree`，`data/` 链到 `../qingjian-local/data`）里
   `git fetch -q origin local && git checkout -q --detach origin/local && NOTES="…|…" cloud/scripts/publish-mac.sh`，
@@ -66,10 +66,10 @@
 
 ## 线上部署
 
-- VPS 43.156.128.95，域名 `pingyin.synon.ai`（用户给的拼写，保留），2026-10-03 上线，跑的是 `ab9c16a`。
+- VPS 43.156.128.95，域名 `pinyin.synon.ai`（2026-10-04 起；之前叫 pingyin.synon.ai，那个名字已不再解析），2026-10-03 上线，跑的是 `ab9c16a`。
 - 用的是 `cloud/deploy/deploy-nginx.sh`，不是 `install.sh`：那台机器的 80/443 由宿主机 nginx 占用，证书由 certbot 管。
   服务器上：代码在 `/opt/qingjian`；本机专用的 compose 覆盖文件、Dockerfile 与备份脚本在 `/opt/qingjian-host/`；
-  cloud 绑定 `127.0.0.1:18100`；nginx 站点在 `/etc/nginx/sites-available/pingyin.synon.ai`；
+  cloud 绑定 `127.0.0.1:18100`；nginx 站点在 `/etc/nginx/sites-available/pinyin.synon.ai`；
   `.env` 里的 `COMPOSE_FILE` 指向覆盖文件，所以在 `cloud/deploy` 下直接执行 `docker compose …` 即可；每天 04:30 备份到 `/root/qingjian-backups`。
 - 已登记的设备：`macbook`，令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`。
 - 升级：在本机重新运行 `cloud/deploy/deploy-nginx.sh`（不带 `CF_API_TOKEN` 就不改 DNS）。
