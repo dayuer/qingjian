@@ -9,18 +9,15 @@
 
 ## 现状
 
-跨设备剪贴板、学习数据与设置同步、大模型代理、输入日志汇总、纠错闭环的代码已完成，待 Mac 真机验收：
+跨设备剪贴板、学习数据与设置同步、大模型代理、输入日志汇总、纠错闭环都已上线；这个目录里是客户端一侧：
 
 | 目录 | 内容 |
 |---|---|
-| [server/](server/) | 服务端（Rust：axum + SQLite），Docker 镜像约 56 MB |
-| [deploy/](deploy/) | docker-compose + Caddy 自动 HTTPS、备份脚本；[部署说明](deploy/README.md) |
 | [crates/qingjian-cloud-mac/](crates/qingjian-cloud-mac/) | Mac 端：链进输入法进程的同步模块；[使用与验收清单](crates/qingjian-cloud-mac/README.md) |
 | [ios/](ios/) | iOS 主 App + 键盘扩展：本地引擎、26 键全拼，键位照 iOS 自带简体拼音；[构建与已知问题](ios/README.md) |
-| [tuner/](tuner/) | 纠错闭环：词库体检、一次就学会、话题补词，回放把关（可选服务） |
 | [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用；`qingjian-cloud-bridge` 把上游 Engine 包成 C ABI 给 iOS 键盘 |
 
+服务端、纠错闭环（tuner）与部署是闭源的，2026-10-04 起在独立仓库 `synon-ime`（与本检出并排放），按路径引用这里的协议与客户端 crate。
+
 开发：在 `cloud/` 下 `cargo test`、`cargo clippy --all-targets -- -D warnings`；Mac 程序在 Linux 上可用
-`cargo check -p qingjian-cloud-mac --target aarch64-apple-darwin` 做编译检查。tuner 的端到端测试要上游 CLI 与产品数据：
-`tools/release/data-fetch.sh && cargo build --release -p qingjian-cli`（仓库根目录），再
-`QINGJIAN_CLI=…/target/release/qingjian-cli QINGJIAN_DATA=…/data/generated cargo test -p qingjian-cloud-tuner`；没给就跳过。
+`cargo check -p qingjian-cloud-mac --target aarch64-apple-darwin` 做编译检查。改了协议或客户端 crate，也要在 `synon-ime` 里跑一遍测试。

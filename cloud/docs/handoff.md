@@ -20,7 +20,7 @@
 | 2 | 大模型代理（换密钥、缓存、用量、可选跨设备上文，缺省关）、输入日志上传 / 下载 / 清空传播；`mac-agent`「让青简使用 Cloud 的大模型」 | 假上游测试；日志续传与清空测试 | 真实 DeepSeek 经代理通；输入法云联想走 Cloud 出整句补全；输入日志上传通 |
 | 3 | 纠错闭环 `tuner`：词库体检、一次就学会、话题补词，用上游 `qingjian-cli --replay` 做门槛；可选的 compose profile，缺省只出报告 | 真服务器 + 真 CLI 与 data-v3 + 假上游的端到端测试（留出段 50% → 100%）；镜像在沙箱里构建并在 compose 里跑通 | **未做** |
 
-部署：空机器用 `cloud/deploy/install.sh`（Cloudflare 改 DNS、装 Docker、拉代码、compose + Caddy 启动、登记设备、可选 `ENABLE_TUNER=1`）；80/443 已被 nginx 占用的机器用 `cloud/deploy/deploy-nginx.sh`。
+服务端、tuner 与部署 2026-10-04 起在独立的闭源仓库 `synon-ime`（与本检出并排放在 `sproot/` 下），见下面「线上部署」。
 
 ## 真机验收（2026-10-03，单台 MacBook）
 
@@ -64,22 +64,13 @@
 
 ## 线上部署
 
-- VPS 43.156.128.95，域名 `pinyin.synon.ai`（2026-10-03 从拼错的 `pingyin.synon.ai` 改过来，旧域名已撤，见下），2026-10-03 上线，跑的是 `ab9c16a`。
-- 用的是 `cloud/deploy/deploy-nginx.sh`，不是 `install.sh`：那台机器的 80/443 由宿主机 nginx 占用，证书由 certbot 管。
-  服务器上：代码在 `/opt/qingjian`；本机专用的 compose 覆盖文件、Dockerfile 与备份脚本在 `/opt/qingjian-host/`；
-  cloud 绑定 `127.0.0.1:18100`；nginx 站点在 `/etc/nginx/sites-available/pinyin.synon.ai`；
-  `.env` 里的 `COMPOSE_FILE` 指向覆盖文件，所以在 `cloud/deploy` 下直接执行 `docker compose …` 即可；每天 04:30 备份到 `/root/qingjian-backups`。
-- 改域名（2026-10-04 完成）：`0.1.5-local.288` 起检查更新走新域名；本机装上 288 后，`releases.json` 里旧版本的下载地址改成新域名并重签，
-  证书重签为只含 `pinyin.synon.ai`，旧证书、nginx 的旧 `server_name` 与 Cloudflare 上的 `pingyin` 记录都已删除。286 及之前的版本从此查不到更新。
-- 已登记的设备：`macbook`（令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`）、`iphone`（令牌在 `cloud/ios/cloud.local.toml`，不进仓库）。
-- 升级：在本机重新运行 `cloud/deploy/deploy-nginx.sh`（不带 `CF_API_TOKEN` 就不改 DNS）。
-- **纠错闭环（tuner）2026-10-04 上线**，每 6 小时一轮、推送已打开（`.env` 的 `QINGJIAN_TUNER_DRY_RUN=false`，改回 true 只出报告）。
-  `deploy-nginx.sh` 还没接 `ENABLE_TUNER`，是手动部署的：本机 `git archive HEAD` 传到服务器 `/opt/qingjian-tuner-src`（不经公开的 GitHub 仓库），
-  在那里 `docker build -f cloud/tuner/Dockerfile -t qingjian-cloud-tuner:latest .`，再在 `/opt/qingjian/cloud/deploy` 下
-  `docker compose --profile tuner up -d --no-build tuner`。登记的设备是 `tuner`，令牌在 `.env`。看报告：`docker compose --profile tuner logs tuner`。
-  第一轮（日志 431 行）采纳 3 条话题补词，回放首选命中 93.3% → 93.3%。iPhone 从 `15d2f84` 起也上传输入日志。
-- 待办：作废聊天里贴过的 Cloudflare 令牌，换成只能改 `synon.ai` DNS 的令牌。
-- `install.sh` 默认 80/443 端口空闲；在已有反向代理的机器上要用 `deploy-nginx.sh`。以后可以给 `install.sh` 加 `PROXY=external` 模式，把两个脚本合成一个。
+2026-10-04 起服务端（`server/`）、纠错闭环（`tuner/`）与部署（`deploy/`）搬到闭源仓库 `synon-ime`（`sproot/synon-ime`，按路径引用本检出里的
+协议、客户端 crate 与引擎），线上服务器、域名、证书、设备、tuner 的配置与日常操作都写在它的 `deploy/README.md`。
+更新服务端：在 `synon-ime` 里 `deploy/deploy.sh`（两个仓库都要提交干净）。Mac 版发布照旧用本仓库的 `cloud/scripts/publish-mac.sh`。
+
+- 域名 `pinyin.synon.ai`（2026-10-03 从拼错的 `pingyin.synon.ai` 改过来）；`0.1.5-local.288` 起检查更新走新域名，旧域名的 DNS、证书与 `server_name` 已删。
+- 已登记的设备：`macbook`（令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`）、`iphone`（令牌在 `cloud/ios/cloud.local.toml`，不进仓库）、`tuner`。
+- 待办：作废聊天里贴过的 Cloudflare 令牌（两个）。
 
 ## 第 4 期（iOS 键盘）：只做了调研，没写代码
 
