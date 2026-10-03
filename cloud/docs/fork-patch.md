@@ -27,15 +27,17 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 | `apps/macos/src/host/settings.rs` | 加 4 行 | 勾选框写回配置 |
 | `docs/user/getting-started/keys.md` | 改 1 行、加 1 段 | 按键说明 |
 
-### 菜单栏不显示云朵（用户要的小功能，只在 macOS 生效）
+### 菜单栏不显示「中 / 英」状态项（用户要的小功能，只在 macOS 生效）
 
-`[general] show_cloud_mark`，缺省 true（上游行为）；false 时菜单栏只显示「中 / 英」，云联想照常。只有配置项，没加偏好设置的勾选框。
+它的菜单与系统输入法菜单里「青简」那一组重复。`[general] mode_indicator`，缺省 true（上游行为）；false 时整个状态项不展开。
+只有配置项，没加偏好设置的勾选框。
 
 | 文件 | 改动 | 说明 |
 |---|---|---|
 | `crates/qingjian-platform/src/config/general.rs` | 加 4 行 | 字段与缺省 |
 | `crates/qingjian-platform/src/config/mod.rs` | 加 2 行 | 配置模板里的说明 |
-| `apps/macos/src/host/config/mod.rs` | 改 1 行 | 画云朵前看开关 |
+| `apps/macos/src/menubar/indicator.rs` | 加 16 行 | `enabled` 字段、`set_enabled`，关着时 `activate` 不展开 |
+| `apps/macos/src/host/config/mod.rs` | 加 2 行 | 热加载时按配置开关 |
 
 ### 自建更新服务器（只在 macOS 生效）
 

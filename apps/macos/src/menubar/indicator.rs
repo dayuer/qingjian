@@ -35,6 +35,9 @@ pub struct ModeIndicator {
     /// 正展开着（输入法激活中）。收起时不刷新标题。
     shown: bool,
 
+    /// 分叉补丁：`[general] mode_indicator`；关掉时不展开。
+    enabled: bool,
+
     /// 上次显示的是否英文模式，避免每次轮询都重设标题。
     english: Option<bool>,
 
@@ -54,14 +57,29 @@ impl ModeIndicator {
             timer: None,
             collapse_timer: None,
             shown: false,
+            enabled: true,
             english: None,
             cloud: false,
             mtm,
         }
     }
 
+    /// 分叉补丁：按配置开关状态项；关掉时立刻收起，之后激活也不再展开。
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if !enabled {
+            if let Some(timer) = self.timer.take() {
+                timer.invalidate();
+            }
+            self.collapse();
+        }
+    }
+
     /// 输入法激活：展开状态项并开始轮询；停用时安排的收起取消。
     pub fn activate(&mut self) {
+        if !self.enabled {
+            return;
+        }
         if let Some(timer) = self.collapse_timer.take() {
             timer.invalidate();
         }
