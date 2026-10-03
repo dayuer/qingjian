@@ -75,8 +75,11 @@ impl EngineCli {
                 }
             }
         } else {
-            // 没有配置时与输入法缺省一致：只开成语
+            // 没有配置时与输入法缺省一致：只开成语。显式给空配置：不传的话 CLI 会去读跑它的那台机器上输入法的
+            // config.toml（Mac 上开着云联想又没令牌时直接退出，tuner 的端到端测试就是这么挂的）
             command
+                .arg("--config")
+                .arg("/dev/null")
                 .arg("--extra-dict")
                 .arg(self.data_dir.join("dicts/idioms.qj"));
         }

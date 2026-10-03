@@ -2,6 +2,7 @@
 # 青简 Cloud 部署到已有 nginx + certbot 的 VPS（43.156.128.95）。在本机运行，可重复运行。
 #
 #   CF_API_TOKEN=<令牌> DEVICES="macbook" cloud/deploy/deploy-nginx.sh
+#   ENABLE_TUNER=1 cloud/deploy/deploy-nginx.sh     # 同时起纠错闭环（登记 tuner 设备；镜像在服务器后台编，约半小时到一小时）
 #
 # 与 install.sh 的区别：那台机器的 80/443 归宿主机 nginx，证书由 certbot 统一续期
 # （/opt/ssl-renew.sh），所以不起 compose 里的 Caddy，cloud 只绑 127.0.0.1，由 nginx 反代。
@@ -15,6 +16,7 @@ PORT="${PORT:-18100}"
 REPO="${REPO:-https://github.com/dayuer/qingjian}"
 BRANCH="${BRANCH:-claude/gallant-brown-c1v3zi}"
 DEVICES="${DEVICES:-}"
+ENABLE_TUNER="${ENABLE_TUNER:-0}"
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -71,7 +73,7 @@ for _ in $(seq 1 36); do
 done
 
 say "远端部署（${HOST}）"
-ssh "$HOST" DOMAIN="$DOMAIN" PORT="$PORT" REPO="$REPO" BRANCH="$BRANCH" DEVICES="'$DEVICES'" bash -s <<'REMOTE'
+ssh "$HOST" DOMAIN="$DOMAIN" PORT="$PORT" REPO="$REPO" BRANCH="$BRANCH" DEVICES="'$DEVICES'" ENABLE_TUNER="$ENABLE_TUNER" bash -s <<'REMOTE'
 set -euo pipefail
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -92,6 +94,9 @@ say "本机专用的 compose 覆盖（${HOSTCFG}）"
 mkdir -p "$HOSTCFG" "$HOSTCFG/releases"
 # 原 Dockerfile 加一行 CARGO_BUILD_JOBS=1：2 核 3.7G 的机器上跑着线上服务，构建慢点也不能挤内存
 sed '/^WORKDIR \/src/a ENV CARGO_BUILD_JOBS=1' "$DIR/cloud/server/Dockerfile" > "$HOSTCFG/Dockerfile"
+sed '/^WORKDIR \/src/a ENV CARGO_BUILD_JOBS=1' "$DIR/cloud/tuner/Dockerfile" > "$HOSTCFG/Dockerfile.tuner"
+# BuildKit 按 <Dockerfile>.dockerignore 找忽略规则，挪了位置要跟着拷
+cp "$DIR/cloud/tuner/Dockerfile.dockerignore" "$HOSTCFG/Dockerfile.tuner.dockerignore"
 cat > "$HOSTCFG/compose.nginx.yml" <<EOF
 # 由 deploy-nginx.sh 生成。80/443 归宿主机 nginx：cloud 只绑本机端口，Caddy 放进不启用的 profile。
 services:
@@ -100,6 +105,9 @@ services:
       dockerfile: $HOSTCFG/Dockerfile
     ports:
       - "127.0.0.1:$PORT:8080"
+  tuner:
+    build:
+      dockerfile: $HOSTCFG/Dockerfile.tuner
   caddy:
     profiles: ["caddy"]
 EOF
@@ -211,6 +219,23 @@ for name in $DEVICES; do
     docker compose exec -T cloud qingjian-cloud device add "$name" </dev/null
   fi
 done
+
+if [[ "$ENABLE_TUNER" == 1 ]]; then
+  say "纠错闭环 tuner"
+  if ! grep -q '^QINGJIAN_TUNER_TOKEN=qjc_' .env; then
+    docker compose exec -T cloud qingjian-cloud device remove tuner </dev/null >/dev/null 2>&1 || true
+    token="$(docker compose exec -T cloud qingjian-cloud device add tuner </dev/null | grep -o 'qjc_[A-Za-z0-9_-]*' | tail -1)"
+    [[ -n "$token" ]] || { echo "登记 tuner 设备失败" >&2; exit 1; }
+    set_env QINGJIAN_TUNER_TOKEN "$token"
+    echo "已登记 tuner 设备，令牌写进了 .env"
+  fi
+  grep -q '^QINGJIAN_TUNER_DRY_RUN=' .env || set_env QINGJIAN_TUNER_DRY_RUN true
+  echo "演练模式（只出报告不推送）：$(sed -n 's/^QINGJIAN_TUNER_DRY_RUN=//p' .env)"
+  # 要编上游的 CLI 并下载产品数据，单线程编要半小时以上：放后台，不占着这个 ssh
+  nohup docker compose --profile tuner up -d --build tuner </dev/null >/var/log/qingjian-tuner-build.log 2>&1 &
+  echo "镜像在后台构建，进度：tail -f /var/log/qingjian-tuner-build.log"
+  echo "建好后每轮的报告：cd $DIR/cloud/deploy && docker compose --profile tuner logs -f tuner"
+fi
 
 say "每日备份（04:30，留 14 份，/root/qingjian-backups）"
 # cloud/deploy/backup.sh 最后一步用容器里的 rm，distroless 镜像没有，所以用宿主机这份
