@@ -2,8 +2,8 @@
 services:
   cloud:
     build:
-      context: ..
-      dockerfile: server/Dockerfile
+      context: ../..
+      dockerfile: cloud/server/Dockerfile
     image: qingjian-cloud:latest
     restart: unless-stopped
     volumes:
