@@ -20,15 +20,20 @@
 | 2 | 大模型代理（换密钥、缓存、用量、可选跨设备上文，缺省关）、输入日志上传 / 下载 / 清空传播；`mac-agent`「让青简使用 Cloud 的大模型」 | 假上游测试；日志续传与清空测试 | **未做**，没接过真实 DeepSeek |
 | 3 | 纠错闭环 `tuner`：词库体检、一次就学会、话题补词，用上游 `qingjian-cli --replay` 做门槛；可选的 compose profile，缺省只出报告 | 真服务器 + 真 CLI 与 data-v3 + 假上游的端到端测试（留出段 50% → 100%）；镜像在沙箱里构建并在 compose 里跑通 | **未做** |
 
-部署：`cloud/deploy/install.sh` 一键脚本（Cloudflare 改 DNS、装 Docker、拉代码、compose 启动、登记设备、可选 `ENABLE_TUNER=1`）。
+部署：空机器用 `cloud/deploy/install.sh`（Cloudflare 改 DNS、装 Docker、拉代码、compose + Caddy 启动、登记设备、可选 `ENABLE_TUNER=1`）；80/443 已被 nginx 占用的机器用 `cloud/deploy/deploy-nginx.sh`。
 
-## 正在进行 / 待确认
+## 线上部署
 
-- **VPS 部署**（43.156.128.95，域名 `pingyin.synon.ai`）：由另一个会话负责，用户在 VPS 上自己运行 `install.sh`。
-  `38d1a0c` / `ab9c16a` 修了一个会让服务端镜像构建失败的问题（构建上下文改成仓库根目录）；**如果之前按 `3444811` 运行过脚本，重新运行一次即可**。
-  首次构建会先下载仓库固定的 Rust 1.96.0。通知那个会话时它已不在，需要用户转告。
-- 用户在聊天里贴过 Cloudflare API 令牌，部署后应作废并换一个只限 `synon.ai` DNS 的。
-- 域名是 `pingyin`（用户给的原样），如果本意是 `pinyin` 要在部署前改。
+- VPS 43.156.128.95，域名 `pingyin.synon.ai`（用户给的拼写，保留），2026-10-03 上线，跑的是 `ab9c16a`。
+- 用的是 `cloud/deploy/deploy-nginx.sh`，不是 `install.sh`：那台机器的 80/443 由宿主机 nginx 占用，证书由 certbot 管。
+  服务器上：代码在 `/opt/qingjian`；本机专用的 compose 覆盖文件、Dockerfile 与备份脚本在 `/opt/qingjian-host/`；
+  cloud 绑定 `127.0.0.1:18100`；nginx 站点在 `/etc/nginx/sites-available/pingyin.synon.ai`；
+  `.env` 里的 `COMPOSE_FILE` 指向覆盖文件，所以在 `cloud/deploy` 下直接执行 `docker compose …` 即可；每天 04:30 备份到 `/root/qingjian-backups`。
+- 已登记的设备：`macbook`，令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`。
+- 升级：在本机重新运行 `cloud/deploy/deploy-nginx.sh`（不带 `CF_API_TOKEN` 就不改 DNS）。
+  第 3 期纠错闭环（`6051d3e`）还没部署，`deploy-nginx.sh` 也还没接 `ENABLE_TUNER`。
+- 待办：作废聊天里贴过的 Cloudflare 令牌，换成只能改 `synon.ai` DNS 的令牌。
+- `install.sh` 默认 80/443 端口空闲；在已有反向代理的机器上要用 `deploy-nginx.sh`。以后可以给 `install.sh` 加 `PROXY=external` 模式，把两个脚本合成一个。
 
 ## 第 4 期（iOS 键盘）：只做了调研，没写代码
 
