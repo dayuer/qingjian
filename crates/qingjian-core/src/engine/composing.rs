@@ -6,6 +6,7 @@ use super::learning::Learner;
 use super::mode_keys::QUESTION_PREFIX;
 use super::{Engine, RECENT_COMMITS, is_raw, looks_like_english_word, segment_longest_prefix};
 use crate::composition::Composition;
+use crate::correction;
 use crate::shortcut;
 use std::time::Instant;
 
@@ -362,7 +363,10 @@ impl Engine {
         // 把整串学成英文词会反过来堵掉混输那条路
         let english_word = looks_like_english_word(&raw, self.english_mode)
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
-            && (self.english_mode || self.split_english_tail(&raw).is_none());
+            && (self.english_mode || self.split_english_tail(&raw).is_none())
+            // 分叉补丁：改一处就是两个音节以上的完整拼音（`woilaiceshi` → wolaiceshi）是敲错了的中文，
+            // 学成英文词会让它下次排第一；随包英文词表里有的照学
+            && (self.english_mode || self.listed_english(&raw) || !looks_like_pinyin_typo(&raw));
         if english_word {
             self.learner.learn_english(&raw);
         }
@@ -452,4 +456,11 @@ fn unit_len_before(before: &str, shuangpin: bool, plain: bool) -> usize {
         Err(_) => 1,
     };
     separators + syllable
+}
+
+/// 分叉补丁：原样上屏的字母串改一处（换位、换 / 多 / 少一个字母）就能读成两个音节以上的完整拼音。
+fn looks_like_pinyin_typo(raw: &str) -> bool {
+    correction::candidates(&raw.to_ascii_lowercase())
+        .iter()
+        .any(|c| c.segmentation.syllables.len() >= 2 && c.segmentation.incomplete_count() == 0)
 }

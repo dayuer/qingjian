@@ -60,6 +60,10 @@ impl Engine {
     /// 两字母的全大写缩写（`mp` → MP、`bm` → BM）是个例外：整段太短、几乎总是在打中文（门票 / 编码），
     /// 这种让中文先；超过两个字母的正文英文（cargo / rust）照旧——按词频一刀切会把它们一起挤掉。
     /// 例外只管**没选过**的英文词：用户选过的照旧排第一（选过 OK，下次敲 `ok` 还是 OK 在前）。
+    ///
+    /// 分叉补丁（自用，见 `cloud/docs/fork-patch.md`）：两字母全大写那条规则放宽到「两个字母、带大写」（Gd 这种元素符号）。
+    /// 真机日志里 `gd` → Gd 混进了中文句子。试过再放宽到三个字母全大写（DOA），会把 GPU / SQL / LLM 一起压到中文后面，
+    /// 词频也分不开（DOA 2760、LLM 2290），所以只到两个字母。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
         let lists = self.english_lists();
         if lists.is_empty() {
@@ -92,8 +96,14 @@ impl Engine {
         let short_acronym = english_weight == 0
             && text.len() <= 2
             && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()));
-        let english_first =
-            !self.chinese_first && unlikely_pinyin && chosen <= english_weight && !short_acronym;
+        let short_capitalized = english_weight == 0
+            && text.len() <= 2
+            && word.is_some_and(|word| word.chars().any(|c| c.is_ascii_uppercase()));
+        let english_first = !self.chinese_first
+            && unlikely_pinyin
+            && chosen <= english_weight
+            && !short_acronym
+            && !short_capitalized;
         let mut position = if items.is_empty() || english_first {
             0
         } else {
@@ -135,6 +145,13 @@ impl Engine {
                 .english_lists()
                 .iter()
                 .any(|words| words.get(scope).is_some())
+    }
+
+    /// 分叉补丁：`word` 在随包英文词表里（不看个人词表）。
+    pub(super) fn listed_english(&self, word: &str) -> bool {
+        self.english
+            .as_ref()
+            .is_some_and(|words| words.get(&word.to_ascii_lowercase()).is_some())
     }
 
     pub(super) fn english_lists(&self) -> Vec<&WordList> {
