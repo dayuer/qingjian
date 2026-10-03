@@ -204,6 +204,12 @@ fn check_once(
 ) -> Result<UpdateState, UpdateError> {
     let index = fetch_index(current)?;
     let available = index.newest(version, target, channel);
+    if available.is_none()
+        && let Some(dir) = state_path.parent().map(|dir| dir.join(UPDATES_DIR))
+    {
+        // 已装上（或没有新版）：上次下的安装包不再有用，别一直占着上百 MB
+        let _ = std::fs::remove_dir_all(dir);
+    }
     let downloaded = available
         .as_ref()
         .and_then(|found| found.package.as_ref())
