@@ -166,6 +166,17 @@ pub unsafe extern "C" fn qj_punctuate(session: *mut Session, c: u32) -> *mut c_c
     with(session, ptr::null_mut(), |s| owned(&s.punctuate(c)))
 }
 
+/// 没在组字时直接输出的字符（空格、回车），记进输入日志的文本流。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_note_passthrough(session: *mut Session, c: u32) {
+    if let Some(c) = char::from_u32(c) {
+        with(session, (), |s| s.note_passthrough(c));
+    }
+}
+
 /// 学习数据落盘。
 ///
 /// # Safety

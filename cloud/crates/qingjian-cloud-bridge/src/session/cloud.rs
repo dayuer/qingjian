@@ -17,7 +17,7 @@ const CLOUD_POSITION: usize = 1;
 
 impl Session {
     pub(super) fn connect(&mut self, cloud: &CloudConfig) {
-        if cloud.llm {
+        if cloud.llm && cloud.candidates {
             let config = PredictConfig {
                 enabled: true,
                 base_url: cloud.llm_base_url(),
@@ -28,6 +28,8 @@ impl Session {
                 Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
                 Err(error) => tracing::warn!(%error, "大模型联想启动失败"),
             }
+        }
+        if cloud.llm {
             self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
         }
         if let (true, Some(user_dir)) = (cloud.sync, &self.user_dir) {
@@ -37,8 +39,8 @@ impl Session {
                 ime_dir: user_dir.clone(),
                 state_dir: user_dir.join("cloud"),
                 sync_learning: true,
-                // 键盘不读 config.toml，也不在 iOS 上记输入日志
-                sync_logs: false,
+                // 键盘不读 config.toml；输入日志上传给纠错闭环，别的设备的不下载
+                sync_logs: cloud.logs,
                 log_download_dir: None,
                 sync_config: false,
             });

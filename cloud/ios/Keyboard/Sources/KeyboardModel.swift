@@ -166,6 +166,7 @@ final class KeyboardModel {
         if composing {
             commitFirst()
         } else {
+            engine?.notePassthrough(" ")
             output?.commit(" ")
         }
     }
@@ -175,6 +176,7 @@ final class KeyboardModel {
             output?.commit(engine.takeRaw())
             refresh()
         } else {
+            engine?.notePassthrough("\n")
             output?.commit("\n")
         }
     }

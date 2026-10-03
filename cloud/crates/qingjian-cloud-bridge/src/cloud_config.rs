@@ -14,8 +14,14 @@ pub struct CloudConfig {
     /// 这台设备的令牌（服务器上 `qingjian-cloud device add <名字>` 生成）。
     pub token: String,
 
-    /// 组字时让大模型补候选、润色。
+    /// 用服务器的大模型：润色；再开 `candidates` 才在组字时补候选。
     pub llm: bool,
+
+    /// 组字时让大模型补候选（缺省关：要等网络、帮助不大，准确率交给服务器上的纠错闭环）。
+    pub candidates: bool,
+
+    /// 记输入日志并上传，服务器上的纠错闭环（tuner）靠它找打错、分几次才选完的地方。
+    pub logs: bool,
 
     /// 与别的设备同步学习数据（词频、用户词、个人 n-gram 等）。
     pub sync: bool,
@@ -27,6 +33,8 @@ impl Default for CloudConfig {
             server: String::new(),
             token: String::new(),
             llm: true,
+            candidates: false,
+            logs: true,
             sync: true,
         }
     }
