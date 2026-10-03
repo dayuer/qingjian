@@ -198,6 +198,10 @@ impl Host {
             updates.poll(&self.settings.config().update);
         }
         self.sync_update();
+        // 分叉补丁：「青简 Cloud」子菜单
+        if let Some(mtm) = objc2::MainThreadMarker::new() {
+            self.menu.sync_cloud_agent(mtm);
+        }
     }
 
     /// 检查更新的状态变了就刷菜单里的「有新版本」与「关于」页；没变什么都不做。

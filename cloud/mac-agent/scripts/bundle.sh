@@ -54,5 +54,5 @@ echo "已打包 $app"
 
 if [[ "${1:-}" == "--install" ]]; then
   "$here/scripts/install-app.sh" "$app"
-  echo "第一次运行会生成配置文件：菜单栏剪贴板图标 → 打开配置文件…"
+  echo "第一次运行会生成配置文件：输入法「中☁」菜单 → 青简 Cloud → 打开配置文件…"
 fi

@@ -1,6 +1,7 @@
 # Mac 常驻程序
 
-菜单栏里的剪贴板图标，做两件事：
+后台常驻，不占菜单栏：状态与操作在输入法「中☁」菜单的「青简 Cloud ›」子菜单里（配置 `menu_bar = true` 可另显示自己的图标）。
+**只在用青简时运行**：切到别的输入法 30 秒后自己退出，切回青简时由输入法拉起；所以用别的输入法时剪贴板也不同步。做这些事：
 
 - **剪贴板**：本机复制的文本上传到你的服务器；别的设备刚复制的（2 分钟内）直接写进本机剪贴板，`⌘V` 就能贴；更早的在菜单里列出，点一条复制到本机。
 - **学习数据与设置**：词频、选择、n-gram、敲错表、英文词、用户词，以及 `config.toml`（设置与自定义短语）在各台 Mac 之间合并。
@@ -24,14 +25,14 @@ cd cloud/mac-agent
 scripts/bundle.sh --install     # 装到 ~/Applications/QingjianCloud.app，登录后自动启动
 ```
 
-第一次运行会生成 `~/Library/Application Support/QingjianCloud/config.toml`。在菜单栏图标里点「打开配置文件…」，填上：
+第一次运行会生成 `~/Library/Application Support/QingjianCloud/config.toml`。在「中☁ → 青简 Cloud」里点「打开配置文件…」，填上：
 
 ```toml
 server = "https://你的域名"
 token = "qjc_…"   # 服务器上 device add 打印的令牌
 ```
 
-保存后点「重新加载配置」。卸载：`scripts/bundle.sh --uninstall`。
+保存后点「重新加载配置」。从输入法 pkg 安装（`cloud/scripts/publish-mac.sh` 发的包）时已一起装好。卸载：`scripts/bundle.sh --uninstall`。
 
 ## 行为
 

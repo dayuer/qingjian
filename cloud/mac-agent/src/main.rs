@@ -14,6 +14,8 @@ mod app;
 #[cfg(target_os = "macos")]
 mod history;
 #[cfg(target_os = "macos")]
+mod input_source;
+#[cfg(target_os = "macos")]
 mod menu;
 #[cfg(target_os = "macos")]
 mod pasteboard;
