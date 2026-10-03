@@ -124,7 +124,7 @@ impl InputLogSync {
         for raw in bytes.split_inclusive(|b| *b == b'\n') {
             consumed += raw.len() as u64;
             let line = String::from_utf8_lossy(raw).trim().to_owned();
-            if !line.is_empty() {
+            if !line.is_empty() && !from_system_prompt(&line) {
                 batch_bytes += line.len();
                 batch.push(line);
             }
@@ -242,5 +242,42 @@ impl InputLogSync {
         std::fs::write(&temp, bytes)?;
         std::fs::rename(&temp, &self.state_path)?;
         Ok(())
+    }
+}
+
+/// 系统授权框、登录窗口里的输入：可能是密码，绝不上传。输入法本该不接手这些窗口的按键（见
+/// `apps/macos/src/imk/controller/mod.rs` 的 `SECURITY_AGENT`），这里是第二道防线：万一记下了也不离开本机。
+const SYSTEM_PROMPTS: [&str; 2] = ["com.apple.SecurityAgent", "com.apple.loginwindow"];
+
+fn from_system_prompt(line: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(line)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("app")?
+                .as_str()
+                .map(|app| SYSTEM_PROMPTS.contains(&app))
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod system_prompt_tests {
+    use super::from_system_prompt;
+
+    #[test]
+    fn lines_from_password_prompts_are_never_uploaded() {
+        assert!(from_system_prompt(
+            r#"{"event":"commit","text":"x","source":"raw","app":"com.apple.SecurityAgent"}"#
+        ));
+        assert!(from_system_prompt(
+            r#"{"event":"break","app":"com.apple.loginwindow"}"#
+        ));
+        assert!(!from_system_prompt(
+            r#"{"event":"commit","text":"你好","app":"com.apple.TextEdit"}"#
+        ));
+        assert!(!from_system_prompt(
+            r#"{"event":"passthrough","text":"\n"}"#
+        ));
     }
 }

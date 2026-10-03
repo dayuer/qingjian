@@ -165,6 +165,10 @@ const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;
 /// 登录 / 锁屏窗口的 bundle identifier。
 const LOGIN_WINDOW: &str = "com.apple.loginwindow";
 
+/// 分叉补丁：系统授权框（装 pkg、改系统设置时输管理员密码的那个）。它的密码框照样把按键送给输入法，
+/// 青简把每个字符原样上屏、记进了输入日志，日志又同步到了服务器（2026-10-03 实测）。与登录窗口一样整个交还系统。
+const SECURITY_AGENT: &str = "com.apple.SecurityAgent";
+
 /// 数字行与小键盘的键码对应的数字 1–9（ANSI 布局的物理键）。
 fn digit_key(key_code: u16) -> Option<usize> {
     Some(match key_code {
@@ -188,7 +192,13 @@ impl QingjianInputController {
     /// 日志只证实 loginwindow 会激活青简，按键是否真的送来没有复现（开 FileVault 的机器进不到这个界面）。
     /// 找到按键送进来的条件后改成针对它的判断，并确认别的系统界面有没有同样的情况。
     fn in_login_window(&self) -> bool {
-        host::with(|h| h.engine.application() == Some(LOGIN_WINDOW)).unwrap_or(false)
+        host::with(|h| {
+            matches!(
+                h.engine.application(),
+                Some(LOGIN_WINDOW) | Some(SECURITY_AGENT)
+            )
+        })
+        .unwrap_or(false)
     }
 
     /// 一个按键事件的分发：只管按下；Cmd / Ctrl 组合除 Cmd+左右外一律交给应用；命令键映射成选择器；其余按字符当文本。
