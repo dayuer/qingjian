@@ -11,14 +11,37 @@ server = ""
 
 # 在服务器上运行 `docker compose exec cloud qingjian-cloud device add <设备名>` 得到的令牌
 token = ""
+
+# 同步输入法的学习数据（词频、选择、n-gram、敲错、英文词、用户词）；需要打了 Cloud 补丁的青简
+learning = true
+
+# 同步输入法的 config.toml（设置与自定义短语）；两台设备都改过时较新的赢，另一份存成备份
+settings = true
 "#;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct AgentConfig {
     pub server: String,
 
     pub token: String,
+
+    /// 同步学习数据。
+    pub learning: bool,
+
+    /// 同步 `config.toml`。
+    pub settings: bool,
+}
+
+impl Default for AgentConfig {
+    fn default() -> Self {
+        Self {
+            server: String::new(),
+            token: String::new(),
+            learning: true,
+            settings: true,
+        }
+    }
 }
 
 impl AgentConfig {

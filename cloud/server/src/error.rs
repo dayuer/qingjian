@@ -18,6 +18,9 @@ pub enum ServerError {
     #[error("clipboard text exceeds {0} bytes")]
     TooLarge(usize),
 
+    #[error("version conflict, server has {0}")]
+    Conflict(u64),
+
     #[error("device already exists: {0}")]
     DeviceExists(String),
 
@@ -38,7 +41,7 @@ impl IntoResponse for ServerError {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::TooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
-            Self::DeviceExists(_) => StatusCode::CONFLICT,
+            Self::DeviceExists(_) | Self::Conflict(_) => StatusCode::CONFLICT,
             Self::Database(_) | Self::Io(_) | Self::Random(_) => {
                 tracing::error!(error = %self, "请求处理失败");
                 StatusCode::INTERNAL_SERVER_ERROR

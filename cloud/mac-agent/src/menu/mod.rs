@@ -10,7 +10,7 @@ use objc2_app_kit::{
     NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
 };
 use objc2_foundation::{NSString, ns_string};
-use qingjian_cloud_client::Status;
+use qingjian_cloud_client::{DataStatus, Status};
 
 use crate::history::History;
 
@@ -22,6 +22,7 @@ pub const TAG_RELOAD: isize = -2;
 pub const TAG_OPEN_CONFIG: isize = -3;
 pub const TAG_OPEN_LOGS: isize = -4;
 pub const TAG_QUIT: isize = -5;
+pub const TAG_SYNC_NOW: isize = -6;
 
 pub struct StatusMenu {
     item: Retained<NSStatusItem>,
@@ -56,7 +57,7 @@ impl StatusMenu {
     }
 
     /// 按当前状态与历史重建整个菜单（条目少，重建比增量改简单可靠）。
-    pub fn update(&self, display: &Display, history: &History) {
+    pub fn update(&self, display: &Display, data: Option<&DataStatus>, history: &History) {
         let mtm = self.mtm;
         if let Some(button) = self.item.button(mtm) {
             // 离线、没配置、暂停时图标变灰，不弹任何通知
@@ -72,6 +73,9 @@ impl StatusMenu {
         let menu = NSMenu::new(mtm);
         menu.setAutoenablesItems(false);
         menu.addItem(&self.disabled(&status_line(display)));
+        if let Some(data) = data {
+            menu.addItem(&self.disabled(&data_line(data)));
+        }
         menu.addItem(&NSMenuItem::separatorItem(mtm));
         let mut any = false;
         for (index, entry) in history.entries().enumerate() {
@@ -88,6 +92,9 @@ impl StatusMenu {
             "暂停同步"
         };
         menu.addItem(&self.action(pause, TAG_PAUSE));
+        if data.is_some() {
+            menu.addItem(&self.action("立即同步学习数据", TAG_SYNC_NOW));
+        }
         menu.addItem(&self.action("重新加载配置", TAG_RELOAD));
         menu.addItem(&self.action("打开配置文件…", TAG_OPEN_CONFIG));
         menu.addItem(&self.action("打开日志目录", TAG_OPEN_LOGS));
@@ -141,6 +148,36 @@ fn status_line(display: &Display) -> String {
                 base
             }
         }
+    }
+}
+
+fn data_line(data: &DataStatus) -> String {
+    let mut line = if let Some(error) = &data.error {
+        format!("学习数据：同步失败，稍后重试（{}）", short(error))
+    } else if data.waiting_for_ime {
+        "学习数据：等输入法合并（切到青简打几个字）".to_owned()
+    } else if let Some(ms) = data.last_ok_ms {
+        format!("学习数据：{}同步", ago(ms))
+    } else {
+        "学习数据：正在同步…".to_owned()
+    };
+    if data.config_conflict {
+        line.push_str(" · 设置有冲突，旧的一份已备份");
+    }
+    line
+}
+
+/// 「刚刚」/「N 分钟前」/「N 小时前」。
+fn ago(ms: i64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or_default();
+    let minutes = (now - ms).max(0) / 60_000;
+    match minutes {
+        0 => "刚刚".to_owned(),
+        1..=59 => format!("{minutes} 分钟前"),
+        _ => format!("{} 小时前", minutes / 60),
     }
 }
 

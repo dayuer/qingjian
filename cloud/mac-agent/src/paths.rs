@@ -24,3 +24,8 @@ pub fn log_dir() -> Option<PathBuf> {
 pub fn config_path() -> Option<PathBuf> {
     Some(support_dir()?.join("config.toml"))
 }
+
+/// 输入法的数据目录 `~/Library/Application Support/Qingjian/`：学习数据、`config.toml`，以及收件箱 `sync/inbox.tsv`。
+pub fn ime_dir() -> Option<PathBuf> {
+    Some(home()?.join("Library/Application Support/Qingjian"))
+}

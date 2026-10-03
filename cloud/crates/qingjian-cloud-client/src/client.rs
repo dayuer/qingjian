@@ -4,7 +4,8 @@ use std::io::BufReader;
 use std::time::Duration;
 
 use qingjian_cloud_proto::{
-    Event, EventPage, PATH_CLIPBOARD, PATH_EVENTS, PATH_STREAM, PATH_WHOAMI, PushClip, Whoami,
+    ConfigDoc, Event, EventPage, LearningPage, LearningPush, PATH_CLIPBOARD, PATH_CONFIG,
+    PATH_EVENTS, PATH_LEARNING, PATH_STREAM, PATH_WHOAMI, PushClip, PutConfig, Whoami,
 };
 use ureq::Agent;
 use ureq::config::ConfigBuilder;
@@ -97,6 +98,52 @@ impl Client {
             .query("since", since.to_string())
             .query("limit", limit.to_string())
             .call()?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 推学习数据的变化，返回服务器的最新 `seq`。
+    pub fn push_learning(&self, push: &LearningPush) -> Result<u64, ClientError> {
+        let mut response = self
+            .agent
+            .post(self.url(PATH_LEARNING))
+            .header("Authorization", self.bearer())
+            .send_json(push)?;
+        let page: LearningPage = json(response.body_mut().read_json())?;
+        Ok(page.latest)
+    }
+
+    pub fn learning(&self, since: u64, limit: usize) -> Result<LearningPage, ClientError> {
+        let mut response = self
+            .agent
+            .get(self.url(PATH_LEARNING))
+            .header("Authorization", self.bearer())
+            .query("since", since.to_string())
+            .query("limit", limit.to_string())
+            .call()?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 服务器上的配置文件；还没有返回 `None`。
+    pub fn config(&self) -> Result<Option<ConfigDoc>, ClientError> {
+        let result = self
+            .agent
+            .get(self.url(PATH_CONFIG))
+            .header("Authorization", self.bearer())
+            .call();
+        match result {
+            Ok(mut response) => json(response.body_mut().read_json()).map(Some),
+            Err(ureq::Error::StatusCode(404)) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// 写配置文件；服务器版本不是 `if_version` 时返回 `Rejected { status: 409 }`。
+    pub fn put_config(&self, put: &PutConfig) -> Result<ConfigDoc, ClientError> {
+        let mut response = self
+            .agent
+            .put(self.url(PATH_CONFIG))
+            .header("Authorization", self.bearer())
+            .send_json(put)?;
         json(response.body_mut().read_json())
     }
 

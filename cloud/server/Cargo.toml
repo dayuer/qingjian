@@ -26,6 +26,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+# 用上游输入法真正的学习模块验证收件箱合并（只在测试里依赖上游）
+qingjian-core = { path = "../../crates/qingjian-core" }
+qingjian-learning = { path = "../../crates/qingjian-learning" }
 qingjian-cloud-client = { workspace = true, features = ["rustls"] }
 tempfile = "3"
 

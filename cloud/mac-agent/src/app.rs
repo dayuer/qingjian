@@ -7,13 +7,14 @@ use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 use objc2_foundation::NSTimer;
-use qingjian_cloud_client::{ClipboardSync, SyncConfig};
+use qingjian_cloud_client::{ClipboardSync, DataStatus, DataSync, DataSyncConfig, SyncConfig};
 use qingjian_cloud_proto::EventKind;
 
 use crate::config::AgentConfig;
 use crate::history::History;
 use crate::menu::{
-    Display, StatusMenu, TAG_OPEN_CONFIG, TAG_OPEN_LOGS, TAG_PAUSE, TAG_QUIT, TAG_RELOAD, Target,
+    Display, StatusMenu, TAG_OPEN_CONFIG, TAG_OPEN_LOGS, TAG_PAUSE, TAG_QUIT, TAG_RELOAD,
+    TAG_SYNC_NOW, Target,
 };
 use crate::watcher::ClipboardWatcher;
 use crate::{pasteboard, paths};
@@ -70,6 +71,12 @@ pub struct App {
     /// 配置好了才有。
     sync: Option<ClipboardSync>,
 
+    /// 学习数据与设置的同步；配置里关掉或没配置时为 `None`。
+    data: Option<DataSync>,
+
+    /// 上次画菜单时的学习数据状态。
+    shown_data: Option<DataStatus>,
+
     /// 没配置好的原因，菜单里显示。
     unconfigured: Option<String>,
 
@@ -91,6 +98,8 @@ impl App {
             mtm,
             menu: StatusMenu::new(mtm),
             sync: None,
+            data: None,
+            shown_data: None,
             unconfigured: None,
             paused: false,
             watcher: ClipboardWatcher::new(),
@@ -105,6 +114,7 @@ impl App {
     fn load_config(&mut self) {
         // 先停旧的，再按新配置起；进度文件按服务器地址区分，换服务器会从头同步
         self.sync = None;
+        self.data = None;
         self.history = History::default();
         let (Some(config_path), Some(state_dir)) = (paths::config_path(), paths::support_dir())
         else {
@@ -119,6 +129,21 @@ impl App {
                 return;
             }
         };
+        if (config.learning || config.settings)
+            && let Some(ime_dir) = paths::ime_dir()
+        {
+            match DataSync::start(DataSyncConfig {
+                server: config.server.clone(),
+                token: config.token.clone(),
+                ime_dir,
+                state_dir: state_dir.join("data"),
+                sync_learning: config.learning,
+                sync_config: config.settings,
+            }) {
+                Ok(data) => self.data = Some(data),
+                Err(error) => tracing::warn!(%error, "学习数据同步启动失败"),
+            }
+        }
         match ClipboardSync::start(SyncConfig {
             server: config.server,
             token: config.token,
@@ -171,6 +196,11 @@ impl App {
                 self.paused = !self.paused;
                 self.refresh_menu(true);
             }
+            TAG_SYNC_NOW => {
+                if let Some(data) = &self.data {
+                    data.sync_now();
+                }
+            }
             TAG_RELOAD => {
                 self.load_config();
                 self.refresh_menu(true);
@@ -217,9 +247,11 @@ impl App {
 
     fn refresh_menu(&mut self, force: bool) {
         let display = self.display();
-        if force || self.shown.as_ref() != Some(&display) {
-            self.menu.update(&display, &self.history);
+        let data = self.data.as_ref().map(DataSync::status);
+        if force || self.shown.as_ref() != Some(&display) || self.shown_data != data {
+            self.menu.update(&display, data.as_ref(), &self.history);
             self.shown = Some(display);
+            self.shown_data = data;
         }
     }
 }
