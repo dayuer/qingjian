@@ -52,7 +52,7 @@ skipped=()
 for pr in ${prs[@]+"${prs[@]}"}; do
   ref="$upstream/pr/$pr"
   if git -C "$work" merge-base --is-ancestor "$ref" HEAD; then
-    merged+=("#$pr（基线已包含）")
+    merged+=("#${pr}（基线已包含）")
     continue
   fi
   if git -C "$work" merge -q --no-ff --no-edit -m "Merge upstream PR #$pr" "$ref" >/dev/null 2>&1; then
