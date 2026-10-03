@@ -2,6 +2,9 @@
 
 需要：一台能装 Docker 的 VPS、一个解析到它的域名、放行 80 / 443 端口。
 
+80 / 443 已经被宿主机的 nginx 占用（证书由 certbot 管）的机器，改用 `deploy-nginx.sh`：在本机运行，经 ssh 部署；
+不启动 Caddy，cloud 只绑定本机端口，由 nginx 转发；同时申请证书、写好 nginx 站点、装每日备份。用法见脚本开头。
+
 ## 1. 启动
 
 ```bash
@@ -53,7 +56,7 @@ docker compose --profile tuner logs -f tuner                # 每轮的报告
 ## 5. 备份与升级
 
 ```bash
-crontab -e   # 每天 4 点备份，保留 14 份：
+crontab -e   # root 的 crontab，每天 4 点备份，保留 14 份：
 # 0 4 * * * /path/to/qingjian/cloud/deploy/backup.sh /path/to/backups
 
 git pull && docker compose up -d --build   # 升级
