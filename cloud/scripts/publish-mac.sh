@@ -35,7 +35,7 @@ rm -rf "$staging" && mkdir -p "$staging"
 say "打包青简 Cloud 常驻程序"
 cloud/mac-agent/scripts/bundle.sh
 
-say "打包输入法 $version（带青简 Cloud）"
+say "打包输入法 ${version}（带青简 Cloud）"
 QINGJIAN_VERSION="$version" QINGJIAN_EMBED_CLOUD_AGENT="$root/cloud/mac-agent/build/QingjianCloud.app" \
   apps/macos/scripts/bundle.sh --pkg
 cp "target/pkg/$file" "$staging/$file"
@@ -99,4 +99,4 @@ ssh "$HOST" "cd '$REMOTE_DIR' && mv releases.json.new releases.json && mv releas
 say "检查线上"
 curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" | python3 -c 'import json,sys; print("线上最新:", json.load(sys.stdin)["latest"])'
 curl -fsSI -m 20 "https://$DOMAIN/releases/$file" | head -1
-echo "已发布 $version。已装的青简一天内会查到；想马上试：偏好设置 → 关于 → 立即检查。"
+echo "已发布 ${version}。已装的青简一天内会查到；想马上试：偏好设置 → 关于 → 立即检查。"

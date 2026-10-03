@@ -19,7 +19,7 @@ DEVICES="${DEVICES:-}"
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 if [[ -n "${CF_API_TOKEN:-}" ]]; then
-  say "Cloudflare：$DOMAIN → $SERVER_IP（仅 DNS）"
+  say "Cloudflare：$DOMAIN → ${SERVER_IP}（仅 DNS）"
   CF_API_TOKEN="$CF_API_TOKEN" DOMAIN="$DOMAIN" IP="$SERVER_IP" python3 - <<'PY'
 import json, os, sys, urllib.error, urllib.request
 
@@ -70,7 +70,7 @@ for _ in $(seq 1 36); do
   sleep 5
 done
 
-say "远端部署（$HOST）"
+say "远端部署（${HOST}）"
 ssh "$HOST" DOMAIN="$DOMAIN" PORT="$PORT" REPO="$REPO" BRANCH="$BRANCH" DEVICES="'$DEVICES'" bash -s <<'REMOTE'
 set -euo pipefail
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -88,7 +88,7 @@ else
 fi
 git -C "$DIR" log --oneline -1
 
-say "本机专用的 compose 覆盖（$HOSTCFG）"
+say "本机专用的 compose 覆盖（${HOSTCFG}）"
 mkdir -p "$HOSTCFG" "$HOSTCFG/releases"
 # 原 Dockerfile 加一行 CARGO_BUILD_JOBS=1：2 核 3.7G 的机器上跑着线上服务，构建慢点也不能挤内存
 sed '/^WORKDIR \/src/a ENV CARGO_BUILD_JOBS=1' "$DIR/cloud/server/Dockerfile" > "$HOSTCFG/Dockerfile"
@@ -206,7 +206,7 @@ for name in $DEVICES; do
   if docker compose exec -T cloud qingjian-cloud device list </dev/null | cut -f1 | grep -qx "$name"; then
     echo "设备 $name 已登记过（令牌只在登记时显示；要换先 device remove 再 add）"
   else
-    say "登记设备 $name（令牌只显示这一次）"
+    say "登记设备 ${name}（令牌只显示这一次）"
     docker compose exec -T cloud qingjian-cloud device add "$name" </dev/null
   fi
 done

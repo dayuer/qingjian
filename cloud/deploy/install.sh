@@ -52,7 +52,7 @@ IP="${SERVER_IP:-$(curl -fsS -4 -m 10 https://api.ipify.org || curl -fsS -4 -m 1
 echo "本机公网 IP：$IP"
 
 if [[ -n "${CF_API_TOKEN:-}" ]]; then
-  say "Cloudflare：$DOMAIN → $IP（仅 DNS）"
+  say "Cloudflare：$DOMAIN → ${IP}（仅 DNS）"
   CF_API_TOKEN="$CF_API_TOKEN" DOMAIN="$DOMAIN" IP="$IP" python3 - <<'PY'
 import json, os, sys, urllib.request
 
@@ -108,7 +108,7 @@ for _ in $(seq 1 36); do
 done
 [[ "${resolved:-}" == "$IP" ]] && echo "已解析" || echo "还没解析到（当前：${resolved:-无}），Caddy 会自动重试申请证书，继续"
 
-say "拉取代码 $REPO（$BRANCH）到 $DIR"
+say "拉取代码 ${REPO}（${BRANCH}）到 $DIR"
 if [[ -d "$DIR/.git" ]]; then
   git -C "$DIR" fetch -q --depth 1 origin "$BRANCH"
   git -C "$DIR" checkout -q -B "$BRANCH" FETCH_HEAD
