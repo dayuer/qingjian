@@ -1,5 +1,6 @@
 # iOS 主 App + 键盘扩展的 xcodegen 工程描述；生成：`xcodegen generate`（.xcodeproj 不进仓库）。
-# 真机要签名：`DEVELOPMENT_TEAM=<团队 ID> xcodegen generate`，或生成后在 Xcode 里选团队。
+# 主 App 与键盘靠 App Group（group.app.qingjian.cloud）共享设置，要自动签名：Xcode 登录团队 L9YRXEKYN2 的账号，
+# 换团队改下面的 DEVELOPMENT_TEAM 或在 Xcode 里选。
 name: QingjianCloud
 options:
   bundleIdPrefix: app.qingjian.cloud
@@ -12,15 +13,22 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
-    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    DEVELOPMENT_TEAM: L9YRXEKYN2
     TARGETED_DEVICE_FAMILY: "1,2"
 targets:
   QingjianCloud:
     type: application
     platform: iOS
-    sources: [App]
+    sources: [App, Shared]
     dependencies:
       - target: Keyboard
+      # 设置页用桥读写 config.toml / cloud.toml
+      - framework: Frameworks/QingjianBridge.xcframework
+        embed: false
+    entitlements:
+      path: App/App.entitlements
+      properties:
+        com.apple.security.application-groups: [group.app.qingjian.cloud]
     info:
       path: App/Info.plist
       properties:
@@ -35,12 +43,17 @@ targets:
     platform: iOS
     sources:
       - path: Keyboard/Sources
+      - path: Shared
       - path: Keyboard/Data
         type: folder
         buildPhase: resources
     dependencies:
       - framework: Frameworks/QingjianBridge.xcframework
         embed: false
+    entitlements:
+      path: Keyboard/Keyboard.entitlements
+      properties:
+        com.apple.security.application-groups: [group.app.qingjian.cloud]
     preBuildScripts:
       - name: 编译 Rust 桥与拷产品数据
         script: '"${PROJECT_DIR}/scripts/build-bridge.sh"'
@@ -56,7 +69,7 @@ targets:
             IsASCIICapable: false
             PrefersRightToLeft: false
             PrimaryLanguage: zh-Hans
-            # 完全访问只用于按键震动（iOS 规定第三方键盘没有它不能震）；键盘不联网，打的字不出这台设备
+            # 完全访问用于按键震动（iOS 规定第三方键盘没有它不能震）、写 App Group 里的学习数据与连青简 Cloud
             RequestsOpenAccess: true
     settings:
       base:

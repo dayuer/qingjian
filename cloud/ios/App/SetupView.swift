@@ -1,10 +1,12 @@
-// 启用步骤 + 试打框。
+// 主 App 首页：启用步骤、设置入口与试打框。
 
 import SwiftUI
 import UIKit
 
 struct SetupView: View {
     @State private var draft = ""
+
+    @State private var store = SettingsStore()
 
     var body: some View {
         NavigationStack {
@@ -18,6 +20,18 @@ struct SetupView: View {
                             UIApplication.shared.open(url)
                         }
                     }
+                }
+                Section {
+                    if store.available {
+                        NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
+                        NavigationLink("青简 Cloud") { CloudSettingsView(store: store) }
+                    } else {
+                        Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("设置")
+                } footer: {
+                    Text("与 Mac 版偏好设置是同一份，开了青简 Cloud 同步时两边互通。")
                 }
                 Section {
                     TextField("在这里试打", text: $draft, axis: .vertical)

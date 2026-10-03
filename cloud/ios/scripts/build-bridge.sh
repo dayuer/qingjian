@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 把 qingjian-cloud-bridge 编成真机 + 模拟器的静态库，打成 Frameworks/QingjianBridge.xcframework，
-# 再把产品数据（dict.qj、lm.qj）与青简 Cloud 配置（cloud.local.toml，可选）拷进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
+# 再把产品数据（dict.qj、lm.qj、领域词库）与青简 Cloud 配置（cloud.local.toml，可选）拷进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
 # 用法：scripts/build-bridge.sh [--debug]；数据目录默认取仓库根的 data/generated，可用 QINGJIAN_DATA 覆盖。
 set -euo pipefail
 
@@ -52,7 +52,15 @@ for file in dict.qj lm.qj; do
   # 只在变了时拷，免得每次构建都触发重新签名大文件
   cmp -s "$data/$file" "$ios_dir/Keyboard/Data/$file" || cp "$data/$file" "$ios_dir/Keyboard/Data/$file"
 done
-# 青简 Cloud 的连接配置（服务器地址 + 这台设备的令牌）：本机文件，不进仓库；没有就完全离线
+# 领域词库：设置页里逐个开关，键盘按 config.toml 的 [dictionaries] domains 加载
+mkdir -p "$ios_dir/Keyboard/Data/dicts"
+for dict in "$data"/dicts/*.qj; do
+  [[ -f "$dict" ]] || continue
+  target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
+  cmp -s "$dict" "$target" || cp "$dict" "$target"
+done
+# 青简 Cloud 的连接配置（服务器地址 + 这台设备的令牌）：本机文件，不进仓库；只作首次启动的种子，
+# 之后以 App Group 里的 cloud.toml 为准（主 App 设置页可改）
 if [[ -f "$ios_dir/cloud.local.toml" ]]; then
   cmp -s "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml" \
     || install -m 644 "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml"

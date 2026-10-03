@@ -47,10 +47,10 @@ impl Session {
                 ime_dir: user_dir.clone(),
                 state_dir: user_dir.join("cloud"),
                 sync_learning: true,
-                // 键盘不读 config.toml；输入日志上传给纠错闭环，别的设备的不下载
+                // config.toml 与 Mac 同步（模糊音、短语、词库开关……）；输入日志上传给纠错闭环，别的设备的不下载
                 sync_logs: cloud.logs,
                 log_download_dir: None,
-                sync_config: false,
+                sync_config: true,
             });
             match started {
                 Ok(sync) => self.data_sync = Some(sync),
@@ -128,11 +128,13 @@ impl Session {
     /// 键盘可见期间定时调：合并收件箱、取回大模型结果。候选栏变了返回 true。
     pub fn poll(&mut self) -> bool {
         self.apply_inbox();
+        // 设置变了（主 App 改的或从 Mac 同步来的）候选要重排
+        let reloaded = self.reload_config() && self.composing();
         let Some(prediction) = self.engine.poll_prediction() else {
-            return false;
+            return reloaded;
         };
         if !self.composing() || self.entries.is_empty() {
-            return false;
+            return reloaded;
         }
         let mut position = CLOUD_POSITION.min(self.entries.len());
         let mut inserted = false;
@@ -151,7 +153,7 @@ impl Session {
             let candidate: Candidate = word.into_candidate();
             insert(&mut self.entries, Entry::Cloud(candidate));
         }
-        inserted
+        inserted || reloaded
     }
 
     pub(super) fn request_prediction(&mut self) {

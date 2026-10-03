@@ -17,7 +17,7 @@ fn types_and_commits_a_sentence() {
     };
     let user = std::env::temp_dir().join(format!("qj-bridge-{}", std::process::id()));
     std::fs::create_dir_all(&user).unwrap();
-    let mut session = Session::open(&data, Some(&user), None).unwrap();
+    let mut session = Session::open(&data, Some(&user), None, None).unwrap();
     for c in "nihaoshijie".chars() {
         session.push(c);
     }
@@ -36,7 +36,7 @@ fn backspace_and_raw() {
     let Some(data) = data_dir() else {
         return;
     };
-    let mut session = Session::open(&data, None, None).unwrap();
+    let mut session = Session::open(&data, None, None, None).unwrap();
     for c in "zhongw".chars() {
         session.push(c);
     }
@@ -63,7 +63,7 @@ fn logs_only_when_connected() {
 
     let offline = std::env::temp_dir().join(format!("qj-bridge-offline-{}", std::process::id()));
     std::fs::create_dir_all(&offline).unwrap();
-    let mut session = Session::open(&data, Some(&offline), None).unwrap();
+    let mut session = Session::open(&data, Some(&offline), None, None).unwrap();
     type_and_commit(&mut session);
     assert!(!offline.join("input-log.jsonl").exists());
 
@@ -73,7 +73,7 @@ fn logs_only_when_connected() {
         "server = \"http://127.0.0.1:9\"\ntoken = \"t\"\n",
     )
     .unwrap();
-    let mut session = Session::open(&data, Some(&online), Some(cloud)).unwrap();
+    let mut session = Session::open(&data, Some(&online), None, Some(cloud)).unwrap();
     type_and_commit(&mut session);
     let log = std::fs::read_to_string(online.join("input-log.jsonl")).unwrap();
     assert!(log.contains("你好"), "{log}");

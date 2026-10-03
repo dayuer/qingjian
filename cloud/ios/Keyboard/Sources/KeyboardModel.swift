@@ -31,7 +31,7 @@ final class KeyboardModel {
     private(set) var shifted = false
 
     /// 引擎打不开（数据缺失）时为 nil，字母直接输出。
-    @ObservationIgnored private let engine: Engine?
+    @ObservationIgnored private var engine: Engine?
 
     @ObservationIgnored weak var output: TextOutput?
 
@@ -40,6 +40,14 @@ final class KeyboardModel {
 
     init(engine: Engine?) {
         self.engine = engine
+    }
+
+    /// 换一个引擎（完全访问开关或连接配置变了，学习数据目录与云端都要重开）；旧的先落盘。
+    func replaceEngine(_ engine: Engine?) {
+        self.engine?.flush()
+        self.engine = engine
+        if privateField { engine?.setPrivate(true) }
+        refresh()
     }
 
     var composing: Bool { !preedit.isEmpty }

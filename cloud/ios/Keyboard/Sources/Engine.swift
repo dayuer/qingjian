@@ -8,12 +8,14 @@ final class Engine {
     /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。
     private nonisolated(unsafe) let session: OpaquePointer
 
-    /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据；
-    /// `cloudConfig` 指向 cloud.toml，没有就完全离线。打不开返回 nil。
-    init?(dataDirectory: URL, userDirectory: URL?, cloudConfig: URL?) {
+    /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据；`configFile` 是设置（config.toml，
+    /// 变了轮询时自动重读）；`cloudConfig` 指向 cloud.toml，没有就完全离线。打不开返回 nil。
+    init?(dataDirectory: URL, userDirectory: URL?, configFile: URL?, cloudConfig: URL?) {
         let opened = Self.withOptionalCString(userDirectory?.path) { user in
-            Self.withOptionalCString(cloudConfig?.path) { cloud in
-                dataDirectory.path.withCString { qj_session_open($0, user, cloud) }
+            Self.withOptionalCString(configFile?.path) { config in
+                Self.withOptionalCString(cloudConfig?.path) { cloud in
+                    dataDirectory.path.withCString { qj_session_open($0, user, config, cloud) }
+                }
             }
         }
         guard let opened else { return nil }

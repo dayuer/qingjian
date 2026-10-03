@@ -10,8 +10,9 @@
 typedef struct QjSession QjSession;
 
 // data_dir 里要有 dict.qj（lm.qj 可选）；user_dir 可为 NULL（只在内存里学习）；
-// cloud_config 指向 cloud.toml，可为 NULL 或不存在（完全离线）。失败返回 NULL。
-QjSession *qj_session_open(const char *data_dir, const char *user_dir, const char *cloud_config);
+// config 是 config.toml，NULL 时用 user_dir 下的；cloud_config 指向 cloud.toml，可为 NULL 或不存在（完全离线）。失败返回 NULL。
+QjSession *qj_session_open(const char *data_dir, const char *user_dir, const char *config,
+                           const char *cloud_config);
 void qj_session_free(QjSession *session);
 
 void qj_push(QjSession *session, uint32_t c);
@@ -54,6 +55,14 @@ char *qj_clip_offer_text(QjSession *session);
 char *qj_clip_offer_device(QjSession *session);
 void qj_clip_handled(QjSession *session);
 void qj_clip_push(QjSession *session, const char *text);
+
+// 主 App 设置页。读返回 JSON（失败为 NULL）；写成功返回 NULL，失败返回原因。
+// config.toml 与 Mac 同格式并经青简 Cloud 同步，键盘每次轮询按修改时间重读。
+char *qj_settings_read(const char *config_path, const char *dicts_dir);
+char *qj_settings_write(const char *config_path, const char *json);
+// cloud.toml：读返回服务器地址、是否已连与各开关（不含令牌）；写只改开关，地址与令牌不动。键盘下次弹出时生效。
+char *qj_cloud_config_read(const char *path);
+char *qj_cloud_config_write(const char *path, const char *json);
 
 void qj_string_free(char *text);
 
