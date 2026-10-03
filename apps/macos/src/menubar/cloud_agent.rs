@@ -1,6 +1,11 @@
 //! 「青简 Cloud ›」子菜单：青简 Cloud 常驻程序不占菜单栏，把菜单写成 `QingjianCloud/menu.txt`，这里照着画；
 //! 点了哪项就往 `QingjianCloud/commands/` 写一个只含 tag 的文件，由它取走执行。两边只靠这两个文件通信，
 //! 输入法不碰剪贴板与同步。格式见 `cloud/mac-agent/src/menu/lines.rs`。自用分叉补丁，见 `cloud/docs/fork-patch.md`。
+//!
+//! IMK 的坑（0.1.5-local.271 / 273 实测，每次 activateServer 都崩在 `_copySynchronizedActions:withMenuItems:`
+//! 的 `CFRelease(NULL)`，输入法打不了字）：IMK 把菜单拆成「动作列表」和「展开的条目」两份按下标对齐，
+//! 带子菜单的父项前面有隐藏项或分隔线、或子菜单为空时对不齐就崩。所以这个父项紧挨着「模糊音」放、
+//! 只在有内容时挂子菜单，子菜单里也照「模糊音」的样子：不放分隔线，每项都带动作（说明行只是置灰）。
 
 use std::cell::Cell;
 use std::path::PathBuf;
@@ -17,6 +22,9 @@ use super::target::MenuTarget;
 
 /// `menu.txt` 超过这么久没更新就当青简 Cloud 没在运行（它至少每分钟重写一次）。
 const STALE_AFTER: Duration = Duration::from_secs(5 * 60);
+
+/// 说明行挂的动作：置灰点不了；万一被点到，青简 Cloud 收到 99 当作不存在的历史下标忽略。
+const NOTE_ACTION: MenuAction = MenuAction::CloudAgent(99);
 
 /// 青简 Cloud 在 launchd 里的标签（`cloud/mac-agent/scripts/install-app.sh`）。
 const AGENT_LABEL: &str = "app.qingjian.cloud.agent";
@@ -73,8 +81,11 @@ impl CloudAgentMenu {
         submenu.setAutoenablesItems(false);
         if !stale {
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            for line in text.lines().filter(|line| !line.is_empty()) {
-                submenu.addItem(&parse_line(mtm, line, target));
+            for item in text
+                .lines()
+                .filter_map(|line| parse_line(mtm, line, target))
+            {
+                submenu.addItem(&item);
             }
         }
         if submenu.numberOfItems() == 0 {
@@ -83,7 +94,7 @@ impl CloudAgentMenu {
             } else {
                 "青简 Cloud 正在启动…"
             };
-            let item = action_item(mtm, note, None, target);
+            let item = action_item(mtm, note, Some(NOTE_ACTION), target);
             item.setEnabled(false);
             submenu.addItem(&item);
         }
@@ -92,21 +103,24 @@ impl CloudAgentMenu {
     }
 }
 
-fn parse_line(mtm: MainThreadMarker, line: &str, target: &MenuTarget) -> Retained<NSMenuItem> {
+/// 一行画成一项；分隔线（`---`）跳过，返回 `None`。说明行也挂动作（置灰点不了），见文件头。
+fn parse_line(
+    mtm: MainThreadMarker,
+    line: &str,
+    target: &MenuTarget,
+) -> Option<Retained<NSMenuItem>> {
     if line == "---" {
-        return NSMenuItem::separatorItem(mtm);
+        return None;
     }
     let (tag, title) = line.split_once('\t').unwrap_or(("-", line));
-    match tag.parse::<isize>().ok().map(MenuAction::CloudAgent) {
-        Some(action) if MenuAction::from_tag(action.tag()) == Some(action) => {
-            action_item(mtm, title, Some(action), target)
-        }
-        _ => {
-            let item = action_item(mtm, title, None, target);
-            item.setEnabled(false);
-            item
-        }
-    }
+    let action = tag
+        .parse::<isize>()
+        .ok()
+        .map(MenuAction::CloudAgent)
+        .filter(|action| MenuAction::from_tag(action.tag()) == Some(*action));
+    let item = action_item(mtm, title, Some(action.unwrap_or(NOTE_ACTION)), target);
+    item.setEnabled(action.is_some());
+    Some(item)
 }
 
 /// 子菜单里点了一项：交给青简 Cloud。文件名用纳秒时间，它按文件名顺序执行。
