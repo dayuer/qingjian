@@ -40,6 +40,12 @@ QINGJIAN_VERSION="$version" QINGJIAN_EMBED_CLOUD_AGENT="$root/cloud/mac-agent/bu
   apps/macos/scripts/bundle.sh --pkg
 cp "target/pkg/$file" "$staging/$file"
 
+# 打包过程会让 LaunchServices 把构建目录里的几份同 id 副本也登记上，系统按 id 拉输入法时可能解析到错的那份；注销掉只留正式安装的
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+for stray in "$root/target/Qingjian.app" "$root/target/pkg/$cpu/root/Qingjian.app" "$root/cloud/mac-agent/build/QingjianCloud.app"; do
+  "$LSREGISTER" -u "$stray" >/dev/null 2>&1 || true
+done
+
 say "更新版本列表"
 # 服务器上还没有索引（第一次发）时从空列表开始；旧索引签名不验，反正整份重签
 curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" -o "$staging/previous.json" 2>/dev/null || echo '{"releases":[]}' > "$staging/previous.json"
