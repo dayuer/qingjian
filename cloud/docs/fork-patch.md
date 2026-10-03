@@ -15,6 +15,18 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 | `apps/macos/src/host/cloud/mod.rs` | 加 1 行 | `mod inbox;` |
 | `apps/macos/src/host/config/mod.rs` | 加 1 行 | `tick()` 里调 `apply_cloud_inbox()` |
 
+### 回车上屏高亮候选（用户要的小功能，只在 macOS 生效）
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-platform/src/config/general.rs` | 加 4 行 | `[general] enter_commits_candidate`，缺省 false |
+| `crates/qingjian-platform/src/config/mod.rs` | 加 2 行 | 配置模板里的说明 |
+| `apps/macos/src/imk/controller/command.rs` | 加 18 行 | 回车分支按开关选高亮 / 原样；⇧ 从当前键盘状态读 |
+| `apps/macos/src/preferences/setting/mod.rs` | 加 6 行 | `Setting::EnterCommitsCandidate`，tag 取 99 避开上游往后顺排的号 |
+| `apps/macos/src/preferences/pages/general.rs` | 加 20 行 | 「通用」页勾选框 |
+| `apps/macos/src/host/settings.rs` | 加 4 行 | 勾选框写回配置 |
+| `docs/user/getting-started/keys.md` | 改 1 行、加 1 段 | 按键说明 |
+
 Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；以后要接入时各加一个同样的 `inbox` 挂钩。
 
 ## 合并上游时

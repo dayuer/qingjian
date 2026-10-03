@@ -25,6 +25,10 @@ pub struct GeneralPage {
 
     /// 双拼模式下输入框保留原始输入按键。
     shuangpin_raw_preedit: Retained<NSButton>,
+
+    /// 回车上屏高亮候选。
+    enter_commits_candidate: Retained<NSButton>,
+
     /// 五笔（86 版形码）；与拼音方案同时开着就是混输。
     wubi: Retained<NSButton>,
 
@@ -112,6 +116,18 @@ impl GeneralPage {
             mtm,
             "勾上后双拼模式下输入框（光标处）显示敲击的英文字母，回车可直接上屏；候选窗口顶部的拼音行照旧显示解码全拼。",
         );
+        let enter_commits_candidate = checkbox(
+            mtm,
+            "回车上屏高亮候选",
+            Setting::EnterCommitsCandidate,
+            target,
+        );
+        row_checkbox(layout, &enter_commits_candidate);
+        note(
+            layout,
+            mtm,
+            "勾上后中文组句时回车与空格一样上屏高亮的候选，Shift+回车原样上屏敲的字母；不勾（缺省）回车原样上屏。英文模式与算式不受影响。",
+        );
         let wubi = checkbox(mtm, "五笔（86 版）", Setting::Wubi, target);
         row_checkbox(layout, &wubi);
         note(
@@ -188,6 +204,7 @@ impl GeneralPage {
             scheme,
             wubi,
             shuangpin_raw_preedit,
+            enter_commits_candidate,
             traditional,
             english,
             english_off_in_apps,
@@ -228,6 +245,10 @@ impl GeneralPage {
         set_checked(&self.shuangpin_raw_preedit, general.shuangpin_raw_preedit);
         self.shuangpin_raw_preedit
             .setEnabled(general.scheme().is_shuangpin());
+        set_checked(
+            &self.enter_commits_candidate,
+            general.enter_commits_candidate,
+        );
         set_checked(&self.traditional, general.traditional);
         set_checked(&self.english, general.english_candidates);
         set_checked(

@@ -3,6 +3,19 @@
 use super::*;
 
 impl QingjianInputController {
+    /// `[general] enter_commits_candidate` 开着、按的不是 ⇧ 回车、也不在英文模式或算式里。
+    /// 选择器里不带修饰键，⇧ 从当前键盘状态读。
+    fn enter_commits_candidate(&self) -> bool {
+        let shift = NSEvent::modifierFlags_class().contains(NSEventModifierFlags::Shift);
+        !shift
+            && host::with(|h| {
+                h.settings.config().general.enter_commits_candidate
+                    && !h.engine.english_mode()
+                    && !h.engine.expression_mode()
+            })
+            .unwrap_or(false)
+    }
+
     /// 组句期间所有编辑动作都由我们接管；不认识的一律吞掉，否则应用会动光标、丢 marked text。
     pub(super) fn handle_command(&self, selector: Sel, client: TextClient<'_>) -> bool {
         tracing::debug!(selector = %selector, "didCommandBySelector");
@@ -42,7 +55,11 @@ impl QingjianInputController {
             // 方向键等其他键还原后交给应用
             return selector == sel!(insertNewline:);
         } else if selector == sel!(insertNewline:) {
-            self.commit_raw(client);
+            if self.enter_commits_candidate() {
+                self.commit_highlighted(client);
+            } else {
+                self.commit_raw(client);
+            }
         } else if selector == sel!(cancelOperation:) || selector == sel!(complete:) {
             // TextEdit 等应用把 Esc 绑成 complete:（自动补全），也当作取消。矩阵展开着时第一下 Esc 只收回单行
             if host::with(|h| h.session.collapse()).unwrap_or(false) {

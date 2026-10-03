@@ -92,6 +92,9 @@ pub struct GeneralConfig {
     /// 缺省关（展开成全拼音节）；常在双拼中打英文词或需要核对按键的人可打开。
     pub shuangpin_raw_preedit: bool,
 
+    /// 中文组句时回车上屏高亮候选（`Shift + Enter` 原样上屏所敲字母）。缺省关：回车原样上屏。英文模式与算式不受影响。
+    pub enter_commits_candidate: bool,
+
     /// 形码侧方案：空串为关，`wubi86` 为五笔（86 版）。**与拼音同时开着就是混输**，见 [`Self::mixed`]。
     pub wubi: String,
 
@@ -140,6 +143,7 @@ impl Default for GeneralConfig {
             aux_code_keep_empty: true,
             scheme: String::new(),
             shuangpin_raw_preedit: false,
+            enter_commits_candidate: false,
             wubi: String::new(),
             shuangpin: None,
             zhuyin: None,
