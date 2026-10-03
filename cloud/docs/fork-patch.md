@@ -35,11 +35,13 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 |---|---|---|
 | `crates/qingjian-core/src/engine/extras.rs` | 加约 15 行 | 两字母全大写让中文的规则放宽到「两个字母、带大写」（Gd）；`listed_english` |
 | `crates/qingjian-core/src/engine/composing.rs` | 加约 12 行 | 回车原样上屏的串改一处就是两音节以上完整拼音、又不在随包词表里：不学成英文词 |
+| `crates/qingjian-core/src/engine/extras.rs`、`mod.rs` | 加约 6 行 | 只有三个字母、没有精确词时，英文补全不排第一（`wod` 我的 → Wodehouse、`ong` → ongoing） |
 | `crates/qingjian-core/src/engine/tests/english_fork.rs` | 新文件 | 上面两条的测试 |
 
 试过但没留的（`cli --replay` 与逐词对比验过）：三个字母全大写也让中文——把 GPU / SQL / LLM 一起压下去，词频也分不开（DOA 2760、LLM 2290）；
 拼写纠错（含只认相邻换位）读通时英文让中文——`compa` / `claud` 这类英文前缀也会被纠成拼音，压掉上游有意排第一的英文补全。
-`doa` → DOA、`ong` → ongoing 这类三四个字母的抢位靠规则分不开，靠「没选过就不学」与清理个人英文词表兜。
+`doa` → DOA（三个字母的精确词）、`daun` → daunting（四个字母的补全）靠规则分不开，靠清理个人英文词表兜。
+三个字母的补全不抢第一的代价：`hel` 只敲三个字母时 help 排第二。回放（两段日志，436 次选词）：中文不变，英文 10/11 → 8/11，少的是当时误上屏的 ongoing 与 Gd。
 回放（今天的日志，344 次中文选词）：词 89.6%、整句 71.4% 不变；英文 9/9 → 8/9，少的那条正是当时误上屏的 Gd。
 
 ### 敲到声母就出整句（Core，各平台都生效）
