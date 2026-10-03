@@ -2,10 +2,11 @@
 //! 点了哪项就往 `QingjianCloud/commands/` 写一个只含 tag 的文件，由它取走执行。两边只靠这两个文件通信，
 //! 输入法不碰剪贴板与同步。格式见 `cloud/mac-agent/src/menu/lines.rs`。自用分叉补丁，见 `cloud/docs/fork-patch.md`。
 //!
-//! IMK 的坑（0.1.5-local.271 / 273 实测，每次 activateServer 都崩在 `_copySynchronizedActions:withMenuItems:`
-//! 的 `CFRelease(NULL)`，输入法打不了字）：IMK 把菜单拆成「动作列表」和「展开的条目」两份按下标对齐，
-//! 带子菜单的父项前面有隐藏项或分隔线、或子菜单为空时对不齐就崩。所以这个父项紧挨着「模糊音」放、
-//! 只在有内容时挂子菜单，子菜单里也照「模糊音」的样子：不放分隔线，每项都带动作（说明行只是置灰）。
+//! IMK 的坑（0.1.5-local.271 / 273 实测：打开输入源菜单或 activateServer 就崩在
+//! `_copySynchronizedActions:withMenuItems:` 的 `CFRelease(NULL)`，输入法打不了字）：IMK 把菜单拆成
+//! 「动作列表」（含隐藏项）和「展开的条目」两份按下标对齐，**带子菜单的父项排在隐藏项之后**就对不上，
+//! 递归时拿到 nil。所以这个父项必须排在「有新版本」（平时隐藏）之前，紧挨着「模糊音」。
+//! 子菜单里放分隔线、无动作的项、运行中整个换掉子菜单都没事——`cloud/scripts/imk-menu-repro.swift` 逐项验过。
 
 use std::cell::Cell;
 use std::path::PathBuf;
