@@ -21,6 +21,9 @@ final class KeyboardModel {
 
     @ObservationIgnored weak var output: TextOutput?
 
+    /// 每次按键按下时调（键盘音与震动），由控制器接上。
+    @ObservationIgnored var onKeyDown: (() -> Void)?
+
     init(engine: Engine?) {
         self.engine = engine
     }
@@ -28,6 +31,7 @@ final class KeyboardModel {
     var composing: Bool { !preedit.isEmpty }
 
     func tap(_ key: Key) {
+        onKeyDown?()
         switch key {
         case .letter(let letter): typeLetter(letter)
         case .symbol(let text): typeSymbol(text)
