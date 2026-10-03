@@ -28,10 +28,10 @@ const START_THROTTLE_SECS: u64 = 10;
 static LAST_START: AtomicU64 = AtomicU64::new(0);
 
 pub struct CloudAgentMenu {
-    /// 挂在输入法菜单上的父项；没装青简 Cloud（没有 `menu.txt`）时隐藏。
+    /// 挂在输入法菜单上的父项；没装青简 Cloud（没有 `menu.txt`）时隐藏且不挂子菜单。
+    /// 坑：父项挂着**空**子菜单时，IMK 整理菜单（`_copySynchronizedActions:withMenuItems:`）会 CFRelease(NULL)
+    /// 直接崩溃，进程一起来就在 activateServer 里死，输入法打不了字。所以子菜单只在有内容时才挂上。
     item: Retained<NSMenuItem>,
-
-    submenu: Retained<NSMenu>,
 
     /// 上次画的 `menu.txt` 修改时间与是否已过期，都没变就不重画。
     drawn: Cell<Option<(SystemTime, bool)>>,
@@ -39,14 +39,10 @@ pub struct CloudAgentMenu {
 
 impl CloudAgentMenu {
     pub fn new(mtm: MainThreadMarker, target: &MenuTarget) -> Self {
-        let submenu = NSMenu::new(mtm);
-        submenu.setAutoenablesItems(false);
         let item = action_item(mtm, "青简 Cloud", None, target);
-        item.setSubmenu(Some(&submenu));
         item.setHidden(true);
         Self {
             item,
-            submenu,
             drawn: Cell::new(None),
         }
     }
@@ -61,8 +57,10 @@ impl CloudAgentMenu {
             return;
         };
         let Ok(modified) = std::fs::metadata(&path).and_then(|meta| meta.modified()) else {
-            self.item.setHidden(true);
-            self.drawn.set(None);
+            if self.drawn.take().is_some() {
+                self.item.setHidden(true);
+                self.item.setSubmenu(None);
+            }
             return;
         };
         let stale = modified.elapsed().is_ok_and(|age| age > STALE_AFTER);
@@ -70,22 +68,26 @@ impl CloudAgentMenu {
             return;
         }
         self.drawn.set(Some((modified, stale)));
-        self.submenu.removeAllItems();
-        if stale {
-            let item = action_item(
-                mtm,
-                "青简 Cloud 没在运行（注销重新登录可拉起）",
-                None,
-                target,
-            );
-            item.setEnabled(false);
-            self.submenu.addItem(&item);
-        } else {
+        // 每次新建一份再整个换上，保证挂上去的子菜单至少有一项
+        let submenu = NSMenu::new(mtm);
+        submenu.setAutoenablesItems(false);
+        if !stale {
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            for line in text.lines() {
-                self.submenu.addItem(&parse_line(mtm, line, target));
+            for line in text.lines().filter(|line| !line.is_empty()) {
+                submenu.addItem(&parse_line(mtm, line, target));
             }
         }
+        if submenu.numberOfItems() == 0 {
+            let note = if stale {
+                "青简 Cloud 没在运行（切回青简会自动拉起）"
+            } else {
+                "青简 Cloud 正在启动…"
+            };
+            let item = action_item(mtm, note, None, target);
+            item.setEnabled(false);
+            submenu.addItem(&item);
+        }
+        self.item.setSubmenu(Some(&submenu));
         self.item.setHidden(false);
     }
 }
