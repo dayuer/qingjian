@@ -1650,6 +1650,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-cloud-bridge"
+version = "0.1.0-dev"
+dependencies = [
+ "qingjian-core",
+ "qingjian-dictionary",
+ "qingjian-learning",
+ "qingjian-lm",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "qingjian-cloud-client"
 version = "0.1.0-dev"
 dependencies = [
@@ -1780,6 +1792,17 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "qingjian-lm"
+version = "0.1.1"
+dependencies = [
+ "qingjian-core",
+ "qingjian-format",
+ "thiserror",
+ "tracing",
+ "zerocopy",
 ]
 
 [[package]]

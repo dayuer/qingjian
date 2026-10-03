@@ -1,0 +1,65 @@
+# iOS 主 App + 键盘扩展的 xcodegen 工程描述；生成：`xcodegen generate`（.xcodeproj 不进仓库）。
+# 真机要签名：`DEVELOPMENT_TEAM=<团队 ID> xcodegen generate`，或生成后在 Xcode 里选团队。
+name: QingjianCloud
+options:
+  bundleIdPrefix: app.qingjian.cloud
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    TARGETED_DEVICE_FAMILY: "1,2"
+targets:
+  QingjianCloud:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - target: Keyboard
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 青简
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud
+  Keyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Keyboard/Sources
+      - path: Keyboard/Data
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - framework: Frameworks/QingjianBridge.xcframework
+        embed: false
+    preBuildScripts:
+      - name: 编译 Rust 桥与拷产品数据
+        script: '"${PROJECT_DIR}/scripts/build-bridge.sh"'
+        basedOnDependencyAnalysis: false
+    info:
+      path: Keyboard/Info.plist
+      properties:
+        CFBundleDisplayName: 青简
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: zh-Hans
+            # 不要「完全访问」：键盘不联网，打的字不出这台设备
+            RequestsOpenAccess: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.keyboard
+        # 构建脚本要往源码目录写 xcframework 与数据
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
