@@ -206,6 +206,10 @@ impl Learner for FrequencyLearner {
         true
     }
 
+    fn merge_remote(&mut self, inbox: &str) -> usize {
+        self.merge_inbox_and_flush(inbox)
+    }
+
     fn flush(&mut self) {
         let Some(path) = self.path.clone() else {
             return;
