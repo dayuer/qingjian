@@ -1,15 +1,18 @@
-//! 学习数据与配置文件的后台同步线程：每 30 秒一轮；收件箱等输入法合并时 2 秒看一次；失败按退避重试。
+//! 学习数据、配置文件与输入日志的后台同步线程：每 30 秒一轮；收件箱等输入法合并时 2 秒看一次；失败按退避重试。
 //! 壳只要 [`DataSync::start`]，再定时读 [`DataSync::status`] 显示在菜单里。
 
 mod data_status;
 mod data_sync_config;
+mod jobs;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 use crate::config_sync::{ConfigOutcome, ConfigSync};
-use crate::{Client, ClientError, LearningOutcome, LearningSync};
+
+use crate::{Client, ClientError, InputLogSync, LearningSync};
+use jobs::Jobs;
 
 pub use data_status::DataStatus;
 pub use data_sync_config::DataSyncConfig;
@@ -39,7 +42,17 @@ impl DataSync {
     pub fn start(config: DataSyncConfig) -> Result<Self, ClientError> {
         let client = Client::new(&config.server, &config.token);
         let learning = LearningSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
-        let settings = ConfigSync::open(client, &config.ime_dir, &config.state_dir)?;
+        let settings = ConfigSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
+        let logs = if config.sync_logs {
+            Some(InputLogSync::open(
+                client,
+                &config.ime_dir,
+                &config.state_dir,
+                config.log_download_dir.clone(),
+            )?)
+        } else {
+            None
+        };
         let shared = Arc::new(Shared {
             status: Mutex::new(DataStatus::default()),
             wake: (Mutex::new(false), Condvar::new()),
@@ -49,13 +62,12 @@ impl DataSync {
         std::thread::Builder::new()
             .name("cloud-data".to_owned())
             .spawn(move || {
-                run(
-                    &thread_shared,
-                    learning,
-                    settings,
-                    config.sync_learning,
-                    config.sync_config,
-                )
+                let jobs = Jobs {
+                    learning: config.sync_learning.then_some(learning),
+                    settings: config.sync_config.then_some(settings),
+                    logs,
+                };
+                run(&thread_shared, jobs)
             })?;
         Ok(Self { shared })
     }
@@ -79,28 +91,10 @@ impl Drop for DataSync {
     }
 }
 
-fn run(
-    shared: &Shared,
-    mut learning: LearningSync,
-    mut settings: ConfigSync,
-    sync_learning: bool,
-    sync_config: bool,
-) {
+fn run(shared: &Shared, mut jobs: Jobs) {
     let mut retry = Duration::from_secs(1);
     while !shared.stop.load(Ordering::Relaxed) {
-        let learned = if sync_learning {
-            learning.cycle()
-        } else {
-            Ok(LearningOutcome::default())
-        };
-        let result = learned.and_then(|outcome| {
-            let config = if sync_config {
-                settings.cycle()?
-            } else {
-                ConfigOutcome::Unchanged
-            };
-            Ok((outcome, config))
-        });
+        let result = jobs.cycle();
         let delay = {
             let mut status = lock(&shared.status);
             match result {

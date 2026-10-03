@@ -6,6 +6,7 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 mod config;
+mod ime_config;
 mod paths;
 
 #[cfg(target_os = "macos")]

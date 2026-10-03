@@ -14,10 +14,10 @@ use crate::config::AgentConfig;
 use crate::history::History;
 use crate::menu::{
     Display, StatusMenu, TAG_OPEN_CONFIG, TAG_OPEN_LOGS, TAG_PAUSE, TAG_QUIT, TAG_RELOAD,
-    TAG_SYNC_NOW, Target,
+    TAG_SYNC_NOW, TAG_USE_LLM, Target,
 };
 use crate::watcher::ClipboardWatcher;
-use crate::{pasteboard, paths};
+use crate::{ime_config, pasteboard, paths};
 
 /// 主循环间隔（秒）。
 const TICK: f64 = 0.5;
@@ -77,6 +77,9 @@ pub struct App {
     /// 上次画菜单时的学习数据状态。
     shown_data: Option<DataStatus>,
 
+    /// 服务器地址，「使用 Cloud 的大模型」时写进输入法配置。
+    server: Option<String>,
+
     /// 没配置好的原因，菜单里显示。
     unconfigured: Option<String>,
 
@@ -100,6 +103,7 @@ impl App {
             sync: None,
             data: None,
             shown_data: None,
+            server: None,
             unconfigured: None,
             paused: false,
             watcher: ClipboardWatcher::new(),
@@ -115,6 +119,7 @@ impl App {
         // 先停旧的，再按新配置起；进度文件按服务器地址区分，换服务器会从头同步
         self.sync = None;
         self.data = None;
+        self.server = None;
         self.history = History::default();
         let (Some(config_path), Some(state_dir)) = (paths::config_path(), paths::support_dir())
         else {
@@ -129,7 +134,16 @@ impl App {
                 return;
             }
         };
-        if (config.learning || config.settings)
+        self.server = Some(config.server.clone());
+        if let Some(ime_dir) = paths::ime_dir() {
+            // 本机令牌放进输入法的 .env（不同步），config.toml 里只引用变量名
+            match ime_config::ensure_token(&ime_dir.join(".env"), &config.token) {
+                Ok(true) => tracing::info!("设备令牌已写入输入法的 .env"),
+                Ok(false) => {}
+                Err(error) => tracing::warn!(%error, "设备令牌写入 .env 失败"),
+            }
+        }
+        if (config.learning || config.settings || config.logs)
             && let Some(ime_dir) = paths::ime_dir()
         {
             match DataSync::start(DataSyncConfig {
@@ -138,6 +152,8 @@ impl App {
                 ime_dir,
                 state_dir: state_dir.join("data"),
                 sync_learning: config.learning,
+                sync_logs: config.logs,
+                log_download_dir: config.download_logs.then(|| state_dir.join("input-log")),
                 sync_config: config.settings,
             }) {
                 Ok(data) => self.data = Some(data),
@@ -199,6 +215,14 @@ impl App {
             TAG_SYNC_NOW => {
                 if let Some(data) = &self.data {
                     data.sync_now();
+                }
+            }
+            TAG_USE_LLM => {
+                if let (Some(server), Some(ime_dir)) = (&self.server, paths::ime_dir()) {
+                    match ime_config::use_cloud_llm(&ime_dir.join("config.toml"), server) {
+                        Ok(()) => tracing::info!("输入法的云联想已指向 Cloud"),
+                        Err(error) => tracing::warn!(%error, "改输入法配置失败"),
+                    }
                 }
             }
             TAG_RELOAD => {

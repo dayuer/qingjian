@@ -25,6 +25,15 @@ impl TestServer {
 
     /// 指定地址与存储，用来模拟「服务器停了又起来」。
     pub fn start_on(addr: SocketAddr, store: Arc<Store>) -> Self {
+        Self::start_with(addr, store, |state| state)
+    }
+
+    /// 可以改 AppState（比如接上大模型代理）。
+    pub fn start_with(
+        addr: SocketAddr,
+        store: Arc<Store>,
+        setup: impl FnOnce(AppState) -> AppState,
+    ) -> Self {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -33,7 +42,7 @@ impl TestServer {
             .block_on(tokio::net::TcpListener::bind(addr))
             .unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let app = router(AppState::new(store.clone()));
+        let app = router(setup(AppState::new(store.clone())));
         runtime.spawn(async move { axum::serve(listener, app).await.unwrap() });
         Self {
             url,

@@ -4,8 +4,9 @@ use std::io::BufReader;
 use std::time::Duration;
 
 use qingjian_cloud_proto::{
-    ConfigDoc, Event, EventPage, LearningPage, LearningPush, PATH_CLIPBOARD, PATH_CONFIG,
-    PATH_EVENTS, PATH_LEARNING, PATH_STREAM, PATH_WHOAMI, PushClip, PutConfig, Whoami,
+    ConfigDoc, Event, EventPage, InputLogPage, InputLogPush, LearningPage, LearningPush,
+    PATH_CLIPBOARD, PATH_CONFIG, PATH_EVENTS, PATH_INPUT_LOG, PATH_INPUT_LOG_CLEAR, PATH_LEARNING,
+    PATH_STREAM, PATH_WHOAMI, PushClip, PutConfig, Whoami,
 };
 use ureq::Agent;
 use ureq::config::ConfigBuilder;
@@ -145,6 +146,38 @@ impl Client {
             .header("Authorization", self.bearer())
             .send_json(put)?;
         json(response.body_mut().read_json())
+    }
+
+    pub fn push_input_log(&self, push: &InputLogPush) -> Result<u64, ClientError> {
+        let mut response = self
+            .agent
+            .post(self.url(PATH_INPUT_LOG))
+            .header("Authorization", self.bearer())
+            .send_json(push)?;
+        let page: InputLogPage = json(response.body_mut().read_json())?;
+        Ok(page.latest)
+    }
+
+    pub fn input_log(&self, since: u64, limit: usize) -> Result<InputLogPage, ClientError> {
+        let mut response = self
+            .agent
+            .get(self.url(PATH_INPUT_LOG))
+            .header("Authorization", self.bearer())
+            .query("since", since.to_string())
+            .query("limit", limit.to_string())
+            .call()?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 清空服务器上所有设备的输入日志，返回新的清空代数。
+    pub fn clear_input_log(&self) -> Result<u64, ClientError> {
+        let mut response = self
+            .agent
+            .post(self.url(PATH_INPUT_LOG_CLEAR))
+            .header("Authorization", self.bearer())
+            .send_empty()?;
+        let page: InputLogPage = json(response.body_mut().read_json())?;
+        Ok(page.generation)
     }
 
     /// 打开 SSE：先收 `since` 之后的积压，再收实时事件；最长 [`STREAM_BUDGET`] 后迭代器以错误结束。

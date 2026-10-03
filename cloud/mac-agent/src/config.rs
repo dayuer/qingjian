@@ -17,6 +17,12 @@ learning = true
 
 # 同步输入法的 config.toml（设置与自定义短语）；两台设备都改过时较新的赢，另一份存成备份
 settings = true
+
+# 上传输入法的输入日志（input-log.jsonl）到服务器
+logs = true
+
+# 把别的设备的输入日志下载到 ~/Library/Application Support/QingjianCloud/input-log/
+download_logs = true
 "#;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -31,6 +37,12 @@ pub struct AgentConfig {
 
     /// 同步 `config.toml`。
     pub settings: bool,
+
+    /// 上传输入日志。
+    pub logs: bool,
+
+    /// 下载别的设备的输入日志。
+    pub download_logs: bool,
 }
 
 impl Default for AgentConfig {
@@ -40,6 +52,8 @@ impl Default for AgentConfig {
             token: String::new(),
             learning: true,
             settings: true,
+            logs: true,
+            download_logs: true,
         }
     }
 }

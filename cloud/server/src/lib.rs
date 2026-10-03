@@ -3,6 +3,7 @@
 pub mod cli;
 pub mod error;
 pub mod http;
+pub mod llm;
 pub mod prune;
 pub mod store;
 

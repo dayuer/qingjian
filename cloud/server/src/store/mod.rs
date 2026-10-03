@@ -4,8 +4,10 @@ mod config;
 mod device;
 mod devices;
 mod events;
+mod input_log;
 mod learning;
 mod token;
+mod usage;
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
@@ -16,9 +18,10 @@ use crate::ServerError;
 
 pub use device::Device;
 pub use token::{generate_token, hash_token};
+pub use usage::UsageRow;
 
 /// 数据库结构版本，存在 `PRAGMA user_version`。
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS devices (
@@ -53,6 +56,26 @@ CREATE INDEX IF NOT EXISTS learning_seq ON learning (seq);
 CREATE TABLE IF NOT EXISTS counters (
     name  TEXT    PRIMARY KEY,
     value INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS input_log (
+    seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id INTEGER NOT NULL,
+    at        INTEGER NOT NULL,
+    line      TEXT    NOT NULL
+);
+CREATE TABLE IF NOT EXISTS input_log_batches (
+    device_id INTEGER NOT NULL,
+    batch_id  TEXT    NOT NULL,
+    PRIMARY KEY (device_id, batch_id)
+);
+CREATE TABLE IF NOT EXISTS usage (
+    day               TEXT    NOT NULL,
+    device_id         INTEGER NOT NULL,
+    requests          INTEGER NOT NULL DEFAULT 0,
+    cached            INTEGER NOT NULL DEFAULT 0,
+    prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, device_id)
 );
 CREATE TABLE IF NOT EXISTS config (
     id        INTEGER PRIMARY KEY CHECK (id = 1),

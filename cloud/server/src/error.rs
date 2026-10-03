@@ -24,6 +24,12 @@ pub enum ServerError {
     #[error("device already exists: {0}")]
     DeviceExists(String),
 
+    #[error("this server has no LLM key configured")]
+    LlmDisabled,
+
+    #[error("upstream LLM: {0}")]
+    Upstream(String),
+
     #[error("database: {0}")]
     Database(#[from] rusqlite::Error),
 
@@ -42,6 +48,11 @@ impl IntoResponse for ServerError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::TooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             Self::DeviceExists(_) | Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::LlmDisabled => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Upstream(_) => {
+                tracing::warn!(error = %self, "上游大模型请求失败");
+                StatusCode::BAD_GATEWAY
+            }
             Self::Database(_) | Self::Io(_) | Self::Random(_) => {
                 tracing::error!(error = %self, "请求处理失败");
                 StatusCode::INTERNAL_SERVER_ERROR
