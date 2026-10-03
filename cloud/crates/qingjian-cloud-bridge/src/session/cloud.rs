@@ -8,6 +8,7 @@ use qingjian_core::{Candidate, SurroundingText};
 use qingjian_predict::{CloudPredictor, PredictConfig};
 
 use super::Session;
+use crate::clipboard::{ClipOffer, Clipboard};
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
 use crate::rewrite::Rewriter;
@@ -32,6 +33,13 @@ impl Session {
         if cloud.llm {
             self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
         }
+        if let (true, Some(user_dir)) = (cloud.clipboard, &self.user_dir) {
+            let client = Client::new(&cloud.server, &cloud.token);
+            self.clipboard = Some(Clipboard::new(
+                client,
+                user_dir.join("cloud/clipboard.json"),
+            ));
+        }
         if let (true, Some(user_dir)) = (cloud.sync, &self.user_dir) {
             let started = DataSync::start(DataSyncConfig {
                 server: cloud.server.clone(),
@@ -52,11 +60,54 @@ impl Session {
     }
 
     pub fn cloud_enabled(&self) -> bool {
-        self.rewriter.is_some() || self.data_sync.is_some()
+        self.rewriter.is_some() || self.data_sync.is_some() || self.clipboard.is_some()
     }
 
+    /// 润色器；私密输入框里没有（光标前的文字不能发出去）。
     pub fn rewriter(&self) -> Option<&Rewriter> {
-        self.rewriter.as_ref()
+        self.rewriter.as_ref().filter(|_| !self.engine.is_private())
+    }
+
+    /// 焦点在验证码、密码、信用卡号这类输入框：不学习、不记日志、不发云端（引擎的私密输入），
+    /// 剪贴板与润色也停。
+    pub fn set_private(&mut self, private: bool) {
+        self.engine.set_private(private);
+        if private && let Some(rewriter) = &self.rewriter {
+            rewriter.cancel();
+        }
+    }
+
+    /// 键盘弹出时调：拉一次别的设备的剪贴板。
+    pub fn refresh_clipboard(&self) {
+        if let Some(clipboard) = &self.clipboard {
+            clipboard.refresh();
+        }
+    }
+
+    pub fn clip_offer(&self) -> Option<ClipOffer> {
+        if self.engine.is_private() {
+            return None;
+        }
+        self.clipboard.as_ref().and_then(Clipboard::offer)
+    }
+
+    pub fn clip_handled(&self) {
+        if let Some(clipboard) = &self.clipboard {
+            clipboard.handled();
+        }
+    }
+
+    pub fn clip_push(&self, text: &str) {
+        if self.engine.is_private() {
+            return;
+        }
+        if let Some(clipboard) = &self.clipboard {
+            clipboard.push(text);
+        }
+    }
+
+    pub fn clipboard_enabled(&self) -> bool {
+        self.clipboard.is_some()
     }
 
     /// 宿主光标前后的文字。`before` 末尾若是我们写进去的 marked text（拼音），去掉再存。

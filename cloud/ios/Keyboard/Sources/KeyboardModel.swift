@@ -1,7 +1,9 @@
 // 键盘的状态与按键语义，行为对齐 iOS 自带简体拼音：拼音以 marked text 写在宿主光标处，
 // 空格上屏首选，换行原样上屏字母（打英文就靠它），组字中敲标点先上屏首选。视图只读状态、转发点击。
-// 配了青简 Cloud 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话。
+// 配了青简 Cloud 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
+// 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
 
+import Foundation
 import Observation
 
 @MainActor
@@ -12,6 +14,15 @@ final class KeyboardModel {
     private(set) var candidates: [CandidateItem] = []
 
     private(set) var rewrite = RewriteState.idle
+
+    /// 别的设备刚复制、还没处理的文字。
+    private(set) var clipOffer: ClipOffer?
+
+    /// 本机剪贴板自上次处理后变过（有文字）：候选栏给「发到其他设备」。
+    private(set) var pasteboardChanged = false
+
+    /// 焦点在验证码、密码、信用卡号这类输入框。
+    private(set) var privateField = false
 
     private(set) var layer = KeyLayer.letters
 
@@ -82,15 +93,83 @@ final class KeyboardModel {
         refresh()
     }
 
-    /// 键盘出现：先同步一轮，别的设备学到的词尽快过来。
+    /// 键盘出现：先同步一轮，别的设备学到的词尽快过来；拉一次别的设备的剪贴板，看本机剪贴板变没变。
     func appear() {
         engine?.syncNow()
+        engine?.refreshClipboard()
+        checkPasteboard()
+    }
+
+    /// 焦点换到了（不）是验证码 / 密码这类输入框。
+    func setPrivateField(_ value: Bool) {
+        guard value != privateField else { return }
+        privateField = value
+        engine?.setPrivate(value)
+        if value {
+            dismissRewrite()
+            clipOffer = nil
+            pasteboardChanged = false
+        } else {
+            checkPasteboard()
+        }
+    }
+
+    func insertClip() {
+        guard let offer = clipOffer else { return }
+        commitFirst()
+        output?.commit(offer.text)
+        engine?.clipHandled()
+        clipOffer = nil
+    }
+
+    func dismissClip() {
+        engine?.clipHandled()
+        clipOffer = nil
+    }
+
+    /// 读本机剪贴板（可能弹系统的粘贴授权提示）发给别的设备。
+    func pushPasteboard() {
+        guard let engine, let output, !privateField else { return }
+        if let text = output.readPasteboard(), !text.isEmpty {
+            engine.pushClip(text)
+        }
+        markPasteboardSeen()
+    }
+
+    func dismissPasteboard() {
+        markPasteboardSeen()
+    }
+
+    private func checkPasteboard() {
+        guard let engine, engine.clipboardEnabled, let output, !privateField else { return }
+        let count = output.pasteboardChangeCount
+        // 第一次用：装键盘之前就在剪贴板里的不算新复制的
+        guard let seen = Self.seenPasteboardCount else {
+            Self.seenPasteboardCount = count
+            return
+        }
+        pasteboardChanged = count != seen && output.pasteboardHasText
+    }
+
+    private func markPasteboardSeen() {
+        if let output { Self.seenPasteboardCount = output.pasteboardChangeCount }
+        pasteboardChanged = false
+    }
+
+    /// 上次处理过的剪贴板变化计数，存在扩展自己的 UserDefaults 里（键盘进程随时被杀）。
+    private static var seenPasteboardCount: Int? {
+        get { UserDefaults.standard.object(forKey: "seenPasteboardCount") as? Int }
+        set { UserDefaults.standard.set(newValue, forKey: "seenPasteboardCount") }
     }
 
     /// 控制器定时调：取大模型候选、合并别的设备的学习数据、看润色有没有回来。
     func poll() {
         guard let engine else { return }
         if engine.poll() { candidates = engine.candidates }
+        if !privateField {
+            let offer = engine.clipOffer
+            if offer != clipOffer { clipOffer = offer }
+        }
         guard case .pending(let original) = rewrite else { return }
         switch engine.rewriteStatus {
         case 2:

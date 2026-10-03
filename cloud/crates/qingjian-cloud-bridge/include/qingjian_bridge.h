@@ -44,6 +44,17 @@ uint32_t qj_rewrite_status(QjSession *session);
 char *qj_rewrite_take(QjSession *session);
 void qj_rewrite_cancel(QjSession *session);
 
+// 私密输入框（验证码、密码、信用卡号）：不学习、不记日志、不发云端，剪贴板与润色也停。
+void qj_set_private(QjSession *session, bool private_field);
+
+// 跨设备剪贴板：弹出时 refresh，轮询时取提示；插入或关掉后 handled；用户点按钮才 push 本机剪贴板。
+bool qj_clipboard_enabled(QjSession *session);
+void qj_clip_refresh(QjSession *session);
+char *qj_clip_offer_text(QjSession *session);
+char *qj_clip_offer_device(QjSession *session);
+void qj_clip_handled(QjSession *session);
+void qj_clip_push(QjSession *session, const char *text);
+
 void qj_string_free(char *text);
 
 #endif

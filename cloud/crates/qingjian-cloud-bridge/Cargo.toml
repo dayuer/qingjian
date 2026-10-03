@@ -17,11 +17,13 @@ qingjian-lm = { path = "../../../crates/qingjian-lm" }
 qingjian-predict = { path = "../../../crates/qingjian-predict" }
 # iOS 用系统 TLS（Security.framework），不交叉编译 ring
 qingjian-cloud-client = { workspace = true, features = ["native-tls"] }
+qingjian-cloud-proto.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 [lints]
 workspace = true

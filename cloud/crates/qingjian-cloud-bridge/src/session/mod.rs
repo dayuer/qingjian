@@ -11,6 +11,7 @@ use qingjian_dictionary::Dictionary;
 use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
+use crate::clipboard::Clipboard;
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
 use crate::error::BridgeError;
@@ -37,6 +38,8 @@ pub struct Session {
     data_sync: Option<DataSync>,
 
     rewriter: Option<Rewriter>,
+
+    clipboard: Option<Clipboard>,
 }
 
 impl Session {
@@ -74,6 +77,7 @@ impl Session {
             context: None,
             data_sync: None,
             rewriter: None,
+            clipboard: None,
         };
         if let Some(cloud) = cloud {
             session.connect(&cloud);

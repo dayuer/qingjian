@@ -3,6 +3,7 @@
 //! 头文件在 `include/qingjian_bridge.h`，改了这里的签名要同步改它。约定：
 //! 返回 `char *` 的函数交出所有权，调用方用 [`qj_string_free`] 释放；会话指针只在一个线程（主线程）上用。
 
+mod clipboard;
 mod cloud_config;
 mod entry;
 mod error;
@@ -14,6 +15,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
+pub use self::clipboard::{ClipOffer, Clipboard};
 pub use self::cloud_config::CloudConfig;
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
@@ -286,6 +288,78 @@ pub unsafe extern "C" fn qj_rewrite_cancel(session: *mut Session) {
             rewriter.cancel();
         }
     });
+}
+
+/// 焦点在验证码、密码、信用卡号这类输入框时设 true：不学习、不记日志、不发云端，剪贴板与润色也停。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_set_private(session: *mut Session, private: bool) {
+    with(session, (), |s| s.set_private(private));
+}
+
+/// 配了跨设备剪贴板。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clipboard_enabled(session: *mut Session) -> bool {
+    with(session, false, |s| s.clipboard_enabled())
+}
+
+/// 后台拉一次别的设备的剪贴板（键盘弹出时调）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clip_refresh(session: *mut Session) {
+    with(session, (), |s| s.refresh_clipboard());
+}
+
+/// 别的设备最近复制、还没处理过的文字；没有返回空指针。
+///
+/// # Safety
+/// 同 [`qj_preedit`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clip_offer_text(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.clip_offer()
+            .map_or(ptr::null_mut(), |offer| owned(&offer.text))
+    })
+}
+
+/// 那条文字来自哪台设备；没有提示时返回空指针。
+///
+/// # Safety
+/// 同 [`qj_preedit`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clip_offer_device(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.clip_offer()
+            .map_or(ptr::null_mut(), |offer| owned(&offer.device))
+    })
+}
+
+/// 用户插入或关掉了提示：不再给这一条。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clip_handled(session: *mut Session) {
+    with(session, (), |s| s.clip_handled());
+}
+
+/// 把本机剪贴板的文字发给别的设备（用户点了按钮才调）。
+///
+/// # Safety
+/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_clip_push(session: *mut Session, text: *const c_char) {
+    let Some(text) = (unsafe { path_arg(text) }).map(str::to_owned) else {
+        return;
+    };
+    with(session, (), |s| s.clip_push(&text));
 }
 
 /// # Safety
