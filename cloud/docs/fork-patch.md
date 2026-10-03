@@ -52,6 +52,22 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 版本号是 `<上游版本去掉 -dev>-local.<提交数>`，`-dev` 本地包照旧不查更新。发布：`cloud/scripts/publish-mac.sh`，见 `deploy/README.md`。
 合并上游时上游改了更新检查，以上游为准重新挂这几处；上游的 `releases.json` 本来就带 `file` / `url` / `sha256`，格式不用动。
 
+### 青简 Cloud 并进输入法菜单、只在用青简时运行（只在 macOS 生效）
+
+青简 Cloud 不再占菜单栏：它把菜单写成 `QingjianCloud/menu.txt`（`<tag>\t<标题>`，见 `cloud/mac-agent/src/menu/lines.rs`），
+输入法照着画「青简 Cloud ›」子菜单，点了往 `QingjianCloud/commands/` 写一个只含 tag 的文件，由它取走执行。
+它每 2 秒看当前输入法，连续 30 秒不是青简就删 `menu.txt` 正常退出（launchd 不拉）；输入法 activateServer 时发现它没在运行就 `launchctl start`。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `apps/macos/src/menubar/cloud_agent.rs` | 新文件 | 子菜单、写命令、拉起青简 Cloud |
+| `apps/macos/src/menubar/action.rs` | 加 1 个变体 | `MenuAction::CloudAgent(tag)`，tag 1000..1200 |
+| `apps/macos/src/menubar/menu.rs` | 加字段与 `sync_cloud_agent` | 子菜单放在「打开日志目录」那一组（IMK 只许可点条目在那组） |
+| `apps/macos/src/menubar/mod.rs` | 加 2 行 | `mod cloud_agent` 与导出 |
+| `apps/macos/src/host/config/mod.rs` | 加 3 行 | `tick()` 里刷新子菜单 |
+| `apps/macos/src/host/settings.rs` | 加 1 行 | 子菜单动作转发 |
+| `apps/macos/src/imk/controller/mod.rs` | 加 2 行 | activateServer 时拉起青简 Cloud |
+
 Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；以后要接入时各加一个同样的 `inbox` 挂钩。
 
 ## 合并上游时

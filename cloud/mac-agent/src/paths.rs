@@ -25,6 +25,16 @@ pub fn config_path() -> Option<PathBuf> {
     Some(support_dir()?.join("config.toml"))
 }
 
+/// 给输入法画「青简 Cloud」子菜单的文件，格式见 `menu/lines.rs`。
+pub fn menu_file() -> Option<PathBuf> {
+    Some(support_dir()?.join("menu.txt"))
+}
+
+/// 输入法子菜单点了之后写进来的命令，一个文件一条，内容是菜单项的 tag。
+pub fn commands_dir() -> Option<PathBuf> {
+    Some(support_dir()?.join("commands"))
+}
+
 /// 输入法的数据目录 `~/Library/Application Support/Qingjian/`：学习数据、`config.toml`，以及收件箱 `sync/inbox.tsv`。
 pub fn ime_dir() -> Option<PathBuf> {
     Some(home()?.join("Library/Application Support/Qingjian"))

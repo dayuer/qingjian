@@ -10,6 +10,7 @@
 //! 动作本身编码在菜单项的 tag 里，所以两边只需要一个 `menuAction:` 选择器。
 
 mod action;
+mod cloud_agent;
 mod indicator;
 mod menu;
 mod target;
@@ -20,6 +21,9 @@ use objc2_foundation::NSDictionary;
 use objc2_input_method_kit::kIMKCommandMenuItemName;
 
 pub use action::MenuAction;
+pub use cloud_agent::{
+    ensure_agent_running as ensure_cloud_agent, send_command as send_cloud_agent_command,
+};
 pub use indicator::ModeIndicator;
 pub use menu::InputMenu;
 

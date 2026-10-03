@@ -6,6 +6,7 @@ use qingjian_core::FuzzyRules;
 use qingjian_platform::Config;
 
 use super::MenuAction;
+use super::cloud_agent::CloudAgentMenu;
 use super::target::MenuTarget;
 
 /// 菜单本体与需要按状态刷新的那几项。
@@ -24,6 +25,9 @@ pub struct InputMenu {
 
     /// 「有新版本 x.y.z…」，点了打开下载页；没有新版时隐藏。
     update: Retained<NSMenuItem>,
+
+    /// 「青简 Cloud ›」子菜单；没装青简 Cloud 时隐藏。
+    cloud_agent: CloudAgentMenu,
 
     /// 所有条目的 target，要和菜单活得一样久。
     _target: Retained<MenuTarget>,
@@ -76,6 +80,8 @@ impl InputMenu {
         let update = action_item(mtm, "", Some(MenuAction::OpenDownload), &target);
         update.setHidden(true);
         menu.addItem(&update);
+        let cloud_agent = CloudAgentMenu::new(mtm, &target);
+        menu.addItem(cloud_agent.item());
         menu.addItem(&NSMenuItem::separatorItem(mtm));
 
         let error = action_item(mtm, "", None, &target);
@@ -92,8 +98,14 @@ impl InputMenu {
             fuzzy,
             error,
             update,
+            cloud_agent,
             _target: target,
         }
+    }
+
+    /// 每秒一次：照 `QingjianCloud/menu.txt` 刷新「青简 Cloud」子菜单。
+    pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) {
+        self.cloud_agent.sync(mtm, &self._target);
     }
 
     /// 查到新版本就露出「有新版本」那一行，没有就藏起来。
@@ -137,7 +149,7 @@ impl InputMenu {
 }
 
 /// 建一个菜单项。`action` 为 `None` 的是纯展示项（子菜单父项、关于行）。
-fn action_item(
+pub(super) fn action_item(
     mtm: MainThreadMarker,
     title: &str,
     action: Option<MenuAction>,
