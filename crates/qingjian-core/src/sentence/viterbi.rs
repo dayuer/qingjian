@@ -470,10 +470,12 @@ mod tests {
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("ka")]);
         assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想开");
-        // 全拼句子末尾的单字母多半是没打完的音节，不参与
+        // 末尾的单字母也按前缀参与（别的输入法敲到声母就出整句）：wo xiang k… 读成三个字
         let mut patterns = complete(&["wo", "xiang"]);
         patterns.push(vec![SyllablePattern::prefix("k")]);
-        assert_eq!(unigram(&dictionary, &patterns).unwrap().text, "我想");
+        let whole = unigram(&dictionary, &patterns).unwrap();
+        assert_eq!(whole.syllables.len(), 3);
+        assert!(whole.text.starts_with("我想"), "{}", whole.text);
     }
 
     fn abbreviated<'a>(letters: &[&'a str]) -> Vec<Vec<SyllablePattern<'a>>> {

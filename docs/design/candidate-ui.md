@@ -117,7 +117,7 @@ collection behavior 是 CanJoinAllSpaces + FullScreenAuxiliary + Stationary。�
 `jintiantianqihenhao` → 今天天气很好，`womenyiqiqukaifa` → 我们一起去开发。整段本身是词库里的词时不出整句。
 打分是静态 bigram（`qingjian-lm`）与个人 n-gram（二元 + 三元，看前两个词）插值。简拼位置照转（`jttqhh` → 今天天气很好，`wjdzjsg` → 我觉得自己是个），
 每个简拼格子按前缀多留一些词、由语言模型挑读音；两字母简拼多半还是词（`sj` 时间），单词路径得分高就不出句子。
-全拼句子末尾未打完的音节至少两个字母才算进句子（`woxiangs` 多半是没打完的 shuo），前面已有简拼的句子末尾单字母就是一个音节（`wxq`）。
+全拼句子末尾未打完的音节（含单个声母）按前缀算进句子，敲到声母就出覆盖整段的句子（`tianqihenh` → 天气很好，`woxiangs` → 我想说）；前面已有简拼的句子末尾单字母同样是一个音节（`wxq`）。
 有音节连单字都查不到（只能拿拼音占位）的不出句子；英文词的位置看 `Engine::chinese_first`（配置 `[general] chinese_first`，缺省关）：
 关着时整段是英文词或不像拼音带出的英文补全排在句子前面（`hello` 先英文再 荷兰咯）；开着时整句先插、英文词紧随其后排第二（`hello` 先 荷兰咯 再 hello）。
 缺省关是回放定的：9241 词 / 269 条英文上屏的冻结日志上，缺省开英文首选 82.5% → 7.1%，常在中文模式里打英文词的人被明显伤到；关着与改前完全一致。
