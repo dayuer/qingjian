@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,9 @@ pub struct UpdateState {
 
     /// 那次查到的新版本。
     pub available: Option<Available>,
+
+    /// 那个新版本已下载并校验过的安装包。
+    pub downloaded: Option<PathBuf>,
 }
 
 impl UpdateState {

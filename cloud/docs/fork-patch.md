@@ -27,6 +27,31 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 | `apps/macos/src/host/settings.rs` | 加 4 行 | 勾选框写回配置 |
 | `docs/user/getting-started/keys.md` | 改 1 行、加 1 段 | 按键说明 |
 
+### 自建更新服务器（只在 macOS 生效）
+
+输入法查 `https://pingyin.synon.ai/releases/releases.json`，只认自己的签名密钥；有新版就在后台下好 pkg 并校验 sha256，
+菜单「有新版本」/「关于 → 下载新版」点了打开安装程序（不自动弹，免得打断打字）。pkg 里带青简 Cloud，postinstall 一起装。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-update/src/index/signature.rs` | 改 1 行 | `PUBLIC_KEYS` 换成自己的公钥（私钥在发布机 `~/.config/qingjian-cloud/release-signing.key`） |
+| `crates/qingjian-update/src/index/fetch.rs` | 改 1 行 | `INDEX_URL` |
+| `crates/qingjian-update/src/lib.rs` | 改 1 行、加 2 行 | `DOWNLOAD_URL`、`mod download`、导出 `Package` |
+| `crates/qingjian-update/src/download.rs` | 新文件 | 下载到数据目录 `updates/`、校验 sha256、清旧包 |
+| `crates/qingjian-update/src/checker/package.rs` | 新文件 | `Package`（文件名、地址、sha256） |
+| `crates/qingjian-update/src/index/asset.rs` | 加 3 个字段 | 索引里本来就有的 `file` / `url` / `sha256`，上游没读 |
+| `crates/qingjian-update/src/index/mod.rs` | 改 `newest` | 带上本机安装包 |
+| `crates/qingjian-update/src/checker/{mod,available,state}.rs` | 加字段与 `downloaded()` | 查到后下载；`UpdateState.downloaded` |
+| `crates/qingjian-update/src/error.rs` | 加 1 个变体 | `ChecksumMismatch` |
+| `apps/macos/src/host/cloud/update.rs` | 新文件 | `open_update`：有下好的包就打开它，否则开下载页 |
+| `apps/macos/src/host/settings.rs` | 改 2 行 | 菜单与「关于」页的按钮改调 `open_update` |
+| `apps/macos/src/preferences/pages/about.rs` | 改 2 段文案 | 更新与隐私说明写自建服务器 |
+| `apps/macos/scripts/bundle.sh` | 加 6 行 | `QINGJIAN_VERSION` 顶替版本号；`QINGJIAN_EMBED_CLOUD_AGENT` 把青简 Cloud 带进包 |
+| `apps/macos/pkg/scripts/postinstall` | 加 6 行 | 包里有青简 Cloud 就以登录用户身份装上 |
+
+版本号是 `<上游版本去掉 -dev>-local.<提交数>`，`-dev` 本地包照旧不查更新。发布：`cloud/scripts/publish-mac.sh`，见 `deploy/README.md`。
+合并上游时上游改了更新检查，以上游为准重新挂这几处；上游的 `releases.json` 本来就带 `file` / `url` / `sha256`，格式不用动。
+
 Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；以后要接入时各加一个同样的 `inbox` 挂钩。
 
 ## 合并上游时

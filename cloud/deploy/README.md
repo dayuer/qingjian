@@ -64,6 +64,19 @@ git pull && docker compose up -d --build   # 升级
 
 数据在 Docker 命名卷 `deploy_cloud_data` 里（SQLite 单文件）。`docker compose down` 不会删数据，加 `-v` 才会。
 
+## 6. 自建更新（macOS）
+
+输入法与青简 Cloud 打成一个 pkg，从这台服务器发给自己的各台 Mac。服务器侧由 `deploy-nginx.sh` 配好 `/releases/` 目录
+（`/opt/qingjian-host/releases/`）；发布在 Mac 上、`local` 分支的干净检出里跑：
+
+```bash
+tools/release/data-fetch.sh                                      # 第一次：产品数据
+NOTES="这次改了什么|一行一条" cloud/scripts/publish-mac.sh          # 打包、签名、上传
+```
+
+签名私钥在 `~/.config/qingjian-cloud/release-signing.key`，**丢了就发不了更新**（已装的输入法只认它），备份到密码管理器。
+第一次要手动装一次发布出来的 pkg（之前装的 `-dev` 包不查更新）；之后每天自动查，有新版在后台下好，菜单「有新版本」点了安装。
+
 ## 可调的
 
 `.env` 里：

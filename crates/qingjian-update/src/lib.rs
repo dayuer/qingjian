@@ -4,16 +4,18 @@
 //! 菜单与设置页用 [`Checker::available`] 取要提示的版本。设计与发版侧的签名见 `docs/design/update.md`。
 
 mod checker;
+mod download;
 mod error;
 mod index;
 mod target;
 mod version;
 
-pub use checker::{Available, Checker, UpdateState};
+pub use checker::{Available, Checker, Package, UpdateState};
 pub use error::UpdateError;
 pub use index::{Asset, Index, PUBLIC_KEYS, Release, SCHEMA_VERSION, verify};
 pub use target::Target;
 pub use version::Version;
 
 /// 下载页，提示里点开的就是它。
-pub const DOWNLOAD_URL: &str = "https://qingjian.app/download";
+// 分叉补丁：自建更新服务器的目录页
+pub const DOWNLOAD_URL: &str = "https://pingyin.synon.ai/releases/";

@@ -89,7 +89,7 @@ fi
 git -C "$DIR" log --oneline -1
 
 say "本机专用的 compose 覆盖（$HOSTCFG）"
-mkdir -p "$HOSTCFG"
+mkdir -p "$HOSTCFG" "$HOSTCFG/releases"
 # 原 Dockerfile 加一行 CARGO_BUILD_JOBS=1：2 核 3.7G 的机器上跑着线上服务，构建慢点也不能挤内存
 sed '/^WORKDIR \/src/a ENV CARGO_BUILD_JOBS=1' "$DIR/cloud/server/Dockerfile" > "$HOSTCFG/Dockerfile"
 cat > "$HOSTCFG/compose.nginx.yml" <<EOF
@@ -154,6 +154,13 @@ server {
 
     # 输入日志与 config.toml 是整批上传
     client_max_body_size 20m;
+
+    # 自建更新：版本索引、签名与安装包（cloud/scripts/publish-mac.sh 上传），目录页就是下载页
+    location /releases/ {
+        alias /opt/qingjian-host/releases/;
+        autoindex on;
+        location ~ \.(json|sig)\$ { add_header Cache-Control "no-cache"; }
+    }
 
     location / {
         proxy_pass http://127.0.0.1:$PORT;

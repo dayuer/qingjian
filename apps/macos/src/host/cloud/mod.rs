@@ -3,6 +3,7 @@
 mod inbox;
 mod predict_monitor;
 mod test_monitor;
+mod update;
 
 pub(super) use predict_monitor::PredictMonitor;
 pub(super) use test_monitor::CloudTestMonitor;

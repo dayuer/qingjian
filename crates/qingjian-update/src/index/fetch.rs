@@ -4,7 +4,8 @@ use super::{Index, signature};
 use crate::UpdateError;
 
 /// 官网上的版本索引与它的分离签名；`QINGJIAN_UPDATE_INDEX` 可以换成别的地址（测试用，签名照验）。
-const INDEX_URL: &str = "https://qingjian.app/releases.json";
+// 分叉补丁：自建更新服务器
+const INDEX_URL: &str = "https://pingyin.synon.ai/releases/releases.json";
 
 const MAX_INDEX_BYTES: usize = 2 * 1024 * 1024;
 

@@ -80,7 +80,7 @@ impl Host {
                     open_with_system(&[&dir.to_string_lossy()]);
                 }
             }
-            MenuAction::OpenDownload => open_with_system(&[qingjian_update::DOWNLOAD_URL]),
+            MenuAction::OpenDownload => self.open_update(),
         }
     }
 
@@ -469,7 +469,7 @@ impl Host {
                 return;
             }
             (Setting::OpenDownload, _) => {
-                open_with_system(&[qingjian_update::DOWNLOAD_URL]);
+                self.open_update();
                 return;
             }
             (Setting::OpenWebsite, _) => {
