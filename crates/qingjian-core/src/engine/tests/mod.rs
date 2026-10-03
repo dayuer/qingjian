@@ -10,6 +10,7 @@ mod english;
 mod english_fork;
 mod learning;
 mod lookup;
+mod mnemonic;
 mod privacy;
 mod raw;
 mod shuangpin;
