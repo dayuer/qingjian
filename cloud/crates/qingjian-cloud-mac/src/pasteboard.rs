@@ -35,7 +35,19 @@ pub fn read_text() -> Option<String> {
     Some(text.to_string())
 }
 
+/// 当前条目是苹果「通用剪贴板」从别的设备送来的。只看类型，不读内容：读内容会让系统跨设备去取数据，主线程可能卡一两秒。
+pub fn is_remote() -> bool {
+    NSPasteboard::generalPasteboard()
+        .types()
+        .is_some_and(|types| {
+            types
+                .iter()
+                .any(|t| t.to_string() == "com.apple.is-remote-clipboard")
+        })
+}
+
 /// 当前的纯文本，不看标记（收到别的设备的内容时比对用：已经一样就不写，免得触发通用剪贴板再广播一次）。
+/// 先用 [`is_remote`] 排除通用剪贴板送来的条目，那种不能在主线程上读。
 pub fn current_text() -> Option<String> {
     let pasteboard = NSPasteboard::generalPasteboard();
     let text = pasteboard.stringForType(unsafe { NSPasteboardTypeString })?;

@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use super::{Backoff, Shared};
 use crate::ClientError;
+use crate::supervise::{Exit, supervise};
 
 /// 队列空时多久醒一次检查是否该退出。
 const IDLE: Duration = Duration::from_secs(30);
@@ -15,7 +16,16 @@ const UNAUTHORIZED_RETRY: Duration = Duration::from_secs(300);
 pub fn spawn(shared: Arc<Shared>) {
     std::thread::Builder::new()
         .name("cloud-upload".to_owned())
-        .spawn(move || run(&shared))
+        .spawn(move || {
+            supervise(
+                "cloud-upload",
+                || shared.stopped(),
+                || {
+                    run(&shared);
+                    Exit::Stopped
+                },
+            )
+        })
         .expect("spawn upload thread");
 }
 

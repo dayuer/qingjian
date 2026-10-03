@@ -10,6 +10,7 @@ mod input_log_sync;
 mod learning;
 mod outbox;
 mod sse_reader;
+mod supervise;
 mod sync_state;
 
 pub use client::Client;
