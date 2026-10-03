@@ -1388,6 +1388,7 @@ name = "qingjian-cloud-bridge"
 version = "0.1.0-dev"
 dependencies = [
  "qingjian-cloud-client",
+ "qingjian-cloud-proto",
  "qingjian-core",
  "qingjian-dictionary",
  "qingjian-learning",
@@ -1398,6 +1399,7 @@ dependencies = [
  "thiserror",
  "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

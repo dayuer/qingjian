@@ -33,6 +33,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         super.viewWillAppear(animated)
         // 完全访问用来震动与连青简 Cloud；用户随时可能去设置里开关，每次出现时重读
         feedback.hapticsEnabled = hasFullAccess
+        updatePrivacy()
         model.appear()
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -78,6 +79,12 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         textDocumentProxy.deleteBackward()
     }
 
+    /// 同一次弹出里焦点也会换输入框（填完用户名跳到验证码），每次都重判。
+    override func textDidChange(_ textInput: (any UITextInput)?) {
+        super.textDidChange(textInput)
+        updatePrivacy()
+    }
+
     var contextBefore: String { textDocumentProxy.documentContextBeforeInput ?? "" }
 
     var contextAfter: String { textDocumentProxy.documentContextAfterInput ?? "" }
@@ -85,6 +92,26 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     func switchToNextKeyboard() {
         advanceToNextInputMode()
     }
+
+    var pasteboardChangeCount: Int { UIPasteboard.general.changeCount }
+
+    var pasteboardHasText: Bool { UIPasteboard.general.hasStrings }
+
+    func readPasteboard() -> String? { UIPasteboard.general.string }
+
+    /// 密码框（secureTextEntry）系统根本不给第三方键盘；这里挡的是验证码、新密码、信用卡号这类照样用我们键盘的字段。
+    private func updatePrivacy() {
+        let proxy = textDocumentProxy
+        let secure = proxy.isSecureTextEntry ?? false
+        let sensitive = proxy.textContentType.map(Self.sensitiveContentTypes.contains) ?? false
+        model.setPrivateField(secure || sensitive)
+    }
+
+    private static let sensitiveContentTypes: Set<UITextContentType> = [
+        .password, .newPassword, .oneTimeCode, .creditCardNumber,
+        .creditCardSecurityCode, .creditCardExpiration, .creditCardExpirationMonth,
+        .creditCardExpirationYear,
+    ]
 
     private func mountKeyboard() {
         let hosting = UIHostingController(

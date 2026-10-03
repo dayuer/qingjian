@@ -1,4 +1,4 @@
-// 键盘往宿主应用输出文字的出口；控制器用 textDocumentProxy 实现。
+// 键盘与宿主应用、系统剪贴板之间的出入口；控制器用 textDocumentProxy 与 UIPasteboard 实现。
 
 @MainActor
 protocol TextOutput: AnyObject {
@@ -16,4 +16,12 @@ protocol TextOutput: AnyObject {
     var contextAfter: String { get }
 
     func switchToNextKeyboard()
+
+    /// 系统剪贴板的变化计数；只读计数不会弹系统的粘贴授权提示。
+    var pasteboardChangeCount: Int { get }
+
+    var pasteboardHasText: Bool { get }
+
+    /// 读剪贴板里的文字（可能弹系统的粘贴授权提示，只在用户点了按钮后调）。
+    func readPasteboard() -> String?
 }

@@ -25,6 +25,9 @@ pub struct CloudConfig {
 
     /// 与别的设备同步学习数据（词频、用户词、个人 n-gram 等）。
     pub sync: bool,
+
+    /// 跨设备剪贴板：候选栏提示别的设备刚复制的文字，点按钮把本机剪贴板发出去。
+    pub clipboard: bool,
 }
 
 impl Default for CloudConfig {
@@ -36,6 +39,7 @@ impl Default for CloudConfig {
             candidates: false,
             logs: true,
             sync: true,
+            clipboard: true,
         }
     }
 }

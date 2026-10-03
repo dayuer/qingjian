@@ -93,6 +93,26 @@ final class Engine {
 
     func cancelRewrite() { qj_rewrite_cancel(session) }
 
+    /// 验证码、密码、信用卡号这类输入框：不学习、不记日志、不发云端，剪贴板与润色也停。
+    func setPrivate(_ value: Bool) { qj_set_private(session, value) }
+
+    var clipboardEnabled: Bool { qj_clipboard_enabled(session) }
+
+    /// 后台拉一次别的设备的剪贴板（键盘弹出时调）。
+    func refreshClipboard() { qj_clip_refresh(session) }
+
+    /// 别的设备最近复制、还没处理过的文字。
+    var clipOffer: ClipOffer? {
+        guard let text = take(qj_clip_offer_text(session)) else { return nil }
+        return ClipOffer(device: take(qj_clip_offer_device(session)) ?? "", text: text)
+    }
+
+    func clipHandled() { qj_clip_handled(session) }
+
+    func pushClip(_ text: String) {
+        text.withCString { qj_clip_push(session, $0) }
+    }
+
     private func take(_ raw: UnsafeMutablePointer<CChar>?) -> String? {
         guard let raw else { return nil }
         defer { qj_string_free(raw) }

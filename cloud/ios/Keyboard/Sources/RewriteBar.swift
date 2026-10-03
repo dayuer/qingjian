@@ -1,4 +1,4 @@
-// 没在组字时的候选栏：「✨ 润色」光标前的一段话，结果出来后点一下替换原文，✕ 放弃。
+// 润色进行中的候选栏（等结果 / 结果出来点一下替换原文 / 失败），✕ 放弃；空闲时的入口在 IdleBar。
 
 import SwiftUI
 
@@ -9,12 +9,7 @@ struct RewriteBar: View {
         HStack(spacing: 8) {
             switch model.rewrite {
             case .idle:
-                Label("润色", systemImage: "sparkles")
-                    .font(.system(size: 16))
-                    .padding(.horizontal, 12)
-                    .frame(maxHeight: .infinity)
-                    .onKeyboardTap { model.startRewrite() }
-                Spacer()
+                EmptyView()
             case .pending:
                 ProgressView().padding(.leading, 12)
                 Text("润色中…").font(.system(size: 15)).foregroundStyle(.secondary)

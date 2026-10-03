@@ -1,5 +1,5 @@
 // 键盘顶部的候选栏：横向滚动的候选，首选灰底；右端 ⌄ 展开全部候选。拼音不在这里，写在宿主的 marked text 里。
-// 没在组字且配了青简 Cloud 时换成润色栏。
+// 没在组字时换成 IdleBar（润色、跨设备剪贴板、隐私输入的锁）。
 
 import SwiftUI
 
@@ -9,10 +9,10 @@ struct CandidateBar: View {
     private let chevronWidth: CGFloat = 48
 
     var body: some View {
-        if !model.composing && model.rewriteAvailable {
-            RewriteBar(model: model).frame(height: KeyStyle.candidateBarHeight)
-        } else {
+        if model.composing {
             candidates
+        } else {
+            IdleBar(model: model)
         }
     }
 
