@@ -2,15 +2,23 @@
 //!
 //! 所有变化都是带全局递增 `seq` 的事件，客户端记住拉到哪个 `seq`，断线后从那里补拉。
 
+mod config_doc;
 mod event;
 mod event_kind;
 mod event_page;
+mod learning_page;
+mod learning_push;
+mod learning_row;
 mod push_clip;
 mod whoami;
 
+pub use config_doc::{ConfigDoc, PutConfig};
 pub use event::Event;
 pub use event_kind::EventKind;
 pub use event_page::EventPage;
+pub use learning_page::LearningPage;
+pub use learning_push::{CountDelta, LearningPush, MAX_LEARNING_PUSH, SetDelete, SetPut};
+pub use learning_row::LearningRow;
 pub use push_clip::PushClip;
 pub use whoami::Whoami;
 
@@ -37,3 +45,9 @@ pub const PATH_EVENTS: &str = "/v1/events";
 
 /// `GET ?since=` SSE 推送：先补发 `since` 之后的积压，再推实时事件。
 pub const PATH_STREAM: &str = "/v1/events/stream";
+
+/// `POST` 推送学习数据的变化；`GET ?since=&limit=` 拉取合并后的当前值。
+pub const PATH_LEARNING: &str = "/v1/learning";
+
+/// `GET` / `PUT` 输入法配置文件。
+pub const PATH_CONFIG: &str = "/v1/config";

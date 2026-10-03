@@ -1,8 +1,10 @@
 //! SQLite 存储：设备表与事件表。单连接加互斥锁；一人一台服务器，每次查询都是毫秒以内，不值得上连接池。
 
+mod config;
 mod device;
 mod devices;
 mod events;
+mod learning;
 mod token;
 
 use std::path::Path;
@@ -16,7 +18,7 @@ pub use device::Device;
 pub use token::{generate_token, hash_token};
 
 /// 数据库结构版本，存在 `PRAGMA user_version`。
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS devices (
@@ -37,6 +39,28 @@ CREATE TABLE IF NOT EXISTS events (
     UNIQUE (device_id, client_id)
 );
 CREATE INDEX IF NOT EXISTS events_kind_at ON events (kind, at);
+CREATE TABLE IF NOT EXISTS learning (
+    tbl       TEXT    NOT NULL,
+    key       TEXT    NOT NULL,
+    count     INTEGER NOT NULL DEFAULT 0,
+    value     TEXT,
+    deleted   INTEGER NOT NULL DEFAULT 0,
+    seq       INTEGER NOT NULL,
+    device_id INTEGER NOT NULL,
+    PRIMARY KEY (tbl, key)
+);
+CREATE INDEX IF NOT EXISTS learning_seq ON learning (seq);
+CREATE TABLE IF NOT EXISTS counters (
+    name  TEXT    PRIMARY KEY,
+    value INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS config (
+    id        INTEGER PRIMARY KEY CHECK (id = 1),
+    text      TEXT    NOT NULL,
+    version   INTEGER NOT NULL,
+    device_id INTEGER NOT NULL,
+    at        INTEGER NOT NULL
+);
 ";
 
 pub struct Store {
