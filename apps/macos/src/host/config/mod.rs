@@ -95,7 +95,8 @@ impl Host {
         // 分叉补丁：mode_indicator 关掉时整个状态项不显示
         self.indicator.set_enabled(config.general.mode_indicator);
         self.indicator.update();
-        self.menu.sync(&config, cloud_active, self.settings.error());
+        self.menu
+            .sync(&config, cloud_active, self.settings.notice().as_deref());
         let key_present = config
             .predict
             .api_key
@@ -106,7 +107,7 @@ impl Host {
         self.preferences.sync(
             &config,
             key_present,
-            self.settings.error(),
+            self.settings.notice().as_deref(),
             &self.dictionary_list,
             &self.update_status,
         );
