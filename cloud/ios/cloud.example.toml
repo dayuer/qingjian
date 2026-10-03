@@ -4,8 +4,14 @@
 server = "https://pinyin.synon.ai"
 token = ""
 
-# 组字时让大模型补候选、润色
+# 用服务器的大模型润色
 llm = true
+
+# 组字时让大模型补候选（缺省关：要等网络，准确率交给服务器上的纠错闭环）
+candidates = false
+
+# 记输入日志并上传，服务器上的纠错闭环靠它纠正词语、补热词、调词频
+logs = true
 
 # 与 Mac 等设备同步学习数据（词频、用户词、个人 n-gram 等）
 sync = true

@@ -27,6 +27,7 @@ bool qj_candidate_is_cloud(QjSession *session, uint32_t index);
 char *qj_commit(QjSession *session, uint32_t index);
 char *qj_take_raw(QjSession *session);
 char *qj_punctuate(QjSession *session, uint32_t c);
+void qj_note_passthrough(QjSession *session, uint32_t c);
 
 void qj_flush(QjSession *session);
 

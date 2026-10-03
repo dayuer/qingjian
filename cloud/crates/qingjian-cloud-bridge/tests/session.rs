@@ -45,3 +45,39 @@ fn backspace_and_raw() {
     assert_eq!(session.take_raw(), "zhongw");
     assert!(!session.composing());
 }
+
+/// 连了青简 Cloud 才记输入日志（给服务器上的纠错闭环）；服务器连不上不影响打字与记日志。
+#[test]
+fn logs_only_when_connected() {
+    let Some(data) = data_dir() else {
+        return;
+    };
+    let type_and_commit = |session: &mut Session| {
+        for c in "nihao".chars() {
+            session.push(c);
+        }
+        session.commit(0);
+        session.note_passthrough('\n');
+        session.flush();
+    };
+
+    let offline = std::env::temp_dir().join(format!("qj-bridge-offline-{}", std::process::id()));
+    std::fs::create_dir_all(&offline).unwrap();
+    let mut session = Session::open(&data, Some(&offline), None).unwrap();
+    type_and_commit(&mut session);
+    assert!(!offline.join("input-log.jsonl").exists());
+
+    let online = std::env::temp_dir().join(format!("qj-bridge-online-{}", std::process::id()));
+    std::fs::create_dir_all(&online).unwrap();
+    let cloud = toml::from_str::<qingjian_cloud_bridge::CloudConfig>(
+        "server = \"http://127.0.0.1:9\"\ntoken = \"t\"\n",
+    )
+    .unwrap();
+    let mut session = Session::open(&data, Some(&online), Some(cloud)).unwrap();
+    type_and_commit(&mut session);
+    let log = std::fs::read_to_string(online.join("input-log.jsonl")).unwrap();
+    assert!(log.contains("你好"), "{log}");
+
+    std::fs::remove_dir_all(&offline).ok();
+    std::fs::remove_dir_all(&online).ok();
+}

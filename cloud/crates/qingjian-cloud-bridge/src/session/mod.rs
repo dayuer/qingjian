@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use qingjian_cloud_client::DataSync;
 use qingjian_core::{Engine, SurroundingText};
 use qingjian_dictionary::Dictionary;
-use qingjian_learning::FrequencyLearner;
+use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
 use crate::cloud_config::CloudConfig;
@@ -57,6 +57,14 @@ impl Session {
                 Ok(model) => engine = engine.with_language_model(Box::new(model)),
                 Err(error) => tracing::warn!(%error, "语言模型加载失败，使用词频整句"),
             }
+        }
+        // 只在连了青简 Cloud 且要上传时记日志：离线用户的输入不落任何日志
+        if let (Some(dir), Some(cloud)) = (user_dir, &cloud)
+            && cloud.logs
+            && cloud.sync
+        {
+            engine =
+                engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
         }
         let mut session = Self {
             engine,
@@ -133,6 +141,11 @@ impl Session {
                 c.to_string()
             }
         }
+    }
+
+    /// 没在组字时直接输出的字符（空格、回车）告诉引擎，输入日志里的句子边界才对。
+    pub fn note_passthrough(&mut self, c: char) {
+        self.engine.note_passthrough(c);
     }
 
     /// 键盘收起或进入后台时调，学习数据落盘（键盘扩展随时可能被系统杀掉），再催一轮同步。

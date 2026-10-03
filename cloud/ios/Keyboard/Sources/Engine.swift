@@ -61,6 +61,12 @@ final class Engine {
         return text
     }
 
+    /// 没在组字时直接输出的空格、回车，记进输入日志的文本流。
+    func notePassthrough(_ c: Character) {
+        guard let scalar = c.unicodeScalars.first else { return }
+        qj_note_passthrough(session, scalar.value)
+    }
+
     func flush() { qj_flush(session) }
 
     var cloudEnabled: Bool { qj_cloud_enabled(session) }
