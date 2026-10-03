@@ -10,6 +10,7 @@
 #   SERVER_IP              可选，本机公网 IP；不填自动探测
 #   DEVICES                可选，空格分隔的设备名，没登记过的登记并打印令牌
 #   QINGJIAN_LLM_API_KEY   可选，上游大模型密钥（填了才提供大模型代理）
+#   ENABLE_TUNER=1         可选，同时启动纠错闭环（登记 tuner 设备、写令牌；缺省只出报告不推送，见 .env 的 QINGJIAN_TUNER_DRY_RUN）
 #   REPO / BRANCH / DIR    代码来源与安装目录，缺省见下
 set -euo pipefail
 
@@ -160,6 +161,17 @@ for name in ${DEVICES:-}; do
     docker compose exec -T cloud qingjian-cloud device add "$name"
   fi
 done
+
+if [[ "${ENABLE_TUNER:-}" == 1 ]]; then
+  say "纠错闭环"
+  if ! grep -q '^QINGJIAN_TUNER_TOKEN=qjc_' .env; then
+    docker compose exec -T cloud qingjian-cloud device remove tuner >/dev/null 2>&1 || true
+    token="$(docker compose exec -T cloud qingjian-cloud device add tuner | tail -1 | tr -d '\r')"
+    set_env QINGJIAN_TUNER_TOKEN "$token"
+  fi
+  docker compose --profile tuner up -d --build tuner
+  echo "已启动，每 24 小时一轮；每轮的报告打印在日志里：docker compose --profile tuner logs tuner"
+fi
 
 say "完成"
 cat <<EOF

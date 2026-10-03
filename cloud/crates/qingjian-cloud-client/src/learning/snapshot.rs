@@ -131,6 +131,72 @@ impl Snapshot {
         Ok(())
     }
 
+    /// 服务器上合并后的当前值（`GET /v1/learning` 拉全的行）建快照：计数为 0 的与删掉的不要。
+    pub fn from_rows(rows: &[LearningRow]) -> Self {
+        let mut snapshot = Self::default();
+        for row in rows {
+            let Some(table) = Table::from_name(&row.table) else {
+                continue;
+            };
+            let key = (table, row.key.clone());
+            if table.is_set() {
+                match (&row.value, row.deleted) {
+                    (Some(value), false) => {
+                        snapshot.sets.insert(key, value.clone());
+                    }
+                    _ => {
+                        snapshot.sets.remove(&key);
+                    }
+                }
+            } else if row.count > 0 {
+                snapshot.counts.insert(
+                    key,
+                    CountEntry {
+                        count: row.count,
+                        display: row.value.clone(),
+                    },
+                );
+            } else {
+                snapshot.counts.remove(&key);
+            }
+        }
+        snapshot
+    }
+
+    /// 某张集合表的全部 `(键, 值)`，如用户词的 `(词, 拼音)`。
+    pub fn set_entries(&self, table: Table) -> impl Iterator<Item = (&str, &str)> {
+        self.sets
+            .iter()
+            .filter(move |((t, _), _)| *t == table)
+            .map(|((_, key), value)| (key.as_str(), value.as_str()))
+    }
+
+    /// 按输入法的文件格式写进 `dir`（`user.tsv` 等），给 `qingjian-cli --user-dict` 用。
+    pub fn write_ime_dir(&self, dir: &Path) -> Result<(), ClientError> {
+        std::fs::create_dir_all(dir)?;
+        for table in Table::ALL {
+            let mut out = String::new();
+            if table.is_set() {
+                for (key, value) in self.set_entries(table) {
+                    let _ = writeln!(out, "{key}\t{value}\t100");
+                }
+            } else {
+                for ((t, key), entry) in &self.counts {
+                    if *t != table {
+                        continue;
+                    }
+                    let shown = match table {
+                        Table::English => entry.display.as_deref().unwrap_or(key),
+                        _ => key,
+                    };
+                    let _ = writeln!(out, "{shown}\t{}", entry.count);
+                }
+            }
+            std::fs::write(dir.join(table.file()), out)?;
+        }
+        Ok(())
+    }
+
     pub fn is_empty(&self) -> bool {
         self.counts.is_empty() && self.sets.is_empty()
     }
