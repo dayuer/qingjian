@@ -3,6 +3,7 @@
 # 在 local 分支的干净检出里运行（版本号用提交数，工作区有改动就拒绝），需要 data/generated/ 的产品数据：
 #
 #   NOTES="回车可选候选|修剪贴板同步" cloud/scripts/publish-mac.sh
+#   FORCE=1 NOTES="…" cloud/scripts/publish-mac.sh      # 线上已有同一版本号时覆盖（一般不需要）
 #
 # 已装的输入法每天查一次 https://<域名>/releases/releases.json，有新版就在后台下好 pkg，菜单「有新版本」点了打开安装。
 # 签名私钥在本机 ~/.config/qingjian-cloud/release-signing.key（qingjian-release-sign keygen 生成），公钥在
@@ -31,6 +32,15 @@ case "$(uname -m)" in arm64) cpu=arm64 ;; x86_64) cpu=x86_64 ;; *) echo "不认�
 file="qingjian-$version-macos-$cpu.pkg"
 staging="$root/target/publish"
 rm -rf "$staging" && mkdir -p "$staging"
+
+# 更新说明会显示在菜单与「关于」页：没写或只写了占位的省略号就不发
+[[ -n "${NOTES//[[:space:]…．.|]/}" ]] || { echo "NOTES 没写：NOTES=\"这次改了什么|一行一条\" $0" >&2; exit 1; }
+# 同一版本号重发会换掉线上的包（sha256 变了，已下载的要重下）：要覆盖得显式 FORCE=1
+if [[ "${FORCE:-0}" != 1 ]] && curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" 2>/dev/null \
+  | python3 -c 'import json,sys; sys.exit(0 if any(r.get("version")==sys.argv[1] for r in json.load(sys.stdin).get("releases",[])) else 1)' "$version"; then
+  echo "线上已有 ${version}：没有新提交就不用再发；确实要覆盖加 FORCE=1" >&2
+  exit 1
+fi
 
 say "打包输入法 ${version}"
 QINGJIAN_VERSION="$version" \
@@ -100,6 +110,14 @@ ssh "$HOST" "cd '$REMOTE_DIR' && mv releases.json.new releases.json && mv releas
   && for f in *.pkg; do grep -qxF \"\$f\" .keep.txt || rm -f -- \"\$f\"; done && rm -f .keep.txt && ls -l"
 
 say "检查线上"
-curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" | python3 -c 'import json,sys; print("线上最新:", json.load(sys.stdin)["latest"])'
+# 服务器的 nginx 开着 open_file_cache：换了文件后旧的还会再给约一分钟，等它换过来
+online=""
+for _ in $(seq 1 18); do
+  online="$(curl -fsS -m 20 "https://$DOMAIN/releases/releases.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest"])' 2>/dev/null || true)"
+  [[ "$online" == "$version" ]] && break
+  sleep 5
+done
+echo "线上最新: ${online:-读不到}"
+[[ "$online" == "$version" ]] || echo "注意：90 秒后线上还不是 ${version}，去服务器看看 $REMOTE_DIR" >&2
 curl -fsSI -m 20 "https://$DOMAIN/releases/$file" | head -1
 echo "已发布 ${version}。已装的青简一天内会查到；想马上试：偏好设置 → 关于 → 立即检查。"

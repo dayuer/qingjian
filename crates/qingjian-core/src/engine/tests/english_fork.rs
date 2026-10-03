@@ -88,3 +88,21 @@ fn raw_committed_pinyin_typos_are_not_learned_as_english() {
     assert_eq!(engine.take_raw(), "gist");
     assert!(english_candidate(&mut engine, "gist"));
 }
+
+#[test]
+fn three_letter_english_completions_do_not_take_first_place() {
+    // `wod` 是 我的 的简拼：Wodehouse 补全不该排第一；四个字母起的补全（`compa` → company）照旧
+    let dictionary = Dictionary::parse("我的\two de\t9000\n凑\tcou\t100\n").unwrap();
+    let words = WordList::parse(
+        "Wodehouse\twodehouse\t2900\ncompany\tcompany\t5600\ncompare\tcompare\t4450\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+    engine.set_input("wod");
+    let all = texts_of(&engine);
+    assert_eq!(all[0], "我的");
+    assert!(all.iter().any(|t| t == "Wodehouse"), "补全仍在候选里");
+
+    engine.set_input("compa");
+    assert_eq!(texts_of(&engine)[0], "company");
+}
