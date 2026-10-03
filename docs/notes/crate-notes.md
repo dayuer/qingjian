@@ -50,6 +50,10 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   有「每个音节都完整、末尾不是落单单字母」的变体时残尾变体不参与，免得 `keyyi` 的 可以 被 `ke yi y…` 抢走），
   纠正之间比较时换位减 `TypoCosts::correction_transpose_discount`（1 nat，CLI `--tune correction-transpose=`），与原样比不减；
   2026-09-15 回放 283 词 / 23 句：词首选 89.0%、整句 82.6%，与改前持平（折扣若也用在与原样比，`zhongwne` 会误纠成 中文，整句掉一条）。
+  一处编辑凑不出「站得住」的完整拼音时再叠一处换相邻键（`Correction::second`，`xibgbuxibg` → 行不行、`dinbushabg` → `dianbushang`）：
+  第一处也只认手滑（相邻键、漏敲、多敲、敲反），两处各付一次 `correction_penalty`，第二处不打个人折扣、也不记个人敲错表；
+  只对 `MAX_LETTERS_TWO_EDITS`（12）个字母以内的输入试（变体数随长度平方涨，24 个字母要 17 ms，12 个 4 ms）。
+  来源是 iPhone 真机输入记录里 n 常被打成 j / b；2026-10-04 三份评测集（sentences / partial-tail / typo-adjacent）首选一个数都没动。
 
 `EngineSession` 保存可挂起的组句、标点、历史与学习链，`Engine::swap_session` 在同一个引擎里交换输入状态，共用词库与落盘服务。切换上下文时清除查询及异步预测缓存，并由平台恢复各自私密状态。
 

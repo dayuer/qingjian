@@ -3,6 +3,8 @@
 //! 相邻换位另放宽到「末尾音节还没敲完」（`mignt` → `ming t…`、`migntia` → `ming tia…`）：
 //! 敲反两个键的人多半还在往下敲，等整个词敲完再纠就晚了一拍。
 //!
+//! 一处编辑凑不出完整拼音时再试「一处编辑 + 换一个相邻键」（手机上一个词里误触两次：`dinbushabg` → `dianbushang`）。
+//!
 //! 这里只产生**候选纠正**（变体 + 完整切分），挑哪一个由 Engine 用词库和语言模型定：
 //! 纠正后至少要能凑出一个两音节以上的词，否则宁可不纠。学习方面：接受过的纠正按原输入串记选择，
 //! 回车原样上屏过的串记成「不纠」，都在 Learner 里。
@@ -19,6 +21,7 @@ pub use costs::TypoCosts;
 pub use edit::{Edit, variants};
 pub use result::Correction;
 pub use typo::TypoKind;
+pub use typo::adjacent;
 
 use crate::parser::{self, Segmentation};
 
@@ -27,6 +30,9 @@ pub const MIN_LETTERS: usize = 4;
 
 /// 多于这么多字母不纠：变体数量随长度线性涨，而且这么长多半是整句简拼。
 pub const MAX_LETTERS: usize = 24;
+
+/// 多于这么多字母不试第二处编辑：变体数随长度平方涨（24 个字母要 17 ms），手机上一个词也就三四个音节。
+pub const MAX_LETTERS_TWO_EDITS: usize = 12;
 
 /// 这段输入是否值得试纠错：纯小写字母、长度在范围内。
 pub fn eligible(input: &str) -> bool {
@@ -105,6 +111,7 @@ fn candidates_from(input: &str, variants: Vec<(Edit, String)>) -> Vec<Correction
                 original: input.to_owned(),
                 corrected,
                 edit,
+                second: None,
                 segmentation,
             })
         })
@@ -115,20 +122,82 @@ fn candidates_from(input: &str, variants: Vec<(Edit, String)>) -> Vec<Correction
     // 只有一个音节的也不算数（`zehg` 把 h 换成 n 是完整的 `zeng`，但四个字母以上只拼出一个音节多半是还没敲完），
     // 改在刚敲的最后一个键上的也不算数（`zehg` 把 g 换成 a 是完整的 `ze ha`，可 g 是刚敲下去的，
     // 和「删掉刚敲的最后一个字母不算纠正」一个道理）；这些情况下末尾没敲完的 `zhe g…` 仍参与。
-    let settled = found.iter().any(|c| {
-        c.segmentation.incomplete_count() == 0
-            && c.segmentation.syllables.len() >= 2
-            && !trailing_single_letter(Some(&c.segmentation))
-            && !c.edit.touches_last_letter(c.corrected.len())
-    });
+    let settled = found.iter().any(is_settled);
     if settled {
-        found
+        return found
             .into_iter()
             .filter(|c| c.segmentation.incomplete_count() == 0)
-            .collect()
-    } else {
-        found
+            .collect();
     }
+    // 一处编辑不够：再换一个相邻键。只认「每个音节都完整」的结果，代价由 Engine 按两处编辑算
+    if input.len() > MAX_LETTERS_TWO_EDITS {
+        return found;
+    }
+    let mut found = found;
+    let seen: Vec<String> = found.iter().map(|c| c.corrected.clone()).collect();
+    let mut seen = seen;
+    for (edit, once) in edit::variants(input) {
+        if once.len() < MIN_LETTERS {
+            continue;
+        }
+        let bytes = once.as_bytes();
+        // 一个词里错两处，两处都该是手滑（相邻键、漏敲、多敲、敲反）；第一处随便换一个字母的不算
+        if let Edit::Substitute { index, from } = edit
+            && !adjacent(from, bytes[index] as char)
+        {
+            continue;
+        }
+        for i in 0..bytes.len() {
+            // 同一位改两次就是换成了不相邻的键，不算
+            if matches!(edit, Edit::Substitute { index, .. } | Edit::Insert { index } if index == i)
+            {
+                continue;
+            }
+            for letter in b'a'..=b'z' {
+                if letter == bytes[i] || !adjacent(bytes[i] as char, letter as char) {
+                    continue;
+                }
+                let mut twice = bytes.to_vec();
+                twice[i] = letter;
+                let twice = String::from_utf8(twice).expect("ascii");
+                if seen.contains(&twice) || !parser::is_fully_segmentable(&twice) {
+                    continue;
+                }
+                let Some(segmentation) = complete_segmentation(&twice) else {
+                    continue;
+                };
+                let candidate = Correction {
+                    original: input.to_owned(),
+                    corrected: twice,
+                    edit: edit.clone(),
+                    second: Some(Edit::Substitute {
+                        index: i,
+                        from: bytes[i] as char,
+                    }),
+                    segmentation,
+                };
+                if !is_settled(&candidate) {
+                    continue;
+                }
+                seen.push(candidate.corrected.clone());
+                found.push(candidate);
+            }
+        }
+    }
+    found
+}
+
+/// 这个纠正「站得住」：每个音节都完整、至少两个音节、末尾不是落单的单字母、没改在刚敲的最后一个键上。
+fn is_settled(c: &Correction) -> bool {
+    let len = c.corrected.len();
+    c.segmentation.incomplete_count() == 0
+        && c.segmentation.syllables.len() >= 2
+        && !trailing_single_letter(Some(&c.segmentation))
+        && !c.edit.touches_last_letter(len)
+        && !c
+            .second
+            .as_ref()
+            .is_some_and(|e| e.touches_last_letter(len))
 }
 
 #[cfg(test)]
@@ -175,6 +244,27 @@ mod tests {
         assert!(found.iter().any(
             |c| c.corrected == "nihaoma" && matches!(c.edit, Edit::Transpose { index: 3, .. })
         ));
+    }
+
+    #[test]
+    fn a_second_adjacent_key_fixes_a_doubly_mistyped_word() {
+        // 手机上 a 漏敲、n 误触成 b：一处编辑凑不出完整拼音，补 a 再把 b 换成 n
+        let found = candidates("dinbushabg");
+        let fixed = found
+            .iter()
+            .find(|c| c.corrected == "dianbushang")
+            .expect("dianbushang");
+        assert!(matches!(fixed.edit, Edit::Insert { index: 2 }));
+        assert_eq!(
+            fixed.second,
+            Some(Edit::Substitute {
+                index: 9,
+                from: 'b'
+            })
+        );
+        assert_eq!(fixed.segmentation.joined("'"), "dian'bu'shang");
+        // 一处编辑就够的输入不叠第二处
+        assert!(candidates("nihooma").iter().all(|c| c.second.is_none()));
     }
 
     #[test]
