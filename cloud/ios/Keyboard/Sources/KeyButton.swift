@@ -1,4 +1,5 @@
 // 一个按键的外观与手势：按下即触发，字符键弹出放大字样，⌫ 按住连删。
+// 触摸范围是整个格子（含四周的缝），键帽按 insets 缩进画在里面。
 
 import SwiftUI
 
@@ -6,6 +7,9 @@ struct KeyButton: View {
     let key: Key
 
     let model: KeyboardModel
+
+    /// 键帽相对触摸范围的缩进；不给就是键帽占满。
+    var insets = EdgeInsets()
 
     @State private var pressed = false
 
@@ -19,6 +23,7 @@ struct KeyButton: View {
             .overlay(alignment: .bottom) {
                 if pressed && key.showsCallout { callout }
             }
+            .padding(insets)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
