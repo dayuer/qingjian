@@ -40,7 +40,7 @@ docker compose exec cloud qingjian-cloud export-log --device macbook > mac.jsonl
 
 ## 4. 纠错闭环（可选）
 
-先配好上面的大模型密钥，然后：
+先配好上面的大模型密钥，然后（80/443 已被 nginx 占用的机器用 `ENABLE_TUNER=1 cloud/deploy/deploy-nginx.sh`，镜像在服务器后台编）：
 
 ```bash
 ENABLE_TUNER=1 DOMAIN=<域名> bash install.sh     # 用部署脚本：登记 tuner 设备、写令牌、启动
