@@ -1,5 +1,6 @@
 //! 云端：测试连接的起停与轮询，联想的等待 / 取消 / 轮询与结果套用到当前页。
 
+mod inbox;
 mod predict_monitor;
 mod test_monitor;
 

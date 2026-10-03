@@ -1,4 +1,5 @@
 mod learner_impl;
+mod remote;
 mod tables;
 
 use std::collections::BTreeMap;
