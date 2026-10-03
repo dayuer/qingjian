@@ -62,6 +62,9 @@ impl InputMenu {
         let fuzzy_parent = action_item(mtm, "模糊音", None, &target);
         fuzzy_parent.setSubmenu(Some(&fuzzy_menu));
         menu.addItem(&fuzzy_parent);
+        // 分叉补丁：紧挨着「模糊音」，前面不能有隐藏项或分隔线，见 cloud_agent.rs 文件头
+        let cloud_agent = CloudAgentMenu::new(mtm, &target);
+        menu.addItem(cloud_agent.item());
 
         menu.addItem(&NSMenuItem::separatorItem(mtm));
         menu.addItem(&action_item(
@@ -80,8 +83,6 @@ impl InputMenu {
         let update = action_item(mtm, "", Some(MenuAction::OpenDownload), &target);
         update.setHidden(true);
         menu.addItem(&update);
-        let cloud_agent = CloudAgentMenu::new(mtm, &target);
-        menu.addItem(cloud_agent.item());
         menu.addItem(&NSMenuItem::separatorItem(mtm));
 
         let error = action_item(mtm, "", None, &target);
