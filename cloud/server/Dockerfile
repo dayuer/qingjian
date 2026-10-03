@@ -1,11 +1,13 @@
-# 青简 Cloud 服务端镜像。构建上下文是 cloud/ 目录（deploy/docker-compose.yml 已经这样配好）：
-#   docker build -f server/Dockerfile -t qingjian-cloud .
+# 青简 Cloud 服务端镜像。构建上下文是仓库根目录（cloud/ 的 workspace 有指向上游 crates/ 的测试依赖，
+# Cargo 加载 workspace 时要读到它们）；同目录的 Dockerfile.dockerignore 把 target/ 等挡在外面：
+#   docker build -f cloud/server/Dockerfile -t qingjian-cloud .
 FROM rust:1-bookworm AS build
 WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
-    cargo build --release --locked -p qingjian-cloud-server \
+    --mount=type=cache,target=/src/cloud/target \
+    cd cloud \
+ && cargo build --release --locked -p qingjian-cloud-server \
  && cp target/release/qingjian-cloud /usr/local/bin/qingjian-cloud \
  && mkdir /empty
 
