@@ -19,8 +19,9 @@ uuid.workspace = true
 default = ["rustls"]
 # Linux / 服务端测试：rustls + Mozilla 根证书
 rustls = ["ureq/rustls"]
-# macOS / iOS：系统 TLS（Security.framework）与系统信任的根证书，不用交叉编译 ring
-native-tls = ["ureq/native-tls-no-default"]
+# macOS / iOS：系统 TLS（Security.framework）与系统信任的根证书，不用交叉编译 ring。
+# 要开 ureq 的 native-tls 而不是 native-tls-no-default：ureq 选 NativeTls 时只认前者，否则一发 https 就 panic
+native-tls = ["ureq/native-tls"]
 
 [lints]
 workspace = true
