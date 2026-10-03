@@ -69,7 +69,7 @@ fn raw_committed_pinyin_typos_are_not_learned_as_english() {
         .with_learner(Box::new(EnglishLearner::default()));
     let english_candidate = |engine: &mut Engine, input: &str| {
         engine.set_input(input);
-        engine.query().map_or(false, |query| {
+        engine.query().is_ok_and(|query| {
             query
                 .candidates
                 .items
