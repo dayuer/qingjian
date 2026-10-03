@@ -19,6 +19,25 @@ services:
     expose:
       - "8080"
 
+  # 纠错闭环：可选，`docker compose --profile tuner up -d` 才启动；要先在 .env 填 QINGJIAN_TUNER_TOKEN
+  tuner:
+    profiles: ["tuner"]
+    build:
+      context: ../..
+      dockerfile: cloud/tuner/Dockerfile
+    image: qingjian-cloud-tuner:latest
+    restart: unless-stopped
+    depends_on:
+      - cloud
+    volumes:
+      - tuner_data:/data
+    environment:
+      QINGJIAN_CLOUD_SERVER: http://cloud:8080
+      QINGJIAN_TUNER_TOKEN: ${QINGJIAN_TUNER_TOKEN:-}
+      QINGJIAN_TUNER_MODEL: ${QINGJIAN_TUNER_MODEL:-deepseek-v4-flash}
+      QINGJIAN_TUNER_EVERY_HOURS: ${QINGJIAN_TUNER_EVERY_HOURS:-24}
+      QINGJIAN_TUNER_DRY_RUN: ${QINGJIAN_TUNER_DRY_RUN:-true}
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -36,5 +55,6 @@ services:
 
 volumes:
   cloud_data:
+  tuner_data:
   caddy_data:
   caddy_config:

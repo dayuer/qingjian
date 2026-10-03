@@ -35,7 +35,22 @@ docker compose exec cloud qingjian-cloud export-log --device macbook > mac.jsonl
 
 导出的日志可以直接给青简的 `qingjian-cli --replay` 回放评测。
 
-## 4. 备份与升级
+## 4. 纠错闭环（可选）
+
+先配好上面的大模型密钥，然后：
+
+```bash
+ENABLE_TUNER=1 DOMAIN=<域名> bash install.sh     # 用部署脚本：登记 tuner 设备、写令牌、启动
+# 或者手动：
+docker compose exec cloud qingjian-cloud device add tuner   # 令牌填进 .env 的 QINGJIAN_TUNER_TOKEN
+docker compose --profile tuner up -d --build
+docker compose --profile tuner logs -f tuner                # 每轮的报告
+```
+
+缺省只出报告不推送（`.env` 的 `QINGJIAN_TUNER_DRY_RUN=true`）；看几轮报告觉得靠谱，改成 `false` 再 `docker compose --profile tuner up -d`。
+镜像约 230 MB（带上游的 qingjian-cli 与产品数据），第一次构建要编译上游并下载数据，十分钟左右。
+
+## 5. 备份与升级
 
 ```bash
 crontab -e   # 每天 4 点备份，保留 14 份：

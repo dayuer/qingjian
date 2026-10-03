@@ -6,6 +6,7 @@ members = [
     "crates/qingjian-cloud-client",
     "server",
     "mac-agent",
+    "tuner",
 ]
 
 [workspace.package]

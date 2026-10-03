@@ -1729,6 +1729,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "qingjian-cloud-tuner"
+version = "0.1.0-dev"
+dependencies = [
+ "axum",
+ "clap",
+ "qingjian-cloud-client",
+ "qingjian-cloud-proto",
+ "qingjian-cloud-server",
+ "qingjian-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+]
+
+[[package]]
 name = "qingjian-core"
 version = "0.1.1"
 dependencies = [
