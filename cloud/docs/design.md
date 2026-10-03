@@ -81,14 +81,17 @@ cloud/
 │   ├── qingjian-cloud-proto/       # 协议类型（服务端与客户端共用）
 │   ├── qingjian-cloud-client/      # 客户端：HTTP、SSE、离线队列
 │   └── qingjian-cloud-bridge/      # 唯一依赖上游 crate 的地方：读写 .qj、驱动 Engine
-├── server/                         # 服务端：axum + SQLite，一个二进制
 ├── crates/qingjian-cloud-mac/      # Mac 端：链进输入法进程（2026-10-03 起，之前是独立的菜单栏常驻程序）
 ├── ios/                            # iOS 主 App + 键盘扩展
-├── deploy/                         # docker-compose.yml、Caddyfile、备份脚本
 └── docs/
+
+synon-ime/（独立的闭源仓库，与本检出并排）
+├── server/                         # 服务端：axum + SQLite，一个二进制
+├── tuner/                          # 纠错闭环
+└── deploy/                         # compose、deploy.sh、备份、nginx 站点副本
 ```
 
-- **服务端**：axum 提供 HTTP，SQLite（`rusqlite`）存储。TLS 交给前面的 Caddy。
+- **服务端**：axum 提供 HTTP，SQLite（`rusqlite`）存储。TLS 交给前面的 nginx。
 - **鉴权**：每台设备一个令牌，用 `qingjian-cloud device add <名字>` 生成。服务端只存令牌的哈希，请求时带在 `Authorization: Bearer …` 头里。
   吊销一台设备不影响其他设备。
 - **数据模型**：所有数据都是追加写的操作流。服务端给每条操作分配全局递增的 `seq`，客户端记住已经拉到哪里。
@@ -173,7 +176,7 @@ cloud/
 - **缓存**：同一段「拼音 + 近期上文」的回答缓存起来，各设备共用。
 - **记账**：按设备、按天记录 token 用量。
 
-### 后台：纠错闭环（`tuner`，每天一轮）
+### 后台：纠错闭环（`tuner`，每小时一轮，没怎么打字就跳过）
 
 做成一个独立程序 `qingjian-cloud-tuner`，对服务器来说就是一台叫 `tuner` 的设备：用自己的令牌拉汇总的输入日志与学习数据，
 经服务器的代理问大模型（用量记在它名下），通过把关的修正以学习数据推回服务器，各设备经第 2.5 节的学习数据同步拿到。

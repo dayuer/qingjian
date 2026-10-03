@@ -5,9 +5,7 @@ members = [
     "crates/qingjian-cloud-proto",
     "crates/qingjian-cloud-client",
     "crates/qingjian-cloud-bridge",
-    "server",
     "crates/qingjian-cloud-mac",
-    "tuner",
 ]
 
 [workspace.package]
