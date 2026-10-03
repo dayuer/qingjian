@@ -1,0 +1,21 @@
+[package]
+name = "qingjian-cloud-bridge"
+description = "青简 Cloud 的 iOS 桥：把上游 Engine 包成 C ABI 静态库，给 Swift 写的键盘扩展调用"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+qingjian-core = { path = "../../../crates/qingjian-core" }
+qingjian-dictionary = { path = "../../../crates/qingjian-dictionary" }
+qingjian-learning = { path = "../../../crates/qingjian-learning" }
+qingjian-lm = { path = "../../../crates/qingjian-lm" }
+thiserror.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

@@ -16,8 +16,9 @@
 | [server/](server/) | 服务端（Rust：axum + SQLite），Docker 镜像约 56 MB |
 | [deploy/](deploy/) | docker-compose + Caddy 自动 HTTPS、备份脚本；[部署说明](deploy/README.md) |
 | [crates/qingjian-cloud-mac/](crates/qingjian-cloud-mac/) | Mac 端：链进输入法进程的同步模块；[使用与验收清单](crates/qingjian-cloud-mac/README.md) |
+| [ios/](ios/) | iOS 主 App + 键盘扩展：本地引擎、26 键全拼，键位照 iOS 自带简体拼音；[构建与已知问题](ios/README.md) |
 | [tuner/](tuner/) | 纠错闭环：词库体检、一次就学会、话题补词，回放把关（可选服务） |
-| [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用 |
+| [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用；`qingjian-cloud-bridge` 把上游 Engine 包成 C ABI 给 iOS 键盘 |
 
 开发：在 `cloud/` 下 `cargo test`、`cargo clippy --all-targets -- -D warnings`；Mac 程序在 Linux 上可用
 `cargo check -p qingjian-cloud-mac --target aarch64-apple-darwin` 做编译检查。tuner 的端到端测试要上游 CLI 与产品数据：
