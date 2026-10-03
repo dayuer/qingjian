@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use crate::config_sync::{ConfigOutcome, ConfigSync};
 
+use crate::supervise::{Exit, supervise};
 use crate::{Client, ClientError, InputLogSync, LearningSync};
 use jobs::Jobs;
 
@@ -39,20 +40,9 @@ pub struct DataSync {
 }
 
 impl DataSync {
+    /// 起后台线程就返回：读基线与进度文件也在线程里做，不占调用方（输入法主线程）的时间。
+    /// 线程出错（panic 或读不了状态文件）按退避重启，每次都从磁盘重新读状态，不沿用出错时内存里的半截数据。
     pub fn start(config: DataSyncConfig) -> Result<Self, ClientError> {
-        let client = Client::new(&config.server, &config.token);
-        let learning = LearningSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
-        let settings = ConfigSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
-        let logs = if config.sync_logs {
-            Some(InputLogSync::open(
-                client,
-                &config.ime_dir,
-                &config.state_dir,
-                config.log_download_dir.clone(),
-            )?)
-        } else {
-            None
-        };
         let shared = Arc::new(Shared {
             status: Mutex::new(DataStatus::default()),
             wake: (Mutex::new(false), Condvar::new()),
@@ -62,12 +52,20 @@ impl DataSync {
         std::thread::Builder::new()
             .name("cloud-data".to_owned())
             .spawn(move || {
-                let jobs = Jobs {
-                    learning: config.sync_learning.then_some(learning),
-                    settings: config.sync_config.then_some(settings),
-                    logs,
-                };
-                run(&thread_shared, jobs)
+                supervise(
+                    "cloud-data",
+                    || thread_shared.stop.load(Ordering::Relaxed),
+                    || match open_jobs(&config) {
+                        Ok(jobs) => {
+                            run(&thread_shared, jobs);
+                            Exit::Stopped
+                        }
+                        Err(error) => {
+                            lock(&thread_shared.status).error = Some(error.to_string());
+                            Exit::Retry(error.to_string())
+                        }
+                    },
+                )
             })?;
         Ok(Self { shared })
     }
@@ -89,6 +87,28 @@ impl Drop for DataSync {
         self.shared.stop.store(true, Ordering::Relaxed);
         self.sync_now();
     }
+}
+
+/// 按配置打开各项同步：读基线、进度与配置文件。
+fn open_jobs(config: &DataSyncConfig) -> Result<Jobs, ClientError> {
+    let client = Client::new(&config.server, &config.token);
+    let learning = LearningSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
+    let settings = ConfigSync::open(client.clone(), &config.ime_dir, &config.state_dir)?;
+    let logs = if config.sync_logs {
+        Some(InputLogSync::open(
+            client,
+            &config.ime_dir,
+            &config.state_dir,
+            config.log_download_dir.clone(),
+        )?)
+    } else {
+        None
+    };
+    Ok(Jobs {
+        learning: config.sync_learning.then_some(learning),
+        settings: config.sync_config.then_some(settings),
+        logs,
+    })
 }
 
 fn run(shared: &Shared, mut jobs: Jobs) {

@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use super::{Backoff, Shared, Status};
 use crate::ClientError;
+use crate::supervise::{Exit, supervise};
 
 /// 令牌被拒后多久再试。
 const UNAUTHORIZED_RETRY: Duration = Duration::from_secs(300);
@@ -15,7 +16,16 @@ const MIN_RECONNECT: Duration = Duration::from_secs(1);
 pub fn spawn(shared: Arc<Shared>) {
     std::thread::Builder::new()
         .name("cloud-listen".to_owned())
-        .spawn(move || run(&shared))
+        .spawn(move || {
+            supervise(
+                "cloud-listen",
+                || shared.stopped(),
+                || {
+                    run(&shared);
+                    Exit::Stopped
+                },
+            )
+        })
         .expect("spawn listen thread");
 }
 

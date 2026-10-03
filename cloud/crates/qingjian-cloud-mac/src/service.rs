@@ -2,7 +2,7 @@
 //! 网络都在 `ClipboardSync` / `DataSync` 的后台线程里，主线程从不等网络。
 //! 跑在输入法进程里：入口都包 `catch_unwind`，这里出错只停同步，不能把输入法带崩（跨 ObjC 边界的 panic 会直接终止进程）。
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::time::{Duration, Instant};
 
@@ -41,38 +41,40 @@ const MENU_REFRESH: Duration = Duration::from_secs(30);
 /// 更早的（离线很久后补拉到的）只进菜单里的历史，免得突然覆盖用户正在用的剪贴板。
 const AUTO_PASTE_WINDOW_MS: i64 = 120_000;
 
+/// 主线程这边出错后，第一次重启前等多久，之后每次翻倍。
+const FIRST_RESTART: Duration = Duration::from_secs(10);
+
+/// 重启最长等多久。
+const MAX_RESTART: Duration = Duration::from_secs(600);
+
 thread_local! {
     static SERVICE: RefCell<Option<Service>> = const { RefCell::new(None) };
+
+    /// 定时器单独放：服务出错被丢掉后它还在走，到点重建服务。
+    static TIMER: RefCell<Option<Retained<NSTimer>>> = const { RefCell::new(None) };
+
+    /// 服务出错停了：什么时候重建、这次等了多久（下次翻倍）。
+    static RESTART: Cell<Option<(Instant, Duration)>> = const { Cell::new(None) };
 }
 
-/// 输入法启动时调一次：读配置、起同步、挂上定时器。重复调用不做事。
+/// 输入法启动时调一次：挂上定时器、读配置、起同步。重复调用不做事。
 pub fn start(mtm: MainThreadMarker) {
-    if SERVICE.with(|cell| cell.borrow().is_some()) {
+    if TIMER.with(|timer| timer.borrow().is_some()) {
         return;
     }
-    let started = catch_unwind(AssertUnwindSafe(|| {
-        let mut service = Service::new();
-        let target = TimerTarget::new(mtm);
-        // NSTimer 持有 target，定时器活着它就活着
-        service.timer = Some(unsafe {
-            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
-                TICK,
-                &target,
-                sel!(tick:),
-                None,
-                true,
-            )
-        });
-        service.refresh_menu(true);
-        service
-    }));
-    match started {
-        Ok(service) => {
-            SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
-            tracing::info!("青简 Cloud 已启动");
-        }
-        Err(_) => tracing::error!("青简 Cloud 启动时出错，本次不同步"),
-    }
+    let target = TimerTarget::new(mtm);
+    // NSTimer 持有 target，定时器活着它就活着
+    let timer = unsafe {
+        NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+            TICK,
+            &target,
+            sel!(tick:),
+            None,
+            true,
+        )
+    };
+    TIMER.with(|cell| *cell.borrow_mut() = Some(timer));
+    build(FIRST_RESTART);
 }
 
 /// 「青简 Cloud ›」子菜单的内容；没启动或出错停了时为空（输入法据此收起子菜单）。
@@ -91,26 +93,62 @@ pub fn perform(tag: isize) {
 }
 
 pub(crate) fn tick() {
+    if let Some((at, waited)) = RESTART.with(Cell::get) {
+        if Instant::now() >= at {
+            tracing::info!("青简 Cloud 重启");
+            build((waited * 2).min(MAX_RESTART));
+        }
+        return;
+    }
     with(Service::tick);
 }
 
-/// 在主线程上取服务；重入时（正在处理上一个回调）跳过。出错就整个停掉，只记日志，输入法照常打字。
+/// 建服务；出错就按 `next_wait` 排下一次重建。
+fn build(next_wait: Duration) {
+    match catch_unwind(AssertUnwindSafe(|| {
+        let mut service = Service::new();
+        service.refresh_menu(true);
+        service
+    })) {
+        Ok(service) => {
+            SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
+            RESTART.with(|cell| cell.set(None));
+            tracing::info!("青简 Cloud 已启动");
+        }
+        Err(_) => schedule_restart(next_wait),
+    }
+}
+
+fn schedule_restart(wait: Duration) {
+    tracing::error!(
+        wait_secs = wait.as_secs(),
+        "青简 Cloud 出错，已停止同步，稍后自动重启（见上面的日志）"
+    );
+    RESTART.with(|cell| cell.set(Some((Instant::now() + wait, wait))));
+}
+
+/// 在主线程上取服务；重入时（正在处理上一个回调）跳过。出错就丢掉服务、排定重启，输入法照常打字。
 fn with<T>(f: impl FnOnce(&mut Service) -> T) -> Option<T> {
-    SERVICE.with(|cell| {
-        let mut guard = cell.try_borrow_mut().ok()?;
-        let service = guard.as_mut()?;
+    let (result, crashed) = SERVICE.with(|cell| {
+        let Ok(mut guard) = cell.try_borrow_mut() else {
+            return (None, false);
+        };
+        let Some(service) = guard.as_mut() else {
+            return (None, false);
+        };
         match catch_unwind(AssertUnwindSafe(|| f(service))) {
-            Ok(value) => Some(value),
+            Ok(value) => (Some(value), false),
             Err(_) => {
-                tracing::error!("青简 Cloud 出错，已停止同步（见上面的日志）");
-                if let Some(timer) = &service.timer {
-                    timer.invalidate();
-                }
+                // 丢掉服务时它的同步线程收到停止信号，各自退出
                 *guard = None;
-                None
+                (None, true)
             }
         }
-    })
+    });
+    if crashed {
+        schedule_restart(FIRST_RESTART);
+    }
+    result
 }
 
 struct Service {
@@ -153,8 +191,6 @@ struct Service {
 
     /// 从什么时候起当前输入法不是青简。
     other_input_since: Option<Instant>,
-
-    timer: Option<Retained<NSTimer>>,
 }
 
 impl Service {
@@ -174,7 +210,6 @@ impl Service {
             ticks: 0,
             last_synced: None,
             other_input_since: None,
-            timer: None,
         };
         service.load_config();
         service
@@ -276,7 +311,12 @@ impl Service {
                 && (now - incoming.event.at).abs() < AUTO_PASTE_WINDOW_MS
             {
                 self.last_synced = Some((text_hash(text), Instant::now()));
-                // 通用剪贴板可能已经把同样的内容送到了：一样就不写，写了会再被它广播回去
+                // 通用剪贴板正管着剪贴板（同一 Apple ID 的设备刚复制过）：交给它，不写也不读（读会跨设备取数据卡主线程）
+                if pasteboard::is_remote() {
+                    tracing::debug!(seq = incoming.event.seq, "剪贴板是通用剪贴板送来的，不写");
+                    continue;
+                }
+                // 已经一样就不写，写了会再被通用剪贴板广播回去
                 if pasteboard::current_text().as_deref() == Some(text.as_str()) {
                     tracing::debug!(seq = incoming.event.seq, "剪贴板里已是这段文字，不写");
                     continue;
