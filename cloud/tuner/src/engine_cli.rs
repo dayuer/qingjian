@@ -61,7 +61,7 @@ impl EngineCli {
             .arg("--user-dict")
             .arg(learning.join("user.tsv"))
             .stdin(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .env("RUST_LOG", "error");
         if let Some(root) = self.data_dir.parent().and_then(Path::parent) {
             command.current_dir(root);
@@ -100,7 +100,11 @@ impl EngineCli {
                 .args(chunk)
                 .output()?;
             if !output.status.success() {
-                return Err(TunerError::Cli(format!("查询失败：{}", output.status)));
+                return Err(TunerError::Cli(format!(
+                    "查询失败：{} {}",
+                    output.status,
+                    last_line(&output.stderr)
+                )));
             }
             result.extend(parse_candidates(&String::from_utf8_lossy(&output.stdout)));
         }
@@ -117,13 +121,40 @@ impl EngineCli {
             .arg("0")
             .output()?;
         if !output.status.success() {
-            return Err(TunerError::Cli(format!("回放失败：{}", output.status)));
+            return Err(TunerError::Cli(format!(
+                "回放失败：{} {}",
+                output.status,
+                last_line(&output.stderr)
+            )));
         }
         Ok(parse_replay(&String::from_utf8_lossy(&output.stdout)))
     }
 }
 
 /// `config.toml` 里 `[dictionaries] domains` 开着的领域词库；没写时输入法缺省只开成语。
+/// CLI 错误输出的最后一行（通常就是 `error: …`），带进报错里。
+fn last_line(stderr: &[u8]) -> String {
+    String::from_utf8_lossy(stderr)
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
+}
+
+/// 交给 CLI 的配置副本：关掉云联想（`[predict]`）。从 Mac 同步来的配置常开着它、令牌读环境变量，
+/// CLI 拿不到令牌会直接退出；回放与查词本来也不该联网问模型，否则结果不可复现。解析不了就原样用。
+pub fn offline_config(text: &str) -> String {
+    let Ok(mut table) = text.parse::<toml::Table>() else {
+        return text.to_owned();
+    };
+    if let Some(predict) = table.get_mut("predict").and_then(toml::Value::as_table_mut) {
+        predict.insert("enabled".to_owned(), toml::Value::Boolean(false));
+    }
+    toml::to_string(&table).unwrap_or_else(|_| text.to_owned())
+}
+
 fn domains(config: &Path) -> Vec<String> {
     let parsed = std::fs::read_to_string(config)
         .ok()
@@ -201,6 +232,16 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn offline_config_turns_off_cloud_prediction_only() {
+        let text = "[general]\nfuzzy = true\n\n[predict]\nenabled = true\napi_key_env = \"QINGJIAN_CLOUD_TOKEN\"\n";
+        let offline: toml::Table = offline_config(text).parse().unwrap();
+        assert_eq!(offline["predict"]["enabled"].as_bool(), Some(false));
+        assert_eq!(offline["general"]["fuzzy"].as_bool(), Some(true));
+        assert_eq!(offline_config("not = [toml"), "not = [toml");
+        assert!(!offline_config("[general]\n").contains("predict"));
+    }
 
     #[test]
     fn parses_query_output() {

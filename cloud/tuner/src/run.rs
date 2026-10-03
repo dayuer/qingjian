@@ -6,7 +6,7 @@ use qingjian_cloud_client::{Client, Snapshot};
 use qingjian_cloud_proto::{MAX_LEARNING_PUSH, MAX_PAGE};
 
 use crate::args::Args;
-use crate::engine_cli::{EngineCli, ReplayScore};
+use crate::engine_cli::{EngineCli, ReplayScore, offline_config};
 use crate::error::TunerError;
 use crate::llm::Llm;
 use crate::logs;
@@ -49,7 +49,7 @@ pub fn run_once(args: &Args) -> Result<String, TunerError> {
     let config = match client.config()? {
         Some(doc) => {
             let path = work.path().join("config.toml");
-            std::fs::write(&path, doc.text)?;
+            std::fs::write(&path, offline_config(&doc.text))?;
             Some(path)
         }
         None => None,
