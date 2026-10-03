@@ -25,7 +25,7 @@ struct SetupView: View {
                 } header: {
                     Text("试一试")
                 } footer: {
-                    Text("青简不需要「完全访问」：键盘不联网，打的字不离开这台设备。")
+                    Text("「完全访问」只用于按键震动，不开也能正常打字。青简不联网，打的字不离开这台设备。")
                 }
             }
             .navigationTitle("青简")

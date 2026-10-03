@@ -56,8 +56,8 @@ targets:
             IsASCIICapable: false
             PrefersRightToLeft: false
             PrimaryLanguage: zh-Hans
-            # 不要「完全访问」：键盘不联网，打的字不出这台设备
-            RequestsOpenAccess: false
+            # 完全访问只用于按键震动（iOS 规定第三方键盘没有它不能震）；键盘不联网，打的字不出这台设备
+            RequestsOpenAccess: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.keyboard

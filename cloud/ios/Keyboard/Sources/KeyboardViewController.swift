@@ -11,11 +11,25 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 宿主里现在有没有我们写的 marked text；proxy 没有接口能问，自己记。
     private var hasMarkedText = false
 
+    private let feedback = KeyFeedback()
+
+    override func loadView() {
+        super.loadView()
+        inputView = KeyboardInputView(frame: .zero, inputViewStyle: .keyboard)
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         model = KeyboardModel(engine: Self.openEngine())
         model.output = self
+        model.onKeyDown = { [feedback] in feedback.keyDown() }
         mountKeyboard()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // 完全访问只用来震动；用户随时可能去设置里开关，每次出现时重读
+        feedback.hapticsEnabled = hasFullAccess
     }
 
     override func viewWillLayoutSubviews() {
