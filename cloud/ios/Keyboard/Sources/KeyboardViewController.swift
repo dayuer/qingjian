@@ -16,6 +16,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 键盘可见期间每 0.25 秒一次：大模型候选、润色结果、别的设备的学习数据都靠它取回。
     private var pollTimer: Timer?
 
+    /// 打开引擎时的完全访问与 cloud.toml 修改时间；出现时对不上就重开引擎。
+    private var engineSignature = ""
+
     override func loadView() {
         super.loadView()
         inputView = KeyboardInputView(frame: .zero, inputViewStyle: .keyboard)
@@ -23,7 +26,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        model = KeyboardModel(engine: Self.openEngine())
+        engineSignature = currentSignature
+        model = KeyboardModel(engine: Self.openEngine(fullAccess: hasFullAccess))
         model.output = self
         model.onKeyDown = { [feedback] in feedback.keyDown() }
         mountKeyboard()
@@ -33,6 +37,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         super.viewWillAppear(animated)
         // 完全访问用来震动与连青简 Cloud；用户随时可能去设置里开关，每次出现时重读
         feedback.hapticsEnabled = hasFullAccess
+        if currentSignature != engineSignature {
+            engineSignature = currentSignature
+            model.replaceEngine(Self.openEngine(fullAccess: hasFullAccess))
+        }
         updatePrivacy()
         model.appear()
         pollTimer?.invalidate()
@@ -135,20 +143,21 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         self.hosting = hosting
     }
 
-    /// 产品数据随扩展打包在 Data/ 下（cloud.toml 也在，构建时从 cloud.local.toml 拷来）；
-    /// 学习数据与同步的基线放在扩展自己的容器里（没有完全访问权限也能写）。
-    private static func openEngine() -> Engine? {
+    private var currentSignature: String {
+        let modified = SharedStore.cloudFile.flatMap {
+            try? FileManager.default.attributesOfItem(atPath: $0.path)[.modificationDate] as? Date
+        }
+        return "\(hasFullAccess)|\(modified?.timeIntervalSince1970 ?? 0)"
+    }
+
+    /// 产品数据随扩展打包在 Data/ 下；设置、连接配置与学习数据的位置见 `UserData`。
+    private static func openEngine(fullAccess: Bool) -> Engine? {
         guard let data = Bundle.main.url(forResource: "Data", withExtension: nil) else {
             return nil
         }
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first?.appendingPathComponent("Qingjian", isDirectory: true)
-        if let support {
-            try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        }
-        let cloud = data.appendingPathComponent("cloud.toml")
+        let files = UserData.resolve(fullAccess: fullAccess, bundledData: data)
         return Engine(
-            dataDirectory: data, userDirectory: support,
-            cloudConfig: FileManager.default.fileExists(atPath: cloud.path) ? cloud : nil)
+            dataDirectory: data, userDirectory: files.userDirectory, configFile: files.configFile,
+            cloudConfig: files.cloudFile)
     }
 }

@@ -2,6 +2,7 @@
 //! 配了青简 Cloud 时还挂着大模型联想、润色与学习数据同步（见 `cloud.rs`）。
 
 mod cloud;
+mod config;
 
 use std::path::{Path, PathBuf};
 
@@ -40,15 +41,25 @@ pub struct Session {
     rewriter: Option<Rewriter>,
 
     clipboard: Option<Clipboard>,
+
+    /// 与 Mac 同格式的 `config.toml`（模糊音、双拼、繁体、领域词库、自定义短语等）与它上次套用时的修改时间。
+    config_path: Option<PathBuf>,
+
+    config_modified: Option<std::time::SystemTime>,
+
+    /// 随包领域词库所在目录（`Data/dicts`）。
+    dicts_dir: PathBuf,
 }
 
 impl Session {
     /// `data_dir` 里要有 `dict.qj`，`lm.qj` 可选（没有就退回词频整句）；
     /// `user_dir` 给了就从 `user.tsv` 读学习数据并在 [`Self::flush`] 时写回，没给只在内存里学；
+    /// `config` 是设置文件 `config.toml`，不给就用 `user_dir` 下的（iOS 上没有完全访问时学习数据在扩展容器、设置在 App Group，两处分开）；
     /// `cloud` 给了就接上大模型与同步，没给完全离线。
     pub fn open(
         data_dir: &Path,
         user_dir: Option<&Path>,
+        config: Option<&Path>,
         cloud: Option<CloudConfig>,
     ) -> Result<Self, BridgeError> {
         let dictionary = Dictionary::from_path(data_dir.join("dict.qj"))?;
@@ -78,7 +89,13 @@ impl Session {
             data_sync: None,
             rewriter: None,
             clipboard: None,
+            config_path: config
+                .map(Path::to_path_buf)
+                .or_else(|| user_dir.map(|dir| dir.join("config.toml"))),
+            config_modified: None,
+            dicts_dir: data_dir.join("dicts"),
         };
+        session.reload_config();
         if let Some(cloud) = cloud {
             session.connect(&cloud);
         }

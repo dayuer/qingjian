@@ -9,6 +9,7 @@ mod entry;
 mod error;
 mod rewrite;
 mod session;
+mod settings;
 
 use std::ffi::{CStr, CString, c_char};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -16,31 +17,39 @@ use std::path::Path;
 use std::ptr;
 
 pub use self::clipboard::{ClipOffer, Clipboard};
-pub use self::cloud_config::CloudConfig;
+pub use self::cloud_config::{CloudConfig, CloudStatus, CloudSwitches};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::session::Session;
+pub use self::settings::{DomainSetting, SchemeOption, Settings};
 
-/// 打开会话；`user_dir` 可为空（只在内存里学习），`cloud_config` 可为空或指向不存在的文件（完全离线）。
-/// 失败返回空指针。
+/// 打开会话；`user_dir` 可为空（只在内存里学习），`config` 为空时用 `user_dir` 下的 `config.toml`，
+/// `cloud_config` 可为空或指向不存在的文件（完全离线）。失败返回空指针。
 ///
 /// # Safety
-/// `data_dir` 必须是有效的 UTF-8 C 字符串，`user_dir`、`cloud_config` 为空或同上。
+/// `data_dir` 必须是有效的 UTF-8 C 字符串，其余参数为空或同上。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_session_open(
     data_dir: *const c_char,
     user_dir: *const c_char,
+    config: *const c_char,
     cloud_config: *const c_char,
 ) -> *mut Session {
     let Some(data_dir) = (unsafe { path_arg(data_dir) }) else {
         return ptr::null_mut();
     };
     let user_dir = unsafe { path_arg(user_dir) };
+    let config = unsafe { path_arg(config) };
     let cloud =
         unsafe { path_arg(cloud_config) }.and_then(|path| CloudConfig::load(Path::new(path)));
     let opened = catch_unwind(AssertUnwindSafe(|| {
-        Session::open(Path::new(data_dir), user_dir.map(Path::new), cloud)
+        Session::open(
+            Path::new(data_dir),
+            user_dir.map(Path::new),
+            config.map(Path::new),
+            cloud,
+        )
     }));
     match opened {
         Ok(Ok(session)) => Box::into_raw(Box::new(session)),
@@ -360,6 +369,89 @@ pub unsafe extern "C" fn qj_clip_push(session: *mut Session, text: *const c_char
         return;
     };
     with(session, (), |s| s.clip_push(&text));
+}
+
+/// 主 App 设置页：读 `config.toml`（没有按缺省），领域词库按 `dicts_dir` 列；返回 JSON（[`Settings`]），失败返回空。
+///
+/// # Safety
+/// 两个参数都是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_settings_read(
+    config_path: *const c_char,
+    dicts_dir: *const c_char,
+) -> *mut c_char {
+    let (Some(config_path), Some(dicts_dir)) = (unsafe { path_arg(config_path) }, unsafe {
+        path_arg(dicts_dir)
+    }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        let settings = Settings::read(Path::new(config_path), Path::new(dicts_dir));
+        serde_json::to_string(&settings).ok()
+    })
+    .ok()
+    .flatten()
+    .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// 把设置页的 JSON 写回 `config.toml`；成功返回空，失败返回原因（给用户看）。
+///
+/// # Safety
+/// 同 [`qj_settings_read`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_settings_write(
+    config_path: *const c_char,
+    json: *const c_char,
+) -> *mut c_char {
+    let (Some(config_path), Some(json)) =
+        (unsafe { path_arg(config_path) }, unsafe { path_arg(json) })
+    else {
+        return owned("参数无效");
+    };
+    let written = catch_unwind(|| {
+        let settings: Settings = serde_json::from_str(json).map_err(|e| e.to_string())?;
+        settings.write(Path::new(config_path))
+    });
+    match written {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error),
+        Err(_) => owned("写入时出错"),
+    }
+}
+
+/// 读 `cloud.toml` 给设置页：服务器地址、配没配好与各开关的 JSON（[`CloudStatus`]），令牌不返回。
+///
+/// # Safety
+/// `path` 是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_cloud_config_read(path: *const c_char) -> *mut c_char {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return ptr::null_mut();
+    };
+    let config = CloudConfig::read(Path::new(path)).unwrap_or_default();
+    serde_json::to_string(&CloudStatus::of(&config)).map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// 把设置页的开关（[`CloudSwitches`] 的 JSON）写回 `cloud.toml`，地址与令牌不动；成功返回空，失败返回原因。
+/// 键盘下次弹出时生效。
+///
+/// # Safety
+/// 两个参数都是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_cloud_config_write(
+    path: *const c_char,
+    json: *const c_char,
+) -> *mut c_char {
+    let (Some(path), Some(json)) = (unsafe { path_arg(path) }, unsafe { path_arg(json) }) else {
+        return owned("参数无效");
+    };
+    let written = serde_json::from_str::<CloudSwitches>(json)
+        .map_err(|e| e.to_string())
+        .and_then(|switches| CloudConfig::save_switches(Path::new(path), switches));
+    match written {
+        Ok(()) => ptr::null_mut(),
+        Err(error) => owned(&error),
+    }
 }
 
 /// # Safety

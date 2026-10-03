@@ -1393,11 +1393,13 @@ dependencies = [
  "qingjian-dictionary",
  "qingjian-learning",
  "qingjian-lm",
+ "qingjian-platform",
  "qingjian-predict",
  "serde",
  "serde_json",
  "thiserror",
  "toml",
+ "toml_edit",
  "tracing",
  "uuid",
 ]
@@ -1497,6 +1499,21 @@ dependencies = [
  "thiserror",
  "tracing",
  "zerocopy",
+]
+
+[[package]]
+name = "qingjian-platform"
+version = "0.1.1"
+dependencies = [
+ "qingjian-core",
+ "qingjian-dictionary",
+ "qingjian-predict",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "toml",
+ "toml_edit",
+ "tracing",
 ]
 
 [[package]]
