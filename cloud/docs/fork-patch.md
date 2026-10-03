@@ -58,6 +58,9 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 输入法照着画「青简 Cloud ›」子菜单，点了往 `QingjianCloud/commands/` 写一个只含 tag 的文件，由它取走执行。
 它每 2 秒看当前输入法，连续 30 秒不是青简就删 `menu.txt` 正常退出（launchd 不拉）；输入法 activateServer 时发现它没在运行就 `launchctl start`。
 
+**IMK 的坑**：带子菜单的父项排在隐藏项（「有新版本」）之后，IMK 整理菜单时就 `CFRelease(NULL)` 崩，输入法打不了字（271 / 273）。
+`cloud/scripts/imk-menu-repro.swift` 不装输入法就能复现，改菜单结构前先跑它：`ok` / `separators` / `dynamic` 要 exit 0，`after-hidden` exit 133。
+
 | 文件 | 改动 | 说明 |
 |---|---|---|
 | `apps/macos/src/menubar/cloud_agent.rs` | 新文件 | 子菜单、写命令、拉起青简 Cloud |
