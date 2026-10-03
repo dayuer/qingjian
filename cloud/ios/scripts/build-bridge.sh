@@ -54,7 +54,8 @@ for file in dict.qj lm.qj; do
 done
 # 青简 Cloud 的连接配置（服务器地址 + 这台设备的令牌）：本机文件，不进仓库；没有就完全离线
 if [[ -f "$ios_dir/cloud.local.toml" ]]; then
-  cp "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml"
+  cmp -s "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml" \
+    || install -m 644 "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml"
 else
   rm -f "$ios_dir/Keyboard/Data/cloud.toml"
 fi

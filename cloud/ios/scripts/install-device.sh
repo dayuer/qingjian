@@ -32,6 +32,9 @@ done
 [[ -n "$profile" ]] || { echo "没找到团队 $team 的通配符描述文件（$team.*）" >&2; exit 1; }
 
 cd "$ios_dir"
+# 先把 xcframework、产品数据与 cloud.toml 备好：Xcode 在构建开始前就定下 Data/ 里拷哪些文件，
+# 只靠工程里的 preBuildScript 生成，新出现的 cloud.toml 这一次不会进包
+scripts/build-bridge.sh
 xcodegen generate >/dev/null
 xcodebuild -project QingjianCloud.xcodeproj -scheme QingjianCloud -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath build/device build CODE_SIGNING_ALLOWED=NO -quiet
@@ -57,6 +60,10 @@ PLIST
 sign "$app/PlugIns/Keyboard.appex" app.qingjian.cloud.keyboard
 sign "$app" app.qingjian.cloud
 codesign -v --deep --strict "$app"
+if [[ -f cloud.local.toml && ! -f "$app/PlugIns/Keyboard.appex/Data/cloud.toml" ]]; then
+  echo "包里没有 cloud.toml，装上也连不了青简 Cloud" >&2
+  exit 1
+fi
 
 xcrun devicectl device install app --device "$device" "$app" >/dev/null
 xcrun devicectl device process launch --device "$device" app.qingjian.cloud >/dev/null
