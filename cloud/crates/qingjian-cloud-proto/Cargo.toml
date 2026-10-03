@@ -1,0 +1,16 @@
+[package]
+name = "qingjian-cloud-proto"
+description = "青简 Cloud 的协议类型，服务端与客户端共用"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

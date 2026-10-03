@@ -1,0 +1,6 @@
+target
+**/target
+ios
+mac-agent/build
+deploy/data
+deploy/.env

@@ -1,0 +1,8 @@
+# 域名从环境变量来（deploy/.env 的 QINGJIAN_DOMAIN），Caddy 自动申请并续期 Let's Encrypt 证书。
+{$QINGJIAN_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy cloud:8080 {
+		# SSE 要逐条转发，不能攒缓冲
+		flush_interval -1
+	}
+}

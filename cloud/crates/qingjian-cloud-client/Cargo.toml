@@ -1,0 +1,26 @@
+[package]
+name = "qingjian-cloud-client"
+description = "青简 Cloud 客户端：HTTP 接口、SSE、离线队列与剪贴板同步线程"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+qingjian-cloud-proto.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+ureq = { version = "3.4.2", default-features = false, features = ["json", "gzip"] }
+uuid.workspace = true
+
+[features]
+default = ["rustls"]
+# Linux / 服务端测试：rustls + Mozilla 根证书
+rustls = ["ureq/rustls"]
+# macOS / iOS：系统 TLS（Security.framework）与系统信任的根证书，不用交叉编译 ring
+native-tls = ["ureq/native-tls-no-default"]
+
+[lints]
+workspace = true

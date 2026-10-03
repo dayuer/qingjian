@@ -1,0 +1,36 @@
+# 青简 Cloud 部署：服务端 + Caddy（自动申请 HTTPS 证书）。用法见 deploy/README.md。
+services:
+  cloud:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: qingjian-cloud:latest
+    restart: unless-stopped
+    volumes:
+      - cloud_data:/data
+    environment:
+      QINGJIAN_CLOUD_CLIP_KEEP: ${QINGJIAN_CLOUD_CLIP_KEEP:-200}
+      QINGJIAN_CLOUD_CLIP_DAYS: ${QINGJIAN_CLOUD_CLIP_DAYS:-30}
+    # 只在 compose 网络内可见，外面经 Caddy 的 HTTPS 访问
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - cloud
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      QINGJIAN_DOMAIN: ${QINGJIAN_DOMAIN:?在 .env 里填 QINGJIAN_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  cloud_data:
+  caddy_data:
+  caddy_config:
