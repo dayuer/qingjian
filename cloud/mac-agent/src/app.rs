@@ -28,6 +28,9 @@ const INPUT_SOURCE_EVERY: u32 = 4;
 /// 连续这么久不是青简才退出：密码框里系统会临时切到英文键盘，不能一进密码框就退。
 const OTHER_INPUT_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// 刚上传过或刚收到的同一段文字，这么久之内不再上传：和苹果通用剪贴板之间的最后一道防回灌。
+const ECHO_WINDOW: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
 /// 状态没变也至少隔这么久重写一次 `menu.txt`：输入法据它的修改时间判断本程序还在不在。
 const MENU_HEARTBEAT: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -107,6 +110,9 @@ pub struct App {
     /// 拍数，按 [`INPUT_SOURCE_EVERY`] 看当前输入法。
     ticks: u32,
 
+    /// 最近一次上传或收到的文字的哈希与时间，防回灌用。
+    last_synced: Option<(u64, std::time::Instant)>,
+
     /// 从什么时候起当前输入法不是青简。
     other_input_since: Option<std::time::Instant>,
 
@@ -129,6 +135,7 @@ impl App {
             shown: None,
             menu_written: std::time::Instant::now(),
             ticks: 0,
+            last_synced: None,
             other_input_since: None,
             timer: None,
         };
@@ -227,7 +234,13 @@ impl App {
         if let Some(text) = copied
             && !self.paused
         {
-            sync.copy(text);
+            let hash = text_hash(&text);
+            if self.recently_synced(hash) {
+                tracing::debug!("与刚同步过的内容相同，不再上传");
+            } else {
+                self.last_synced = Some((hash, std::time::Instant::now()));
+                sync.copy(text);
+            }
         }
         let mut changed = false;
         let now = now_ms();
@@ -238,6 +251,12 @@ impl App {
                 && !self.paused
                 && (now - incoming.event.at).abs() < AUTO_PASTE_WINDOW_MS
             {
+                self.last_synced = Some((text_hash(text), std::time::Instant::now()));
+                // 通用剪贴板可能已经把同样的内容送到了：一样就不写，写了会再被它广播回去
+                if pasteboard::current_text().as_deref() == Some(text.as_str()) {
+                    tracing::debug!(seq = incoming.event.seq, "剪贴板里已是这段文字，不写");
+                    continue;
+                }
                 let count = pasteboard::write_text(text);
                 self.watcher.note_own_write(count);
                 tracing::info!(seq = incoming.event.seq, device = %incoming.event.device, "写入剪贴板");
@@ -294,6 +313,11 @@ impl App {
         }
     }
 
+    fn recently_synced(&self, hash: u64) -> bool {
+        self.last_synced
+            .is_some_and(|(last, at)| last == hash && at.elapsed() < ECHO_WINDOW)
+    }
+
     /// 正常退出：删掉 `menu.txt`（输入法据此收起子菜单、下次切回青简时拉起本程序）。
     /// launchd 的 KeepAlive 只在异常退出时拉起，正常退出不会被立刻拉回来。
     fn quit(&mut self, reason: &str) {
@@ -331,6 +355,13 @@ impl App {
             self.menu_written = std::time::Instant::now();
         }
     }
+}
+
+fn text_hash(text: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    text.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// 取走 `commands/` 里输入法写的命令（一个文件一个 tag），按文件名（写入时的纳秒时间）顺序返回。
