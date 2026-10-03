@@ -329,6 +329,9 @@ const ENGLISH_MODE_CANDIDATES: usize = 18;
 /// 英文补全至少要几个字母：太短的前缀谁都像。
 const MIN_COMPLETION_LETTERS: usize = 3;
 
+/// 分叉补丁：英文补全至少这么多个字母才能排第一（没有精确词、又有中文候选时）。
+const LEADING_COMPLETION_LETTERS: usize = 4;
+
 /// 整段末尾当英文词的尾段至少几个字母，前面的拼音头至少几个字母（见 `query::EnglishTail`）。
 const MIN_ENGLISH_TAIL_LETTERS: usize = 2;
 const MIN_ENGLISH_TAIL_HEAD_LETTERS: usize = 2;
