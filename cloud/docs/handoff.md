@@ -73,7 +73,11 @@
   证书重签为只含 `pinyin.synon.ai`，旧证书、nginx 的旧 `server_name` 与 Cloudflare 上的 `pingyin` 记录都已删除。286 及之前的版本从此查不到更新。
 - 已登记的设备：`macbook`（令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`）、`iphone`（令牌在 `cloud/ios/cloud.local.toml`，不进仓库）。
 - 升级：在本机重新运行 `cloud/deploy/deploy-nginx.sh`（不带 `CF_API_TOKEN` 就不改 DNS）。
-  第 3 期纠错闭环（`6051d3e`）还没部署，`deploy-nginx.sh` 也还没接 `ENABLE_TUNER`。
+- **纠错闭环（tuner）2026-10-04 上线**，每 6 小时一轮、推送已打开（`.env` 的 `QINGJIAN_TUNER_DRY_RUN=false`，改回 true 只出报告）。
+  `deploy-nginx.sh` 还没接 `ENABLE_TUNER`，是手动部署的：本机 `git archive HEAD` 传到服务器 `/opt/qingjian-tuner-src`（不经公开的 GitHub 仓库），
+  在那里 `docker build -f cloud/tuner/Dockerfile -t qingjian-cloud-tuner:latest .`，再在 `/opt/qingjian/cloud/deploy` 下
+  `docker compose --profile tuner up -d --no-build tuner`。登记的设备是 `tuner`，令牌在 `.env`。看报告：`docker compose --profile tuner logs tuner`。
+  第一轮（日志 431 行）采纳 3 条话题补词，回放首选命中 93.3% → 93.3%。iPhone 从 `15d2f84` 起也上传输入日志。
 - 待办：作废聊天里贴过的 Cloudflare 令牌，换成只能改 `synon.ai` DNS 的令牌。
 - `install.sh` 默认 80/443 端口空闲；在已有反向代理的机器上要用 `deploy-nginx.sh`。以后可以给 `install.sh` 加 `PROXY=external` 模式，把两个脚本合成一个。
 
