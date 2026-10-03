@@ -6,6 +6,7 @@ mod config_doc;
 mod event;
 mod event_kind;
 mod event_page;
+mod input_log;
 mod learning_page;
 mod learning_push;
 mod learning_row;
@@ -16,6 +17,7 @@ pub use config_doc::{ConfigDoc, PutConfig};
 pub use event::Event;
 pub use event_kind::EventKind;
 pub use event_page::EventPage;
+pub use input_log::{InputLogLine, InputLogPage, InputLogPush};
 pub use learning_page::LearningPage;
 pub use learning_push::{CountDelta, LearningPush, MAX_LEARNING_PUSH, SetDelete, SetPut};
 pub use learning_row::LearningRow;
@@ -51,3 +53,12 @@ pub const PATH_LEARNING: &str = "/v1/learning";
 
 /// `GET` / `PUT` 输入法配置文件。
 pub const PATH_CONFIG: &str = "/v1/config";
+
+/// `POST` 上传一批输入日志；`GET ?since=&limit=` 拉取所有设备的。
+pub const PATH_INPUT_LOG: &str = "/v1/input-log";
+
+/// `POST` 清空服务器上所有设备的输入日志。
+pub const PATH_INPUT_LOG_CLEAR: &str = "/v1/input-log/clear";
+
+/// 大模型代理（OpenAI 兼容）。输入法的接口地址填 `https://<服务器>/v1`。
+pub const PATH_CHAT: &str = "/v1/chat/completions";

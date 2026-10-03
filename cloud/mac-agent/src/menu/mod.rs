@@ -23,6 +23,7 @@ pub const TAG_OPEN_CONFIG: isize = -3;
 pub const TAG_OPEN_LOGS: isize = -4;
 pub const TAG_QUIT: isize = -5;
 pub const TAG_SYNC_NOW: isize = -6;
+pub const TAG_USE_LLM: isize = -7;
 
 pub struct StatusMenu {
     item: Retained<NSStatusItem>,
@@ -94,6 +95,9 @@ impl StatusMenu {
         menu.addItem(&self.action(pause, TAG_PAUSE));
         if data.is_some() {
             menu.addItem(&self.action("立即同步学习数据", TAG_SYNC_NOW));
+        }
+        if !matches!(display, Display::Unconfigured(_)) {
+            menu.addItem(&self.action("让青简使用 Cloud 的大模型", TAG_USE_LLM));
         }
         menu.addItem(&self.action("重新加载配置", TAG_RELOAD));
         menu.addItem(&self.action("打开配置文件…", TAG_OPEN_CONFIG));

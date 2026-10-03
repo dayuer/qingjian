@@ -22,7 +22,20 @@ docker compose exec cloud qingjian-cloud device list
 docker compose exec cloud qingjian-cloud device remove macbook   # 设备丢了：令牌立即失效
 ```
 
-## 3. 备份与升级
+## 3. 大模型与输入日志
+
+在 `.env` 里填 `QINGJIAN_LLM_API_KEY` 后 `docker compose up -d`，再在每台 Mac 的菜单栏图标里点「让青简使用 Cloud 的大模型」：
+输入法的云联想改走服务器，Mac 上不再需要存大模型密钥。
+
+```bash
+docker compose exec cloud qingjian-cloud usage              # 最近 30 天按设备的请求数、缓存命中、token
+docker compose exec cloud qingjian-cloud export-log > all.jsonl          # 所有设备的输入日志
+docker compose exec cloud qingjian-cloud export-log --device macbook > mac.jsonl
+```
+
+导出的日志可以直接给青简的 `qingjian-cli --replay` 回放评测。
+
+## 4. 备份与升级
 
 ```bash
 crontab -e   # 每天 4 点备份，保留 14 份：
@@ -42,6 +55,10 @@ git pull && docker compose up -d --build   # 升级
 | `QINGJIAN_DOMAIN` | 无，必填 | 域名；填 `:80` 则不启用 HTTPS（只建议在内网测试时用） |
 | `QINGJIAN_CLOUD_CLIP_KEEP` | 200 | 剪贴板最多保留多少条 |
 | `QINGJIAN_CLOUD_CLIP_DAYS` | 30 | 剪贴板最多保留多少天 |
+| `QINGJIAN_LLM_API_KEY` | 空 | 上游大模型密钥；填了才提供大模型代理 |
+| `QINGJIAN_LLM_BASE_URL` | `https://api.deepseek.com` | 上游接口地址，不含 `/chat/completions`（OpenAI 填 `https://api.openai.com/v1`） |
+| `QINGJIAN_LLM_MODEL` | 空 | 覆盖输入法请求里的模型名 |
+| `QINGJIAN_LLM_CONTEXT_CHARS` | 0 | 往请求里插多少字「各设备最近输入的文字」当上文；0 为不插 |
 
 ## 接口一览
 
@@ -55,3 +72,8 @@ git pull && docker compose up -d --build   # 升级
 | `DELETE /v1/clipboard/{seq}` | 删除一条，所有设备同步删除 |
 | `GET /v1/events?since=&limit=` | 拉 `since` 之后的事件 |
 | `GET /v1/events/stream?since=` | SSE：先补积压，再推实时事件 |
+| `POST /v1/learning`、`GET /v1/learning?since=` | 学习数据：推变化、拉合并后的当前值 |
+| `GET` / `PUT /v1/config` | 输入法的 `config.toml`（带版本号，冲突返回 409） |
+| `POST /v1/input-log`、`GET /v1/input-log?since=` | 输入日志：上传一批（按批号去重）、拉所有设备的 |
+| `POST /v1/input-log/clear` | 清空所有设备的输入日志 |
+| `POST /v1/chat/completions` | 大模型代理（OpenAI 兼容），令牌换成服务器的密钥后转给上游 |

@@ -2,6 +2,7 @@
 
 mod command;
 mod device_command;
+mod export_log;
 mod serve;
 
 use std::path::PathBuf;
@@ -41,6 +42,24 @@ impl Cli {
                 store.backup_to(&path)?;
                 println!("已备份到 {}", path.display());
                 Ok(())
+            }
+            Command::Usage { days } => {
+                println!("日期\t设备\t请求\t命中缓存\t输入 token\t输出 token");
+                for row in store.usage(days)? {
+                    println!(
+                        "{}\t{}\t{}\t{}\t{}\t{}",
+                        row.day,
+                        row.device,
+                        row.requests,
+                        row.cached,
+                        row.prompt_tokens,
+                        row.completion_tokens
+                    );
+                }
+                Ok(())
+            }
+            Command::ExportLog { out, device } => {
+                export_log::run(&store, out.as_deref(), device.as_deref())
             }
             Command::Device { command } => command.run(&store),
         }
