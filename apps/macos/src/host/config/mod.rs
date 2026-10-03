@@ -91,9 +91,9 @@ impl Host {
             self.applied_model = Some(config.model.clone());
         }
         let cloud_active = self.engine.prediction_enabled();
-        // 分叉补丁：show_cloud_mark 关掉时只是不画云朵
-        self.indicator
-            .set_cloud(cloud_active && config.general.show_cloud_mark);
+        self.indicator.set_cloud(cloud_active);
+        // 分叉补丁：mode_indicator 关掉时整个状态项不显示
+        self.indicator.set_enabled(config.general.mode_indicator);
         self.indicator.update();
         self.menu.sync(&config, cloud_active, self.settings.error());
         let key_present = config
