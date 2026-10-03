@@ -64,14 +64,14 @@
 
 ## 线上部署
 
-- VPS 43.156.128.95，域名 `pinyin.synon.ai`（2026-10-03 从拼错的 `pingyin.synon.ai` 改过来，旧域名暂留作别名，见下），2026-10-03 上线，跑的是 `ab9c16a`。
+- VPS 43.156.128.95，域名 `pinyin.synon.ai`（2026-10-03 从拼错的 `pingyin.synon.ai` 改过来，旧域名已撤，见下），2026-10-03 上线，跑的是 `ab9c16a`。
 - 用的是 `cloud/deploy/deploy-nginx.sh`，不是 `install.sh`：那台机器的 80/443 由宿主机 nginx 占用，证书由 certbot 管。
   服务器上：代码在 `/opt/qingjian`；本机专用的 compose 覆盖文件、Dockerfile 与备份脚本在 `/opt/qingjian-host/`；
   cloud 绑定 `127.0.0.1:18100`；nginx 站点在 `/etc/nginx/sites-available/pinyin.synon.ai`；
   `.env` 里的 `COMPOSE_FILE` 指向覆盖文件，所以在 `cloud/deploy` 下直接执行 `docker compose …` 即可；每天 04:30 备份到 `/root/qingjian-backups`。
-- 改域名的过渡：`0.1.5-local.286` 及之前的 Mac 版（以及服务器上已签名的 `releases.json` 里的下载地址）把 `https://pingyin.synon.ai/releases/` 写死在检查更新里，
-  所以 nginx 与证书同时保留 `pingyin.synon.ai`，等这些机器自动更新到新域名的版本后，再删旧域名的 DNS 记录与 `server_name`。
-- 已登记的设备：`macbook`，令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`。
+- 改域名（2026-10-04 完成）：`0.1.5-local.288` 起检查更新走新域名；本机装上 288 后，`releases.json` 里旧版本的下载地址改成新域名并重签，
+  证书重签为只含 `pinyin.synon.ai`，旧证书、nginx 的旧 `server_name` 与 Cloudflare 上的 `pingyin` 记录都已删除。286 及之前的版本从此查不到更新。
+- 已登记的设备：`macbook`（令牌在这台 Mac 的 `~/Library/Application Support/QingjianCloud/config.toml`）、`iphone`（令牌在 `cloud/ios/cloud.local.toml`，不进仓库）。
 - 升级：在本机重新运行 `cloud/deploy/deploy-nginx.sh`（不带 `CF_API_TOKEN` 就不改 DNS）。
   第 3 期纠错闭环（`6051d3e`）还没部署，`deploy-nginx.sh` 也还没接 `ENABLE_TUNER`。
 - 待办：作废聊天里贴过的 Cloudflare 令牌，换成只能改 `synon.ai` DNS 的令牌。
