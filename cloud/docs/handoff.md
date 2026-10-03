@@ -15,12 +15,31 @@
 
 | 期 | 内容 | 自动化验证 | 真机 / 线上验证 |
 |---|---|---|---|
-| 1 | 跨设备剪贴板：服务端（axum + SQLite、设备令牌、SSE）、Docker + Caddy、Mac 菜单栏常驻程序 `mac-agent` | 端到端测试；经 Caddy 推送 23 ms | **未做**，清单在 `mac-agent/README.md` |
-| 1.5 | 学习数据（词频、选择、n-gram、敲错、英文词、用户词）与 `config.toml` 同步：基线 + 增量 + 收件箱；分叉补丁让输入法合并收件箱 | 用上游真正的 `FrequencyLearner` 模拟两台设备的端到端测试 | **未做**；分叉补丁里的 Mac 壳改动在 Linux 上编译不了 |
-| 2 | 大模型代理（换密钥、缓存、用量、可选跨设备上文，缺省关）、输入日志上传 / 下载 / 清空传播；`mac-agent`「让青简使用 Cloud 的大模型」 | 假上游测试；日志续传与清空测试 | **未做**，没接过真实 DeepSeek |
+| 1 | 跨设备剪贴板：服务端（axum + SQLite、设备令牌、SSE）、Docker + Caddy、Mac 菜单栏常驻程序 `mac-agent` | 端到端测试；经 Caddy 推送 23 ms | 单台 Mac + 模拟设备：上传通；别的设备推的 0.52 s 进本机剪贴板 |
+| 1.5 | 学习数据（词频、选择、n-gram、敲错、英文词、用户词）与 `config.toml` 同步：基线 + 增量 + 收件箱；分叉补丁让输入法合并收件箱 | 用上游真正的 `FrequencyLearner` 模拟两台设备的端到端测试 | 单台 Mac + 模拟设备：真实打字的词频 / 选择 / n-gram / 敲错表上传通；别的设备的增量经收件箱并进输入法，不回推、不翻倍；`config.toml` 上传通 |
+| 2 | 大模型代理（换密钥、缓存、用量、可选跨设备上文，缺省关）、输入日志上传 / 下载 / 清空传播；`mac-agent`「让青简使用 Cloud 的大模型」 | 假上游测试；日志续传与清空测试 | 真实 DeepSeek 经代理通；输入法云联想走 Cloud 出整句补全；输入日志上传通 |
 | 3 | 纠错闭环 `tuner`：词库体检、一次就学会、话题补词，用上游 `qingjian-cli --replay` 做门槛；可选的 compose profile，缺省只出报告 | 真服务器 + 真 CLI 与 data-v3 + 假上游的端到端测试（留出段 50% → 100%）；镜像在沙箱里构建并在 compose 里跑通 | **未做** |
 
 部署：空机器用 `cloud/deploy/install.sh`（Cloudflare 改 DNS、装 Docker、拉代码、compose + Caddy 启动、登记设备、可选 `ENABLE_TUNER=1`）；80/443 已被 nginx 占用的机器用 `cloud/deploy/deploy-nginx.sh`。
+
+## 真机验收（2026-10-03，单台 MacBook）
+
+验收中发现并修掉的：
+
+- `e4cf940`：mac-agent 一发 https 请求就 panic（ureq 选 NativeTls 要开 `native-tls` 特性，原先只开了 `-no-default`）。
+  同步线程 panic 后静默退出，菜单停在「连接中」，日志里没有任何报错。自动化测试走 Linux + rustls，覆盖不到这条路径。
+- `9946a68`：`backup.sh` 在容器里执行 `rm`，distroless 镜像没有这个命令。
+
+装机时踩到的（不是 bug，但要写进安装说明）：
+
+- `apps/macos/scripts/bundle.sh --install` 装上的输入法，`--register` 之后上级输入源仍未启用，系统设置里也找不到；**注销后重新登录**才出现。
+- macOS 26 可能把 mac-agent 的菜单栏图标收起来，要去「系统设置 → 菜单栏」里打开。
+- Claude 会话的沙箱里 `pbcopy` 写不进系统剪贴板，测剪贴板要在沙箱外用 `osascript -e 'set the clipboard to …'`。
+
+还没验的：两台真实 Mac 之间互传（目前用临时设备 `test-b` 拿 curl 模拟）、断网后补传、合盖后恢复、密码不上传、
+输入日志清空的传播、`qingjian-cloud usage` 里的用量统计、`shiguo` 选词后排序在另一台机器上生效。
+
+后续可做：同步线程 panic 时记一条日志并在菜单上显示错误，不要静默退出。
 
 ## 线上部署
 
