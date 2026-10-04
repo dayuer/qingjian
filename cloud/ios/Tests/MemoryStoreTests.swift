@@ -191,14 +191,14 @@ final class MemoryStoreTests: XCTestCase {
         let bridge = FakeBridge(disk: sampleSnapshot())
         bridge.writeResults = [
             MemoryFailure.decode(#"{"code":"contact_limit","message":"x"}"#),
-            MemoryFailure.decode(#"{"code":"io","message":"记忆文件读写不了（锁屏时读不到），请解锁后重试"}"#),
+            MemoryFailure.decode(#"{"code":"io","message":"记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试"}"#),
             MemoryFailure.decode("不是 JSON"),
         ]
         let store = store(bridge)
         XCTAssertFalse(store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM), cards: []))
         XCTAssertEqual(store.message, "没存上：恋爱场景最多 8 个人")
         XCTAssertFalse(store.forget(contactId))
-        XCTAssertEqual(store.message, "没存上：记忆文件读写不了（锁屏时读不到），请解锁后重试")
+        XCTAssertEqual(store.message, "没存上：记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试")
         XCTAssertFalse(store.deleteCard("a", for: contactId))
         XCTAssertEqual(store.message, "没存上：不是 JSON")
         XCTAssertEqual(store.people.count, 1)

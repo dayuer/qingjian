@@ -4,7 +4,7 @@
 import Foundation
 
 struct MemoryBackend {
-    /// 整份读；读不出（锁屏、参数无效）为 nil。
+    /// 整份读；读不出（开机后还没解锁过、参数无效）为 nil。
     var read: (URL) -> MemorySnapshot?
 
     /// 整份写回；成功为 nil。

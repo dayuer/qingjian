@@ -31,7 +31,7 @@ extension Engine {
     func resetContext() { qj_reset_context(session) }
 
     /// 「记一笔」。桥返回 NULL 表示成功（这里得到 nil），失败才返回 `{"code","message"}`：
-    /// invalid 是没有这个人或没有文字，io 是卡片读不了（锁屏），此时桥什么都没写。
+    /// invalid 是没有这个人或没有文字，io 是卡片读不了（开机后还没解锁过），此时桥什么都没写。
     func memoryNote(_ contactId: String, text: String) -> MemoryFailure? {
         let raw = contactId.withCString { c in text.withCString { qj_memory_note(session, c, $0) } }
         return MemoryFailure.decode(take(raw))

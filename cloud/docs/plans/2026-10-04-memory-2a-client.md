@@ -2030,7 +2030,7 @@ impl MemoryError {
             Self::Invalid(reason) => (*reason).to_owned(),
             Self::Conflict => "记忆刚在键盘里改过，已重新读取".to_owned(),
             Self::LockTimeout => "记忆正被另一处使用，稍后再试".to_owned(),
-            Self::Io(_) => "记忆文件读写不了（锁屏时读不到），请解锁后重试".to_owned(),
+            Self::Io(_) => "记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试".to_owned(),
         }
     }
 

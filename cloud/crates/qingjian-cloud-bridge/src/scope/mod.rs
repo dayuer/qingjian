@@ -55,7 +55,7 @@ pub fn contact_learning_dir(memory_dir: &Path, contact_id: &str) -> PathBuf {
     memory_dir.join(contact_id).join("learning")
 }
 
-/// 打开一层：目录不在就建（`FrequencyLearner` 落盘时不建父目录）；读不了（锁屏时的数据保护、权限）
+/// 打开一层：目录不在就建（`FrequencyLearner` 落盘时不建父目录）；读不了（开机后还没解锁过时的数据保护、权限）
 /// 退回只在内存里学，不拿空表覆盖用户文件。
 pub(crate) fn load_layer(dir: &Path) -> FrequencyLearner {
     if let Err(error) = std::fs::create_dir_all(dir) {
