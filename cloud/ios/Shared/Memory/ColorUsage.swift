@@ -2,6 +2,8 @@
 // App 首页关于某人的今日提醒卡）、「记到 {对象}」这个把内容记到某人身上的动作、对象卡页脚的「全部记忆」（设计稿 1b）；
 // 键盘的文字按钮与面板控件（.tool、.arw、.btn.ghost）是 ink-2，App 的控件与失败提示是 ink。
 // 例外：App 里的开关（appToggle）与「加一个人」的「好了」（addContactDone，设计稿 btn.acc：灰绿底、accentInk 字）打开时用灰绿底，照设计稿 theme.css 的 .toggle 用 Theme.accent（浅 #C0E7C6、深 #34563B，不是 accentInk）；「控件一律中性色」只管键盘面板。
+// 首次引导照设计稿也用灰绿：进度条亮的格子与步骤对勾（onboardingProgress、onboardingStepDone，.progress i.on / .step .n.done 的 accent 实底），
+// 免费方案卡的描边与「现在就是」（onboardingCurrentPlan、onboardingPlanBadge，.plan.on / .pill.r）。
 // 工作场景里灰绿全部换成中性色（role(in:)）：牌子两半都是中性色，对象格与头像也是。
 
 enum ColorUsage: CaseIterable {
@@ -28,6 +30,14 @@ enum ColorUsage: CaseIterable {
     case appToggle
     case appLink
     case addContactDone
+    case onboardingProgress
+    case onboardingStepDone
+
+    /// 引导里当前方案（免费）卡的 2pt 描边与「现在就是」的字。
+    case onboardingCurrentPlan
+
+    /// 「现在就是」的浅底。
+    case onboardingPlanBadge
 
     case hintButton
     case panelDone
@@ -46,10 +56,10 @@ enum ColorUsage: CaseIterable {
     var role: ColorRole {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
-             .allMemoryButton: .accent
+             .allMemoryButton, .onboardingCurrentPlan: .accent
         case .appLink: .accent
-        case .reminderCard, .chipBackground: .accentSoft
-        case .appToggle, .addContactDone, .noteConfirm: .accentFill
+        case .reminderCard, .chipBackground, .onboardingPlanBadge: .accentSoft
+        case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress, .onboardingStepDone: .accentFill
         case .addContactButton, .addCardButton,
              .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner: .ink
         case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel: .ink2

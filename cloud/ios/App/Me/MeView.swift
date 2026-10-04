@@ -1,4 +1,4 @@
-// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置与关于（账号入口先藏起来，试打框在键盘设置里）。
+// 「我」Tab（启用键盘交给首次引导，App 判断不了键盘加没加）：记忆要开完全访问的说明、键盘设置与关于（账号入口先藏起来，试打框在键盘设置里），最底下不显眼的「重新看引导」。
 
 import SwiftUI
 import UIKit
@@ -7,6 +7,11 @@ struct MeView: View {
     /// 「账号」入口先藏起来：界面里不出现账号（UI 清单约束 5），AccountView 的代码留着，T9 换成开通云服务的流程。
     static let showsAccountEntry = false
 
+    static let replayOnboardingTitle = "重新看引导"
+
+    /// 「重新看引导」：由 RootView 盖上首次引导。设计稿 05 的 2j 没有这一项，有意加的（UI 清单约束 7）。
+    var replayOnboarding: () -> Void = {}
+
     @State private var store = SettingsStore()
 
     @State private var account = AccountStore()
@@ -14,16 +19,6 @@ struct MeView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("启用键盘") {
-                    Label("打开「设置 → 通用 → 键盘 → 键盘」", systemImage: "1.circle")
-                    Label("点「添加新键盘…」，选「素笺」", systemImage: "2.circle")
-                    Label("打字时长按地球键切到素笺", systemImage: "3.circle")
-                    Button("打开设置") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        }
-                    }
-                }
                 // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
                 Section {
                     Text(ScopeDisplay.fullAccessExplanation)
@@ -50,6 +45,13 @@ struct MeView: View {
                     NavigationLink("关于") { AboutView() }
                 } header: {
                     Text("设置")
+                }
+                Section {
+                    Button(Self.replayOnboardingTitle, action: replayOnboarding)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
                 }
             }
             .navigationTitle("我")

@@ -32,7 +32,8 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(
             accent,
             [.chipBackground, .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
-             .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink])
+             .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink, .onboardingProgress,
+             .onboardingStepDone, .onboardingCurrentPlan, .onboardingPlanBadge])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
