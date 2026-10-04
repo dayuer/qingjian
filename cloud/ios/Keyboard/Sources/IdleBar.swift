@@ -68,7 +68,7 @@ struct IdleBar: View {
             Spacer()
             Text(model.panel == .scope && model.fullAccess ? "完成" : "收起")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(ScopeDisplay.panelCloseRole(fullAccess: model.fullAccess).color)
+                .foregroundStyle((model.panel == .scope && model.fullAccess ? ColorUsage.panelDone : ColorUsage.cardClose).role.color)
                 .padding(.horizontal, 14)
                 .frame(maxHeight: .infinity)
                 .onKeyboardPress { model.closePanel() }

@@ -1,4 +1,4 @@
-// 没开完全访问那一屏与对象无关：颜色全是中性色，不引用 accent；对象相关的面板仍用强调色。
+// 没开完全访问那一屏与对象无关：颜色全是中性色，不引用 accent；灰绿只给代表某个人的元素。
 
 import XCTest
 @testable import QingjianCloud
@@ -15,8 +15,15 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(style.buttonStroke, .ink2)
     }
 
-    func testPanelCloseRoleFollowsFullAccess() {
-        XCTAssertEqual(ScopeDisplay.panelCloseRole(fullAccess: false), .ink)
-        XCTAssertEqual(ScopeDisplay.panelCloseRole(fullAccess: true), .accent)
+    func testAccentOnlyOnElementsThatStandForAPerson() {
+        let accent = Set(ColorUsage.allCases.filter { $0.role == .accent })
+        XCTAssertEqual(accent, [.chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm])
+    }
+
+    func testButtonsAndPanelControlsAreNeutral() {
+        for usage in [ColorUsage.hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore] {
+            XCTAssertEqual(usage.role, .ink, "\(usage)")
+        }
+        XCTAssertEqual(ColorUsage.cardNotice.role, .ink2)
     }
 }

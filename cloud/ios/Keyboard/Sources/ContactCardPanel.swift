@@ -42,11 +42,11 @@ struct ContactCardPanel: View {
             HStack {
                 Text(model.notice ?? ScopeDisplay.cardFooter(count: model.panelCards.count))
                     .font(.system(size: 12))
-                    .foregroundStyle(model.notice == nil ? Color.secondary : Theme.accentInk.color)
+                    .foregroundStyle(model.notice == nil ? Color.secondary : ColorUsage.cardNotice.role.color)
                 Spacer()
                 Text("全部记忆")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Theme.accentInk.color)
+                    .foregroundStyle(ColorUsage.allMemoryButton.role.color)
                     .padding(.horizontal, 10)
                     .frame(height: 28)
                     .onKeyboardPress { model.showNotice(ScopeDisplay.allMemoryNotice) }

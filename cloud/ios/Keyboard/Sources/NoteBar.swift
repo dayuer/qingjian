@@ -18,10 +18,10 @@ struct NoteBar: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text("忽略")
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.accentInk.color)
+                    .foregroundStyle(ColorUsage.noteIgnore.role.color)
                     .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.accentInk.color.opacity(0.4), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 13).stroke(ColorUsage.noteIgnore.role.color.opacity(0.4), lineWidth: 1))
                     .onKeyboardPress { model.cancelNote() }
                 Text("记到 \(model.currentContact?.name ?? "")")
                     .font(.system(size: 13, weight: .medium))
