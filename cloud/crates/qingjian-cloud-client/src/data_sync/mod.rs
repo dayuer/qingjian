@@ -6,6 +6,7 @@
 mod data_status;
 mod data_sync_config;
 mod jobs;
+mod reset;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -19,6 +20,7 @@ use jobs::Jobs;
 
 pub use data_status::DataStatus;
 pub use data_sync_config::DataSyncConfig;
+pub use reset::reset_sync_progress;
 
 /// 正常间隔。
 const INTERVAL: Duration = Duration::from_secs(30);

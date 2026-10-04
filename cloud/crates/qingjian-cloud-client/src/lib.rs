@@ -18,7 +18,7 @@ mod test_support;
 pub use client::Client;
 pub use clipboard_sync::{ClipboardSync, Incoming, Status, SyncConfig};
 pub use config_sync::{ConfigOutcome, ConfigState, ConfigSync};
-pub use data_sync::{DataStatus, DataSync, DataSyncConfig};
+pub use data_sync::{DataStatus, DataSync, DataSyncConfig, reset_sync_progress};
 pub use error::ClientError;
 pub use input_log_sync::{InputLogOutcome, InputLogState, InputLogSync};
 pub use learning::{INBOX, LearningOutcome, LearningSync, Snapshot, Table};

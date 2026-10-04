@@ -9,8 +9,8 @@ use super::{INBOX, LearningState, Snapshot};
 use crate::{Client, ClientError};
 
 /// 基线与进度在 `state_dir` 下的文件名。
-const BASE_FILE: &str = "learning-base.json";
-const STATE_FILE: &str = "learning-state.json";
+pub(crate) const BASE_FILE: &str = "learning-base.json";
+pub(crate) const STATE_FILE: &str = "learning-state.json";
 
 /// 一轮做了什么。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
