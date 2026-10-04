@@ -151,6 +151,7 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/macos/src/{main.rs,menubar/menu.rs,host/diagnostics.rs}`、`preferences/{window.rs,file_dialog.rs,pages/{candidates,dictionaries,usage}.rs}` | 各改字符串 | 菜单「素笺 版本」、偏好设置标题、各页提示、诊断信息首行 |
 | `apps/macos/tests/info_plist.rs` | 改 2 处断言文案 | 图标说明与失败信息 |
 | `apps/macos/Info.plist` | 再加 2 行 | `LSHasLocalizedDisplayName = true`，访达按本地化名显示「素笺」 |
+| `apps/macos/Info.plist` | 改 1 行 | `CFBundleDisplayName` 回到 `Qingjian`：访达只在它与文件名主干一致时才换成本地化名，界面名称由两份 InfoPlist.strings 提供 |
 | `apps/macos/src/preferences/{pages/about.rs,pages/mod.rs,mod.rs,setting/mod.rs}`、`host/settings.rs` | 删「官网」按钮 | 去掉 `WEBSITE_URL`、`Setting::OpenWebsite` 与分发（上游官网会误导）；素笺有官网后再加回 |
 | `apps/macos/pkg/resources/{welcome,conclusion}.html`、`README.md` | 改 | 安装器页面不写路径，改「卸载方法见 README」；README 卸载一节补路径清单 |
 
