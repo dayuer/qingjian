@@ -270,6 +270,25 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             )
         };
     }
+    if let Some(path) = &args.word_model {
+        let started = Instant::now();
+        let scorer = qingjian_neural::CharScorer::load(path)?;
+        if scorer.vocab().sep().is_some() {
+            return Err(qingjian_neural::NeuralError::Corrupt(
+                "--word-model expects Hanzhang Zhiwei (a character LM without <sep>)",
+            )
+            .into());
+        }
+        tracing::info!(
+            load_ms = started.elapsed().as_millis(),
+            "知微词级重排已启用"
+        );
+        engine = if args.neural_async {
+            engine.with_async_word_scorer(Box::new(scorer), args.word_weight)
+        } else {
+            engine.with_word_scorer(Box::new(scorer), args.word_weight)
+        };
+    }
     if let Some(path) = &args.eval_p2c {
         let scorer = qingjian_neural::CharScorer::load(path)?;
         if scorer.vocab().sep().is_none() {

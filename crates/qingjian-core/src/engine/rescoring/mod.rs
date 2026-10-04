@@ -7,6 +7,7 @@
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
 mod cache;
+mod word_rescore;
 mod worker;
 
 #[cfg(test)]
@@ -15,6 +16,7 @@ mod tests;
 use super::*;
 
 pub(crate) use cache::NeuralCache;
+pub use word_rescore::WORD_NEURAL_WEIGHT;
 pub(crate) use worker::RescoreWorker;
 
 /// 直接生成整句时的 beam 宽度。5 是 2026-09-24 在冻结集上量的：beam 5 首选 51.9%、前五 73.5%，
@@ -130,44 +132,55 @@ impl Engine {
 
     /// 最近一次查询里有整句路径还没拿到神经分、或有整段还没生成：壳该在用户停顿后调 [`Self::request_rescoring`]。
     pub fn rescoring_pending(&self) -> bool {
-        self.rescorer.is_some() && {
-            let cache = self.neural_cache.borrow();
-            cache.has_wanted() || cache.wanted_generation().is_some()
-        }
+        self.word_rescoring_pending()
+            || self.rescorer.is_some() && {
+                let cache = self.neural_cache.borrow();
+                cache.has_wanted() || cache.wanted_generation().is_some()
+            }
     }
 
     /// 把攒着的文本送去后台打分。没接异步打分器或没什么要打的返回 `false`。
     pub fn request_rescoring(&mut self) -> bool {
+        let sent = self.request_word_rescoring();
         let Some(worker) = &self.rescorer else {
-            return false;
+            return sent;
         };
         let mut cache = self.neural_cache.borrow_mut();
         let wanted = cache.take_wanted();
         let generate = cache.take_wanted_generation();
         if wanted.is_empty() && generate.is_none() {
-            return false;
+            return sent;
         }
         tracing::debug!(
             texts = wanted.len(),
             generate = generate.is_some(),
             "神经请求"
         );
-        worker.submit(
+        self.sentence_awaiting = Some(worker.submit(
             cache.context().to_owned(),
             cache.keys().to_owned(),
             wanted,
             generate,
-        );
+        ));
         true
+    }
+
+    /// 送去后台的任务还有没回来的：两个模型各一条线程，先回来的那个不代表另一个也到了。
+    /// 壳和 CLI 要等它为 `false` 才算这一轮重排结束（否则后到的结果白算）；换了输入、后台线程死了时它会一直为真，所以要配超时。
+    pub fn rescoring_in_flight(&self) -> bool {
+        self.sentence_awaiting.is_some() || self.word_awaiting.is_some()
     }
 
     /// 收后台打好的分。有新分进了缓存返回 `true`，壳该重新 [`Self::query`] 一次；前文已经变了的结果丢掉。
     pub fn poll_rescoring(&mut self) -> bool {
+        let mut updated = self.poll_word_rescoring();
         let Some(worker) = &self.rescorer else {
-            return false;
+            return updated;
         };
-        let mut updated = false;
         while let Some(scored) = worker.poll() {
+            if self.sentence_awaiting.is_some_and(|id| scored.id >= id) {
+                self.sentence_awaiting = None;
+            }
             let mut cache = self.neural_cache.borrow_mut();
             // 生成的结果自带按键、与前文无关，不跟着打分那边的条件一起作废
             if let Some((keys, texts)) = scored.generated {

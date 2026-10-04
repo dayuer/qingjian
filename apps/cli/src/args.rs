@@ -114,6 +114,15 @@ pub struct Args {
     #[arg(long)]
     pub neural_async: bool,
 
+    /// 知微（含章·知微，字级模型）的 .qjm 或导出目录：给第一页词级候选按前文打分重排（素笺）；
+    /// 与 --neural-async 同用时走后台线程（壳里的接法）
+    #[arg(long)]
+    pub word_model: Option<PathBuf>,
+
+    /// 词级重排里神经分的权重 λ_w（0 到 1，缺省 0.5）
+    #[arg(long, requires = "word_model")]
+    pub word_weight: Option<f64>,
+
     /// 逐键模式：把每个输入当作一键一键敲进去，每个前缀都查一次，打印每键各阶段耗时（性能测试用）
     #[arg(long)]
     pub typing: bool,
