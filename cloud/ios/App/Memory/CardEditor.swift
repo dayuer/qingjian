@@ -1,4 +1,5 @@
-// 新建 / 改一张卡（02 的 1c）：写下来（最多 200 字，带计数）、是什么（五选一）、到哪天（日子与约定才有）、
+// 新建 / 改一张卡（02 的 1c）：写下来（最多 200 字，带计数）、是什么（五个 .opts 胶囊，KindPill）、
+// 到哪天（日子与约定才有：一行日期，点开再选；右边的提醒说明只写真有的行为，见 MemoryDetailText.reminderNote）、
 // 关键词（一个一个加，最多 8 个、每个 2–8 字，满了「添加」不可点）、删掉这条。上限见 MemoryLimits，桥写入前也会校验。
 // 保存在后台做，期间显示「正在保存」、整页置灰；存不上时页面不关、改的内容留着，提示框说原因；存好了但有话要说（冲突已合并）时等用户点掉提示再关。
 
@@ -26,6 +27,9 @@ struct CardEditor: View {
 
     @State private var closeAfterAlert = false
 
+    /// 「到哪天」那一行点开了日历。
+    @State private var pickingDate = false
+
     var body: some View {
         NavigationStack {
             Form {
@@ -45,19 +49,49 @@ struct CardEditor: View {
                     }
                 }
                 Section("是什么") {
-                    Picker("是什么", selection: $kind) {
-                        ForEach(MemoryCard.Kind.allCases, id: \.self) { Text($0.title).tag($0) }
+                    HStack(spacing: 8) {
+                        ForEach(KindPill.pills(selected: kind)) { pill in
+                            Button {
+                                kind = pill.kind
+                            } label: {
+                                Text(pill.title)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(pill.foreground)
+                                    .padding(.horizontal, 13)
+                                    .frame(height: 32)
+                                    .background(Capsule().fill(pill.background))
+                                    .overlay {
+                                        if pill.outlined { Capsule().strokeBorder(Color(UIColor.separator)) }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(pill.selected ? .isSelected : [])
+                        }
                     }
-                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
                 }
                 if kind.hasDate {
-                    Section {
-                        DatePicker("日期", selection: $when, displayedComponents: .date)
-                            .environment(\.timeZone, MemoryDate.timeZone)
-                    } header: {
-                        Text("到哪天")
-                    } footer: {
-                        Text(kind == .date ? "每年这一天都会提醒。" : "只提醒这一次。")
+                    Section("到哪天") {
+                        Button {
+                            withAnimation { pickingDate.toggle() }
+                        } label: {
+                            HStack {
+                                Text(MemoryDetailText.dayTitle(when)).font(.system(size: 15)).foregroundStyle(Theme.ink)
+                                Spacer()
+                                if let note = MemoryDetailText.reminderNote(kind: kind, contact: store.contact(contactId)) {
+                                    Text(note).font(.system(size: 12)).foregroundStyle(Theme.ink3)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if pickingDate {
+                            DatePicker("日期", selection: $when, displayedComponents: .date)
+                                .datePickerStyle(.graphical)
+                                .environment(\.timeZone, MemoryDate.timeZone)
+                                .tint(Theme.ink)
+                        }
                     }
                 }
                 Section {
