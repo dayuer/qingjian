@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # 把 qingjian-macos 打包成 Sujian.app。
 #
-#   scripts/bundle.sh            # 只打包到 target/Sujian.app
+#   scripts/bundle.sh            # 只打包到 target/macos.noindex/Sujian.app
 #   scripts/bundle.sh --install  # 打包并安装到 ~/Library/Input Methods/，杀掉旧进程（开发用）
+#   scripts/bundle.sh --install --register  # 装完再用已安装那份注册、启用输入源（首次装或启用记录丢了时）
 #   scripts/bundle.sh --pkg      # 打包并做成 target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg（分发给测试者）
 #
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
@@ -25,7 +26,10 @@ APP_NAME="Sujian"
 LEGACY_APP_NAME="Qingjian"
 BIN_NAME="qingjian-macos"
 PROFILE="${PROFILE:-release}"
-APP="$ROOT/target/$APP_NAME.app"
+# 构建目录放进 .noindex：Spotlight 不进去，LaunchServices 就不会把这份同 id 的包登记上、被系统当成输入法拉起
+BUILD_DIR="$ROOT/target/macos.noindex"
+APP="$BUILD_DIR/$APP_NAME.app"
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 INSTALL_DIR="$HOME/Library/Input Methods"
 # 目标三元组为空就是本机；架构名按 pkg 文件名与 distribution.xml 的 hostArchitectures 用的写法（arm64 / x86_64）
 TARGET="${QINGJIAN_TARGET:-}"
@@ -169,9 +173,9 @@ echo "打包完成: ${APP}（版本 ${VERSION}，构建 ${BUILD_NUMBER}，${ARCH
 if [[ "${1:-}" == "--pkg" ]]; then
   # 每个架构一个工作目录，成品都放 target/pkg/，两个架构接着打互不覆盖
   PKG="$ROOT/target/pkg/qingjian-$VERSION-macos-$ARCH.pkg"
-  PKG_DIR="$ROOT/target/pkg/$ARCH"
+  PKG_DIR="$BUILD_DIR/pkg-$ARCH"
   rm -rf "$PKG_DIR"
-  mkdir -p "$PKG_DIR/root" "$PKG_DIR/resources"
+  mkdir -p "$PKG_DIR/root" "$PKG_DIR/resources" "$ROOT/target/pkg"
   # 不带扩展属性复制，否则载荷里全是 ._ 元数据文件
   ditto --noextattr --norsrc --noacl "$APP" "$PKG_DIR/root/$APP_NAME.app"
   # 组件描述里关掉 bundle 重定位：否则机器上别处已有同 bundle id 的 .app（比如 ~/Library 下的开发副本）时，
@@ -200,6 +204,7 @@ if [[ "${1:-}" == "--pkg" ]]; then
   elif [[ -z "${QINGJIAN_INSTALLER_IDENTITY:-}" ]]; then
     echo "注意: pkg 未签名未公证，测试者首次打开要在「系统设置 → 隐私与安全性」里点「仍要打开」"
   fi
+  "$LSREGISTER" -u "$PKG_DIR/root/$APP_NAME.app" >/dev/null 2>&1 || true
   echo "pkg: $PKG"
   shasum -a 256 "$PKG"
 fi
@@ -213,11 +218,24 @@ if [[ "${1:-}" == "--install" ]]; then
   mkdir -p "$INSTALL_DIR"
   rm -rf "$INSTALL_DIR/$APP_NAME.app" "$INSTALL_DIR/$LEGACY_APP_NAME.app"
   cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
-  # 构建目录里那份同 id 的包会被 LaunchServices 登记上，系统按 id 拉输入法时可能解析到它；注销掉只留装好的
-  LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-  "$LSREGISTER" -u "$APP" >/dev/null 2>&1 || true
+  # 构建目录那份万一已被登记（老位置 target/ 下的也算），注销掉只留装好的；任何一步都不运行构建目录里的二进制
+  for stray in "$APP" "$ROOT/target/$APP_NAME.app" "$ROOT/target/$LEGACY_APP_NAME.app"; do
+    "$LSREGISTER" -u "$stray" >/dev/null 2>&1 || true
+  done
+  "$LSREGISTER" -f "$INSTALL_DIR/$APP_NAME.app" >/dev/null 2>&1 || true
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
+  if [[ "${2:-}" == "--register" ]]; then
+    "$INSTALL_DIR/$APP_NAME.app/Contents/MacOS/$BIN_NAME" --register
+    pkill -x "$BIN_NAME" 2>/dev/null || true
+  fi
+  sleep 1
+  stray_pids="$(pgrep -fl "MacOS/$BIN_NAME" | grep -v -F "$INSTALL_DIR/$APP_NAME.app/" || true)"
+  if [[ -n "$stray_pids" ]]; then
+    echo "警告: 还有不在 $INSTALL_DIR/$APP_NAME.app 的 $BIN_NAME 在跑，输入会话可能连到它：" >&2
+    echo "$stray_pids" >&2
+    exit 1
+  fi
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"
   echo "日志: ~/Library/Logs/Qingjian/"
 fi
