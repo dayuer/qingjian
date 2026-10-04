@@ -5893,6 +5893,27 @@ struct MemoryCard: Codable, Identifiable, Hashable, Sendable {
         }
     }
 
+    /// 对象卡左列：日子 / 约定 3 天内写相对（今天、明天、周几），更远的写 `M.dd`；别的种类没有日期，为 nil。
+    func dateLabel(now: Date = Date()) -> String? {
+        guard let days = daysAway(now: now), let when, let date = MemoryDate.parse(when) else { return nil }
+        let target = kind == .date ? MemoryDate.nextAnniversary(of: date, from: now) : date
+        switch days {
+        case 0: return "今天"
+        case 1: return "明天"
+        case 2...3:
+            let names = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+            return names[MemoryDate.calendar.component(.weekday, from: target) - 1]
+        default:
+            let parts = MemoryDate.calendar.dateComponents([.month, .day], from: target)
+            return String(format: "%d.%02d", parts.month ?? 0, parts.day ?? 0)
+        }
+    }
+
+    /// 对象卡标题下的小字：关键词（跟标题一样的不重复写），没有就留空。
+    var subtitle: String {
+        keywords.filter { $0 != text }.joined(separator: " · ")
+    }
+
     /// 日子「明天是她的生日」，约定「明天：看电影」：与桥的 `reminder_text` 同一模板（扩展之前的最后一个方法）。
     func reminderText(days: Int, contact: MemoryContact) -> String {
         let when = switch days {
@@ -6195,7 +6216,7 @@ enum MemoryFiles {
 Create `cloud/ios/Shared/Memory/MemoryAvatar.swift`：
 
 ```swift
-// 头像字：名字的第一个字放在强调色圆里（App 的列表、详情与键盘的对象卡共用）。
+// 头像字：名字的第一个字放在圆里，选中时底色换成强调色（App 的列表、详情与键盘的对象卡、选择面板共用）。
 
 import SwiftUI
 
@@ -6204,12 +6225,14 @@ struct MemoryAvatar: View {
 
     var size: CGFloat = 40
 
+    var selected = false
+
     var body: some View {
         Text(name.first.map(String.init) ?? "?")
             .font(.system(size: size * 0.45, weight: .semibold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.accentInk.color)
             .frame(width: size, height: size)
-            .background(Circle().fill(Color.accentColor.opacity(0.15)))
+            .background(Circle().fill(selected ? Theme.accent.color : Theme.accentSoft.color))
             .accessibilityHidden(true)
     }
 }
@@ -6279,6 +6302,23 @@ enum ScopeDisplay {
     static func canNote(fullAccess: Bool, clipboardHasText: Bool, privateField: Bool, hasContact: Bool) -> Bool {
         fullAccess && clipboardHasText && !privateField && hasContact
     }
+
+    /// 恋爱场景最多几个对象（与桥的上限一致）。
+    static let maxContacts = 8
+
+    static func contactSubtitle(knownDays: Int) -> String { "认识 \(knownDays) 天" }
+
+    static func newContactSubtitle(count: Int) -> String { "\(count) / \(maxContacts)" }
+
+    static let noScopeSubtitle = "只用场景"
+
+    /// 对象卡页脚左边：面板只列与今天有关的卡。
+    static func cardFooter(count: Int) -> String { "只显示与今天有关的 \(count) 条" }
+
+    /// 键盘扩展没有官方办法打开容器 App，点了只给提示。
+    static let allMemoryNotice = "在素笺 App 里查看全部记忆"
+
+    static let enableFullAccessNotice = "在素笺 App 里按引导开启完全访问"
 }
 ```
 
@@ -6812,7 +6852,8 @@ Create `cloud/ios/Keyboard/Sources/HintRow.swift`：
 
 ```swift
 // 候选栏上方的记忆提示行：恋爱场景选了对象时一直在（没有提示时是空行，高度不变，宿主界面不跳）。
-// 有提示时左边强调色圆点与文字，右边匹配提示是「展开」（键区换成对象卡），日子 / 约定提醒是「知道了」。
+// 有提示时左边强调色圆点与文字（命中的词加粗），右边是「你写的」灰色小字（卡片来源，不可点）和按钮：匹配提示是「展开」（键区换成对象卡），
+// 日子 / 约定提醒是「知道了」。
 
 import SwiftUI
 
@@ -6825,18 +6866,24 @@ struct HintRow: View {
         HStack(spacing: 8) {
             if let hint {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(Theme.accent.color)
                     .frame(width: 6, height: 6)
                     .padding(.leading, 12)
-                Text(hint.text)
+                Text(HintText.attributed(text: hint.text, emphasis: model.hintEmphasis))
                     .font(.system(size: 14))
+                    .foregroundStyle(Theme.accentInk.color)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .onKeyboardPress { model.openContactCard() }
+                if let label = HintText.sourceLabel(for: model.hintSource) {
+                    Text(label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
                 Text(hint.reason == .today ? "知道了" : "展开")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.horizontal, 12)
+                    .foregroundStyle(Theme.accentInk.color)
+                    .padding(.trailing, 12)
                     .frame(maxHeight: .infinity)
                     .onKeyboardPress {
                         if hint.reason == .today { model.acknowledgeHint() } else { model.openContactCard() }
@@ -6846,7 +6893,7 @@ struct HintRow: View {
             }
         }
         .frame(height: KeyStyle.hintRowHeight)
-        .background(Color.accentColor.opacity(hint == nil ? 0 : 0.06))
+        .background(Theme.accentSoft.color.opacity(hint == nil ? 0 : 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(hint.map { "记忆提示：\($0.text)" } ?? "")
     }
@@ -6856,7 +6903,7 @@ struct HintRow: View {
 Create `cloud/ios/Keyboard/Sources/ScopeChip.swift`：
 
 ```swift
-// 候选栏左侧的场景牌子：恋爱场景是强调色的「小美 · 恋爱」，日常 / 工作只是灰色场景名。点它打开选择面板。
+// 候选栏左侧的场景牌子：恋爱场景是强调色的「小美 · 恋爱」，日常 / 工作只是灰色场景名（强调色只跟对象有关）。点它打开选择面板。
 
 import SwiftUI
 
@@ -6866,11 +6913,11 @@ struct ScopeChip: View {
     var body: some View {
         Text(title)
             .font(.system(size: 14, weight: dating ? .semibold : .regular))
-            .foregroundStyle(dating ? Color.accentColor : Color.secondary)
+            .foregroundStyle(dating ? Theme.accentInk.color : Color.secondary)
             .lineLimit(1)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Capsule().fill((dating ? Color.accentColor : Color.secondary).opacity(0.12)))
+            .background(Capsule().fill(dating ? Theme.accentSoft.color : Color.secondary.opacity(0.12)))
             .padding(.leading, 8)
             .frame(maxHeight: .infinity)
             .onKeyboardPress { model.openScopePicker() }
@@ -6889,9 +6936,10 @@ struct ScopeChip: View {
 Create `cloud/ios/Keyboard/Sources/ScopePicker.swift`：
 
 ```swift
-// 点牌子后键区换成的选择面板：场景三选一；恋爱场景再选对象（App 里建的，最多 8 个）或不指定。
+// 点牌子后键区换成的选择面板：场景三选一；恋爱场景再选对象（App 里建的，最多 8 个，带头像与副文字）或不指定。
 // 键盘扩展打不开 App，「新对象」只提示去 App 新建。没开完全访问时读不到 App Group 里的名单，也不让切场景（切了也用不上记忆），
-// 面板里只有一句「开启完全访问后才能使用记忆」；桥不知道有没有完全访问，这道门在 Swift 侧。
+// 面板里只有一句「开启完全访问后才能使用记忆」与「去开启」；桥不知道有没有完全访问，这道门在 Swift 侧。
+// 「完成」/「收起」在候选栏那一行右端（IdleBar.panelBar）。
 
 import SwiftUI
 
@@ -6912,29 +6960,34 @@ struct ScopePicker: View {
     }
 
     private var noAccess: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Spacer(minLength: 0)
             Text(ScopeDisplay.needsFullAccessText)
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
-            Text("收起")
+            Text("去开启")
                 .font(.system(size: 15, weight: .medium))
-                .padding(.horizontal, 10)
+                .foregroundStyle(Theme.accentInk.color)
+                .padding(.horizontal, 14)
                 .frame(height: 32)
-                .onKeyboardPress { model.closePanel() }
+                .background(Capsule().fill(Theme.accentSoft.color))
+                .onKeyboardPress { model.showNotice(ScopeDisplay.enableFullAccessNotice) }
+            Text(model.notice ?? " ")
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.accentInk.color)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var picker: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 2) {
                 ForEach(Self.scenes, id: \.self) { scene in
                     let selected = model.scope.scene == scene
                     Text(MemoryScope.title(of: scene))
                         .font(.system(size: 15, weight: selected ? .semibold : .regular))
-                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .frame(maxWidth: .infinity, minHeight: 30)
                         .background(RoundedRectangle(cornerRadius: 7).fill(selected ? KeyStyle.keyFill : Color.clear))
                         .onKeyboardPress {
                             let keep = scene == model.scope.scene ? model.scope.contactId : nil
@@ -6946,17 +6999,9 @@ struct ScopePicker: View {
             .background(RoundedRectangle(cornerRadius: 9).fill(Color.secondary.opacity(0.15)))
             if model.scope.scene == MemoryScope.dating { contacts }
             Spacer(minLength: 0)
-            HStack {
-                Text("对象只能你自己切，键盘不知道你在和谁聊")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("收起")
-                    .font(.system(size: 15, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .frame(height: 32)
-                    .onKeyboardPress { model.closePanel() }
-            }
+            Text("对象只能你自己切，键盘不知道你在和谁聊")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -6964,34 +7009,55 @@ struct ScopePicker: View {
 
     @ViewBuilder
     private var contacts: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
+        LazyVGrid(columns: columns, spacing: 6) {
             ForEach(model.contacts) { contact in
-                cell(contact.name, selected: model.scope.contactId == contact.id) {
+                cell(
+                    avatar: contact.name, title: contact.name,
+                    subtitle: ScopeDisplay.contactSubtitle(knownDays: contact.knownDays()),
+                    selected: model.scope.contactId == contact.id
+                ) {
                     model.chooseScope(scene: MemoryScope.dating, contactId: contact.id)
                 }
             }
-            cell("不指定", selected: model.scope.contactId == nil) {
+            cell(
+                avatar: "–", title: "不指定", subtitle: ScopeDisplay.noScopeSubtitle,
+                selected: model.scope.contactId == nil
+            ) {
                 model.chooseScope(scene: MemoryScope.dating, contactId: nil)
                 model.closePanel()
             }
-            cell("＋ 新对象", selected: false) { showsNewContactTip = true }
-        }
-        if showsNewContactTip {
-            Text("在素笺 App 里新建")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.accentColor)
+            cell(
+                avatar: "+", title: "新对象",
+                subtitle: showsNewContactTip ? "在素笺 App 里新建" : ScopeDisplay.newContactSubtitle(count: model.contacts.count),
+                selected: false
+            ) { showsNewContactTip = true }
         }
     }
 
-    private func cell(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Text(title)
-            .font(.system(size: 14))
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, minHeight: 34)
-            .background(
-                RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.18) : KeyStyle.keyFill))
-            .foregroundStyle(selected ? Color.accentColor : Color.primary)
-            .onKeyboardPress(action)
+    private func cell(
+        avatar: String, title: String, subtitle: String, selected: Bool, action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 5) {
+            MemoryAvatar(name: avatar, size: 24, selected: selected)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                Text(subtitle)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, minHeight: 40)
+        .background(RoundedRectangle(cornerRadius: 8).fill(KeyStyle.keyFill))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(selected ? Theme.accent.color : Color.clear, lineWidth: 2)
+        )
+        .foregroundStyle(selected ? Theme.accentInk.color : Color.primary)
+        .onKeyboardPress(action)
     }
 }
 ```
@@ -6999,7 +7065,8 @@ struct ScopePicker: View {
 Create `cloud/ios/Keyboard/Sources/ContactCardPanel.swift`：
 
 ```swift
-// 提示行「展开」后键区换成的对象卡：头像字、名字、认识几天、今日相关最多 3 张卡。键盘扩展打不开 App，全部记忆只提示去 App 看。
+// 提示行「展开」后键区换成的对象卡：头像、名字、认识几天、今日相关最多 3 张卡（左列相对日子，右边标题加小字），页脚是数量说明与「全部记忆」。
+// 键盘扩展打不开 App，「全部记忆」只在面板里提示去 App 看；「收起」在候选栏那一行右端（IdleBar.panelBar）。
 
 import SwiftUI
 
@@ -7007,13 +7074,13 @@ struct ContactCardPanel: View {
     let model: KeyboardModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             if let contact = model.currentContact {
                 HStack(spacing: 10) {
-                    MemoryAvatar(name: contact.name, size: 40)
+                    MemoryAvatar(name: contact.name, size: 38, selected: true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(contact.name).font(.system(size: 17, weight: .semibold))
-                        Text("认识 \(contact.knownDays()) 天")
+                        Text(ScopeDisplay.contactSubtitle(knownDays: contact.knownDays()))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -7025,31 +7092,35 @@ struct ContactCardPanel: View {
                 }
                 ForEach(model.panelCards) { card in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(card.kind.title)
+                        Text(card.dateLabel() ?? card.kind.title)
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 32, alignment: .leading)
-                        Text(card.text)
-                            .font(.system(size: 15))
-                            .lineLimit(2)
+                            .foregroundStyle(card.dateLabel() == nil ? Color.secondary : Theme.accentInk.color)
+                            .frame(width: 40, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(card.text).font(.system(size: 15)).lineLimit(1)
+                            if !card.subtitle.isEmpty {
+                                Text(card.subtitle).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
                     }
                 }
             }
             Spacer(minLength: 0)
             HStack {
-                Text("全部记忆在素笺 App 里")
+                Text(model.notice ?? ScopeDisplay.cardFooter(count: model.panelCards.count))
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(model.notice == nil ? Color.secondary : Theme.accentInk.color)
                 Spacer()
-                Text("收起")
-                    .font(.system(size: 15, weight: .medium))
+                Text("全部记忆")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.accentInk.color)
                     .padding(.horizontal, 10)
-                    .frame(height: 32)
-                    .onKeyboardPress { model.closePanel() }
+                    .frame(height: 28)
+                    .onKeyboardPress { model.showNotice(ScopeDisplay.allMemoryNotice) }
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 }
 ```
@@ -7076,8 +7147,14 @@ struct KeyboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.hasHintRow {
-                HintRow(model: model, hint: model.hint)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                Group {
+                    if model.noteDraft != nil || model.noteDone {
+                        NoteBar(model: model)
+                    } else {
+                        HintRow(model: model, hint: model.hint)
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
             CandidateBar(model: model)
             Group {
@@ -7116,8 +7193,9 @@ struct KeyboardView: View {
 Replace `cloud/ios/Keyboard/Sources/IdleBar.swift`：
 
 ```swift
-// 没在组字时的候选栏：私密输入框只亮一把锁；有别的设备刚复制的文字就提示它；「记一笔」待确认时是确认条；
+// 没在组字时的候选栏：私密输入框只亮一把锁；场景 / 对象卡面板打开时只留牌子与「完成」/「收起」；有别的设备刚复制的文字就提示它；
 // 否则左边是场景牌子与「✨ 润色」，右边是「记一笔」与「发到其他设备」。润色进行中整栏交给 RewriteBar。
+// 「记一笔」的确认条在提示行的位置（NoteBar），这一行的牌子照常在。
 
 import SwiftUI
 
@@ -7131,10 +7209,10 @@ struct IdleBar: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
+            } else if model.panel == .scope || model.panel == .contactCard {
+                panelBar
             } else if let offer = model.clipOffer {
                 ClipOfferBar(model: model, offer: offer)
-            } else if let draft = model.noteDraft {
-                noteConfirm(draft)
             } else if model.rewrite != .idle {
                 RewriteBar(model: model)
             } else {
@@ -7155,7 +7233,7 @@ struct IdleBar: View {
                     .onKeyboardTap { model.startRewrite() }
             }
             Spacer()
-            if model.canNote {
+            if model.canNote, model.noteDraft == nil, !model.noteDone {
                 Label("记一笔", systemImage: "square.and.pencil")
                     .font(.system(size: 15))
                     .padding(.horizontal, 10)
@@ -7178,27 +7256,17 @@ struct IdleBar: View {
         }
     }
 
-    /// 「记一笔」的确认条：剪贴板里的字、「记到 {对象}」、「忽略」。
-    private func noteConfirm(_ draft: String) -> some View {
-        HStack(spacing: 8) {
-            Text(draft.replacingOccurrences(of: "\n", with: " "))
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .padding(.leading, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text("记到 \(model.currentContact?.name ?? "")")
+    /// 场景选择与对象卡打开时的工具栏：牌子与右端的「完成」（选择面板）/「收起」（对象卡、没开完全访问）。
+    private var panelBar: some View {
+        HStack(spacing: 0) {
+            ScopeChip(model: model)
+            Spacer()
+            Text(model.panel == .scope && model.fullAccess ? "完成" : "收起")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color.accentColor)
-                .padding(.horizontal, 10)
+                .foregroundStyle(Theme.accentInk.color)
+                .padding(.horizontal, 14)
                 .frame(maxHeight: .infinity)
-                .onKeyboardPress { model.confirmNote() }
-            Text("忽略")
-                .font(.system(size: 15))
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 12)
-                .frame(maxHeight: .infinity)
-                .onKeyboardPress { model.cancelNote() }
+                .onKeyboardPress { model.closePanel() }
         }
     }
 }
@@ -7324,6 +7392,430 @@ Modify `cloud/ios/Keyboard/Sources/KeyboardViewController.swift`：
     private var lastDocument: UUID?
 ```
 
+### Step 7b：设计稿 01 / 05 对照后的修订（2026-10-04，审计会话审 1568829 后）
+
+6 处界面按设计稿改，代码已落地（`xcodebuild test` 49 个）。上面各 Step 的代码块已同步成实际文件内容，下面是新增的文件与对 `KeyboardModel.swift`、`KeyboardViewController.swift` 的改动。
+
+1. **强调色**：灰绿 `Theme.accent / accentInk / accentSoft`（`Shared/Theme.swift`，色值用 `OKLCH.srgb` 换算并有单测核对）；只用在牌子（恋爱）、提示行、对象卡与选择面板、确认条；日常 / 工作牌子灰色。`CandidateCell`、`ClipOfferBar`、`RewriteBar` 里的 `Color.accentColor` 是云端候选 / 剪贴板 / 润色的标识，不属于对象，未动。
+2. **提示行加粗**：桥的 `Hint` 没有命中词字段，不改桥；`HintText.emphasis` 日子 / 约定提醒取卡片文字、匹配提示取卡片关键词，`HintText.attributed` 加粗第一个命中的词；卡片来自 `qj_memory_read` 的快照，`KeyboardModel.cardIndex` 缓存。
+3. **对象卡**：左列 `MemoryCard.dateLabel`（今天 / 明天 / 周几 / `M.dd`），标题下小字 `MemoryCard.subtitle`，页脚「只显示与今天有关的 N 条」与「全部记忆」。键盘扩展没有官方办法打开容器 App（沿响应链调 `UIApplication.open` 会被 App Store 审核拒绝，不用），点「全部记忆」只在面板里提示「在素笺 App 里查看全部记忆」2 秒。「收起」在候选栏那一行右端，「记一笔」在这一屏不显示（`IdleBar.panelBar`）。
+4. **选择面板**：对象格带头像与副文字（对象：认识 N 天，没有「最近使用」数据；不指定：只用场景；新对象：n / 8），「完成」在候选栏那一行右端。
+5. **记一笔**：确认条（`NoteBar`）占提示行的位置（选了对象才有记一笔，那一行必在），牌子那一行保留；「刚复制的」加粗加截断原文，「忽略」描边、「记到 小美」强调色底；记下后一行「记下了」2 秒。
+6. **没开完全访问**：句子下加「去开启」，点了只提示「在素笺 App 里按引导开启完全访问」2 秒；面板高度与正常键盘一致（同一个 `keyAreaHeight`）。
+7. **来源标签（设计稿 05 的 2c）**：手动卡的提示右边是灰色小字「你写的」（不可点，`HintText.sourceLabel`）；2A 的提示全是手动卡，「展开」仍保留在它右边（设计稿没说 2c 里怎么进对象卡，且去掉「展开」会让 1a 进不了面板）；点提示文字本身也能展开。
+
+新增文件：
+
+Create `cloud/ios/Shared/OKLCH.swift`：
+
+```swift
+// oklch 颜色换算成 sRGB（Björn Ottosson 的 OKLab 矩阵，sRGB 传输函数），Theme 的色值用它核对。
+
+import Foundation
+
+enum OKLCH {
+    /// 每个通道 0–255；超出 sRGB 色域的通道夹到边界。
+    static func srgb(l: Double, c: Double, h: Double) -> (r: Int, g: Int, b: Int) {
+        let radians = h * .pi / 180
+        let a = c * cos(radians)
+        let b = c * sin(radians)
+        let l1 = pow(l + 0.3963377774 * a + 0.2158037573 * b, 3)
+        let m1 = pow(l - 0.1055613458 * a - 0.0638541728 * b, 3)
+        let s1 = pow(l - 0.0894841775 * a - 1.2914855480 * b, 3)
+        let red = 4.0767416621 * l1 - 3.3077115913 * m1 + 0.2309699292 * s1
+        let green = -1.2684380046 * l1 + 2.6097574011 * m1 - 0.3413193965 * s1
+        let blue = -0.0041960863 * l1 - 0.7034186147 * m1 + 1.7076147010 * s1
+        return (channel(red), channel(green), channel(blue))
+    }
+
+    private static func channel(_ linear: Double) -> Int {
+        let clamped = min(max(linear, 0), 1)
+        let encoded = clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * pow(clamped, 1 / 2.4) - 0.055
+        return Int((encoded * 255).rounded())
+    }
+}
+```
+
+Create `cloud/ios/Shared/ThemeSwatch.swift`：
+
+```swift
+// 主题里的一个颜色：写死的 sRGB 十六进制，加上它出自的 oklch 值（单测用 OKLCH.srgb 核对两者一致）。
+
+import SwiftUI
+import UIKit
+
+struct ThemeSwatch: Sendable {
+    let hex: UInt32
+
+    /// 出处：oklch 的明度、色度、色相（度）。
+    let l: Double
+
+    let c: Double
+
+    let h: Double
+
+    var r: Int { Int(hex >> 16) & 0xFF }
+
+    var g: Int { Int(hex >> 8) & 0xFF }
+
+    var b: Int { Int(hex) & 0xFF }
+
+    var color: Color { Color(uiColor) }
+
+    var uiColor: UIColor {
+        UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+    }
+}
+```
+
+Create `cloud/ios/Shared/Theme.swift`：
+
+```swift
+// 素笺的强调色：灰绿，只用在和对象有关的地方（对象牌子、提示行、对象卡与选择面板）。工作 / 日常场景完全不用。
+// 设计稿 theme.css 的 oklch 值，已用 `OKLCH.srgb`（Tests/ThemeTests 核对）换算成 sRGB：
+//   --accent      oklch(0.89  0.06  150)  #C0E7C6  圆点、头像底、选中描边
+//   --accent-ink  oklch(0.38  0.05  150)  #2E4A34  强调色上的文字、按钮文字
+//   --accent-soft oklch(0.965 0.025 150)  #E8F9EB  提示行与牌子的底色
+
+import SwiftUI
+
+enum Theme {
+    static let accent = ThemeSwatch(hex: 0xC0E7C6, l: 0.89, c: 0.06, h: 150)
+
+    static let accentInk = ThemeSwatch(hex: 0x2E4A34, l: 0.38, c: 0.05, h: 150)
+
+    static let accentSoft = ThemeSwatch(hex: 0xE8F9EB, l: 0.965, c: 0.025, h: 150)
+}
+```
+
+Create `cloud/ios/Shared/Memory/HintText.swift`：
+
+```swift
+// 提示行的文字：命中的词加粗（桥的 Hint 不带命中词，由 Swift 侧按卡片关键词找），以及提示来源的小标签（手动卡显示「你写的」，灰字不可点）。
+
+import Foundation
+
+enum HintText {
+    /// 在 `text` 里把 `emphasis` 中第一个出现的词加粗；一个都没出现、词为空时原样返回。
+    static func attributed(text: String, emphasis: [String]) -> AttributedString {
+        var result = AttributedString(text)
+        for word in emphasis where !word.isEmpty {
+            guard let found = text.range(of: word),
+                  let range = Range(found, in: result)
+            else { continue }
+            result[range].inlinePresentationIntent = .stronglyEmphasized
+            break
+        }
+        return result
+    }
+
+    /// 要加粗的词：日子 / 约定提醒取卡片文字（「明天是她的**生日**」），匹配提示取卡片关键词。
+    static func emphasis(for hint: MemoryHint, card: MemoryCard?) -> [String] {
+        guard let card else { return [] }
+        return hint.reason == .today ? [card.text] : card.keywords
+    }
+
+    /// 提示右边的来源小字：手动卡是「你写的」（2A 的卡都是手动卡），云端卡不写。
+    static func sourceLabel(for source: String?) -> String? {
+        (source ?? "manual") == "manual" ? "你写的" : nil
+    }
+}
+```
+
+Create `cloud/ios/Keyboard/Sources/NoteBar.swift`：
+
+```swift
+// 「记一笔」的确认条：占提示行的位置（选了对象才能记，那一行一定在），牌子那一行保留。
+// 左边「刚复制的」加粗加截断的原文，右边「忽略」（描边）与「记到 {对象}」（强调色底）；记下后变成一行「记下了」，2 秒后消失。
+
+import SwiftUI
+
+struct NoteBar: View {
+    let model: KeyboardModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let draft = model.noteDraft {
+                (Text("刚复制的 ").bold() + Text(draft.replacingOccurrences(of: "\n", with: " ")))
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.accentInk.color)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.leading, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("忽略")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.accentInk.color)
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.accentInk.color.opacity(0.4), lineWidth: 1))
+                    .onKeyboardPress { model.cancelNote() }
+                Text("记到 \(model.currentContact?.name ?? "")")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.accentInk.color)
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(Capsule().fill(Theme.accent.color))
+                    .padding(.trailing, 12)
+                    .onKeyboardPress { model.confirmNote() }
+            } else {
+                Text("记下了")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.accentInk.color)
+                    .padding(.leading, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(height: KeyStyle.hintRowHeight)
+        .background(Theme.accentSoft.color)
+    }
+}
+```
+
+Create `cloud/ios/Tests/ThemeTests.swift`：
+
+```swift
+// 主题色：oklch 换算成 sRGB 与写死的十六进制一致（容差 1/255）。
+
+import XCTest
+@testable import QingjianCloud
+
+final class ThemeTests: XCTestCase {
+    func testSwatchesMatchOKLCHSources() {
+        for swatch in [Theme.accent, Theme.accentInk, Theme.accentSoft] {
+            let converted = OKLCH.srgb(l: swatch.l, c: swatch.c, h: swatch.h)
+            XCTAssertLessThanOrEqual(abs(converted.r - swatch.r), 1, "\(swatch.hex) r")
+            XCTAssertLessThanOrEqual(abs(converted.g - swatch.g), 1, "\(swatch.hex) g")
+            XCTAssertLessThanOrEqual(abs(converted.b - swatch.b), 1, "\(swatch.hex) b")
+        }
+    }
+
+    func testSwatchHexValues() {
+        XCTAssertEqual(Theme.accent.hex, 0xC0E7C6)
+        XCTAssertEqual(Theme.accentInk.hex, 0x2E4A34)
+        XCTAssertEqual(Theme.accentSoft.hex, 0xE8F9EB)
+    }
+
+    func testOKLCHKnownPoints() {
+        let white = OKLCH.srgb(l: 1, c: 0, h: 0)
+        XCTAssertEqual([white.r, white.g, white.b], [255, 255, 255])
+        let black = OKLCH.srgb(l: 0, c: 0, h: 0)
+        XCTAssertEqual([black.r, black.g, black.b], [0, 0, 0])
+    }
+}
+```
+
+Create `cloud/ios/Tests/HintTextTests.swift`：
+
+```swift
+// 提示行文字：关键词加粗、来源标签；对象卡与选择面板的文字（相对日子、副文字、页脚）。
+
+import XCTest
+@testable import QingjianCloud
+
+final class HintTextTests: XCTestCase {
+    private func boldRuns(_ attributed: AttributedString) -> [String] {
+        attributed.runs.compactMap { run in
+            run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+                ? String(attributed[run.range].characters) : nil
+        }
+    }
+
+    private func date(_ text: String) throws -> Date { try XCTUnwrap(MemoryDate.parse(text)) }
+
+    func testBoldsFirstMatchingWord() {
+        let result = HintText.attributed(text: "不吃香菜，喜欢草莓蛋糕", emphasis: ["蛋糕", "香菜"])
+        XCTAssertEqual(boldRuns(result), ["蛋糕"])
+        XCTAssertEqual(String(result.characters), "不吃香菜，喜欢草莓蛋糕")
+    }
+
+    func testSkipsWordsThatDoNotAppear() {
+        let result = HintText.attributed(text: "明天是她的生日", emphasis: ["考试", "生日"])
+        XCTAssertEqual(boldRuns(result), ["生日"])
+    }
+
+    func testNoMatchMeansNoBold() {
+        XCTAssertEqual(boldRuns(HintText.attributed(text: "明天是她的生日", emphasis: ["蛋糕"])), [])
+        XCTAssertEqual(boldRuns(HintText.attributed(text: "明天是她的生日", emphasis: [])), [])
+        XCTAssertEqual(boldRuns(HintText.attributed(text: "明天是她的生日", emphasis: [""])), [])
+    }
+
+    func testEmojiDoesNotShiftRange() {
+        let result = HintText.attributed(text: "🎂她周三考科目二👩‍❤️‍👨加油", emphasis: ["科目二"])
+        XCTAssertEqual(boldRuns(result), ["科目二"])
+        XCTAssertEqual(String(result.characters), "🎂她周三考科目二👩‍❤️‍👨加油")
+    }
+
+    func testEmphasisForReasons() {
+        var card = MemoryCard.new(kind: .date, text: "生日", when: "1998-10-05", keywords: ["生日", "蛋糕"])
+        let today = MemoryHint(cardId: "c", text: "明天是她的生日", reason: .today, more: false)
+        XCTAssertEqual(HintText.emphasis(for: today, card: card), ["生日"], "日子提醒加粗卡片文字里的那个词")
+        let match = MemoryHint(cardId: "c", text: "x", reason: .match, more: false)
+        XCTAssertEqual(HintText.emphasis(for: match, card: card), ["生日", "蛋糕"], "匹配提示加粗关键词")
+        card.keywords = []
+        XCTAssertEqual(HintText.emphasis(for: match, card: card), [])
+        XCTAssertEqual(HintText.emphasis(for: match, card: nil), [])
+    }
+
+    func testSourceLabel() {
+        XCTAssertEqual(HintText.sourceLabel(for: "manual"), "你写的")
+        XCTAssertNil(HintText.sourceLabel(for: "cloud"))
+        XCTAssertEqual(HintText.sourceLabel(for: nil), "你写的", "2A 里卡片都是手动卡")
+    }
+
+    func testDateLabelIsRelativeWithinThreeDays() throws {
+        let now = try date("2026-10-04")
+        func label(_ when: String, kind: MemoryCard.Kind = .promise) -> String? {
+            MemoryCard.new(kind: kind, text: "x", when: when, keywords: []).dateLabel(now: now)
+        }
+        XCTAssertEqual(label("2026-10-04"), "今天")
+        XCTAssertEqual(label("2026-10-05"), "明天")
+        XCTAssertEqual(label("2026-10-06"), "周二")
+        XCTAssertEqual(label("2026-10-07"), "周三")
+        XCTAssertEqual(label("2026-10-20"), "10.20")
+        XCTAssertEqual(label("2026-12-05"), "12.05")
+        XCTAssertEqual(label("1998-10-05", kind: .date), "明天", "日子按年重复，取下一次")
+        XCTAssertEqual(label("1998-03-09", kind: .date), "3.09")
+        XCTAssertNil(MemoryCard.new(kind: .preference, text: "x", when: nil, keywords: []).dateLabel(now: now))
+    }
+
+    func testSubtitleSkipsKeywordsEqualToTitle() {
+        var card = MemoryCard.new(kind: .date, text: "生日", when: nil, keywords: ["生日"])
+        XCTAssertEqual(card.subtitle, "")
+        card.keywords = ["生日", "蛋糕", "惊喜"]
+        XCTAssertEqual(card.subtitle, "蛋糕 · 惊喜")
+        card.keywords = []
+        XCTAssertEqual(card.subtitle, "")
+    }
+
+    func testPanelTexts() {
+        XCTAssertEqual(ScopeDisplay.cardFooter(count: 2), "只显示与今天有关的 2 条")
+        XCTAssertEqual(ScopeDisplay.contactSubtitle(knownDays: 13), "认识 13 天")
+        XCTAssertEqual(ScopeDisplay.newContactSubtitle(count: 3), "3 / 8")
+        XCTAssertEqual(ScopeDisplay.maxContacts, 8)
+        XCTAssertEqual(ScopeDisplay.noScopeSubtitle, "只用场景")
+        XCTAssertEqual(ScopeDisplay.allMemoryNotice, "在素笺 App 里查看全部记忆")
+        XCTAssertEqual(ScopeDisplay.enableFullAccessNotice, "在素笺 App 里按引导开启完全访问")
+    }
+}
+```
+
+对 `KeyboardModel.swift`、`KeyboardViewController.swift` 的改动（相对 1568829）：
+
+```diff
+diff --git a/cloud/ios/Keyboard/Sources/KeyboardModel.swift b/cloud/ios/Keyboard/Sources/KeyboardModel.swift
+index 27494f4..66ed6f4 100644
+--- a/cloud/ios/Keyboard/Sources/KeyboardModel.swift
++++ b/cloud/ios/Keyboard/Sources/KeyboardModel.swift
+@@ -37,6 +37,15 @@ final class KeyboardModel {
+     /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
+     private(set) var noteDraft: String?
+ 
++    /// 「记一笔」刚记下：确认条换成一行「记下了」，2 秒后消失。
++    private(set) var noteDone = false
++
++    /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
++    private(set) var notice: String?
++
++    /// 当前对象之外的所有恋爱对象的卡片，按卡片 id 查（提示行加粗关键词、来源标签用）。
++    @ObservationIgnored private var cardIndex: [String: MemoryCard] = [:]
++
+     /// 对象卡面板里的卡片。
+     private(set) var panelCards: [MemoryCard] = []
+ 
+@@ -184,6 +193,8 @@ final class KeyboardModel {
+     func dismiss() {
+         dismissRewrite()
+         noteDraft = nil
++        noteDone = false
++        notice = nil
+         engine?.clear()
+         engine?.flush()
+         panel = .keys
+@@ -379,7 +390,16 @@ final class KeyboardModel {
+         guard let text = noteDraft, let id = scope.contactId else { return }
+         noteDraft = nil
+         // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
+-        _ = engine?.memoryNote(id, text: text)
++        if engine?.memoryNote(id, text: text) == nil {
++            noteDone = true
++            noteDoneTask?.cancel()
++            noteDoneTask = Task { @MainActor [weak self] in
++                try? await Task.sleep(for: .seconds(2))
++                guard !Task.isCancelled else { return }
++                self?.noteDone = false
++            }
++        }
++        reloadContacts()
+         refreshHint()
+     }
+ 
+@@ -387,6 +407,29 @@ final class KeyboardModel {
+         noteDraft = nil
+     }
+ 
++    /// 提示行里要加粗的词。
++    var hintEmphasis: [String] {
++        guard let hint else { return [] }
++        return HintText.emphasis(for: hint, card: cardIndex[hint.cardId])
++    }
++
++    /// 提示对应卡片的来源（手动卡显示「你写的」）。
++    var hintSource: String? { hint.flatMap { cardIndex[$0.cardId]?.source } }
++
++    /// 面板里显示一行 2 秒的短提示。
++    func showNotice(_ text: String) {
++        notice = text
++        noticeTask?.cancel()
++        noticeTask = Task { @MainActor [weak self] in
++            try? await Task.sleep(for: .seconds(2))
++            guard !Task.isCancelled else { return }
++            self?.notice = nil
++        }
++    }
++
++    @ObservationIgnored private var noticeTask: Task<Void, Never>?
++    @ObservationIgnored private var noteDoneTask: Task<Void, Never>?
++
+     /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
+     private func syncScope() {
+         scope = engine?.scope ?? MemoryScope()
+@@ -399,13 +442,18 @@ final class KeyboardModel {
+               let snapshot = MemoryFiles.read(userDirectory: directory)
+         else {
+             contacts = []
++            cardIndex = [:]
+             return
+         }
+         contacts = snapshot.contacts.filter { $0.scene == MemoryScope.dating }
++        cardIndex = Dictionary(
++            snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+     }
+ 
+     private func refreshHint() {
+         let next = privateField ? nil : engine?.memoryHint
++        // 提示的卡是刚记下的、名单缓存里还没有时，重读一次再显示
++        if let next, cardIndex[next.cardId] == nil { reloadContacts() }
+         if next != hint { hint = next }
+     }
+ 
+diff --git a/cloud/ios/Keyboard/Sources/KeyboardViewController.swift b/cloud/ios/Keyboard/Sources/KeyboardViewController.swift
+index 5267301..5257794 100644
+--- a/cloud/ios/Keyboard/Sources/KeyboardViewController.swift
++++ b/cloud/ios/Keyboard/Sources/KeyboardViewController.swift
+@@ -153,8 +153,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
+         }
+     }
+ 
+-    /// 宿主输入框的标识。`documentIdentifier` 声明为非可选，但连上宿主之前系统返回 nil，Swift 桥接时直接崩（textDidChange 在这之前就会被调），
+-    /// 所以走 KVC 取成可选值。
++    /// 宿主输入框的标识。`textDocumentProxy.documentIdentifier` 声明为非可选 UUID，但键盘刚弹出、连上宿主之前系统返回 nil，
++    /// 直接读会在 UUID 桥接处 EXC_BREAKPOINT 崩溃，所以走 KVC 取成可选值，别「简化」回去。
+     private var hostDocumentIdentifier: UUID? {
+         (textDocumentProxy as? NSObject)?.value(forKey: "documentIdentifier") as? UUID
+     }
+```
+
 - [ ] **Step 8: 重编桥、生成工程、构建**
 
 Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && scripts/build-bridge.sh && xcodegen generate && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' build 2>&1 | grep -E "error:|warning: .*Memory|BUILD" | tail -20`
@@ -7332,7 +7824,7 @@ Expected: 没有 `error:`，最后 `** BUILD SUCCEEDED **`。（Swift 6 并发�
 - [ ] **Step 9: 原有单元测试照过**
 
 Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "Executed|TEST (SUCCEEDED|FAILED)" | tail -3`
-Expected: `** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests` 照过，加 `MemoryModelTests` 21 个，共 37 个）。
+Expected: `** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests` 照过，加 `MemoryModelTests` 21 个、`ThemeTests` 3 个、`HintTextTests` 9 个，共 49 个）。
 
 - [ ] **Step 10: 模拟器里对照截图**
 
