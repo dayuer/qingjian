@@ -20,4 +20,8 @@ pub struct SessionInfo {
 
     /// 是不是发这个请求的设备。
     pub current: bool,
+
+    /// 怎么加进空间的：`pair` / `apple` / `email` / `wechat` / `web`；建空间的第一台设备与旧服务端都没有这个字段。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub joined_via: Option<String>,
 }

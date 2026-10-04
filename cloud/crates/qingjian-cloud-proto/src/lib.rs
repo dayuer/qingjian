@@ -30,6 +30,7 @@ mod memory_card;
 mod memory_item;
 mod memory_kind;
 mod memory_push;
+mod pair;
 mod platform;
 mod processor_info;
 mod push_clip;
@@ -38,6 +39,7 @@ mod put_consent;
 mod scene;
 mod session_grant;
 mod session_info;
+mod space_create;
 mod whoami;
 
 pub use account::Account;
@@ -68,6 +70,10 @@ pub use memory_card::MemoryCard;
 pub use memory_item::MemoryItem;
 pub use memory_kind::MemoryKind;
 pub use memory_push::MemoryPush;
+pub use pair::{
+    PAIR_CODE_LEN, PairCode, PairCodeError, PairDecision, PairJoin, PairJoinGrant, PairPoll,
+    PairRequestInfo, format_pair_code, normalize_pair_code,
+};
 pub use platform::Platform;
 pub use processor_info::ProcessorInfo;
 pub use push_clip::PushClip;
@@ -76,6 +82,7 @@ pub use put_consent::PutConsent;
 pub use scene::Scene;
 pub use session_grant::SessionGrant;
 pub use session_info::SessionInfo;
+pub use space_create::SpaceCreate;
 pub use whoami::Whoami;
 
 /// 剪贴板单条文本的上限（UTF-8 字节）。
@@ -131,6 +138,28 @@ pub const PATH_AUTH_EMAIL_VERIFY: &str = "/v1/auth/email/verify";
 
 /// `POST` 网页登录的一次性码加 verifier 换会话（不要鉴权）。
 pub const PATH_AUTH_HANDOFF: &str = "/v1/auth/handoff";
+
+/// `POST` 建空间（不要鉴权），收 `SpaceCreate`，返回 `SessionGrant`。
+pub const PATH_SPACE: &str = "/v1/space";
+
+/// `POST` 出匹配码（`PairCode`）。
+pub const PATH_PAIR_CODE: &str = "/v1/pair/code";
+
+/// `POST` 新设备输码申请加入（不要鉴权，收 `PairJoin`、返回 `PairJoinGrant`）；
+/// `GET /v1/pair/join/{request_id}` 带 `X-Pair-Secret` 轮询结果（`PairPoll`）。
+pub const PATH_PAIR_JOIN: &str = "/v1/pair/join";
+
+/// `GET` 待处理的加入申请（`Vec<PairRequestInfo>`）；`POST /v1/pair/requests/{id}` 收 `PairDecision` 允许 / 拒绝。
+pub const PATH_PAIR_REQUESTS: &str = "/v1/pair/requests";
+
+/// 新设备轮询取令牌时放 `PairJoinGrant.secret` 的请求头。
+pub const HEADER_PAIR_SECRET: &str = "X-Pair-Secret";
+
+/// 错误 JSON 的 `code`：匹配码不存在、过期或已用过（404）。
+pub const CODE_BAD_CODE: &str = "bad_code";
+
+/// 错误 JSON 的 `code`：空间已满 5 台设备（409）；匹配码加入时返回它不消费码。
+pub const CODE_DEVICE_LIMIT: &str = "device_limit";
 
 /// `GET` 账号；`DELETE` 删账号。
 pub const PATH_ACCOUNT: &str = "/v1/account";
