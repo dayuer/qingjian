@@ -45,9 +45,6 @@ pub const ATTRIBUTIONS: &[(&str, &str)] = &[
     ),
 ];
 
-/// 官网。
-pub const WEBSITE_URL: &str = "https://qingjian.app";
-
 /// 源码与问题反馈。
 pub const REPOSITORY_URL: &str = "https://github.com/dayuer/qingjian";
 
@@ -137,10 +134,8 @@ pub fn build(
         ROW_HEIGHT * 0.7,
     );
     layout.next_row(ROW_HEIGHT * 0.7);
-    let website = button(mtm, "官网", Setting::OpenWebsite, target);
     let repository = button(mtm, "GitHub", Setting::OpenRepository, target);
-    layout.place(&website, PAGE_PADDING, 150.0, ROW_HEIGHT + 4.0);
-    layout.place(&repository, PAGE_PADDING + 160.0, 150.0, ROW_HEIGHT + 4.0);
+    layout.place(&repository, PAGE_PADDING, 150.0, ROW_HEIGHT + 4.0);
     layout.next_row(ROW_HEIGHT + 4.0);
     note_full(layout, mtm, LICENSE_NOTE);
     layout.space(GROUP_GAP);
