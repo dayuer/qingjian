@@ -20,7 +20,7 @@ struct ContactDetailView: View {
             if let contact = store.contact(contactId) {
                 Section {
                     HStack(spacing: 14) {
-                        MemoryAvatar(name: contact.name, size: 56)
+                        MemoryAvatar(name: contact.name, size: 56, scene: contact.scene)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(contact.name).font(.system(.title2, design: .serif).weight(.semibold))
                             Text("认识 \(contact.knownDays()) 天 · \(store.cards(of: contactId).count) 件")

@@ -16,6 +16,14 @@ extension MemoryStore {
 
         static let loading = "正在读取"
 
+        /// 对象设置里「所在场景」下面的小字。
+        static let sceneLocked = "换场景需要忘掉后重新加"
+
+        /// 两个开关下面的小字：工作场景的人打字时不出提示、今天和本周里也不提，两个开关对 TA 不起作用，这里写明。
+        static func switchesNote(_ contact: MemoryContact) -> String {
+            MemoryScope.reminds(contact.scene) ? "只对\(contact.name)生效。" : "工作场景的人不出提示和提醒，只用来分开学习。"
+        }
+
         /// 对象设置里「日子提醒」下面的小字，称呼按这个人选的来。
         static func remindOffNote(_ contact: MemoryContact) -> String {
             "关掉后，今天和本周里不再提\(contact.pronoun.label(name: contact.name))的日子"
