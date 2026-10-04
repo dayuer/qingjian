@@ -8,6 +8,7 @@ mod clipboard;
 mod cloud_config;
 mod entry;
 mod error;
+mod memory;
 mod rewrite;
 mod scope;
 mod session;
@@ -23,6 +24,10 @@ pub use self::clipboard::{ClipOffer, Clipboard};
 pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
+pub use self::memory::{
+    Card, Contact, DEFAULT_LOCK_TIMEOUT, KEYBOARD_LOCK_TIMEOUT, LocalDate, MAX_CONTACTS,
+    MEMORY_DIR, MemoryError, MemorySnapshot, MemoryStore, Pronoun, has_date, new_id, now_unix,
+};
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
     ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,

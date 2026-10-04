@@ -946,7 +946,7 @@ impl MemoryStore {
    - `dismissed(today, known)` / `put_dismissed(..)`：「知道了」落盘到 `memory/dismissed.json`（决定点 4）；
    - `stamp(contact_id)`（键盘按修改时间重载用）、`root()`。
 3. **两个进程同时写（审计阻断项）：**
-   - **跨进程文件锁：** 每个操作（读也算）都拿 `memory/.lock` 的 flock：toolchain 是 1.96（`rust-toolchain.toml`），`std::fs::File::try_lock` 自 1.89 稳定，不用加 `libc`。`try_lock` 失败每 5 毫秒重试，最多等 2 秒，超时返回 `MemoryError::Io(TimedOut)`，测试里不会死锁。flock 锁的是打开的文件，同一进程里两个 `MemoryStore` 也互斥，所以双进程测试用两个线程各持一个实例模拟。不再借用 `cloud.toml` 的进程内写锁。
+   - **跨进程文件锁：** 每个操作（读也算）都拿 `memory/.lock` 的 flock：toolchain 是 1.96（`rust-toolchain.toml`），`std::fs::File::try_lock` 自 1.89 稳定，不用加 `libc`。`try_lock` 失败每 5 毫秒重试，缺省最多等 2 秒（App），超时返回 `MemoryError::LockTimeout`（不套在 `Io` 里，上层好区分），测试里不会死锁。flock 锁的是打开的文件，同一进程里两个 `MemoryStore` 也互斥，所以双进程测试用两个线程各持一个实例模拟。不再借用 `cloud.toml` 的进程内写锁。
    - **修订号：** `cards.json` 改成 `{"rev": n, "cards": [...]}`（`memory/cards_file.rs` 的 `CardsFile`），每写一次加一；早期的光秃秃数组读成修订号 0。快照带 `revs`（对象 id → 读时的修订号）。`write_snapshot` 在锁里先逐个比：磁盘比快照新就**整份不写**，返回 `MemoryError::Conflict`（C 接口 `code = "conflict"`）；没冲突时只重写卡片有变化的对象。
    - `write_snapshot` 不采纳快照里的 `state`（键盘写的为准），当前对象被删就置空。App 收到 `conflict` 的合并规则在 Task 6（`MemoryMerge`）。
 4. **`MemorySnapshot.broken`**：读快照时卡片文件坏了、已改名备份的对象 id 列表，App 据此提示「这个人的记忆文件损坏，已备份」（spec「2A 的错误与边界」第一条，大纲没写接口）。
@@ -960,6 +960,7 @@ impl MemoryStore {
 11. 新文件：`memory/cards_file.rs`、`memory/dismissed_file.rs`、`memory/tests/sync.rs`；`memory/mod.rs` 多一个自由函数 `sanitized_scope`（会话与存储共用的「对象不在名单上就退回不指定」）。
 12. **手写卡的上限（审计会话定的卡片契约，与 2C 一致）：** 文字非空、最多 `MAX_CARD_TEXT_CHARS = 200` 字（按 `chars().count()`，中文、emoji 一个算一个），关键词最多 `MAX_CARD_KEYWORDS = 8` 个、每个去掉首尾空白后 2–8 字（spec 对云端卡关键词的校验，手写卡一并按它）；`put_cards`、`add_note`、`write_snapshot` 写入前都校验，不合格返回 `MemoryError::Invalid`（C 接口 `code = "invalid"`）。两个常量用 `qingjian_cloud_proto` 的（提交 4b60e13 加的）——**Task 2 开工前确认 `cloud/crates/qingjian-cloud-proto/src/lib.rs` 里有 `MAX_CARD_TEXT_CHARS` 与 `MAX_CARD_KEYWORDS`，没有就先 `git pull` 到含 4b60e13 的 `sujian`**；关键词的 2 与 8 是桥里的 `MIN_KEYWORD_CHARS` / `MAX_KEYWORD_CHARS`（proto 里没有）。
 13. **`Card` 多 `faded`、`seq`、`updated_at` 三个字段**（`#[serde(default)]`，与 proto 的 `MemoryCard` 同名同语义：`seq` 每个用户单独递增，`updated_at` 是 Unix 毫秒），2A 手写卡恒为 `false` / 0 / 0，App 整份写回时原样带着，2C 下发的卡进同一套本地结构时不丢字段。
+14. **键盘侧等锁最多 200 毫秒（审计会话追加）：** 锁超时是 `MemoryStore` 的构造参数：`MemoryStore::open(user_dir)` 缺省 `DEFAULT_LOCK_TIMEOUT`（2 秒，App 用），`MemoryStore::open_with_lock_timeout(user_dir, Duration)`，键盘会话用 `KEYBOARD_LOCK_TIMEOUT`（200 毫秒）；超时返回独立的 `MemoryError::LockTimeout`（`code = "lock_timeout"`）。**键盘侧「拿不到锁就进内存待办、下次 refresh 重试」属于 Task 4（Session 接入）**，这里只提供可配置超时与错误；测试 `keyboard_lock_wait_times_out_quickly`（`tests/sync.rs`）：一个线程持锁，200 毫秒超时的实例写操作在 150–500 毫秒内返回 `LockTimeout`，锁放了之后同一实例的写成功。
 
 ### 步骤
 
@@ -1506,10 +1507,14 @@ Create `cloud/crates/qingjian-cloud-bridge/src/memory/tests/sync.rs`：
 
 ```rust
 //! App 与键盘两个进程同时写：文件锁、修订号冲突与重读合并、读不了时不覆盖、忘掉的人不复活、「知道了」的记录。
+//! 键盘侧只等 200 毫秒的锁：别的进程占着时返回 `LockTimeout`，不卡 2 秒。
 //! 「两个进程」用两个线程各持一个 `MemoryStore` 模拟：flock 锁的是打开的文件，同一进程里两个实例也互斥。
 
 use std::collections::{HashMap, HashSet};
+use std::fs::OpenOptions;
 use std::os::unix::fs::PermissionsExt;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use qingjian_cloud_proto::{CardKind, Scene};
 
@@ -1686,6 +1691,48 @@ fn dismissed_records_drop_old_and_unknown_cards() {
     assert_eq!(loaded[&id(1001)], today);
     std::fs::remove_dir_all(&user).ok();
 }
+
+#[test]
+fn keyboard_lock_wait_times_out_quickly() {
+    let user = temp_dir("lock-timeout");
+    let keyboard = MemoryStore::open_with_lock_timeout(&user, Duration::from_millis(200));
+    keyboard.put_contact(contact(1, Scene::Dating)).unwrap();
+
+    let lock_path = user.join("memory").join(".lock");
+    let (held_tx, held_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let holder = std::thread::spawn(move || {
+        let file = OpenOptions::new().write(true).open(lock_path).unwrap();
+        file.lock().unwrap();
+        held_tx.send(()).unwrap();
+        release_rx.recv_timeout(Duration::from_secs(10)).ok();
+    });
+    held_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+
+    let started = Instant::now();
+    let result = keyboard.add_note(&id(1), "拿不到锁", 1);
+    let waited = started.elapsed();
+    assert!(
+        matches!(result, Err(MemoryError::LockTimeout)),
+        "{result:?}"
+    );
+    assert!(waited >= Duration::from_millis(150), "{waited:?}");
+    assert!(waited < Duration::from_millis(500), "{waited:?}");
+    assert_eq!(MemoryError::LockTimeout.code(), "lock_timeout");
+    eprintln!("200ms 超时实测 {waited:?}");
+
+    release_tx.send(()).unwrap();
+    holder.join().unwrap();
+    keyboard.add_note(&id(1), "锁放了就能写", 2).unwrap();
+    assert_eq!(keyboard.cards(&id(1)).len(), 1);
+
+    assert_eq!(
+        MemoryStore::open(&user).lock_timeout(),
+        Duration::from_secs(2),
+        "缺省 2 秒"
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
 ```
 
 - [ ] **Step 4: 挂空模块，跑测试看它失败**
@@ -1741,7 +1788,7 @@ pub use self::error::MemoryError;
 pub use self::local_date::LocalDate;
 pub use self::pronoun::Pronoun;
 pub use self::snapshot::MemorySnapshot;
-pub use self::store::MemoryStore;
+pub use self::store::{DEFAULT_LOCK_TIMEOUT, KEYBOARD_LOCK_TIMEOUT, MemoryStore};
 
 /// 学习数据目录下放记忆的子目录。
 pub const MEMORY_DIR: &str = "memory";
@@ -1956,17 +2003,22 @@ pub enum MemoryError {
     #[error("memory changed since it was read")]
     Conflict,
 
+    /// 等 `memory/.lock` 超时（另一个进程占着）；键盘等得短，拿不到就进内存待办、下次再试。
+    #[error("memory lock timed out")]
+    LockTimeout,
+
     #[error("memory file io: {0}")]
     Io(#[from] std::io::Error),
 }
 
 impl MemoryError {
-    /// `contact_limit` / `invalid` / `conflict` / `io`，与头文件里写的一致。
+    /// `contact_limit` / `invalid` / `conflict` / `lock_timeout` / `io`，与头文件里写的一致。
     pub fn code(&self) -> &'static str {
         match self {
             Self::ContactLimit => "contact_limit",
             Self::Invalid(_) => "invalid",
             Self::Conflict => "conflict",
+            Self::LockTimeout => "lock_timeout",
             Self::Io(_) => "io",
         }
     }
@@ -1976,6 +2028,7 @@ impl MemoryError {
             Self::ContactLimit => format!("恋爱场景最多 {MAX_CONTACTS} 个人"),
             Self::Invalid(reason) => (*reason).to_owned(),
             Self::Conflict => "记忆刚在键盘里改过，已重新读取".to_owned(),
+            Self::LockTimeout => "记忆正被另一处使用，稍后再试".to_owned(),
             Self::Io(_) => "记忆文件读写不了（锁屏时读不到），请解锁后重试".to_owned(),
         }
     }
@@ -2231,8 +2284,11 @@ const DISMISSED_FILE: &str = "dismissed.json";
 
 const LOCK_FILE: &str = ".lock";
 
-/// 等文件锁最多多久；另一个进程正常只占几毫秒。
-const LOCK_TIMEOUT: Duration = Duration::from_secs(2);
+/// 等文件锁缺省最多多久（App 用）；另一个进程正常只占几毫秒。
+pub const DEFAULT_LOCK_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// 键盘等锁的上限：键盘主线程上不能卡，拿不到就进内存待办、下次刷新再试。
+pub const KEYBOARD_LOCK_TIMEOUT: Duration = Duration::from_millis(200);
 
 const LOCK_RETRY: Duration = Duration::from_millis(5);
 
@@ -2248,13 +2304,27 @@ const DISMISSED_KEEP_DAYS: i64 = 30;
 pub struct MemoryStore {
     /// `<学习数据目录>/memory`。
     root: PathBuf,
+
+    /// 等 `.lock` 的上限，超时返回 `MemoryError::LockTimeout`。
+    lock_timeout: Duration,
 }
 
 impl MemoryStore {
+    /// 等锁最多 [`DEFAULT_LOCK_TIMEOUT`]（App 用）。
     pub fn open(user_dir: &Path) -> Self {
+        Self::open_with_lock_timeout(user_dir, DEFAULT_LOCK_TIMEOUT)
+    }
+
+    /// 自定等锁上限；键盘用 [`KEYBOARD_LOCK_TIMEOUT`]。
+    pub fn open_with_lock_timeout(user_dir: &Path, lock_timeout: Duration) -> Self {
         Self {
             root: user_dir.join(MEMORY_DIR),
+            lock_timeout,
         }
+    }
+
+    pub fn lock_timeout(&self) -> Duration {
+        self.lock_timeout
     }
 
     pub fn root(&self) -> &Path {
@@ -2478,7 +2548,7 @@ impl MemoryStore {
         ]
     }
 
-    /// 拿 `memory/.lock` 的文件锁：`try_lock` 加重试，最多等 [`LOCK_TIMEOUT`]。返回的文件关掉时锁就放了。
+    /// 拿 `memory/.lock` 的文件锁：`try_lock` 加重试，最多等 `lock_timeout`。返回的文件关掉时锁就放了。
     /// flock 锁的是打开的文件，同一进程里两个 `MemoryStore` 也互斥。
     fn lock(&self) -> Result<File, MemoryError> {
         std::fs::create_dir_all(&self.root)?;
@@ -2491,14 +2561,11 @@ impl MemoryStore {
         loop {
             match file.try_lock() {
                 Ok(()) => return Ok(file),
-                Err(TryLockError::WouldBlock) if started.elapsed() < LOCK_TIMEOUT => {
+                Err(TryLockError::WouldBlock) if started.elapsed() < self.lock_timeout => {
                     std::thread::sleep(LOCK_RETRY);
                 }
                 Err(TryLockError::WouldBlock) => {
-                    return Err(MemoryError::Io(std::io::Error::new(
-                        ErrorKind::TimedOut,
-                        "memory lock timed out",
-                    )));
+                    return Err(MemoryError::LockTimeout);
                 }
                 Err(TryLockError::Error(error)) => return Err(error.into()),
             }
@@ -2673,15 +2740,15 @@ Modify `src/lib.rs`：在 `pub use self::error::BridgeError;` 之后加：
 
 ```rust
 pub use self::memory::{
-    Card, Contact, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError, MemorySnapshot, MemoryStore,
-    Pronoun, has_date, new_id, now_unix,
+    Card, Contact, DEFAULT_LOCK_TIMEOUT, KEYBOARD_LOCK_TIMEOUT, LocalDate, MAX_CONTACTS, MEMORY_DIR,
+    MemoryError, MemorySnapshot, MemoryStore, Pronoun, has_date, new_id, now_unix,
 };
 ```
 
 - [ ] **Step 8: 跑测试看它通过**
 
 Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge memory 2>&1 | tail -15`
-Expected: `memory::tests::date::` 5 个、`memory::tests::store::` 11 个、`memory::tests::sync::` 5 个全过，`test result: ok. 21 passed`。`two_processes_lose_no_notes` 会在 stderr 打一行「写回冲突 N 次，都重读合并成功」（N 随调度变，0 也算过；要看它用 `-- --nocapture`）。
+Expected: `memory::tests::date::` 5 个、`memory::tests::store::` 11 个、`memory::tests::sync::` 6 个全过，`test result: ok. 22 passed`。`two_processes_lose_no_notes` 会在 stderr 打一行「写回冲突 N 次，都重读合并成功」（N 随调度变，0 也算过；要看它用 `-- --nocapture`）。
 
 - [ ] **Step 9: 全量测试、格式与 clippy**
 

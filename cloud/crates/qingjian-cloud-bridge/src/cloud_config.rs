@@ -143,23 +143,10 @@ impl CloudConfig {
         config.save(path)
     }
 
-    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌：同目录写 `.tmp`（名字带进程号与序号，Unix 上 0600）再改名，
-    /// 键盘随时在读，不能让它读到写了一半的文件。
+    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌，写法见 [`write_atomic`]。
     pub fn save(&self, path: &Path) -> Result<(), String> {
         let text = toml::to_string(self).map_err(|e| e.to_string())?;
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        }
-        let mut name = path.file_name().unwrap_or_default().to_os_string();
-        let serial = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-        name.push(format!(".{}.{serial}.tmp", std::process::id()));
-        let temp = path.with_file_name(name);
-        let written =
-            write_private(&temp, text.as_bytes()).and_then(|()| std::fs::rename(&temp, path));
-        written.map_err(|e| {
-            std::fs::remove_file(&temp).ok();
-            e.to_string()
-        })
+        write_atomic(path, text.as_bytes(), true).map_err(|e| e.to_string())
     }
 
     /// 大模型代理的接口地址（OpenAI 兼容，不含 `/chat/completions`）。
@@ -172,6 +159,24 @@ fn lock() -> std::sync::MutexGuard<'static, ()> {
     WRITE_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// 同目录写 `.tmp`（名字带进程号与序号，Unix 上 0600）再改名：读的一方（键盘）随时在读，不能读到写了一半的文件。
+/// `cloud.toml` 与 `memory/` 下的文件都走这里。`create_parent` 为假时父目录不在就报错：记忆的对象目录只在建对象时创建，
+/// 写卡片时不能把已经忘掉的人的目录重新建出来。
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8], create_parent: bool) -> std::io::Result<()> {
+    if create_parent && let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    let serial = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    name.push(format!(".{}.{serial}.tmp", std::process::id()));
+    let temp = path.with_file_name(name);
+    write_private(&temp, bytes)
+        .and_then(|()| std::fs::rename(&temp, path))
+        .inspect_err(|_| {
+            std::fs::remove_file(&temp).ok();
+        })
 }
 
 /// 解析失败的日志文案：只有原因与出错位置。`toml` 错误的 `Display` 会带出错行原文，那一行可能就是令牌。
