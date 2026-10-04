@@ -4,6 +4,7 @@
 
 use std::io::ErrorKind;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use qingjian_cloud_proto::Feature;
 
@@ -12,6 +13,9 @@ const INPUT_LOG: &str = "input-log.jsonl";
 
 /// 剪贴板同步进度与离线队列的文件名、学习数据等进度所在的子目录、下载的别的设备日志的子目录。
 const SUPPORT_ENTRIES: [&str; 4] = ["state.json", "outbox.jsonl", "data", "input-log"];
+
+/// 换账号后请输入法把输入日志的写入端丢掉缓冲并重开：见 [`take_input_log_reset`]。
+static INPUT_LOG_RESET: AtomicBool = AtomicBool::new(false);
 
 /// 登录后要不要作废旧账号的数据：账号 id 变了要；本机没记过账号（旧版本写的文件、删号后）但留着进度，按换了账号处理。
 pub fn should_reset(previous: Option<i64>, now: i64, progress_exists: bool) -> bool {
@@ -31,6 +35,16 @@ pub fn reset_after_sync_toggle(support: &Path) {
     if let Err(error) = qingjian_cloud_client::reset_sync_progress(&support.join("data")) {
         tracing::warn!(%error, "同步进度删不掉");
     }
+}
+
+/// 请输入法重开输入日志（换账号清了日志文件之后调）。
+pub fn request_input_log_reset() {
+    INPUT_LOG_RESET.store(true, Ordering::Relaxed);
+}
+
+/// 输入法每秒问一次：true 表示换账号清过输入日志，要丢掉写入端缓冲里旧账号的输入、清空文件再重开。取走即清。
+pub fn take_input_log_reset() -> bool {
+    INPUT_LOG_RESET.swap(false, Ordering::Relaxed)
 }
 
 /// 本机留着任何一份旧账号的同步进度。
@@ -53,7 +67,16 @@ pub fn reset_account_data(support: &Path, ime: &Path) {
         };
         ignore_missing(result, "旧的同步进度");
     }
-    ignore_missing(std::fs::remove_file(ime.join(INPUT_LOG)), "旧的输入日志");
+    // 输入法进程以追加模式握着这个文件，删掉它会让之后的输入全写进已删除的 inode；截断则继续往同一个文件写。
+    // 输入法缓冲区里还没刷出的最多 19 条旧账号输入，要靠 [`request_input_log_reset`] 通知输入法丢掉并重开。
+    ignore_missing(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(ime.join(INPUT_LOG))
+            .map(|_| ()),
+        "旧的输入日志",
+    );
     // 轮转或备份出来的 `input-log.jsonl.*`
     let prefix = format!("{INPUT_LOG}.");
     for entry in std::fs::read_dir(ime).into_iter().flatten().flatten() {
@@ -150,7 +173,14 @@ mod tests {
 
         reset_account_data(&support, &ime);
 
-        assert!(!ime.join("input-log.jsonl").exists());
+        // 输入法进程以追加模式握着这个文件：必须截断而不是删除，之后它继续写同一个 inode
+        assert!(ime.join("input-log.jsonl").exists());
+        assert_eq!(
+            std::fs::metadata(ime.join("input-log.jsonl"))
+                .unwrap()
+                .len(),
+            0
+        );
         assert!(!ime.join("input-log.jsonl.1").exists());
         assert!(!support.join("data").exists());
         assert!(!support.join("input-log").exists());
@@ -161,6 +191,41 @@ mod tests {
         assert!(ime.join("user.tsv").exists());
         assert!(!progress_exists(&support));
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// 输入法的 BufWriter 以 O_APPEND 打开：截断后它的写入落在新的文件末尾，不会写向已删除的 inode。
+    #[test]
+    fn writer_holding_the_file_keeps_logging_after_reset() {
+        use std::io::Write;
+        let (root, support, ime) = dirs("append");
+        let log = ime.join("input-log.jsonl");
+        let mut writer = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log)
+            .unwrap();
+        writer.write_all("A 的明文\n".as_bytes()).unwrap();
+
+        reset_account_data(&support, &ime);
+        writer.write_all("B 的输入\n".as_bytes()).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&log).unwrap(), "B 的输入\n");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn missing_input_log_is_not_created_by_reset() {
+        let (root, support, ime) = dirs("nolog");
+        reset_account_data(&support, &ime);
+        assert!(!ime.join("input-log.jsonl").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn input_log_reset_request_is_taken_once() {
+        request_input_log_reset();
+        assert!(take_input_log_reset());
+        assert!(!take_input_log_reset());
     }
 
     #[test]

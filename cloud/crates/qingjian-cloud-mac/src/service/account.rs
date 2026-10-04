@@ -10,19 +10,28 @@ use qingjian_cloud_proto::{Consents, Device, Feature, HandoffExchange, Platform}
 
 use super::Service;
 use crate::account::{
-    self, AccountEvent, WebLogin, progress_exists, reset_account_data, reset_after_sync_toggle,
-    should_reset, sync_toggled,
+    self, AccountEvent, WebLogin, progress_exists, request_input_log_reset, reset_account_data,
+    reset_after_sync_toggle, should_reset, sync_toggled,
 };
 use crate::config::AgentConfig;
 use crate::paths;
 
 impl Service {
-    /// 「登录…」：生成 verifier，打开网页登录窗口。
+    /// 「登录…」：生成 verifier，打开网页登录窗口。已登录、正在登录（含换令牌）时不再开。
     pub(super) fn sign_in(&mut self) {
-        if self.login.is_some() || self.exchanging {
+        if self.flow.signing_in() || self.signed_in() {
             return;
         }
-        let (Some(config), Some(mtm)) = (&self.config, MainThreadMarker::new()) else {
+        let Some(server) = self.config.as_ref().map(AgentConfig::server) else {
+            self.note = Some(
+                self.unconfigured
+                    .clone()
+                    .unwrap_or_else(|| "配置没读到，先点「重新加载配置」".to_owned()),
+            );
+            self.refresh_menu(true);
+            return;
+        };
+        let Some(mtm) = MainThreadMarker::new() else {
             return;
         };
         let verifier = match account::new_verifier() {
@@ -34,22 +43,28 @@ impl Service {
             }
         };
         let device = account::device_name();
-        let url = account::login_url(&config.server(), &account::challenge(&verifier), &device);
-        match WebLogin::start(mtm, &url, verifier, device, self.sender.clone()) {
+        let url = account::login_url(&server, &account::challenge(&verifier), &device);
+        let Some(generation) = self.flow.start_login() else {
+            return;
+        };
+        match WebLogin::start(mtm, &url, verifier, device, generation, self.sender.clone()) {
             Ok(login) => {
                 tracing::info!("打开网页登录");
                 self.login = Some(login);
                 self.note = None;
             }
-            Err(reason) => self.note = Some(reason),
+            Err(reason) => {
+                self.flow.finish();
+                self.note = Some(reason);
+            }
         }
         self.refresh_menu(true);
     }
 
-    /// 「取消登录」：丢掉登录窗口（取消会话、关窗），不再等换令牌的结果。
+    /// 「取消登录」：丢掉登录窗口（取消会话、关窗），换令牌的结果晚到也不再认。
     pub(super) fn cancel_sign_in(&mut self) {
         self.login = None;
-        self.exchanging = false;
+        self.flow.cancel();
         self.refresh_menu(true);
     }
 
@@ -60,6 +75,8 @@ impl Service {
             return;
         };
         let client = Client::new(&config.server(), &config.token);
+        // 旧令牌上还在路上的请求（开关、取账号）结果晚到不能再动新会话
+        self.flow.invalidate();
         spawn("cloud-sign-out", move || {
             if let Err(error) = client.sign_out() {
                 tracing::warn!(%error, "服务器上退出登录失败，本机已退出");
@@ -79,6 +96,7 @@ impl Service {
         let enabled = !config.consents().get(feature);
         let client = Client::new(&config.server(), &config.token);
         let sender = self.sender.clone();
+        let generation = self.flow.current();
         self.note = None;
         spawn("cloud-consent", move || {
             let event = match client.put_consent(feature, enabled) {
@@ -89,7 +107,7 @@ impl Service {
                     AccountEvent::Failed(format!("开关没改成：{}", account::reason(&error)))
                 }
             };
-            let _ = sender.send(event);
+            let _ = sender.send((generation, event));
         });
     }
 
@@ -100,6 +118,7 @@ impl Service {
         };
         let client = Client::new(&config.server(), &config.token);
         let sender = self.sender.clone();
+        let generation = self.flow.current();
         spawn("cloud-account", move || {
             let event = match client.account() {
                 Ok(account) => AccountEvent::Consents(account.consents),
@@ -109,13 +128,18 @@ impl Service {
                     return;
                 }
             };
-            let _ = sender.send(event);
+            let _ = sender.send((generation, event));
         });
     }
 
     pub(super) fn apply_account_events(&mut self) {
         let mut changed = false;
-        while let Ok(event) = self.events.try_recv() {
+        while let Ok((generation, event)) = self.events.try_recv() {
+            // 取消、退出、重新登录之后才到的旧结果（旧令牌的 401 也算）直接丢掉
+            if !self.flow.accepts(generation) {
+                tracing::debug!(?event, "丢弃过期的账号事件");
+                continue;
+            }
             self.apply(event);
             changed = true;
         }
@@ -150,9 +174,15 @@ impl Service {
 
     fn apply(&mut self, event: AccountEvent) {
         match event {
-            AccountEvent::Callback(Ok(url)) => self.exchange(&url),
-            AccountEvent::Callback(Err(reason)) => {
+            AccountEvent::Callback(url) => self.exchange(&url),
+            AccountEvent::Canceled => {
+                // 用户关了登录窗：静默回到未登录
                 self.login = None;
+                self.flow.finish();
+            }
+            AccountEvent::LoginFailed(reason) => {
+                self.login = None;
+                self.flow.finish();
                 self.note = Some(reason);
             }
             AccountEvent::SignedIn {
@@ -160,11 +190,12 @@ impl Service {
                 user_id,
                 consents,
             } => {
-                self.exchanging = false;
+                self.flow.finish();
+                self.flow.invalidate();
                 self.note = None;
                 self.signed_in_as(&token, user_id, consents);
             }
-            // 退出登录后才到的旧结果不能再写进配置
+            // 退出登录后才到的结果不能再写进配置
             AccountEvent::Consents(_) | AccountEvent::Forbidden(_) if !self.signed_in() => {}
             AccountEvent::Consents(consents) => {
                 if self.config.as_ref().map(AgentConfig::consents) != Some(consents) {
@@ -177,14 +208,11 @@ impl Service {
             }
             AccountEvent::SignedOut => {
                 self.login = None;
-                self.exchanging = false;
+                self.flow.cancel();
                 self.note = Some("登录已失效，请重新登录".to_owned());
                 self.store(AgentConfig::clear_session);
             }
-            AccountEvent::Failed(reason) => {
-                self.exchanging = false;
-                self.note = Some(reason);
-            }
+            AccountEvent::Failed(reason) => self.note = Some(reason),
         }
     }
 
@@ -197,6 +225,8 @@ impl Service {
             let previous = self.config.as_ref().and_then(|config| config.user_id);
             if should_reset(previous, user_id, progress_exists(&support)) {
                 reset_account_data(&support, &ime);
+                // 输入法写入端缓冲里还有旧账号的输入：请它丢掉并重开
+                request_input_log_reset();
             }
         }
         self.store(|path| AgentConfig::store_session(path, token, user_id, consents));
@@ -209,12 +239,15 @@ impl Service {
             return;
         };
         let Some(handoff) = account::handoff_from_callback(url) else {
-            self.note = Some("登录回调里没有一次性码，请重试".to_owned());
+            self.flow.finish();
+            self.note = Some("登录回调不对，请重试".to_owned());
             return;
         };
         let Some(server) = self.config.as_ref().map(AgentConfig::server) else {
+            self.flow.finish();
             return;
         };
+        self.flow.callback_received();
         let request = HandoffExchange {
             handoff,
             verifier: login.verifier().to_owned(),
@@ -224,8 +257,8 @@ impl Service {
             },
         };
         drop(login);
-        self.exchanging = true;
         let sender = self.sender.clone();
+        let generation = self.flow.current();
         spawn("cloud-login", move || {
             let event = match Client::anonymous(&server).exchange_handoff(&request) {
                 Ok(grant) => {
@@ -240,11 +273,12 @@ impl Service {
                         consents,
                     }
                 }
-                Err(error) => {
-                    AccountEvent::Failed(format!("登录失败：{}", account::sign_in_reason(&error)))
-                }
+                Err(error) => AccountEvent::LoginFailed(format!(
+                    "登录失败：{}",
+                    account::sign_in_reason(&error)
+                )),
             };
-            let _ = sender.send(event);
+            let _ = sender.send((generation, event));
         });
     }
 
