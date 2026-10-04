@@ -5,7 +5,9 @@
 //! 2. 覆盖输入字母多者优先（`kaif` → 开发者 排在 开 前）
 //! 3. 切分里非末尾的简拼音节少者优先（`kaifa` 按 `kai fa` 读的 开放 排在按 `kai f a` 读的 开放啊 前）
 //! 4. 最后一个音节完整匹配优先（`kaifa` → 开发 排在 开放 前）
-//! 5. 同一输入串下用户选过的次数（Learner 的 `choice_weight`：`mgs` 选过 美国式，下次 `mgs` 它就是首选）
+//! 5. 同一输入串下用户选过的次数：形码（[`rank_choice_first`]）排在上下文得分前面——重码顺序就是靠选择置顶的；
+//!    拼音词级（[`rank`]）改成得分里的加分（[`choice_bonus`]：`mgs` 选过 美国式，下次 `mgs` 它多半还是首选，
+//!    但强上文翻得过只选过一次的）。素笺分叉，见 cloud/docs/plans/2026-10-04-context-prediction.md
 //! 6. 上下文得分：语言模型给的 `log P(词 | 上一个上屏的词)`（个人 bigram 插值，模型不认识的按词库词频兜底并扣分，
 //!    见 `sentence::transition_log_prob`）加用户选择次数的加分（[`weight_bonus`]，对数且封顶），模糊音命中扣 ln 2、
 //!    敲错变体命中扣那类敲错的代价（`correction::TypoKind::cost`，个人敲错表打折）。
@@ -14,10 +16,12 @@
 //!
 //! 词库静态词频只用于预选（命中太多时先按词频砍到够排的量）与兜底。
 
+mod choice_bonus;
 mod scored;
 
 use std::collections::HashSet;
 
+pub use choice_bonus::{CHOICE_BONUS, choice_bonus};
 pub use scored::{PreselectKey, Scored, SortKey};
 
 /// 用户选择次数的加分系数：加分 = 系数 × ln(1 + min(次数, [`WEIGHT_CAP`]))。
@@ -37,11 +41,26 @@ pub fn weight_bonus(count: u32) -> f64 {
     WEIGHT_BONUS * (1.0 + f64::from(count.min(WEIGHT_CAP))).ln()
 }
 
+/// 拼音词级排序：同输入串下选过的次数换成得分加分（[`choice_bonus`]，系数 `bonus`），不再压过上下文。
+/// `context` 给每条命中算（同输入串下的选择次数, 上下文 log 概率），只对预选后剩下的那些调用。
+pub fn rank(
+    items: &mut Vec<Scored<'_>>,
+    limit: usize,
+    bonus: f64,
+    context: impl Fn(&Scored<'_>) -> (u32, f64),
+) {
+    rank_choice_first(items, limit, |item| {
+        let (choice, log_prob) = context(item);
+        (0, log_prob + choice_bonus(choice, bonus))
+    });
+}
+
 /// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条。
+/// 选过的次数排在上下文得分前面（旧规则，形码用：重码顺序靠选择置顶，没有上文可言）。
 /// `context` 给每条命中算（同输入串下的选择次数, 上下文 log 概率），只对预选后剩下的那些调用。
 ///
 /// 排序键先算好再排：单字母简拼能命中两万条，比较器里每次数字符数会让排序占掉几十毫秒；去重也只做到够数为止。
-pub fn rank(
+pub fn rank_choice_first(
     items: &mut Vec<Scored<'_>>,
     limit: usize,
     context: impl Fn(&Scored<'_>) -> (u32, f64),
@@ -118,7 +137,7 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank_choice_first(&mut items, usize::MAX, |_| (0, 0.0));
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["开发", "开放", "开发者"]);
     }
@@ -145,11 +164,11 @@ mod tests {
         ];
         // 上下文说 吧 更像：词频高的 把 让位
         let by_context = |s: &Scored<'_>| (0, if s.hit.text == "吧" { -1.0 } else { -6.0 });
-        rank(&mut items, usize::MAX, by_context);
+        rank_choice_first(&mut items, usize::MAX, by_context);
         let texts: Vec<&str> = items.iter().map(|s| s.hit.text).collect();
         assert_eq!(texts, ["吧", "把"]);
         // 同一输入串下选过的压过上下文
-        rank(&mut items, usize::MAX, |s| {
+        rank_choice_first(&mut items, usize::MAX, |s| {
             (
                 u32::from(s.hit.text == "把"),
                 if s.hit.text == "吧" { -1.0 } else { -6.0 },
@@ -160,7 +179,7 @@ mod tests {
         for item in &mut items {
             item.weight = u32::from(item.hit.text == "把") * 3;
         }
-        rank(&mut items, usize::MAX, |_| (0, -2.0));
+        rank_choice_first(&mut items, usize::MAX, |_| (0, -2.0));
         assert_eq!(items[0].hit.text, "把");
         for item in &mut items {
             item.weight = 3;
@@ -170,7 +189,7 @@ mod tests {
                 0.0
             };
         }
-        rank(&mut items, usize::MAX, |_| (0, -2.0));
+        rank_choice_first(&mut items, usize::MAX, |_| (0, -2.0));
         assert_eq!(items[0].hit.text, "吧");
     }
 
@@ -194,7 +213,7 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank_choice_first(&mut items, usize::MAX, |_| (0, 0.0));
         assert_eq!(items[0].hit.text, "开放");
     }
 
@@ -226,8 +245,55 @@ mod tests {
                 penalty: 0.0,
             },
         ];
-        rank(&mut items, usize::MAX, |_| (0, 0.0));
+        rank_choice_first(&mut items, usize::MAX, |_| (0, 0.0));
         assert_eq!(items.len(), 1);
         assert!(items[0].hit.exact);
+    }
+
+    fn two_candidates() -> Vec<Scored<'static>> {
+        ["把", "吧"]
+            .into_iter()
+            .map(|text| Scored {
+                hit: hit(text, "ba", 1000, true),
+                full_last: true,
+                coverage: 2,
+                abbreviated: 0,
+                weight: 0,
+                penalty: 0.0,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn choice_first_ranking_keeps_a_once_chosen_word_on_top_whatever_the_score_gap() {
+        // 形码：选过一次的 把，即使上下文分差 30 nat 也第一
+        let mut items = two_candidates();
+        rank_choice_first(&mut items, usize::MAX, |s| {
+            (
+                u32::from(s.hit.text == "把"),
+                if s.hit.text == "吧" { -1.0 } else { -31.0 },
+            )
+        });
+        assert_eq!(items[0].hit.text, "把");
+    }
+
+    #[test]
+    fn bonus_ranking_lets_strong_context_beat_one_choice_but_not_many() {
+        let by = |choices: u32, gap: f64| {
+            let mut items = two_candidates();
+            rank(&mut items, usize::MAX, CHOICE_BONUS, |s| {
+                if s.hit.text == "把" {
+                    (choices, -1.0 - gap)
+                } else {
+                    (0, -1.0)
+                }
+            });
+            items[0].hit.text
+        };
+        // 选过一次值 β·ln2 ≈ 5.5 nat：强上文（7 nat）压得过，弱上文（0.5 nat）压不过
+        assert_eq!(by(1, 7.0), "吧");
+        assert_eq!(by(1, 0.5), "把");
+        // 选过五次值 β·ln6 ≈ 14 nat：10 nat 的上文差也压不过
+        assert_eq!(by(5, 10.0), "把");
     }
 }

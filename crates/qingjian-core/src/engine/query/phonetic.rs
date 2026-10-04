@@ -140,13 +140,13 @@ impl Engine {
 
         let start = Instant::now();
         // 再往后翻也翻不到的候选不必再造：单字母简拼能命中两万个词，排完序只留前面这些。
-        // 同输入串（候选覆盖的那段字母）下选过的优先；上下文是上一个上屏的词（句首为 None）：
+        // 同输入串（候选覆盖的那段字母）下选过的加分；上下文是上一个上屏的词（句首为 None）：
         // `ba` 在「做了」后面出 吧、句首出 把
         let log_total = (self.total_frequency() as f64).max(1.0).ln();
         let letters = choice_key(scope, scope.len());
         // 上下文：链上的上一个词，链空着就是宿主前文末尾的词（素笺分叉，见 query/left_context.rs）
         let context = self.word_context();
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
+        ranking::rank(&mut scored, MAX_CANDIDATES, self.choice_bonus, |item| {
             let hit = &item.hit;
             // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
             let covered = correction

@@ -313,6 +313,15 @@ impl Engine {
         self.typo_costs
     }
 
+    /// 换同输入串选择加分的系数 β（回放调参用）。
+    pub fn set_choice_bonus(&mut self, weight: f64) {
+        self.choice_bonus = weight.max(0.0);
+    }
+
+    pub fn choice_bonus(&self) -> f64 {
+        self.choice_bonus
+    }
+
     /// 整句转换与词级排序用的个人部分：学习器的个人 n-gram 配上当前插值参数。
     pub(super) fn personal(&self) -> Personal<'_> {
         Personal {

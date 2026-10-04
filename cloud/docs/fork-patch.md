@@ -176,6 +176,13 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `crates/qingjian-core/src/engine/tests/context_fork.rs`、`tests/mod.rs` | 新文件、加 1 行 | 测试 |
 | `apps/macos/src/imk/controller/display.rs` | 改 4 行 | 第一键总是读应用前文（私密不读），不再只在有模型时读 |
 | `apps/macos/src/host/model/mod.rs` | 删 1 个方法 | `model_loading` 不再有人用 |
+| `crates/qingjian-core/src/ranking/choice_bonus.rs` | 新文件 | β=8 与 `choice_bonus` |
+| `crates/qingjian-core/src/ranking/mod.rs` | 加 `rank`（β 加分），原 `rank` 改名 `rank_choice_first` | 拼音词级走加分，形码保留「选过的次数排在上下文得分前面」的旧键 |
+| `crates/qingjian-core/src/engine/query/phonetic.rs` | 再改 1 行 | 调 `ranking::rank(…, self.choice_bonus, …)` |
+| `crates/qingjian-core/src/engine/query/code.rs` | 改 1 行 | 调 `ranking::rank_choice_first`（行为不变，上游形码测试断言没动） |
+| `crates/qingjian-core/src/engine/mod.rs`、`setup.rs` | 加 1 个字段、2 个方法 | `choice_bonus`、`set_choice_bonus`（回放调参） |
+| `apps/cli/src/tuning.rs`、`args.rs` | 加 1 个键、1 行文档 | `--tune choice=β` |
+| `cloud/scripts/choice-sweep.sh` | 新文件 | 扫 β 的脚本 |
 
 ## 合并上游时
 

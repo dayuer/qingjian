@@ -131,7 +131,8 @@ pub struct Args {
     pub misses: usize,
 
     /// 覆盖引擎里的调参常数，`名=值`，逗号分隔或多次给。名字：lambda / k / cap / discount（个人 n-gram 插值 λ / K / 封顶 / 三元折扣），
-    /// transpose / substitute / extra / missing / typo-cap / correction（敲错四类代价 / 个人折扣上限 / 整段纠错代价）
+    /// transpose / substitute / extra / missing / typo-cap / correction（敲错四类代价 / 个人折扣上限 / 整段纠错代价），
+    /// choice（素笺：同输入串下选过的加分系数 β）
     #[arg(long, value_delimiter = ',')]
     pub tune: Vec<String>,
 
