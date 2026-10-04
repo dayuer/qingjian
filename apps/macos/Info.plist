@@ -11,9 +11,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Qingjian</string>
+	<string>Sujian</string>
 	<key>CFBundleDisplayName</key>
-	<string>青简</string>
+	<string>素笺</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleIconFile</key>
@@ -43,11 +43,11 @@
 	<string>app.qingjian.inputmethod</string>
 	<key>TISIntendedLanguage</key>
 	<string>zh-Hans</string>
-	<!-- 允许系统设置里打开「用 Caps Lock 在 ABC 与青简之间切换」；缺省不开，青简自己的 Caps Lock 英文模式不变（#211） -->
+	<!-- 允许系统设置里打开「用 Caps Lock 在 ABC 与素笺之间切换」；缺省不开，素笺自己的 Caps Lock 英文模式不变（#211） -->
 	<key>TICapsLockLanguageSwitchCapable</key>
 	<true/>
 	<key>tsInputMethodIconFileKey</key>
-	<string>qingjian-menu.pdf</string>
+	<string>qingjian-menu.tiff</string>
 	<!-- 模板图：系统只取 alpha，按深浅色自动反色 -->
 	<key>TISIconIsTemplate</key>
 	<true/>
@@ -79,11 +79,11 @@
 				<key>tsInputModeIsVisibleKey</key>
 				<true/>
 				<key>tsInputModeMenuIconFileKey</key>
-				<string>qingjian-menu.pdf</string>
+				<string>qingjian-menu.tiff</string>
 				<key>tsInputModeAlternateMenuIconFileKey</key>
-				<string>qingjian-menu.pdf</string>
+				<string>qingjian-menu.tiff</string>
 				<key>tsInputModePaletteIconFileKey</key>
-				<string>qingjian-menu.pdf</string>
+				<string>qingjian-menu.tiff</string>
 				<key>tsInputModePrimaryInScriptKey</key>
 				<true/>
 				<key>tsInputModeScriptKey</key>
