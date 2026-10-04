@@ -1,5 +1,5 @@
 // 调 Rust 桥的账号接口（qj_account_*）：都是阻塞的网络请求，只在后台任务里调（见 AccountStore）。
-// 操作成功返回 nil，失败返回给用户看的原因；令牌留在桥与 cloud.toml 之间，不经过 Swift。
+// 操作成功返回 nil，失败返回 AccountFailure（code 加给用户看的文案）；令牌留在桥与 cloud.toml 之间，不经过 Swift。
 
 import Foundation
 import QingjianBridge
@@ -11,8 +11,8 @@ enum AccountBridge {
 
     static func signInApple(
         _ file: URL, identityToken: String, authorizationCode: String, nonce: String, device: String
-    ) -> String? {
-        SettingsBridge.take(file.path.withCString { f in
+    ) -> AccountFailure? {
+        take(file.path.withCString { f in
             identityToken.withCString { t in
                 authorizationCode.withCString { c in
                     nonce.withCString { n in
@@ -23,14 +23,14 @@ enum AccountBridge {
         })
     }
 
-    static func emailStart(_ file: URL, email: String) -> String? {
-        SettingsBridge.take(file.path.withCString { f in
+    static func emailStart(_ file: URL, email: String) -> AccountFailure? {
+        take(file.path.withCString { f in
             email.withCString { qj_account_email_start(f, $0) }
         })
     }
 
-    static func emailVerify(_ file: URL, email: String, code: String, device: String) -> String? {
-        SettingsBridge.take(file.path.withCString { f in
+    static func emailVerify(_ file: URL, email: String, code: String, device: String) -> AccountFailure? {
+        take(file.path.withCString { f in
             email.withCString { e in
                 code.withCString { c in
                     device.withCString { qj_account_email_verify(f, e, c, $0) }
@@ -39,21 +39,26 @@ enum AccountBridge {
         })
     }
 
-    static func setConsent(_ file: URL, feature: String, enabled: Bool) -> String? {
-        SettingsBridge.take(file.path.withCString { f in
+    static func setConsent(_ file: URL, feature: String, enabled: Bool) -> AccountFailure? {
+        take(file.path.withCString { f in
             feature.withCString { qj_account_set_consent(f, $0, enabled) }
         })
     }
 
-    static func revokeSession(_ file: URL, id: Int64) -> String? {
-        SettingsBridge.take(file.path.withCString { qj_account_revoke_session($0, id) })
+    static func revokeSession(_ file: URL, id: Int64) -> AccountFailure? {
+        take(file.path.withCString { qj_account_revoke_session($0, id) })
     }
 
-    static func signOut(_ file: URL) -> String? {
-        SettingsBridge.take(file.path.withCString { qj_account_sign_out($0) })
+    static func signOut(_ file: URL) -> AccountFailure? {
+        take(file.path.withCString { qj_account_sign_out($0) })
     }
 
-    static func deleteAccount(_ file: URL) -> String? {
-        SettingsBridge.take(file.path.withCString { qj_account_delete($0) })
+    static func deleteAccount(_ file: URL) -> AccountFailure? {
+        take(file.path.withCString { qj_account_delete($0) })
+    }
+
+    /// 取走桥返回的字符串并解成失败；NULL 是成功。
+    private static func take(_ raw: UnsafeMutablePointer<CChar>?) -> AccountFailure? {
+        AccountFailure.decode(SettingsBridge.take(raw))
     }
 }

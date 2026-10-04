@@ -55,3 +55,44 @@ final class AccountDecodeTests: XCTestCase {
         XCTAssertNotEqual(first, Nonce.random())
     }
 }
+
+final class AccountFailureTests: XCTestCase {
+    func testDecode() {
+        XCTAssertNil(AccountFailure.decode(nil))
+        let failure = AccountFailure.decode(#"{"code":"auth_failed","message":"验证码不对，请重新输入"}"#)
+        XCTAssertEqual(failure, AccountFailure(code: .authFailed, message: "验证码不对，请重新输入"))
+        let unknown = AccountFailure.decode(#"{"code":"brand_new","message":"x"}"#)
+        XCTAssertEqual(unknown, AccountFailure(code: .other, message: "x"))
+        let plain = AccountFailure.decode("连不上服务器")
+        XCTAssertEqual(plain, AccountFailure(code: .other, message: "连不上服务器"))
+    }
+
+    func testStatusErrorCode() throws {
+        func state(_ extra: String) throws -> AccountState {
+            let json = """
+            {"server":"s","signed_in":false,"consents":{"clipboard":false,"sync":false,"input_log":false,"llm":false},
+             "identities":[],"sessions":[],"error":"e"\(extra)}
+            """
+            return try XCTUnwrap(SettingsBridge.decode(json) as AccountState?)
+        }
+        XCTAssertEqual(try state(#","error_code":"unauthorized""#).errorCode, .unauthorized)
+        XCTAssertNil(try state("").errorCode)
+        XCTAssertEqual(try state(#","error_code":"zzz""#).errorCode, .other)
+    }
+
+    func testReactions() {
+        func reaction(_ code: AccountFailure.Code, _ step: LoginStep = .code) -> AccountReaction {
+            AccountStore.reaction(for: AccountFailure(code: code, message: ""), step: step)
+        }
+        XCTAssertEqual(reaction(.authFailed, .code), .retryCode)
+        XCTAssertEqual(reaction(.authFailed, .email), .showMessage)
+        XCTAssertEqual(reaction(.lockedToday, .code), .lockEmail)
+        XCTAssertEqual(reaction(.lockedToday, .email), .lockEmail)
+        XCTAssertEqual(reaction(.unauthorized), .signOutLocally)
+        for code: AccountFailure.Code in [
+            .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .other,
+        ] {
+            XCTAssertEqual(reaction(code), .showMessage, "\(code)")
+        }
+    }
+}
