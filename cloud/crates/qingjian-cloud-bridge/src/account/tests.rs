@@ -6,7 +6,10 @@ use qingjian_cloud_client::ClientError;
 
 use qingjian_cloud_proto::{Consents, Feature};
 
-use super::{apply_server_consents, message, reset_after_sync_toggle, should_reset, sync_toggled};
+use super::{
+    LOCKED_TODAY, apple_message, apply_server_consents, email_start_message, email_verify_message,
+    message, reset_after_sync_toggle, should_reset, sync_toggled,
+};
 use crate::cloud_config::CloudConfig;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -174,4 +177,52 @@ fn server_consents_ignored_when_not_signed_in() {
     assert!(dir.join("cloud/learning-base.json").exists());
     assert!(!CloudConfig::read(&path).unwrap().sync);
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn email_verify_messages() {
+    assert_eq!(
+        email_verify_message(&ClientError::AuthFailed("x".into())),
+        "验证码不对，请重新输入"
+    );
+    assert_eq!(
+        email_verify_message(&ClientError::LockedToday("x".into())),
+        LOCKED_TODAY
+    );
+    assert_eq!(
+        email_verify_message(&ClientError::RateLimited),
+        "操作太频繁，请稍后再试"
+    );
+    assert_eq!(
+        email_verify_message(&ClientError::NotConfigured("x".into())),
+        "服务器还没配好邮件发送"
+    );
+}
+
+#[test]
+fn email_start_messages() {
+    assert_eq!(
+        email_start_message(&ClientError::LockedToday("x".into())),
+        "今天验证失败次数过多，请明天再试，或改用 Apple 登录"
+    );
+    assert_eq!(
+        email_start_message(&ClientError::RateLimited),
+        "操作太频繁，请稍后再试"
+    );
+    assert_eq!(
+        email_start_message(&ClientError::Rejected {
+            status: 422,
+            message: String::new()
+        }),
+        "邮箱地址不对，检查后再试"
+    );
+}
+
+#[test]
+fn apple_auth_failed_message_is_unchanged_and_generic_handles_locked() {
+    assert_eq!(
+        apple_message(&ClientError::AuthFailed("x".into())),
+        "Apple 登录没有通过验证，请重试"
+    );
+    assert_eq!(message(&ClientError::LockedToday("x".into())), LOCKED_TODAY);
 }

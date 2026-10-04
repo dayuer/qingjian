@@ -34,27 +34,16 @@ pub fn sign_in_apple(
         device: device(device_name),
         challenge: None,
     };
-    let grant =
-        Client::anonymous(&server)
-            .sign_in_apple(&request)
-            .map_err(|error| match error {
-                ClientError::AuthFailed(_) => "Apple 登录没有通过验证，请重试".to_owned(),
-                ClientError::NotConfigured(_) => "服务器还没配好 Apple 登录".to_owned(),
-                other => message(&other),
-            })?;
+    let grant = Client::anonymous(&server)
+        .sign_in_apple(&request)
+        .map_err(|error| apple_message(&error))?;
     finish(path, &server, &grant)
 }
 
 pub fn email_start(path: &Path, email: &str) -> Result<(), String> {
     Client::anonymous(&server(path))
         .email_start(email.trim())
-        .map_err(|error| match error {
-            ClientError::Rejected {
-                status: 400 | 422, ..
-            } => "邮箱地址不对，检查后再试".to_owned(),
-            ClientError::NotConfigured(_) => "服务器还没配好邮件发送".to_owned(),
-            other => message(&other),
-        })
+        .map_err(|error| email_start_message(&error))
 }
 
 pub fn email_verify(path: &Path, email: &str, code: &str, device_name: &str) -> Result<(), String> {
@@ -67,11 +56,7 @@ pub fn email_verify(path: &Path, email: &str, code: &str, device_name: &str) -> 
     };
     let grant = Client::anonymous(&server)
         .email_verify(&request)
-        .map_err(|error| match error {
-            ClientError::AuthFailed(_) => "验证码不对或已过期".to_owned(),
-            ClientError::NotConfigured(_) => "服务器还没配好邮件发送".to_owned(),
-            other => message(&other),
-        })?;
+        .map_err(|error| email_verify_message(&error))?;
     finish(path, &server, &grant)
 }
 
@@ -237,6 +222,36 @@ fn expired(path: &Path, error: &ClientError) -> String {
     message(error)
 }
 
+/// 当天验证码输错太多次：email/start 与 email/verify 都被锁到明天。
+const LOCKED_TODAY: &str = "今天验证失败次数过多，请明天再试，或改用 Apple 登录";
+
+fn apple_message(error: &ClientError) -> String {
+    match error {
+        ClientError::AuthFailed(_) => "Apple 登录没有通过验证，请重试".to_owned(),
+        ClientError::NotConfigured(_) => "服务器还没配好 Apple 登录".to_owned(),
+        other => message(other),
+    }
+}
+
+fn email_start_message(error: &ClientError) -> String {
+    match error {
+        ClientError::Rejected {
+            status: 400 | 422, ..
+        } => "邮箱地址不对，检查后再试".to_owned(),
+        ClientError::NotConfigured(_) => "服务器还没配好邮件发送".to_owned(),
+        other => message(other),
+    }
+}
+
+/// 验证码输错不显示剩余次数。
+fn email_verify_message(error: &ClientError) -> String {
+    match error {
+        ClientError::AuthFailed(_) => "验证码不对，请重新输入".to_owned(),
+        ClientError::NotConfigured(_) => "服务器还没配好邮件发送".to_owned(),
+        other => message(other),
+    }
+}
+
 /// 给用户看的失败原因。
 fn message(error: &ClientError) -> String {
     match error {
@@ -248,6 +263,7 @@ fn message(error: &ClientError) -> String {
         ClientError::NotConfigured(_) => "服务器暂时不支持这种登录方式".to_owned(),
         ClientError::Forbidden(reason) if !reason.trim().is_empty() => reason.trim().to_owned(),
         ClientError::Forbidden(_) => "服务器不允许这个操作".to_owned(),
+        ClientError::LockedToday(_) => LOCKED_TODAY.to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级 App".to_owned(),

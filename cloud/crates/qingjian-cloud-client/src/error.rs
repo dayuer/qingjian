@@ -26,6 +26,11 @@ pub enum ClientError {
     #[error("rate limited")]
     RateLimited,
 
+    /// 同一邮箱当天验证码输错太多次，当天不再接受 email/start 与 email/verify（登录类 429 带 `locked_today`）：
+    /// 重试没用，要等到明天或改用 Apple 登录。
+    #[error("locked for today: {0}")]
+    LockedToday(String),
+
     /// 服务端拒绝了这个请求（其余 4xx），重试也没用。
     #[error("request rejected ({status}): {message}")]
     Rejected { status: u16, message: String },
@@ -99,6 +104,7 @@ mod tests {
     fn forbidden_and_rate_limited_are_not_retryable() {
         assert!(!ClientError::Forbidden(String::new()).is_retryable());
         assert!(!ClientError::RateLimited.is_retryable());
+        assert!(!ClientError::LockedToday("x".to_owned()).is_retryable());
         assert!(!ClientError::Unauthorized.is_retryable());
         assert!(ClientError::Unreachable("x".to_owned()).is_retryable());
     }

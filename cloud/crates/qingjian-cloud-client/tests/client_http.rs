@@ -151,6 +151,39 @@ mod reply_mapping {
         assert!(error.is_retryable());
     }
 
+    const LOCKED: &str = r#"{"error":"too many failed attempts today","code":"locked_today"}"#;
+
+    fn login_429_results(body: &'static str) -> [ClientError; 2] {
+        let (url, _rx) = fake_server_with_body("429 Too Many Requests", body);
+        let start = Client::anonymous(&url).email_start("a@b.c").unwrap_err();
+        let (url, _rx) = fake_server_with_body("429 Too Many Requests", body);
+        let verified = verify(&Client::anonymous(&url)).unwrap_err();
+        [start, verified]
+    }
+
+    #[test]
+    fn login_429_with_locked_code_is_locked_today() {
+        for error in login_429_results(LOCKED) {
+            assert!(matches!(
+                error,
+                ClientError::LockedToday(m) if m == "too many failed attempts today"
+            ));
+        }
+    }
+
+    #[test]
+    fn login_429_without_or_with_other_code_is_rate_limited() {
+        for body in [
+            r#"{"error":"too many requests, try again later"}"#,
+            r#"{"error":"x","code":"something_else"}"#,
+            "<html>busy</html>",
+        ] {
+            for error in login_429_results(body) {
+                assert!(matches!(error, ClientError::RateLimited), "{body}");
+            }
+        }
+    }
+
     #[test]
     fn login_429_is_rate_limited() {
         let (url, _rx) = fake_server_with_body("429 Too Many Requests", r#"{"error":"slow"}"#);
