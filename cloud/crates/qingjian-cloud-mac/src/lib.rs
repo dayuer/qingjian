@@ -9,6 +9,7 @@
 // 别的平台上只编配置解析等可移植部分（让整个 workspace 在 Linux 上能构建、测试）
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
+mod account;
 mod config;
 mod history;
 mod llm_endpoint;

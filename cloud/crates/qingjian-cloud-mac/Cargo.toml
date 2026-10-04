@@ -7,16 +7,23 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+base64 = "0.22"
+getrandom = "0.3"
+percent-encoding = "2"
 qingjian-cloud-client = { workspace = true, features = ["native-tls"] }
 qingjian-cloud-proto.workspace = true
 serde.workspace = true
+sha2 = "0.11"
 toml.workspace = true
+toml_edit = "0.25"
 tracing.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
-objc2-foundation = { version = "0.3.2", features = ["NSDate", "NSObject", "NSRunLoop", "NSString", "NSTimer"] }
-objc2-app-kit = { version = "0.3.2", features = ["NSPasteboard"] }
+objc2-foundation = { version = "0.3.2", features = ["NSDate", "NSError", "NSGeometry", "NSObject", "NSRunLoop", "NSString", "NSTimer", "NSURL"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSGraphics", "NSPasteboard", "NSResponder", "NSRunningApplication", "NSWindow"] }
+block2 = "0.6.2"
+objc2-authentication-services = { version = "0.3.2", default-features = false, features = ["std", "block2", "ASFoundation", "ASWebAuthenticationSession"] }
 
 [lints]
 workspace = true

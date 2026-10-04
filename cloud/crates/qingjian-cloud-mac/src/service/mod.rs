@@ -1,9 +1,13 @@
-//! 同步本体：主线程上 0.5 秒一拍，看本机剪贴板有没有变、取收到的事件、刷新菜单行。
-//! 网络都在 `ClipboardSync` / `DataSync` 的后台线程里，主线程从不等网络。
+//! 同步本体：主线程上 0.5 秒一拍，看本机剪贴板有没有变、取收到的事件、处理账号操作的结果、刷新菜单行。
+//! 网络都在 `ClipboardSync` / `DataSync` 与账号操作的后台线程里，主线程从不等网络。
 //! 跑在输入法进程里：入口都包 `catch_unwind`，这里出错只停同步，不能把输入法带崩（跨 ObjC 边界的 panic 会直接终止进程）。
+//! 登录、退出登录、功能开关与跟随服务器状态在 `account.rs`。
+
+mod account;
 
 use std::cell::{Cell, RefCell};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use objc2::rc::Retained;
@@ -12,11 +16,13 @@ use objc2_foundation::NSTimer;
 use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
 use qingjian_cloud_proto::EventKind;
 
+use crate::account::{AccountEvent, WebLogin};
 use crate::config::AgentConfig;
 use crate::history::History;
 use crate::llm_endpoint::LlmEndpoint;
 use crate::menu::{
-    Display, Line, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD, TAG_SYNC_NOW, build_lines, status_line,
+    AccountMenu, Display, Line, TAG_CANCEL_SIGN_IN, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD,
+    TAG_SIGN_IN, TAG_SIGN_OUT, TAG_SYNC_NOW, build_lines, status_line, toggled_feature,
 };
 use crate::timer::TimerTarget;
 use crate::watcher::ClipboardWatcher;
@@ -87,7 +93,7 @@ pub fn menu_revision() -> u64 {
     with(|service| service.revision).unwrap_or(0)
 }
 
-/// 云联想选青简 Cloud 时用的大模型代理端点；没配置好（或服务没起来）为 `None`。
+/// 云联想选青简 Cloud 时用的大模型代理端点；没登录、没开大模型（或服务没起来）为 `None`。
 pub fn llm_endpoint() -> Option<LlmEndpoint> {
     with(|service| service.endpoint.clone()).flatten()
 }
@@ -157,16 +163,19 @@ fn with<T>(f: impl FnOnce(&mut Service) -> T) -> Option<T> {
 }
 
 struct Service {
-    /// 剪贴板同步；配置好了且没暂停才有。
+    /// 剪贴板同步；登录了、开了剪贴板且没暂停才有。
     sync: Option<ClipboardSync>,
 
-    /// 学习数据、设置与输入日志的同步；配置里关掉、没配置或暂停时为 `None`。
+    /// 学习数据、设置与输入日志的同步；没登录、两项都没开或暂停时为 `None`。
     data: Option<DataSync>,
 
-    /// 大模型代理的地址与令牌，输入法的云联想选青简 Cloud 时用；没配置好为 `None`。
+    /// 大模型代理的地址与令牌，输入法的云联想选青简 Cloud 时用；没登录或没开大模型为 `None`。
     endpoint: Option<LlmEndpoint>,
 
-    /// 没配置好的原因，菜单里显示。
+    /// 读到的配置；读不了时为 `None`（原因在 `unconfigured`）。
+    config: Option<AgentConfig>,
+
+    /// 配置读不了或同步起不来的原因，菜单里显示。
     unconfigured: Option<String>,
 
     /// 用户在菜单里点了「暂停同步」。
@@ -196,14 +205,30 @@ struct Service {
 
     /// 从什么时候起当前输入法不是青简。
     other_input_since: Option<Instant>,
+
+    /// 开着的网页登录窗口；丢掉即取消登录、关窗。
+    login: Option<WebLogin>,
+
+    /// 登录窗已关、正在用一次性码换令牌。
+    exchanging: bool,
+
+    /// 账号操作的后台线程与登录窗口回调把结果发到这里，主线程每拍取。
+    events: Receiver<AccountEvent>,
+
+    sender: Sender<AccountEvent>,
+
+    /// 最近一次登录或切换开关失败的原因，菜单里显示。
+    note: Option<String>,
 }
 
 impl Service {
     fn new() -> Self {
+        let (sender, events) = mpsc::channel();
         let mut service = Self {
             sync: None,
             data: None,
             endpoint: None,
+            config: None,
             unconfigured: None,
             paused: false,
             suspended: false,
@@ -215,8 +240,14 @@ impl Service {
             ticks: 0,
             last_synced: None,
             other_input_since: None,
+            login: None,
+            exchanging: false,
+            events,
+            sender,
+            note: None,
         };
         service.load_config();
+        service.refresh_consents();
         service
     }
 
@@ -226,6 +257,7 @@ impl Service {
         self.data = None;
         self.endpoint = None;
         self.history = History::default();
+        self.config = None;
         let (Some(config_path), Some(state_dir)) = (paths::config_path(), paths::support_dir())
         else {
             self.unconfigured = Some("找不到用户目录".to_owned());
@@ -234,54 +266,68 @@ impl Service {
         let config = match AgentConfig::load(&config_path) {
             Ok(config) => config,
             Err(reason) => {
-                tracing::info!(%reason, "青简 Cloud 未启用同步");
+                tracing::info!(%reason, "青简 Cloud 配置读不了");
                 self.unconfigured = Some(reason);
                 return;
             }
         };
-        self.endpoint = Some(LlmEndpoint::new(&config.server, &config.token));
-        if (config.learning || config.settings || config.logs)
+        self.unconfigured = None;
+        // 没登录或暂停中（切走了输入法）只记下配置，不起同步
+        if !config.signed_in() || self.suspended {
+            self.config = Some(config);
+            return;
+        }
+        let server = config.server();
+        if config.llm {
+            self.endpoint = Some(LlmEndpoint::new(&server, &config.token));
+        }
+        if (config.sync || config.logs)
             && let Some(ime_dir) = paths::ime_dir()
         {
             match DataSync::start(DataSyncConfig {
-                server: config.server.clone(),
+                server: server.clone(),
                 token: config.token.clone(),
                 ime_dir,
                 state_dir: state_dir.join("data"),
-                sync_learning: config.learning,
+                sync_learning: config.sync,
                 sync_logs: config.logs,
-                log_download_dir: config.download_logs.then(|| state_dir.join("input-log")),
-                sync_config: config.settings,
+                log_download_dir: (config.logs && config.download_logs)
+                    .then(|| state_dir.join("input-log")),
+                sync_config: config.sync,
             }) {
                 Ok(data) => self.data = Some(data),
                 Err(error) => tracing::warn!(%error, "学习数据同步启动失败"),
             }
         }
-        match ClipboardSync::start(SyncConfig {
-            server: config.server,
-            token: config.token,
-            state_dir,
-        }) {
-            Ok(sync) => {
-                self.sync = Some(sync);
-                self.unconfigured = None;
-            }
-            Err(error) => {
-                tracing::warn!(%error, "剪贴板同步启动失败");
-                self.unconfigured = Some(format!("同步启动失败：{error}"));
+        if config.clipboard {
+            match ClipboardSync::start(SyncConfig {
+                server,
+                token: config.token.clone(),
+                state_dir,
+            }) {
+                Ok(sync) => self.sync = Some(sync),
+                Err(error) => {
+                    tracing::warn!(%error, "剪贴板同步启动失败");
+                    self.unconfigured = Some(format!("同步启动失败：{error}"));
+                }
             }
         }
+        self.config = Some(config);
     }
 
-    /// 每拍：看当前输入法决定暂停 / 恢复，上传本机新复制的、写入别的设备刚复制的、刷新菜单行。
+    /// 每拍：处理账号操作的结果，看当前输入法决定暂停 / 恢复，跟着服务器状态改开关，
+    /// 上传本机新复制的、写入别的设备刚复制的、刷新菜单行。
     fn tick(&mut self) {
         self.ticks = self.ticks.wrapping_add(1);
+        // 登录窗的回调、换令牌的结果不能等到切回青简
+        self.apply_account_events();
         if self.ticks.is_multiple_of(INPUT_SOURCE_EVERY) {
             self.follow_input_source();
         }
         if self.suspended {
             return;
         }
+        self.follow_server_state();
         let copied = self.watcher.poll();
         let Some(sync) = &self.sync else {
             self.refresh_menu(false);
@@ -355,6 +401,10 @@ impl Service {
 
     /// 子菜单的动作。
     fn perform(&mut self, tag: isize) {
+        if let Some(feature) = toggled_feature(tag) {
+            self.toggle(feature);
+            return;
+        }
         match tag {
             TAG_PAUSE => {
                 self.paused = !self.paused;
@@ -367,6 +417,7 @@ impl Service {
             }
             TAG_RELOAD => {
                 self.load_config();
+                self.refresh_consents();
                 self.refresh_menu(true);
             }
             TAG_OPEN_CONFIG => {
@@ -377,6 +428,9 @@ impl Service {
                     open(&["-t", &path.to_string_lossy()]);
                 }
             }
+            TAG_SIGN_IN => self.sign_in(),
+            TAG_CANCEL_SIGN_IN => self.cancel_sign_in(),
+            TAG_SIGN_OUT => self.sign_out(),
             index if index >= 0 => {
                 if let Some(entry) = self.history.get(index as usize) {
                     let count = pasteboard::write_text(&entry.text);
@@ -392,9 +446,16 @@ impl Service {
             .is_some_and(|(last, at)| last == hash && at.elapsed() < ECHO_WINDOW)
     }
 
+    fn signed_in(&self) -> bool {
+        self.config.as_ref().is_some_and(AgentConfig::signed_in)
+    }
+
     fn display(&self) -> Display {
         if let Some(reason) = &self.unconfigured {
             return Display::Unconfigured(reason.clone());
+        }
+        if !self.signed_in() {
+            return Display::SignedOut;
         }
         if self.paused {
             return Display::Paused;
@@ -404,7 +465,7 @@ impl Service {
                 status: sync.status(),
                 pending: sync.pending(),
             },
-            None => Display::Unconfigured("未配置".to_owned()),
+            None => Display::SignedIn,
         }
     }
 
@@ -415,8 +476,18 @@ impl Service {
         if !force && !status_changed && self.menu_built.elapsed() < MENU_REFRESH {
             return;
         }
+        let account = AccountMenu {
+            signed_in: self.signed_in(),
+            signing_in: self.login.is_some() || self.exchanging,
+            consents: self
+                .config
+                .as_ref()
+                .map(AgentConfig::consents)
+                .unwrap_or_default(),
+            note: self.note.clone(),
+        };
         let data = self.data.as_ref().map(DataSync::status);
-        let lines = build_lines(&display, data.as_ref(), &self.history);
+        let lines = build_lines(&display, &account, data.as_ref(), &self.history);
         self.menu_built = Instant::now();
         if lines != self.lines {
             self.lines = lines;
