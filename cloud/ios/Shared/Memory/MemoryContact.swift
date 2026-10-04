@@ -1,4 +1,5 @@
 // 记忆里的一个人（contacts.json 的一项）。名字只在这里，对象目录名用随机 id。两个提示开关按人设置，旧文件没有时按开。
+// 键盘上画出来的称呼一律用 `chipName`（代号优先），App 里照旧显示 `name`；Tests/KeyboardNameGuardTests 守着键盘源码不直接读 `.name`。
 
 import Foundation
 
@@ -6,6 +7,9 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
     let id: String
 
     var name: String
+
+    /// 键盘上显示的代号（桥的 display_name，最多 12 字）；nil 时键盘显示名字。
+    var displayName: String?
 
     var pronoun: MemoryPronoun
 
@@ -21,6 +25,7 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, pronoun, scene
+        case displayName = "display_name"
         case createdAt = "created_at"
         case hintOn = "hint_on"
         case remindOn = "remind_on"
@@ -31,6 +36,14 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
         MemoryContact(
             id: MemoryID.make(), name: name, pronoun: pronoun, scene: scene,
             createdAt: Int64(Date().timeIntervalSince1970))
+    }
+
+    /// 键盘上画出来、读出来、写进日志的称呼：代号去掉首尾空白后不是空的就用代号，否则用名字（与桥的 `chip_name` 一致）。
+    var chipName: String { Self.chipName(displayName: displayName, name: name) }
+
+    static func chipName(displayName: String?, name: String) -> String {
+        let code = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return code.isEmpty ? name : code
     }
 
     /// 认识了几天：按北京时间的日历日，建的那天算第 1 天。
@@ -46,6 +59,7 @@ extension MemoryContact {
         self.init(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
+            displayName: try container.decodeIfPresent(String.self, forKey: .displayName),
             pronoun: try container.decodeIfPresent(MemoryPronoun.self, forKey: .pronoun) ?? .ta,
             scene: try container.decode(String.self, forKey: .scene),
             createdAt: try container.decode(Int64.self, forKey: .createdAt),
