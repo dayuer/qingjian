@@ -1,4 +1,4 @@
-// 候选栏左侧的场景牌子：恋爱场景是强调色的「小美 · 恋爱」，日常 / 工作只是灰色场景名。点它打开选择面板。
+// 候选栏左侧的场景牌子：恋爱场景是强调色的「小美 · 恋爱」，日常 / 工作只是灰色场景名（强调色只跟对象有关）。点它打开选择面板。
 
 import SwiftUI
 
@@ -8,11 +8,11 @@ struct ScopeChip: View {
     var body: some View {
         Text(title)
             .font(.system(size: 14, weight: dating ? .semibold : .regular))
-            .foregroundStyle(dating ? Color.accentColor : Color.secondary)
+            .foregroundStyle(dating ? Theme.accentInk.color : Color.secondary)
             .lineLimit(1)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Capsule().fill((dating ? Color.accentColor : Color.secondary).opacity(0.12)))
+            .background(Capsule().fill(dating ? Theme.accentSoft.color : Color.secondary.opacity(0.12)))
             .padding(.leading, 8)
             .frame(maxHeight: .infinity)
             .onKeyboardPress { model.openScopePicker() }

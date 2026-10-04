@@ -1,5 +1,6 @@
-// 没在组字时的候选栏：私密输入框只亮一把锁；有别的设备刚复制的文字就提示它；「记一笔」待确认时是确认条；
+// 没在组字时的候选栏：私密输入框只亮一把锁；场景 / 对象卡面板打开时只留牌子与「完成」/「收起」；有别的设备刚复制的文字就提示它；
 // 否则左边是场景牌子与「✨ 润色」，右边是「记一笔」与「发到其他设备」。润色进行中整栏交给 RewriteBar。
+// 「记一笔」的确认条在提示行的位置（NoteBar），这一行的牌子照常在。
 
 import SwiftUI
 
@@ -13,10 +14,10 @@ struct IdleBar: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
+            } else if model.panel == .scope || model.panel == .contactCard {
+                panelBar
             } else if let offer = model.clipOffer {
                 ClipOfferBar(model: model, offer: offer)
-            } else if let draft = model.noteDraft {
-                noteConfirm(draft)
             } else if model.rewrite != .idle {
                 RewriteBar(model: model)
             } else {
@@ -37,7 +38,7 @@ struct IdleBar: View {
                     .onKeyboardTap { model.startRewrite() }
             }
             Spacer()
-            if model.canNote {
+            if model.canNote, model.noteDraft == nil, !model.noteDone {
                 Label("记一笔", systemImage: "square.and.pencil")
                     .font(.system(size: 15))
                     .padding(.horizontal, 10)
@@ -60,27 +61,17 @@ struct IdleBar: View {
         }
     }
 
-    /// 「记一笔」的确认条：剪贴板里的字、「记到 {对象}」、「忽略」。
-    private func noteConfirm(_ draft: String) -> some View {
-        HStack(spacing: 8) {
-            Text(draft.replacingOccurrences(of: "\n", with: " "))
-                .font(.system(size: 14))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .padding(.leading, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text("记到 \(model.currentContact?.name ?? "")")
+    /// 场景选择与对象卡打开时的工具栏：牌子与右端的「完成」（选择面板）/「收起」（对象卡、没开完全访问）。
+    private var panelBar: some View {
+        HStack(spacing: 0) {
+            ScopeChip(model: model)
+            Spacer()
+            Text(model.panel == .scope && model.fullAccess ? "完成" : "收起")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color.accentColor)
-                .padding(.horizontal, 10)
+                .foregroundStyle(Theme.accentInk.color)
+                .padding(.horizontal, 14)
                 .frame(maxHeight: .infinity)
-                .onKeyboardPress { model.confirmNote() }
-            Text("忽略")
-                .font(.system(size: 15))
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 12)
-                .frame(maxHeight: .infinity)
-                .onKeyboardPress { model.cancelNote() }
+                .onKeyboardPress { model.closePanel() }
         }
     }
 }

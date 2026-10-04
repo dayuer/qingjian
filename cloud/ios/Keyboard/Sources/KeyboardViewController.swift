@@ -153,8 +153,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         }
     }
 
-    /// 宿主输入框的标识。`documentIdentifier` 声明为非可选，但连上宿主之前系统返回 nil，Swift 桥接时直接崩（textDidChange 在这之前就会被调），
-    /// 所以走 KVC 取成可选值。
+    /// 宿主输入框的标识。`textDocumentProxy.documentIdentifier` 声明为非可选 UUID，但键盘刚弹出、连上宿主之前系统返回 nil，
+    /// 直接读会在 UUID 桥接处 EXC_BREAKPOINT 崩溃，所以走 KVC 取成可选值，别「简化」回去。
     private var hostDocumentIdentifier: UUID? {
         (textDocumentProxy as? NSObject)?.value(forKey: "documentIdentifier") as? UUID
     }

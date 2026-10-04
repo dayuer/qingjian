@@ -37,6 +37,15 @@ final class KeyboardModel {
     /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
     private(set) var noteDraft: String?
 
+    /// 「记一笔」刚记下：确认条换成一行「记下了」，2 秒后消失。
+    private(set) var noteDone = false
+
+    /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
+    private(set) var notice: String?
+
+    /// 当前对象之外的所有恋爱对象的卡片，按卡片 id 查（提示行加粗关键词、来源标签用）。
+    @ObservationIgnored private var cardIndex: [String: MemoryCard] = [:]
+
     /// 对象卡面板里的卡片。
     private(set) var panelCards: [MemoryCard] = []
 
@@ -184,6 +193,8 @@ final class KeyboardModel {
     func dismiss() {
         dismissRewrite()
         noteDraft = nil
+        noteDone = false
+        notice = nil
         engine?.clear()
         engine?.flush()
         panel = .keys
@@ -379,13 +390,45 @@ final class KeyboardModel {
         guard let text = noteDraft, let id = scope.contactId else { return }
         noteDraft = nil
         // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
-        _ = engine?.memoryNote(id, text: text)
+        if engine?.memoryNote(id, text: text) == nil {
+            noteDone = true
+            noteDoneTask?.cancel()
+            noteDoneTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                self?.noteDone = false
+            }
+        }
+        reloadContacts()
         refreshHint()
     }
 
     func cancelNote() {
         noteDraft = nil
     }
+
+    /// 提示行里要加粗的词。
+    var hintEmphasis: [String] {
+        guard let hint else { return [] }
+        return HintText.emphasis(for: hint, card: cardIndex[hint.cardId])
+    }
+
+    /// 提示对应卡片的来源（手动卡显示「你写的」）。
+    var hintSource: String? { hint.flatMap { cardIndex[$0.cardId]?.source } }
+
+    /// 面板里显示一行 2 秒的短提示。
+    func showNotice(_ text: String) {
+        notice = text
+        noticeTask?.cancel()
+        noticeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            self?.notice = nil
+        }
+    }
+
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    @ObservationIgnored private var noteDoneTask: Task<Void, Never>?
 
     /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
     private func syncScope() {
@@ -399,13 +442,18 @@ final class KeyboardModel {
               let snapshot = MemoryFiles.read(userDirectory: directory)
         else {
             contacts = []
+            cardIndex = [:]
             return
         }
         contacts = snapshot.contacts.filter { $0.scene == MemoryScope.dating }
+        cardIndex = Dictionary(
+            snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     private func refreshHint() {
         let next = privateField ? nil : engine?.memoryHint
+        // 提示的卡是刚记下的、名单缓存里还没有时，重读一次再显示
+        if let next, cardIndex[next.cardId] == nil { reloadContacts() }
         if next != hint { hint = next }
     }
 
