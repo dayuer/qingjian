@@ -139,6 +139,10 @@ impl Engine {
             text: String::new(),
             target_language: String::new(),
         };
+        // 词也不要、整句也不要（简拼且关了整句补全）：没什么可问的，别白发一次请求
+        if request.max_items == 0 && !request.want_sentence {
+            return None;
+        }
         self.last_prediction_kind = kind;
         self.last_prediction_scope = scope.to_owned();
         self.predictor.submit(request);

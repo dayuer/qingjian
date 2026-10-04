@@ -8,7 +8,7 @@ use async_openai::types::chat::{
     ChatCompletionRequestUserMessage, CreateChatCompletionRequestArgs,
     CreateChatCompletionResponse, FinishReason, ReasoningEffort, ResponseFormat,
 };
-use qingjian_core::PredictionRequest;
+use qingjian_core::{PredictionKind, PredictionRequest};
 use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::config::PredictConfig;
@@ -16,7 +16,38 @@ use crate::error::PredictError;
 use crate::prompt::{self, Reply};
 
 /// 联想回复的 token 上限：几条短句足够，防止模型长篇大论。
-const MAX_TOKENS: u32 = 200;
+/// 回复 token 的上限：按这次请求要的内容算（见 [`max_tokens_for`]），不按一刀切的大数给，省钱也省等待。
+const MAX_TOKENS_CAP: u32 = 200;
+
+/// 一个词连拼音的 JSON 大约这么多 token（`{"text":"德国","pinyin":"deguo"},`）。
+const TOKENS_PER_WORD: u32 = 24;
+
+/// 整句补全（十来个字）给这么多。
+const TOKENS_FOR_SENTENCE: u32 = 60;
+
+/// JSON 外壳（`{"words":[…],"sentence":null}`）。
+const TOKENS_BASE: u32 = 16;
+
+/// 这次请求最多需要多少回复 token：联想按词数与要不要整句算，问字按答案数，翻译按原文长度。
+fn max_tokens_for(request: &PredictionRequest) -> u32 {
+    let items = u32::try_from(request.max_items).unwrap_or(u32::MAX);
+    let wanted = match request.kind {
+        PredictionKind::Translate => {
+            u32::try_from(request.text.chars().count()).unwrap_or(u32::MAX) * 2 + TOKENS_BASE
+        }
+        PredictionKind::Question => items.saturating_mul(32) + TOKENS_BASE,
+        _ => {
+            items.saturating_mul(TOKENS_PER_WORD)
+                + if request.want_sentence {
+                    TOKENS_FOR_SENTENCE
+                } else {
+                    0
+                }
+                + TOKENS_BASE
+        }
+    };
+    wanted.min(MAX_TOKENS_CAP)
+}
 
 /// 采样温度：联想要稳，不要花。
 const TEMPERATURE: f32 = 0.3;
@@ -64,7 +95,11 @@ impl ChatClient {
         let user = prompt::user_prompt(request);
         tracing::debug!(sequence = request.sequence, %user, "联想请求");
         let content = self
-            .chat(prompt::system_prompt(request), &user, MAX_TOKENS)
+            .chat(
+                prompt::system_prompt(request),
+                &user,
+                max_tokens_for(request),
+            )
             .await?;
         Ok(prompt::parse_reply(&content, request))
     }
