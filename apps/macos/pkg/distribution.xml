@@ -21,5 +21,5 @@
     <choice id="app.qingjian.inputmethod" visible="false">
         <pkg-ref id="app.qingjian.inputmethod"/>
     </choice>
-    <pkg-ref id="app.qingjian.inputmethod" version="@PKG_VERSION@" onConclusion="none">Qingjian-component.pkg</pkg-ref>
+    <pkg-ref id="app.qingjian.inputmethod" version="@PKG_VERSION@" onConclusion="none">Sujian-component.pkg</pkg-ref>
 </installer-gui-script>
