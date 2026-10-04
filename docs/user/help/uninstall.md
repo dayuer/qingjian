@@ -9,13 +9,13 @@ description: 卸载青简、连同学习数据一起删除、只清除输入日�
 打开「终端」，执行：
 
 ```sh
-/Library/Input\ Methods/Qingjian.app/Contents/Resources/uninstall.sh
+/Library/Input\ Methods/Sujian.app/Contents/Resources/uninstall.sh
 ```
 
 以上只删除输入法本身，学习数据与设置保留，重新安装后仍可用。连同数据一起删除：
 
 ```sh
-/Library/Input\ Methods/Qingjian.app/Contents/Resources/uninstall.sh --purge
+/Library/Input\ Methods/Sujian.app/Contents/Resources/uninstall.sh --purge
 ```
 
 此命令删除「~/Library/Application Support/Qingjian/」中的全部内容，包括导入的词库、学习到的词、输入日志、配置与密钥。

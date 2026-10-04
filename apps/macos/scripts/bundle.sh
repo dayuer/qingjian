@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 把 qingjian-macos 打包成 Qingjian.app。
+# 把 qingjian-macos 打包成 Sujian.app。
 #
-#   scripts/bundle.sh            # 只打包到 target/Qingjian.app
+#   scripts/bundle.sh            # 只打包到 target/Sujian.app
 #   scripts/bundle.sh --install  # 打包并安装到 ~/Library/Input Methods/，杀掉旧进程（开发用）
 #   scripts/bundle.sh --pkg      # 打包并做成 target/pkg/qingjian-<版本>-macos-<arm64|x86_64>.pkg（分发给测试者）
 #
@@ -20,7 +20,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-APP_NAME="Qingjian"
+APP_NAME="Sujian"
+# 改名前的包名，同一个 bundle id；装新包时顺手清掉，免得两份同 id 互相顶
+LEGACY_APP_NAME="Qingjian"
 BIN_NAME="qingjian-macos"
 PROFILE="${PROFILE:-release}"
 APP="$ROOT/target/$APP_NAME.app"
@@ -203,12 +205,17 @@ if [[ "${1:-}" == "--pkg" ]]; then
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
-  if [[ -d "/Library/Input Methods/$APP_NAME.app" ]]; then
-    echo "注意: /Library/Input Methods/$APP_NAME.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
-  fi
+  for name in "$APP_NAME" "$LEGACY_APP_NAME"; do
+    if [[ -d "/Library/Input Methods/$name.app" ]]; then
+      echo "注意: /Library/Input Methods/$name.app 也装着一份（pkg 装的），两份同 id 会互相顶；先跑 scripts/uninstall.sh"
+    fi
+  done
   mkdir -p "$INSTALL_DIR"
-  rm -rf "$INSTALL_DIR/$APP_NAME.app"
+  rm -rf "$INSTALL_DIR/$APP_NAME.app" "$INSTALL_DIR/$LEGACY_APP_NAME.app"
   cp -R "$APP" "$INSTALL_DIR/$APP_NAME.app"
+  # 构建目录里那份同 id 的包会被 LaunchServices 登记上，系统按 id 拉输入法时可能解析到它；注销掉只留装好的
+  LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  "$LSREGISTER" -u "$APP" >/dev/null 2>&1 || true
   # 系统会在下次切换到该输入法时重新拉起进程
   pkill -x "$BIN_NAME" 2>/dev/null || true
   echo "已安装到: $INSTALL_DIR/$APP_NAME.app"

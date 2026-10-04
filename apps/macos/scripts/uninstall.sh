@@ -7,15 +7,18 @@ purge=0
 
 pkill -x qingjian-macos 2>/dev/null || true
 
-if [ -d "/Library/Input Methods/Qingjian.app" ]; then
-    echo "删除 /Library/Input Methods/Qingjian.app（需要管理员密码）"
-    sudo rm -rf "/Library/Input Methods/Qingjian.app"
-    sudo pkgutil --forget app.qingjian.inputmethod >/dev/null 2>&1 || true
-fi
-if [ -d "$HOME/Library/Input Methods/Qingjian.app" ]; then
-    echo "删除 ~/Library/Input Methods/Qingjian.app"
-    rm -rf "$HOME/Library/Input Methods/Qingjian.app"
-fi
+# Qingjian.app 是改名前的包名，一并清掉
+for name in Sujian Qingjian; do
+    if [ -d "/Library/Input Methods/$name.app" ]; then
+        echo "删除 /Library/Input Methods/$name.app（需要管理员密码）"
+        sudo rm -rf "/Library/Input Methods/$name.app"
+        sudo pkgutil --forget app.qingjian.inputmethod >/dev/null 2>&1 || true
+    fi
+    if [ -d "$HOME/Library/Input Methods/$name.app" ]; then
+        echo "删除 ~/Library/Input Methods/$name.app"
+        rm -rf "$HOME/Library/Input Methods/$name.app"
+    fi
+done
 
 if [ "$purge" = 1 ]; then
     rm -rf "$HOME/Library/Application Support/Qingjian" "$HOME/Library/Logs/Qingjian"

@@ -49,7 +49,7 @@ cp "target/pkg/$file" "$staging/$file"
 
 # 打包过程会让 LaunchServices 把构建目录里的几份同 id 副本也登记上，系统按 id 拉输入法时可能解析到错的那份；注销掉只留正式安装的
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-for stray in "$root/target/Qingjian.app" "$root/target/pkg/$cpu/root/Qingjian.app"; do
+for stray in "$root/target/Sujian.app" "$root/target/pkg/$cpu/root/Sujian.app"; do
   "$LSREGISTER" -u "$stray" >/dev/null 2>&1 || true
 done
 
