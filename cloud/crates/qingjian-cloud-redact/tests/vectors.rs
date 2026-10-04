@@ -1,5 +1,5 @@
 //! 逐行跑 `vectors.jsonl`：服务端用路径依赖复用同一份文件，格式不要改。
-//! 每行 `{"input","expected","counts"}`，`counts` 的八个键（phone / landline / id_card / bank_card / email / url / address / account）都在。
+//! 每行 `{"input","expected","counts"}`，`counts` 的九个键（phone / landline / id_card / bank_card / email / url / address / account / credential）都在。
 
 use qingjian_cloud_redact::{RuleCounts, redact_rules};
 use serde_json::Value;
@@ -15,6 +15,7 @@ fn counts_of(value: &Value) -> RuleCounts {
         url: get("url"),
         address: get("address"),
         account: get("account"),
+        credential: get("credential"),
     }
 }
 

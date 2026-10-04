@@ -1,9 +1,11 @@
-//! 详细地址：省 / 市 / 区 / 县 起头，经街道到门牌「号」，后面紧跟的院、号楼、栋、单元、层、室、户（含前面的数字或字母门牌）一并带走，遇到标点或别的字就停；只到「路」不到「号」的不算。
+//! 详细地址（整段，以及小区名之后的门牌）：省 / 市 / 区 / 县 起头，经街道到门牌「号」，后面紧跟的院、号楼、栋、单元、层、室、户（含前面的数字或字母门牌）一并带走，遇到标点或别的字就停；只到「路」不到「号」的不算。
 //! 起头的行政区名前面常夹着「我住在」之类，正则会连带吃进去，所以匹配后再剥掉开头的虚词。
 
 use std::sync::LazyLock;
 
 use regex::Regex;
+
+use super::replace::replace_group;
 
 const PLACEHOLDER: &str = "〔地址〕";
 
@@ -22,7 +24,20 @@ static ADDRESS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!("{first}{more}{town}{street}{number}{detail}")).expect("地址正则")
 });
 
+/// 小区、花园、大厦这类名字后面紧跟的门牌：数字加栋 / 幢 / 号楼 / 单元 / 室 / 层 / 楼 / 户 / 号，可多段连着，末尾可带 3–4 位无后缀的房号。
+/// 只换名字之后的门牌，名字本身留着（不带门牌时识别度不够）。
+static COMMUNITY_DOOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:小区|花园|苑|公寓|大厦|社区|家园|新村)((?:\d{1,4}(?:栋|幢|号楼|单元|室|层|楼|户|号))+(?:\d{3,4})?)")
+        .expect("小区门牌正则")
+});
+
 pub fn apply(text: &str) -> (String, u32) {
+    let (text, street) = apply_street(text);
+    let (text, community) = replace_group(&text, &COMMUNITY_DOOR, 1, PLACEHOLDER, |_| true);
+    (text, street + community)
+}
+
+fn apply_street(text: &str) -> (String, u32) {
     let mut output = String::with_capacity(text.len());
     let mut copied = 0;
     let mut count = 0;
