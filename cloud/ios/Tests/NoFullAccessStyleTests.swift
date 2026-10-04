@@ -81,4 +81,10 @@ final class NoFullAccessStyleTests: XCTestCase {
     func testAccountEntryIsHidden() {
         XCTAssertFalse(MeView.showsAccountEntry)
     }
+
+    /// 「我」页的说明不分状态：不能写「开启后才能用」，开了的人会以为自己没开。
+    func testAppExplanationIsStateless() {
+        XCTAssertEqual(ScopeDisplay.fullAccessExplanation, "记忆要开完全访问：开了也不联网，卡片只在这台手机上。")
+        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("后才能"))
+    }
 }

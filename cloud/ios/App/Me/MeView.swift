@@ -28,7 +28,7 @@ struct MeView: View {
                 }
                 // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
                 Section {
-                    Text(ScopeDisplay.needsFullAccessText)
+                    Text(ScopeDisplay.fullAccessExplanation)
                     Text(ScopeDisplay.fullAccessPath)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
