@@ -38,7 +38,9 @@ impl History {
                 self.entries.len() != before
             }
             // 匹配码申请、设备加入是临时通知，不进剪贴板历史；提示由开通流程另做（客户端计划 Task 5）。
-            EventKind::PairRequest { .. } | EventKind::DeviceJoined { .. } => false,
+            EventKind::PairRequest { .. } | EventKind::DeviceJoined { .. } | EventKind::Unknown => {
+                false
+            }
         }
     }
 

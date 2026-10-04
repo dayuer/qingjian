@@ -41,4 +41,8 @@ pub enum EventKind {
         /// 怎么加入的：`apple` / `email` / `wechat` / `web`。
         via: String,
     },
+
+    /// 这个版本不认识的事件类型（服务端以后加的）。兜住它，事件流才不会因为一条新事件整条读失败、反复重连；收到就忽略。
+    #[serde(other)]
+    Unknown,
 }
