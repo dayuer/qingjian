@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /></helmet>
+      <section class="dv-turn" id="t1" data-screen-label="每周养成">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">每周养成：这周我记住了她的这些事</span></div>
+        <p class="dv-intro">假设：每周日晚上一条通知，一次只看一个对象，一张一张确认。养成感来自「我确认了，它记住了」这个动作本身，而不是分数、等级或连续打卡——不做游戏化，温柔克制。不确认的卡 30 天后淡出，所以跳过也没有负担。</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1a">
+            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · 周日晚的通知</div>
+            <div class="ios" style="background:oklch(0.9 0 0)">
+              <div class="sb-ios"><span></span><span class="sb-dots"><i></i></span></div>
+              <div class="fx col ac" style="padding-top:40px;gap:4px">
+                <span style="font:500 17px var(--sans);color:var(--ink-2)">10月 4日 星期日</span>
+                <span style="font:300 84px/1 var(--sans);color:var(--ink);letter-spacing:-2px">21:30</span>
+              </div>
+              <div style="margin:auto 12px 120px;background:rgba(255,255,255,.78);backdrop-filter:blur(20px);border-radius:22px;padding:14px 16px;display:flex;gap:12px">
+                <img src="./assets/sujian-icon-light.png" alt="素笺" style="width:38px;height:38px;border-radius:9px;flex:none;box-shadow:0 0 0 1px var(--line)" />
+                <div class="fx col gap4" style="flex:1">
+                  <div class="fx jb"><span style="font:600 14px var(--sans)">素笺</span><span style="font:12px var(--sans);color:var(--ink-3)">现在</span></div>
+                  <span style="font:14px/1.45 var(--sans)">这周记住了小美的 5 件事，花一分钟看看对不对？</span>
+                </div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">通知里的名字是用户自己起的。设置里可以改成「这周有 5 件新的记忆」，锁屏上不显示名字。</p>
+          </div>
+
+          <div class="dv-opt" id="1b">
+            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 一张一张确认</div>
+            <div class="ios">
+              <div class="sb-ios"><span>21:31</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span class="back">关闭</span><span style="font:13px var(--sans);color:var(--ink-3)">2 / 5</span><span style="width:30px"></span></div>
+                <div class="progress"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+                <div class="fx col gap8" style="padding:28px 24px 8px">
+                  <span style="font:13px var(--sans);color:var(--ink-3)">这周，关于小美</span>
+                </div>
+                <div class="stack">
+                  <div class="ghost-c" style="bottom:-20px;left:28px;right:28px;opacity:.5"></div>
+                  <div class="ghost-c" style="bottom:-10px"></div>
+                  <div class="paper-card" style="position:relative;min-height:330px">
+                    <span class="pill r" style="align-self:flex-start">近况</span>
+                    <span class="serif" style="font-size:27px;line-height:1.45;font-weight:600;text-wrap:pretty">在学车，倒车入库还不太稳</span>
+                    <span style="font:13.5px/1.6 var(--sans);color:var(--ink-3)">周三你们聊到的。记住后，她提到驾校、考试时，键盘会想起这件事。</span>
+                    <div style="flex:1"></div>
+                    <span style="font:12px var(--sans);color:var(--ink-3)">有的细节已经抹去：驾校名字不会被记住</span>
+                  </div>
+                </div>
+                <div class="fx jc ac gap12" style="margin-top:auto;padding:0 24px 46px">
+                  <span class="btn line" style="height:52px;border-radius:26px;flex:1">不对</span>
+                  <span class="btn line" style="height:52px;border-radius:26px;flex:1">改一下</span>
+                  <span class="btn acc" style="height:52px;border-radius:26px;flex:1.4;font-size:15px">记住</span>
+                </div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">左右滑也可以：右滑记住、左滑不对。卡片底部告诉用户哪些细节被脱敏抹去了，让「脱敏」看得见。</p>
+          </div>
+
+          <div class="dv-opt" id="1c">
+            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>iOS · 看完了</div>
+            <div class="ios">
+              <div class="sb-ios"><span>21:33</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span></span><span class="back">完成</span></div>
+                <div class="fx col ac gap12" style="padding:36px 28px 8px;text-align:center">
+                  <div class="avatar xl r">美</div>
+                  <span class="serif" style="font-size:26px;font-weight:600;line-height:1.4">这周，你记住了<br />小美的 4 件事</span>
+                  <span style="font:13.5px var(--sans);color:var(--ink-3)">认识 214 天，一共记得 46 件</span>
+                </div>
+                <div class="scroll" style="gap:12px;padding-top:20px">
+                  <div class="group">
+                    <div class="mem"><span class="tx">在学车，倒车入库还不太稳</span></div>
+                    <div class="mem"><span class="tx">下个月想去厦门，想逛沙坡尾</span></div>
+                    <div class="mem"><span class="tx">最近在追一部悬疑剧</span></div>
+                    <div class="mem"><span class="tx">周末想睡到自然醒</span></div>
+                  </div>
+                  <div class="group" style="background:var(--accent-soft);box-shadow:none">
+                    <div class="row"><div class="when">明天</div><div class="main"><span class="ttl">她的生日</span><span class="sub">结合这周的记忆：她想去厦门</span></div></div>
+                  </div>
+                </div>
+                <div style="padding:0 24px 46px"><span class="btn lg pri" style="display:flex">看下一位：阿林</span></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">数字只留两个（认识天数、记得几件），都是关系本身的刻度。最后一条把新记忆和临近的日子连起来——这是「记得」真正有用的时刻。</p>
+          </div>
+
+          <div class="dv-opt" id="1d">
+            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Android · 一张一张确认</div>
+            <div class="and">
+              <div class="sb-and"><span>21:31</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="mtop"><span style="font-size:22px">✕</span><span style="font:500 16px var(--sans);flex:1">这周，关于小美</span><span style="font:13px var(--sans);color:var(--ink-3)">2 / 5</span></div>
+                <div class="progress"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+                <div class="stack" style="margin-top:36px">
+                  <div class="ghost-c" style="bottom:-10px"></div>
+                  <div class="paper-card" style="position:relative;min-height:360px;border-radius:28px">
+                    <span class="pill r" style="align-self:flex-start">近况</span>
+                    <span class="serif" style="font-size:28px;line-height:1.45;font-weight:600">在学车，倒车入库还不太稳</span>
+                    <span style="font:14px/1.6 var(--sans);color:var(--ink-3)">周三你们聊到的。</span>
+                    <div style="flex:1"></div>
+                    <span style="font:12px var(--sans);color:var(--ink-3)">有的细节已经抹去：驾校名字不会被记住</span>
+                  </div>
+                </div>
+                <div class="fx jc ac gap12" style="margin-top:auto;padding:0 24px 48px">
+                  <span class="btn ghost" style="height:48px;flex:1">不对</span>
+                  <span class="btn line" style="height:48px;border-radius:24px;flex:1">改一下</span>
+                  <span class="btn acc" style="height:48px;border-radius:24px;flex:1.4">记住</span>
+                </div>
+              </div>
+              <div class="gest-and"></div>
+            </div>
+          </div>
+
+        </div>
+        <p class="dv-next">可以接着说：「<a class="dv-oid" href="#1b">1b</a> 改成一页列表一次勾完」·「<a class="dv-oid" href="#1c">1c</a> 做成可以存下来的一张图」·「通知改成周一早上」</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

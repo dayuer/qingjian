@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /></helmet>
+      <section class="dv-turn" id="t1" data-screen-label="首次引导">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">首次引导：从安装到建第一个对象</span></div>
+        <p class="dv-intro">假设：五步——介绍、开启键盘、登录并生成密钥、保存恢复码、建第一个对象。密钥在后台生成，用户看不到「密钥」二字；但恢复码必须讲清楚：丢了就真的恢复不了。iOS 的「允许完全访问」是云同步的前提，要解释它拿来做什么。</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1a">
+            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · 介绍</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:00</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 28px 46px">
+                <div class="fx ac gap12" style="margin-top:28px"><img src="./assets/sujian-icon-light.png" alt="素笺" style="width:44px;height:44px;border-radius:10px;box-shadow:0 0 0 1px var(--line)" /><span class="serif" style="font-size:22px;font-weight:600;letter-spacing:3px">素笺</span></div>
+                <div class="ph" style="height:260px;margin-top:28px">插图：键盘上方浮现一行「她周三考科目二」的瞬间</div>
+                <div class="fx col gap12" style="margin-top:36px">
+                  <span class="serif" style="font-size:32px;font-weight:600;line-height:1.35">做一个<br />记得对方的人</span>
+                  <span style="font:15px/1.7 var(--sans);color:var(--ink-2);text-wrap:pretty">打字的时候，它会想起她说过的事、你们约好的事。不用离开聊天。</span>
+                </div>
+                <div style="flex:1"></div>
+                <span class="btn lg pri" style="display:flex">开始</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1b">
+            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 开启键盘与完全访问</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:01</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 46px">
+                <div class="progress" style="padding:16px 0 0"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:32px">先打开键盘</span>
+                <div class="fx col gap16" style="margin-top:24px">
+                  <div class="step"><span class="n done">✓</span><span class="tx">设置 → 通用 → 键盘 → 添加新键盘 → <b>素笺</b></span></div>
+                  <div class="step"><span class="n">2</span><span class="tx">点开它，打开<b>允许完全访问</b></span></div>
+                </div>
+                <div class="group" style="margin:28px 0 0">
+                  <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">完全访问只用来做两件事</span><span class="sub" style="font-size:13.5px;line-height:1.65;margin-top:4px">把你在恋爱场景里发出的话、你主动记的一笔，在后台加密传上去；把学好的记忆同步下来。<br />打字本身全在手机上完成，不联网。工作场景和密码框里什么都不传。</span></div></div>
+                </div>
+                <div class="ph" style="height:150px;margin-top:20px">系统设置页截图：完全访问开关位置</div>
+                <div style="flex:1"></div>
+                <span class="btn lg pri" style="display:flex">去设置</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">「只用来做两件事」的口径与设计文档一致：打字不调云、工作场景与密码框不上传。这一屏决定用户敏不敢打开开关。</p>
+          </div>
+
+          <div class="dv-opt" id="1c">
+            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>iOS · 保存恢复码</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:03</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 46px">
+                <div class="progress" style="padding:16px 0 0"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:32px">抽屉里的钥匙</span>
+                <span style="font:14.5px/1.7 var(--sans);color:var(--ink-2);margin-top:12px;text-wrap:pretty">你的记忆是加密的，只有这台手机能打开，我们也打不开。换手机而旧手机不在身边时，只能靠下面这 12 个词。</span>
+                <div class="code" style="margin-top:24px">
+                  <span>晨光</span><span>纸鸢</span><span>湖滨</span><span>铃兰</span><span>织锦</span><span>狐尾</span><span>石桥</span><span>留声</span><span>霜叶</span><span>童谣</span><span>灰雀</span><span>桑枝</span>
+                </div>
+                <div class="fx ac gap8" style="margin-top:18px;font:13px/1.5 var(--sans);color:var(--ink);font-weight:500"><span class="dot" style="background:var(--ink)"></span>丢了它，又丢了旧手机，记忆就真的没了</div>
+                <div style="flex:1"></div>
+                <div class="fx col gap8">
+                  <span class="btn lg pri" style="display:flex">我抄下来了</span>
+                  <span class="btn lg ghost" style="display:flex;height:40px">存到密码管理器</span>
+                </div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">不说「密钥」「私钥」，说「钥匙」。不提供「稍后再说」——跳过的代价太大；下一步会抽两个词让用户确认（未画）。</p>
+          </div>
+
+          <div class="dv-opt" id="1d">
+            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>iOS · 第一个对象</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:05</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 46px">
+                <div class="progress" style="padding:16px 0 0"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:32px">想记得谁？</span>
+                <div class="lbl" style="margin-top:24px">名字或代号</div>
+                <div class="field" style="margin-top:8px">小美<span class="caret" style="vertical-align:middle"></span></div>
+                <span style="font:12.5px/1.6 var(--sans);color:var(--ink-3);margin-top:8px">只保存在这台手机上。</span>
+                <div class="lbl" style="margin-top:22px">先记下几件你已经知道的事（可以跳过）</div>
+                <div class="group" style="margin:8px 0 0">
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">生日</span></div><span class="side" style="color:var(--ink)">10 月 5 日</span></div>
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">喜欢 / 不喜欢</span></div><span class="side" style="color:var(--ink)">不吃香菜</span></div>
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--accent-ink)">+ 再记一条</span></div></div>
+                </div>
+                <div style="flex:1"></div>
+                <span style="font:12.5px/1.6 var(--sans);color:var(--ink-3);text-align:center;margin-bottom:12px">之后在键盘左上角点「小美」就能切过来</span>
+                <span class="btn lg acc" style="display:flex">开始记得她</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">代词是用户选的（他 / 她 / TA），这里写成「她」只是示例；默认用 TA。场景选择没放进引导：首个对象自动归入恋爱场景，工作应用名单用默认值。</p>
+          </div>
+
+          <div class="dv-opt" id="1e">
+            <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Android · 启用输入法</div>
+            <div class="and">
+              <div class="sb-and"><span>20:01</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 48px">
+                <div class="progress" style="padding:16px 0 0"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+                <span class="serif" style="font-size:28px;font-weight:600;margin-top:32px">先打开键盘</span>
+                <div class="group" style="margin:28px 0 0;border-radius:20px">
+                  <div class="row" style="padding:16px"><span class="n" style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--ink);font:600 13px/28px var(--sans);text-align:center">✓</span><div class="main"><span class="ttl">在系统里启用</span><span class="sub">语言和输入法 → 屏幕键盘 → 素笺</span></div></div>
+                  <div class="row" style="padding:16px"><span class="n" style="width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--paper);font:600 13px/28px var(--sans);text-align:center">2</span><div class="main"><span class="ttl">切换为当前输入法</span><span class="sub">会弹出系统的选择框</span></div><span class="btn acc" style="border-radius:20px">切换</span></div>
+                </div>
+                <span style="font:13.5px/1.7 var(--sans);color:var(--ink-2);margin-top:22px;text-wrap:pretty">系统会提示「此输入法可能会收集您输入的所有文字」。我们只在恋爱场景里、把你发出的话加密上传用于学习；工作场景与密码框里什么都不传。</span>
+                <div style="flex:1"></div>
+                <span class="btn lg pri" style="display:flex">下一步</span>
+              </div>
+              <div class="gest-and"></div>
+            </div>
+            <p class="dv-note">Android 没有「完全访问」，但启用时系统会弹安全警告，提前把它的话接住。</p>
+          </div>
+
+        </div>
+        <p class="dv-next">可以接着说：「补上登录页」·「<a class="dv-oid" href="#1c">1c</a> 改成可以打印的卡片」·「<a class="dv-oid" href="#1a">1a</a> 做成三页滑动介绍」</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

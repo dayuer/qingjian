@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /><style>
+        .bcard{width:420px;background:#fff;border-radius:16px;box-shadow:0 0 0 1px var(--line);padding:28px;display:flex;flex-direction:column;gap:26px}
+        .stage{height:220px;border-radius:12px;background:var(--paper-2);display:flex;align-items:center;justify-content:center}
+        .ic{position:relative;overflow:hidden;flex:none}
+        .ic.i180{width:180px;height:180px;border-radius:40px}
+        .ic.i60{width:60px;height:60px;border-radius:13.5px}
+        .ic.i40{width:40px;height:40px;border-radius:9px}
+        .ic.round{border-radius:50%}
+        .sizes{display:flex;align-items:flex-end;gap:18px}
+        .sizes small{display:block;font:10.5px ui-monospace,Menlo,monospace;color:var(--ink-3);margin-top:6px;text-align:center}
+        .lockup{display:flex;align-items:center;gap:14px;padding:6px 0}
+        .wm{font:600 30px var(--serif);letter-spacing:4px;color:var(--ink)}
+        .wm-sub{font:12px var(--sans);color:var(--ink-3);letter-spacing:1px}
+        .why{font:12.5px/1.7 var(--sans);color:var(--ink-2);text-wrap:pretty;margin:0}
+        .abs{position:absolute}
+        .paper-w{background:oklch(0.99 0.004 150)}
+        .acc-bg{background:var(--accent)}
+        .ink-bg{background:var(--accent-ink)}
+        .seal-t{font-family:var(--serif);font-weight:600;color:oklch(0.99 0 0);line-height:1}
+
+        .sc{position:relative;flex:none}
+        .sc .ico{position:absolute;left:0;top:0;width:180px;height:180px;transform-origin:0 0}
+        .sc.z180{width:180px;height:180px}
+        .sc.z120{width:120px;height:120px}.sc.z120 .ico{transform:scale(.6667)}
+        .sc.z60{width:60px;height:60px}.sc.z60 .ico{transform:scale(.3333)}
+        .sc.z40{width:40px;height:40px}.sc.z40 .ico{transform:scale(.2222)}
+        .ico{border-radius:40px;overflow:hidden}
+        .ico.circ{border-radius:50%}
+        .ico.sq{border-radius:0}
+        .vB{background:var(--accent)}
+        .vB .pp{left:30px;top:26px;width:120px;height:128px;border-radius:10px;background:oklch(0.995 0.003 150);overflow:hidden}
+        .vB .fold{left:86px;top:0;width:34px;height:34px;background:var(--accent);overflow:hidden}
+        .vB .flap{left:-24px;top:10px;width:48px;height:48px;transform:rotate(45deg);background:oklch(0.86 0.035 150)}
+        .vB .dt{left:18px;top:46px;width:12px;height:12px;border-radius:50%;background:var(--accent-ink)}
+        .vB .l1{left:18px;top:72px;width:84px;height:5px;border-radius:3px;background:oklch(0.9 0.008 150)}
+        .vB .l2{left:18px;top:90px;width:56px;height:5px;border-radius:3px;background:oklch(0.9 0.008 150)}
+        .vA{background:oklch(0.985 0.004 150)}
+        .vA .fold{left:120px;top:0;width:60px;height:60px;background:var(--accent);overflow:hidden}
+        .vA .flap{left:-42px;top:18px;width:85px;height:85px;transform:rotate(45deg);background:oklch(0.93 0.012 150);box-shadow:0 0 12px rgba(0,40,20,.15)}
+        .vA .dt{left:40px;top:76px;width:12px;height:12px;border-radius:50%;background:var(--accent-ink)}
+        .vA .l1{left:40px;top:100px;width:100px;height:5px;border-radius:3px;background:oklch(0.88 0.008 150)}
+        .vA .l2{left:40px;top:120px;width:66px;height:5px;border-radius:3px;background:oklch(0.88 0.008 150)}
+        .vD{background:oklch(0.24 0.01 150)}
+        .vD .pp{left:30px;top:26px;width:120px;height:128px;border-radius:10px;background:oklch(0.34 0.012 150);overflow:hidden}
+        .vD .fold{left:86px;top:0;width:34px;height:34px;background:oklch(0.24 0.01 150);overflow:hidden}
+        .vD .flap{left:-24px;top:10px;width:48px;height:48px;transform:rotate(45deg);background:var(--accent)}
+        .vD .dt{left:18px;top:46px;width:12px;height:12px;border-radius:50%;background:var(--accent)}
+        .vD .l1{left:18px;top:72px;width:84px;height:5px;border-radius:3px;background:oklch(0.45 0.01 150)}
+        .vD .l2{left:18px;top:90px;width:56px;height:5px;border-radius:3px;background:oklch(0.45 0.01 150)}
+        .wall{border-radius:14px;padding:26px 24px;display:grid;grid-template-columns:repeat(4,60px);gap:22px 26px;justify-content:center}
+        .wall .app-n{font:11px var(--sans);text-align:center;margin-top:6px}
+        .other{width:60px;height:60px;border-radius:13.5px}
+        .layer{width:120px;height:120px;border-radius:8px;position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+        .safe{position:absolute;left:20px;top:20px;width:80px;height:80px;border-radius:50%;box-shadow:inset 0 0 0 1px oklch(0.5 0.15 25 / .6)}
+        .cap{font:11px ui-monospace,Menlo,monospace;color:var(--ink-3);text-align:center;margin-top:6px}
+      </style></helmet>
+
+      <section class="dv-turn" id="t2" data-screen-label="素笺 折角定稿">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">顺着 <a class="dv-oid" href="#1d">1d</a> 折角的笺往下做</span></div>
+        <p class="dv-intro"><a class="dv-oid" href="#1d">1d</a> 的问题是白底图标在浅色壁纸上发虚。这一轮给两种解法：<a class="dv-oid" href="#2a">2a</a> 把纸放在浅绿底上，折起的角里露出底色，轮廓靠颜色而不靠描边；<a class="dv-oid" href="#2b">2b</a> 保留整张白纸，给折角加一点阴影。两者纸上都是「一个点 + 两行字」，圆点就是键盘提示行开头的那个。下面有桌面实测、深色版与 Android 自适应图标的分层。</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="2a">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>纸在绿底上（推荐）</div>
+            <div class="bcard">
+              <div class="stage"><div class="sc z180"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div></div>
+              <div class="sizes">
+                <div><div class="sc z60"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><small>60</small></div>
+                <div><div class="sc z40"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><small>40</small></div>
+                <div><div class="sc z60"><div class="ico vB circ"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><small>Android</small></div>
+                <div><div class="sc z60"><div class="ico vD"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><small>深色</small></div>
+              </div>
+              <div class="lockup"><div class="sc z40"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">绿底给了图标一个实在的轮廓，折角处露出底色，小到 40 仍看得出「折过的纸」。深色版把纸压暗、折角与圆点用浅绿，给 iOS 深色图标与着色图标用。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2b">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>整张白纸 + 折角阴影</div>
+            <div class="bcard">
+              <div class="stage"><div class="sc z180" style="box-shadow:0 0 0 1px var(--line);border-radius:40px"><div class="ico vA"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div>
+              <div class="sizes">
+                <div><div class="sc z60" style="box-shadow:0 0 0 1px var(--line);border-radius:13.5px"><div class="ico vA"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div><small>60</small></div>
+                <div><div class="sc z40" style="box-shadow:0 0 0 1px var(--line);border-radius:9px"><div class="ico vA"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div><small>40</small></div>
+                <div><div class="sc z60" style="box-shadow:0 0 0 1px var(--line);border-radius:50%"><div class="ico vA circ"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div><small>Android</small></div>
+              </div>
+              <div class="lockup"><div class="sc z40" style="box-shadow:0 0 0 1px var(--line);border-radius:9px"><div class="ico vA"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">最贴近「素」字：几乎全白。折角的阴影帮了一点，但桌面上仍然靠系统给的边缘——看下面 <a class="dv-oid" href="#2c">2c</a> 的浅色壁纸。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2c">
+            <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>桌面实测：浅色与深色壁纸</div>
+            <div class="bcard" style="gap:16px">
+              <div class="wall" style="background:oklch(0.93 0.008 80)">
+                <div><div class="sc z60"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="app-n">素笺</div></div>
+                <div><div class="sc z60"><div class="ico vA"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div><div class="app-n">素笺 2b</div></div>
+                <div><div class="other" style="background:oklch(0.62 0.12 250)"></div><div class="app-n">其他</div></div>
+                <div><div class="other" style="background:oklch(0.98 0 0)"></div><div class="app-n">其他</div></div>
+              </div>
+              <div class="wall" style="background:oklch(0.27 0.01 240)">
+                <div><div class="sc z60"><div class="ico vB"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="app-n" style="color:#eee">素笺</div></div>
+                <div><div class="sc z60"><div class="ico vD"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="app-n" style="color:#eee">深色图标</div></div>
+                <div><div class="other" style="background:oklch(0.62 0.12 250)"></div><div class="app-n" style="color:#eee">其他</div></div>
+                <div><div class="other" style="background:oklch(0.7 0.14 60)"></div><div class="app-n" style="color:#eee">其他</div></div>
+              </div>
+              <p class="why">浅色壁纸上 <a class="dv-oid" href="#2b">2b</a> 和白色的「其他」几乎融在一起，<a class="dv-oid" href="#2a">2a</a> 稳住了。深色壁纸上两者都清楚。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="2d">
+            <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Android 自适应图标分层（按 <a class="dv-oid" href="#2a">2a</a>）</div>
+            <div class="bcard">
+              <div class="fx gap16 ac jc">
+                <div><div class="layer" style="background:var(--accent)"></div><div class="cap">背景层</div></div>
+                <div><div class="layer" style="background:repeating-linear-gradient(45deg,#fff 0 6px,var(--paper-2) 6px 12px)"><div class="sc z120" style="position:absolute;left:0;top:0"><div class="ico vB sq" style="background:transparent"><div class="abs pp"><div class="abs fold" style="background:transparent"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="safe"></div></div><div class="cap">前景层 + 安全区</div></div>
+              </div>
+              <div class="fx gap16 ac jc">
+                <div><div class="sc z60"><div class="ico vB circ"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="cap">圆形</div></div>
+                <div><div class="sc z60"><div class="ico vB" style="border-radius:60px"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="cap">圆角方</div></div>
+                <div><div class="sc z60"><div class="ico vB" style="border-radius:20px"><div class="abs pp"><div class="abs fold"><div class="abs flap"></div></div><div class="abs dt"></div><div class="abs l1"></div><div class="abs l2"></div></div></div></div><div class="cap">方形</div></div>
+              </div>
+              <p class="why">前景只有一张纸，背景是纯浅绿，各家厂商的遮罩切到哪里都不会变形。交付时纸需要缩进安全区（红圈），现在的比例角上会被圆形遮罩切到一点，定稿时再收 8%。</p>
+            </div>
+          </div>
+
+        </div>
+        <p class="dv-next">可以接着说：「就用 <a class="dv-oid" href="#2a">2a</a>，出定稿」·「<a class="dv-oid" href="#2a">2a</a> 的纸上只留圆点」·「字标换无衬线」</p>
+      </section>
+
+      <section class="dv-turn" id="t1" data-screen-label="品牌 素笺">
+        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">素笺 · 四个 LOGO 方向</span></div>
+        <p class="dv-intro">笺是写信用的纸。素笺上没有花样，只留写给某个人的几行字——对应「键盘记住的事」：安静、给人看的、关于人的。配色沿用你在 theme.css 里改的中性灰 + 浅绿。图形只用矩形与圆，每个方向都给出 iOS 图标大小三档、Android 圆形遮罩与字标组合，看小尺寸下还认不认得出。英文名先用拼音 Sujian。</p>
+        <div class="dv-opts">
+
+          <div class="dv-opt" id="1a">
+            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>一页纸、一行字</div>
+            <div class="bcard">
+              <div class="stage">
+                <div class="ic i180 acc-bg">
+                  <div class="abs paper-w" style="left:46px;top:30px;width:88px;height:120px;border-radius:8px;box-shadow:0 6px 16px rgba(0,40,20,.12)"></div>
+                  <div class="abs ink-bg" style="left:62px;top:62px;width:48px;height:5px;border-radius:3px"></div>
+                  <div class="abs" style="left:62px;top:80px;width:30px;height:5px;border-radius:3px;background:oklch(0.8 0.03 150)"></div>
+                </div>
+              </div>
+              <div class="sizes">
+                <div><div class="ic i60 acc-bg"><div class="abs paper-w" style="left:15px;top:10px;width:30px;height:40px;border-radius:3px"></div><div class="abs ink-bg" style="left:21px;top:21px;width:16px;height:2px;border-radius:1px"></div></div><small>60</small></div>
+                <div><div class="ic i40 acc-bg"><div class="abs paper-w" style="left:10px;top:7px;width:20px;height:26px;border-radius:2px"></div><div class="abs ink-bg" style="left:14px;top:14px;width:11px;height:2px"></div></div><small>40</small></div>
+                <div><div class="ic i60 round acc-bg"><div class="abs paper-w" style="left:17px;top:12px;width:26px;height:36px;border-radius:3px"></div><div class="abs ink-bg" style="left:22px;top:22px;width:14px;height:2px"></div></div><small>Android</small></div>
+              </div>
+              <div class="lockup"><div class="ic i40 acc-bg"><div class="abs paper-w" style="left:10px;top:7px;width:20px;height:26px;border-radius:2px"></div><div class="abs ink-bg" style="left:14px;top:14px;width:11px;height:2px"></div></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">最直白：一张信笺，写了一行半。小尺寸下仍是「纸 + 一笔」。风险是和备忘录类图标长得像。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1b">
+            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>笺字印</div>
+            <div class="bcard">
+              <div class="stage">
+                <div class="ic i180 ink-bg" style="display:flex;align-items:center;justify-content:center">
+                  <div class="abs" style="inset:14px;border-radius:30px;box-shadow:inset 0 0 0 2px oklch(0.89 0.06 150 / .55)"></div>
+                  <span class="seal-t" style="font-size:96px">笺</span>
+                </div>
+              </div>
+              <div class="sizes">
+                <div><div class="ic i60 ink-bg" style="display:flex;align-items:center;justify-content:center"><span class="seal-t" style="font-size:34px">笺</span></div><small>60</small></div>
+                <div><div class="ic i40 ink-bg" style="display:flex;align-items:center;justify-content:center"><span class="seal-t" style="font-size:23px">笺</span></div><small>40</small></div>
+                <div><div class="ic i60 round ink-bg" style="display:flex;align-items:center;justify-content:center"><span class="seal-t" style="font-size:30px">笺</span></div><small>Android</small></div>
+              </div>
+              <div class="lockup"><div class="ic i40 ink-bg" style="display:flex;align-items:center;justify-content:center"><span class="seal-t" style="font-size:23px">笺</span></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">像一方小印。中文输入法里最常见的做法，小尺寸最好认；顺便教会用户「笺」怎么写。缺点是不够独特，字形依赖字体授权。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1c">
+            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>键帽上的一点</div>
+            <div class="bcard">
+              <div class="stage">
+                <div class="ic i180" style="background:oklch(0.97 0.01 150)">
+                  <div class="abs" style="left:36px;top:40px;width:108px;height:104px;border-radius:24px;background:oklch(0.85 0.04 150)"></div>
+                  <div class="abs paper-w" style="left:36px;top:36px;width:108px;height:100px;border-radius:24px;box-shadow:0 0 0 1px oklch(0.88 0.03 150)"></div>
+                  <div class="abs ink-bg" style="left:80px;top:76px;width:20px;height:20px;border-radius:50%"></div>
+                </div>
+              </div>
+              <div class="sizes">
+                <div><div class="ic i60" style="background:oklch(0.97 0.01 150)"><div class="abs" style="left:12px;top:14px;width:36px;height:34px;border-radius:8px;background:oklch(0.85 0.04 150)"></div><div class="abs paper-w" style="left:12px;top:12px;width:36px;height:33px;border-radius:8px;box-shadow:0 0 0 1px oklch(0.88 0.03 150)"></div><div class="abs ink-bg" style="left:26px;top:25px;width:8px;height:8px;border-radius:50%"></div></div><small>60</small></div>
+                <div><div class="ic i40" style="background:oklch(0.97 0.01 150)"><div class="abs" style="left:8px;top:9px;width:24px;height:23px;border-radius:6px;background:oklch(0.85 0.04 150)"></div><div class="abs paper-w" style="left:8px;top:8px;width:24px;height:22px;border-radius:6px"></div><div class="abs ink-bg" style="left:17px;top:16px;width:6px;height:6px;border-radius:50%"></div></div><small>40</small></div>
+                <div><div class="ic i60 round" style="background:oklch(0.97 0.01 150)"><div class="abs" style="left:14px;top:16px;width:32px;height:30px;border-radius:8px;background:oklch(0.85 0.04 150)"></div><div class="abs paper-w" style="left:14px;top:14px;width:32px;height:29px;border-radius:8px"></div><div class="abs ink-bg" style="left:26px;top:25px;width:8px;height:8px;border-radius:50%"></div></div><small>Android</small></div>
+              </div>
+              <div class="lockup"><div class="ic i40" style="background:oklch(0.97 0.01 150);box-shadow:0 0 0 1px var(--line)"><div class="abs" style="left:8px;top:9px;width:24px;height:23px;border-radius:6px;background:oklch(0.85 0.04 150)"></div><div class="abs paper-w" style="left:8px;top:8px;width:24px;height:22px;border-radius:6px"></div><div class="abs ink-bg" style="left:17px;top:16px;width:6px;height:6px;border-radius:50%"></div></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">一颗空白键帽，中间一个点——就是键盘提示行开头那个小圆点。说的是「这个键盘记得一件事」。与产品里的视觉语言最连贯。</p>
+            </div>
+          </div>
+
+          <div class="dv-opt" id="1d">
+            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>折角的笺</div>
+            <div class="bcard">
+              <div class="stage">
+                <div class="ic i180 paper-w" style="box-shadow:0 0 0 1px var(--line)">
+                  <div class="abs acc-bg" style="right:-46px;top:-46px;width:92px;height:92px;transform:rotate(45deg)"></div>
+                  <div class="abs" style="left:40px;top:96px;width:100px;height:4px;border-radius:2px;background:var(--line)"></div>
+                  <div class="abs" style="left:40px;top:118px;width:100px;height:4px;border-radius:2px;background:var(--line)"></div>
+                  <div class="abs ink-bg" style="left:40px;top:74px;width:10px;height:10px;border-radius:50%"></div>
+                </div>
+              </div>
+              <div class="sizes">
+                <div><div class="ic i60 paper-w" style="box-shadow:0 0 0 1px var(--line)"><div class="abs acc-bg" style="right:-16px;top:-16px;width:32px;height:32px;transform:rotate(45deg)"></div><div class="abs ink-bg" style="left:14px;top:26px;width:5px;height:5px;border-radius:50%"></div><div class="abs" style="left:14px;top:34px;width:32px;height:2px;background:var(--line)"></div><div class="abs" style="left:14px;top:41px;width:32px;height:2px;background:var(--line)"></div></div><small>60</small></div>
+                <div><div class="ic i40 paper-w" style="box-shadow:0 0 0 1px var(--line)"><div class="abs acc-bg" style="right:-11px;top:-11px;width:22px;height:22px;transform:rotate(45deg)"></div><div class="abs ink-bg" style="left:9px;top:17px;width:4px;height:4px;border-radius:50%"></div><div class="abs" style="left:9px;top:24px;width:22px;height:2px;background:var(--line)"></div></div><small>40</small></div>
+                <div><div class="ic i60 round paper-w" style="box-shadow:0 0 0 1px var(--line)"><div class="abs acc-bg" style="right:-12px;top:-12px;width:30px;height:30px;transform:rotate(45deg)"></div><div class="abs ink-bg" style="left:16px;top:26px;width:5px;height:5px;border-radius:50%"></div><div class="abs" style="left:16px;top:34px;width:28px;height:2px;background:var(--line)"></div></div><small>Android</small></div>
+              </div>
+              <div class="lockup"><div class="ic i40 paper-w" style="box-shadow:0 0 0 1px var(--line)"><div class="abs acc-bg" style="right:-11px;top:-11px;width:22px;height:22px;transform:rotate(45deg)"></div><div class="abs ink-bg" style="left:9px;top:17px;width:4px;height:4px;border-radius:50%"></div><div class="abs" style="left:9px;top:24px;width:22px;height:2px;background:var(--line)"></div></div><div class="fx col gap4"><span class="wm">素笺</span><span class="wm-sub">Sujian · 记得对方的输入法</span></div></div>
+              <p class="why">白纸一角折起，露出浅绿——折角是人们给重要的一页做记号的方式，对应「记住」。白底图标在桌面上偏素，符合名字；风险是浅色壁纸上轮廓发虚。</p>
+            </div>
+          </div>
+
+        </div>
+        <p class="dv-next">可以接着说：「<a class="dv-oid" href="#1c">1c</a> 的圆点换成一小段横线」·「<a class="dv-oid" href="#1d">1d</a> 配 <a class="dv-oid" href="#1b">1b</a> 的字」·「字标换无衬线」</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>
