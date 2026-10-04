@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::Feature;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Consents {
     pub clipboard: bool,
 
