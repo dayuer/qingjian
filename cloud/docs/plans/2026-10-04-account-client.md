@@ -33,6 +33,12 @@
 3. **Mac 菜单文案**：`Status::Unauthorized` 现在的文案「令牌无效：在服务器上重新登记设备」已过时，Task 5 重写菜单时改成「登录已失效，请重新登录」；
    `data_line` 要认 `DataStatus.unauthorized`（显示「登录已失效」）与 `DataStatus.disabled`（对应开关显示为关，所有项都停了就不要显示「刚刚同步」）。
 4. **`DataSync` 的 `disabled` 只增不减**：本实例内不会自动恢复，重新打开必须重建 `DataSync`；登录换 token 同样要重建。Mac 与 iOS 的重建时机已在 Task 3、5 的设计里，实现时别漏。
+5. **键盘换引擎要先释放旧的再建新的（Task 4 的 Swift）。** 现在 `KeyboardViewController` 里 `model.replaceEngine(Self.openEngine(...))` 的参数先求值：新 `Session` 先建好、新 `DataSync` 线程已经启动，
+   之后赋值才触发旧 `Engine` 的 `deinit`，而 `DataSync` 的 Drop 只置 `stop`、不 join，旧线程还可能在一轮 HTTP 里，结束时把进度文件写回，把重置或新账号的状态覆盖掉。
+   实现时改成先 `model.replaceEngine(nil)` 释放旧的，再 `openEngine`。账号页里每次登录、退出、开关、删账号之后，键盘下次弹出重开会话走的就是这条路径，务必走对。
+   （不要给 `DataSync` 的 Drop 加阻塞式 join：键盘扩展在主线程释放引擎，卡几秒用户能感觉到。）
+6. **没开「完全访问」时，学习数据与进度在键盘扩展自己的容器里**，桥只清 App Group 里的 `cloud/`。当时键盘没有网络、没有进度可清；之后用户开了完全访问，旧容器里的进度不会被清。边缘情况，Task 4 不处理，在 `cloud/ios/README.md`（Task 6）里写一句已知限制。
+7. **`cloud.toml` 新增 `user_id` 字段**（Task 3 修订）：用来区分「同一账号重登」与「换账号」，只有换账号才清整个 `cloud/` 进度。Mac 的 `config.toml` 同理要存 `user_id`（Task 5）并按同样规则判断：同账号重登保留进度，换账号清进度；`SessionGrant.user_id` 就是依据。
 
 ---
 
