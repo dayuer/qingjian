@@ -158,6 +158,19 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/macos/src/preferences/{pages/about.rs,pages/mod.rs,mod.rs,setting/mod.rs}`、`host/settings.rs` | 删「官网」按钮 | 去掉 `WEBSITE_URL`、`Setting::OpenWebsite` 与分发（上游官网会误导）；素笺有官网后再加回 |
 | `apps/macos/pkg/resources/{welcome,conclusion}.html`、`README.md` | 改 | 安装器页面不写路径，改「卸载方法见 README」；README 卸载一节补路径清单 |
 
+### 上下文预测（素笺，设计见 cloud/docs/specs/2026-10-04-context-prediction-design.md）
+
+评测集 `cloud/data/eval/context-pairs.tsv`（同拼音不同上文），命令 `qingjian-cli --eval-context`；计划与评测记录在 `cloud/docs/plans/2026-10-04-context-prediction.md`。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `apps/cli/src/latency.rs` | 新文件 | 耗时分位数 |
+| `apps/cli/src/eval/context.rs` | 新文件 | `--eval-context` 的实现与报告 |
+| `apps/cli/src/eval/mod.rs` | 加 1 行 | `pub mod context;` |
+| `apps/cli/src/args.rs` | 加 2 个参数 | `--eval-context`、`--eval-context-details` |
+| `apps/cli/src/main.rs` | 加 1 行 mod、1 个分支 | 分派 |
+| `apps/cli/src/replay/mod.rs`、`report.rs` | 加约 12 行、1 个字段 | 回放报按键同步 p50 / p99；`--neural-async` 时像 `--eval-text` 一样等重排再查一次 |
+
 ## 合并上游时
 
 1. 冲突只可能出在上表「加 N 行」的那几个文件，按上游的新写法把挂钩行重新加回去。

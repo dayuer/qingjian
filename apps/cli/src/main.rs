@@ -8,6 +8,7 @@ mod cold;
 mod display;
 mod error;
 mod eval;
+mod latency;
 mod logging;
 mod repl;
 mod replay;
@@ -86,6 +87,16 @@ fn run() -> Result<(), CliError> {
             &args.eval_text,
             model,
             args.eval_details.as_deref(),
+        )?;
+        print!("{report}");
+        return Ok(());
+    }
+    if let Some(path) = &args.eval_context {
+        let report = eval::context::run(
+            &mut engine,
+            path,
+            args.misses,
+            args.eval_context_details.as_deref(),
         )?;
         print!("{report}");
         return Ok(());

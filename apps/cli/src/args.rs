@@ -156,6 +156,15 @@ pub struct Args {
     #[arg(long, requires = "eval_text")]
     pub eval_details: Option<PathBuf>,
 
+    /// 同拼音不同上文评测：读 `拼音\t前文\t期望` 三列（cloud/data/eval/context-pairs.tsv），
+    /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率与按键同步部分的 p50 / p99
+    #[arg(long)]
+    pub eval_context: Option<PathBuf>,
+
+    /// 把 --eval-context 的逐对结果写成 JSONL（拒绝覆盖）
+    #[arg(long, requires = "eval_context")]
+    pub eval_context_details: Option<PathBuf>,
+
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
     #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async"])]
     pub eval_cold: Option<PathBuf>,

@@ -136,13 +136,24 @@ fn replay_commit(
         engine.set_input(scope);
         None
     };
-    let query = match engine.query() {
+    // 按键同步部分的耗时；`tally` 还借着 `report`，等它用完再记进去
+    let started = std::time::Instant::now();
+    let queried = engine.query();
+    let sync = started.elapsed();
+    let query = match queried {
         Ok(query) => query,
         Err(_) => {
             tally.unparsable += 1;
+            report.sync.push(sync);
             engine.clear();
             return;
         }
+    };
+    // 异步重打分：像壳一样停顿后请求、等结果、再查一次（与 `--eval-text` 同），同步耗时只算上面那一次
+    let query = if crate::rescoring::settle(engine) {
+        engine.query().unwrap_or(query)
+    } else {
+        query
     };
     let position = query
         .candidates
@@ -204,6 +215,7 @@ fn replay_commit(
         }
         engine.clear();
     }
+    report.sync.push(sync);
 }
 
 /// 与壳一样逐个喂键：触发键进辅码态、之后的字母进码段，其余进拼音缓冲区。

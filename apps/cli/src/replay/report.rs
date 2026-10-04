@@ -3,6 +3,7 @@ use std::fmt;
 use qingjian_core::InputSource;
 
 use super::tally::Tally;
+use crate::latency::Latencies;
 
 /// 回放报告：按来源分组的计数，加上几条没命中的例子。
 #[derive(Debug, Default)]
@@ -49,6 +50,9 @@ pub struct Report {
 
     /// 解析不了的行数。
     pub unparsable: usize,
+
+    /// 每次上屏重查时 `query()` 的耗时（按键回调里同步做的那部分，不含等后台模型）。
+    pub sync: Latencies,
 
     /// 没命中首选的例子。
     pub misses: Vec<String>,
@@ -149,6 +153,9 @@ impl fmt::Display for Report {
         write_tally(f, "整句", &self.sentence)?;
         write_tally(f, "英文", &self.english)?;
         write_tally(f, "其他", &self.other)?;
+        if !self.sync.is_empty() {
+            writeln!(f, "按键同步部分 {}", self.sync.summary())?;
+        }
         if !self.skipped.is_empty() {
             let parts: Vec<String> = self
                 .skipped
