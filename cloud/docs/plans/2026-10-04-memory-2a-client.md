@@ -5486,11 +5486,16 @@ App 侧 qj_memory_read / write 整份读写，写回冲突返回 conflict；新�
    - `MemoryContact` 带 `hintOn` / `remindOn`（缺省开，旧文件兼容）；`MemoryScope` 只有场景与对象；`MemorySnapshot` 带 `revs`；`MemoryFailure` 多 `conflict`；`MemoryCard.daysAway` 日子按年重复、`reminderText` 按种类分模板（与桥一致）；`MemoryDate.nextAnniversary`。
    - **手写卡上限：** 新文件 `Shared/Memory/MemoryLimits.swift`（200 字、8 个关键词、每个 2–8 字，按 Unicode 标量计数，与 Rust 的 `chars()` 一致）；「记一笔」的剪贴板文字截到 200 字；`MemoryCard` 带上 `faded` / `seq` / `updatedAt`（与 proto 同语义，写回不丢）。
    - `Engine.memoryNote` 注释写清「桥返回 NULL 即成功」（Task 6 的单测 `testNoteNullMeansSuccess` 锁住这条约定）。
+9. **落地时的修正（2026-10-04，模拟器里真编真跑）：**
+   - 计划里的 Swift 代码按原文一次编过，Swift 6 严格并发下 `UIView.animate` 的 `[weak self]` 闭包不用退路写法，`switch` 表达式赋值、着色之外的部分都无需改动；`xcodebuild … test` 用 Xcode 自动生成的 scheme 即带测试 target，不需要 `schemes:`。
+   - **真崩溃（计划原文有）：** `textDocumentProxy.documentIdentifier` 声明为非可选 `UUID`，键盘刚弹出、连上宿主之前系统返回 nil，`textDidChange` 里直接读会在 `UUID._unconditionallyBridgeFromObjectiveC` 处 EXC_BREAKPOINT（模拟器里完全访问开着的第一次弹出就崩）。改为 `hostDocumentIdentifier`：走 KVC 取成 `UUID?`，比较交给纯函数 `HostDocument.changed(from:to:)`。
+   - 新增 `Shared/Memory/ScopeDisplay.swift`（提示行在不在、牌子文字、选择面板模式、`canNote`）、`HostDocument.swift`，`Tests/MemoryModelTests.swift`（21 个测试：上限、桥 JSON 解码含旧文件缺省、`qj_memory_note` 返回 NULL 即成功、`daysAway` 按年重复、闰日、提醒文案、`knownDays`、id 格式、提示行 / 牌子 / 面板 / `canNote`、换输入框），`KeyboardModel` 与两个视图调用它们。
 
 ### 步骤
 
 **Files:**
-- Create: `cloud/ios/Shared/Memory/{MemoryPronoun,MemoryContact,MemoryCard,MemoryScope,MemorySnapshot,MemoryHint,MemoryFailure,MemoryDate,MemoryID,MemoryFiles,MemoryAvatar,MemoryLimits}.swift`
+- Create: `cloud/ios/Shared/Memory/{MemoryPronoun,MemoryContact,MemoryCard,MemoryScope,MemorySnapshot,MemoryHint,MemoryFailure,MemoryDate,MemoryID,MemoryFiles,MemoryAvatar,MemoryLimits,ScopeDisplay,HostDocument}.swift`
+- Create: `cloud/ios/Tests/MemoryModelTests.swift`
 - Create: `cloud/ios/Keyboard/Sources/{MemoryBridge,ScopeChip,ScopePicker,HintRow,ContactCardPanel}.swift`
 - Modify: `cloud/ios/Keyboard/Sources/{Engine,KeyStyle,KeyboardPanel,KeyboardView,IdleBar,KeyboardModel,KeyboardViewController}.swift`
 
@@ -6027,6 +6032,269 @@ enum MemoryLimits {
 }
 ```
 
+Create `cloud/ios/Shared/Memory/ScopeDisplay.swift`（落地时新增：提示行在不在、牌子写什么、选择面板能不能用、「记一笔」出不出，提成纯函数方便单测）：
+
+```swift
+// 键盘上与记忆有关的显示判断，提成纯函数方便单测：提示行在不在、牌子写什么、选择面板能不能用、「记一笔」出不出。
+
+enum ScopeDisplay {
+    /// 恋爱场景选了对象时提示行一直在（没有提示时是空行）；日常、工作与「恋爱 · 不指定」没有这一行。
+    static func hasHintRow(scene: String, hasContact: Bool) -> Bool {
+        scene == MemoryScope.dating && hasContact
+    }
+
+    /// 牌子上的字：恋爱选了对象是「小美 · 恋爱」，其余只是场景名。
+    static func chipTitle(scene: String, contactName: String?) -> String {
+        guard scene == MemoryScope.dating, let contactName else { return MemoryScope.title(of: scene) }
+        return "\(contactName) · 恋爱"
+    }
+
+    enum PickerMode: Equatable {
+        case picker
+        case needsFullAccess
+    }
+
+    /// 没开完全访问读不到 App Group 里的记忆，也不让切场景（桥不知道有没有完全访问，这道门在 Swift 侧）。
+    static func pickerMode(fullAccess: Bool) -> PickerMode { fullAccess ? .picker : .needsFullAccess }
+
+    static let needsFullAccessText = "开启完全访问后才能使用记忆"
+
+    /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。
+    static func canNote(fullAccess: Bool, clipboardHasText: Bool, privateField: Bool, hasContact: Bool) -> Bool {
+        fullAccess && clipboardHasText && !privateField && hasContact
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/HostDocument.swift`（落地时新增：换输入框的判断）：
+
+```swift
+// 宿主输入框有没有换：textDocumentProxy.documentIdentifier 每个输入框一个，我们自己上屏不会改它。
+
+import Foundation
+
+enum HostDocument {
+    /// 变了（包括第一次看到）就该让桥清掉最近上屏的字，免得在 A 聊天里打的字在 B 里触发记忆提示。
+    static func changed(from last: UUID?, to current: UUID?) -> Bool { last != current }
+}
+```
+
+Create `cloud/ios/Tests/MemoryModelTests.swift`（落地时新增，先红后绿；Task 6 的 `MemoryStoreTests` 另写；`QingjianCloudTests` 依赖 App target，`Shared/Memory` 的类型直接 `@testable import`）：
+
+```swift
+// 键盘与 App 共用的记忆模型：桥 JSON 解码、上限、日子换算、提示行与牌子的显示判断、换输入框判断。
+
+import XCTest
+@testable import QingjianCloud
+
+final class MemoryModelTests: XCTestCase {
+    private func contact(_ name: String = "小美") -> MemoryContact {
+        MemoryContact.new(name: name, pronoun: .taF)
+    }
+
+    private func date(_ text: String) throws -> Date { try XCTUnwrap(MemoryDate.parse(text)) }
+
+    // MARK: 上限
+
+    func testLimitsCountUnicodeScalars() {
+        XCTAssertEqual(MemoryLimits.maxTextChars, 200)
+        XCTAssertEqual(MemoryLimits.maxKeywords, 8)
+        XCTAssertEqual(MemoryLimits.count("不吃香菜"), 4)
+        XCTAssertEqual(MemoryLimits.count("🎂"), 1)
+    }
+
+    func testClampTextCutsAt200Scalars() {
+        let long = String(repeating: "字", count: 250)
+        XCTAssertEqual(MemoryLimits.count(MemoryLimits.clampText(long)), 200)
+        let short = "不吃香菜"
+        XCTAssertEqual(MemoryLimits.clampText(short), short)
+        XCTAssertEqual(MemoryLimits.counter("不吃香菜"), "4 / 200")
+    }
+
+    func testKeywordRules() {
+        XCTAssertTrue(MemoryLimits.canAdd("蛋糕", to: []))
+        XCTAssertTrue(MemoryLimits.canAdd(" 蛋糕 ", to: []), "首尾空白不计字数")
+        XCTAssertFalse(MemoryLimits.canAdd("糕", to: []), "少于 2 字")
+        XCTAssertTrue(MemoryLimits.canAdd("草莓味的奶油蛋糕", to: []), "8 字可以")
+        XCTAssertFalse(MemoryLimits.canAdd("草莓味的奶油蛋糕卷", to: []), "多于 8 字")
+        XCTAssertFalse(MemoryLimits.canAdd("蛋糕", to: ["蛋糕"]), "重复")
+        let full = (0..<8).map { "关键词\($0)" }
+        XCTAssertFalse(MemoryLimits.canAdd("新词语", to: full), "已满 8 个")
+    }
+
+    // MARK: 桥的 JSON
+
+    func testContactDecodesWithDefaultsForOldFiles() throws {
+        let json = #"{"id":"0123456789abcdef0123456789abcdef","name":"小美","pronoun":"ta_f","scene":"dating","created_at":100}"#
+        let contact = try JSONDecoder().decode(MemoryContact.self, from: Data(json.utf8))
+        XCTAssertEqual(contact.name, "小美")
+        XCTAssertEqual(contact.pronoun, .taF)
+        XCTAssertTrue(contact.hintOn)
+        XCTAssertTrue(contact.remindOn)
+        let off = #"{"id":"a","name":"b","scene":"dating","created_at":1,"hint_on":false,"remind_on":false}"#
+        let decoded = try JSONDecoder().decode(MemoryContact.self, from: Data(off.utf8))
+        XCTAssertFalse(decoded.hintOn)
+        XCTAssertFalse(decoded.remindOn)
+        XCTAssertEqual(decoded.pronoun, .ta, "缺称呼按 TA")
+    }
+
+    func testCardKeepsCloudFieldsOnRoundTrip() throws {
+        let json = #"{"id":"a","kind":"date","text":"生日","keywords":[],"when":"1998-05-20","source":"cloud","confirmed":true,"faded":true,"seq":7,"updated_at":1700000000000,"created_at":1,"touched_at":2}"#
+        let card = try JSONDecoder().decode(MemoryCard.self, from: Data(json.utf8))
+        XCTAssertTrue(card.faded)
+        XCTAssertEqual(card.seq, 7)
+        XCTAssertEqual(card.updatedAt, 1_700_000_000_000)
+        let back = try JSONDecoder().decode(MemoryCard.self, from: JSONEncoder().encode(card))
+        XCTAssertEqual(back, card)
+    }
+
+    func testCardDecodesWithoutOptionalFields() throws {
+        let json = #"{"id":"a","kind":"preference","text":"不吃香菜","created_at":1,"touched_at":2}"#
+        let card = try JSONDecoder().decode(MemoryCard.self, from: Data(json.utf8))
+        XCTAssertEqual(card.keywords, [])
+        XCTAssertNil(card.when)
+        XCTAssertEqual(card.source, "manual")
+        XCTAssertFalse(card.faded)
+        XCTAssertEqual(card.seq, 0)
+    }
+
+    func testSnapshotDecodesFromBridge() throws {
+        let json = """
+        {"contacts":[{"id":"a","name":"小美","pronoun":"ta_f","scene":"dating","created_at":1}],
+         "cards":{"a":[{"id":"c","kind":"other","text":"x","created_at":1,"touched_at":1}]},
+         "revs":{"a":3},"state":{"scene":"dating","contact_id":"a"},"broken":["b"]}
+        """
+        let snapshot = try JSONDecoder().decode(MemorySnapshot.self, from: Data(json.utf8))
+        XCTAssertEqual(snapshot.contacts.count, 1)
+        XCTAssertEqual(snapshot.cards["a"]?.count, 1)
+        XCTAssertEqual(snapshot.revs["a"], 3)
+        XCTAssertEqual(snapshot.state, MemoryScope(scene: "dating", contactId: "a"))
+        XCTAssertEqual(snapshot.broken, ["b"])
+        let empty = try JSONDecoder().decode(MemorySnapshot.self, from: Data("{}".utf8))
+        XCTAssertEqual(empty, MemorySnapshot())
+    }
+
+    func testScopeDecodes() throws {
+        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
+        XCTAssertEqual(scope, MemoryScope(scene: "work", contactId: nil))
+        XCTAssertEqual(MemoryScope.title(of: "dating"), "恋爱")
+        XCTAssertEqual(MemoryScope.title(of: "work"), "工作")
+        XCTAssertEqual(MemoryScope.title(of: "daily"), "日常")
+    }
+
+    func testHintDecodes() throws {
+        let json = #"{"card_id":"c","text":"明天是她的生日","reason":"today","more":true}"#
+        let hint = try JSONDecoder().decode(MemoryHint.self, from: Data(json.utf8))
+        XCTAssertEqual(hint, MemoryHint(cardId: "c", text: "明天是她的生日", reason: .today, more: true))
+    }
+
+    // MARK: qj_memory_note 的返回值：NULL 就是成功
+
+    func testNoteNullMeansSuccess() {
+        XCTAssertNil(MemoryFailure.decode(nil), "桥返回 NULL（含已接受、稍后写入）：成功")
+    }
+
+    func testNoteFailureDecodes() {
+        let failure = MemoryFailure.decode(#"{"code":"io","message":"读不了"}"#)
+        XCTAssertEqual(failure, MemoryFailure(code: .io, message: "读不了"))
+        XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"x"}"#)?.userMessage, "恋爱场景最多 8 个人")
+        XCTAssertEqual(MemoryFailure.decode(#"{"code":"zzz","message":"m"}"#)?.code, .other)
+        XCTAssertEqual(MemoryFailure.decode("not json")?.message, "not json")
+    }
+
+    // MARK: 日子
+
+    func testDaysAwayRepeatsDatesYearlyAndPromisesOnce() throws {
+        let now = try date("2026-10-04")
+        var card = MemoryCard.new(kind: .date, text: "生日", when: "1998-10-05", keywords: [])
+        XCTAssertEqual(card.daysAway(now: now), 1)
+        card.when = "1998-10-04"
+        XCTAssertEqual(card.daysAway(now: now), 0)
+        card.when = "1998-10-03"
+        XCTAssertEqual(card.daysAway(now: now), 364, "今年那天过了看明年")
+        card.kind = .promise
+        card.when = "2026-10-03"
+        XCTAssertEqual(card.daysAway(now: now), -1, "约定不重复")
+        card.kind = .preference
+        XCTAssertNil(card.daysAway(now: now))
+    }
+
+    func testLeapDayFallsOnFeb28InCommonYears() throws {
+        let next = MemoryDate.nextAnniversary(of: try date("2000-02-29"), from: try date("2026-10-04"))
+        XCTAssertEqual(MemoryDate.format(next), "2027-02-28")
+        let leap = MemoryDate.nextAnniversary(of: try date("2000-02-29"), from: try date("2027-10-04"))
+        XCTAssertEqual(MemoryDate.format(leap), "2028-02-29")
+    }
+
+    func testReminderTextMatchesBridgeTemplates() {
+        let person = contact()
+        let birthday = MemoryCard.new(kind: .date, text: "生日", when: "1998-10-05", keywords: [])
+        XCTAssertEqual(birthday.reminderText(days: 1, contact: person), "明天是她的生日")
+        XCTAssertEqual(birthday.reminderText(days: 0, contact: person), "今天是她的生日")
+        XCTAssertEqual(birthday.reminderText(days: 3, contact: person), "3 天后是她的生日")
+        let promise = MemoryCard.new(kind: .promise, text: "看电影", when: "2026-10-05", keywords: [])
+        XCTAssertEqual(promise.reminderText(days: 1, contact: person), "明天：看电影")
+    }
+
+    func testKnownDaysCountsCreationDayAsFirst() {
+        var person = contact()
+        XCTAssertEqual(person.knownDays(), 1)
+        person = MemoryContact(
+            id: "a", name: "小美", pronoun: .ta, scene: "dating",
+            createdAt: Int64(Date().timeIntervalSince1970) - 12 * 86400)
+        XCTAssertEqual(person.knownDays(), 13)
+    }
+
+    func testIDFormatIs32LowercaseHex() {
+        let id = MemoryID.make()
+        XCTAssertEqual(id.count, 32)
+        XCTAssertTrue(id.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+        XCTAssertNotEqual(id, MemoryID.make())
+    }
+
+    // MARK: 提示行、牌子、面板
+
+    func testHintRowOnlyForDatingWithContact() {
+        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true))
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "dating", hasContact: false), "恋爱不指定没有提示行")
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true))
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true))
+    }
+
+    func testChipTitle() {
+        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "dating", contactName: "小美"), "小美 · 恋爱")
+        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "dating", contactName: nil), "恋爱")
+        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "work", contactName: "小美"), "工作")
+        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "daily", contactName: nil), "日常")
+    }
+
+    func testPickerNeedsFullAccess() {
+        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
+        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: true), .picker)
+        XCTAssertEqual(ScopeDisplay.needsFullAccessText, "开启完全访问后才能使用记忆")
+    }
+
+    func testCanNoteNeedsEverything() {
+        XCTAssertTrue(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: false, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: false, clipboardHasText: true, privateField: false, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: false, privateField: false, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: true, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: false, hasContact: false))
+    }
+
+    // MARK: 换输入框
+
+    func testHostChangedComparesDocumentIdentifier() {
+        let a = UUID()
+        let b = UUID()
+        XCTAssertFalse(HostDocument.changed(from: a, to: a))
+        XCTAssertTrue(HostDocument.changed(from: a, to: b))
+        XCTAssertTrue(HostDocument.changed(from: nil, to: a), "第一次看到输入框也清一次")
+        XCTAssertFalse(HostDocument.changed(from: nil, to: nil))
+    }
+}
+```
+
 - [ ] **Step 2: `Engine` 放宽可见性，加 `MemoryBridge.swift`**
 
 Modify `cloud/ios/Keyboard/Sources/Engine.swift`：
@@ -6228,7 +6496,7 @@ Modify `cloud/ios/Keyboard/Sources/KeyboardModel.swift`：
 ```swift
     /// 提示行这一行在不在：恋爱场景且选了对象时一直在（没有提示时是空行），日常、工作与「恋爱 · 不指定」没有这一行。
     /// 键盘高度只在进出这个状态时变，提示出现与消失不再让宿主界面跳。
-    var hasHintRow: Bool { scope.scene == MemoryScope.dating && currentContact != nil }
+    var hasHintRow: Bool { ScopeDisplay.hasHintRow(scene: scope.scene, hasContact: currentContact != nil) }
 
     /// 宿主换了输入框（控制器按 documentIdentifier 判断）：清掉最近上屏的字与提示。
     func hostChanged() {
@@ -6243,7 +6511,11 @@ Modify `cloud/ios/Keyboard/Sources/KeyboardModel.swift`：
     }
 
     /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。
-    var canNote: Bool { fullAccess && clipboardHasText && !privateField && currentContact != nil }
+    var canNote: Bool {
+        ScopeDisplay.canNote(
+            fullAccess: fullAccess, clipboardHasText: clipboardHasText, privateField: privateField,
+            hasContact: currentContact != nil)
+    }
 
     func openScopePicker() {
         reloadContacts()
@@ -6285,7 +6557,7 @@ Modify `cloud/ios/Keyboard/Sources/KeyboardModel.swift`：
     func confirmNote() {
         guard let text = noteDraft, let id = scope.contactId else { return }
         noteDraft = nil
-        // 写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
+        // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
         _ = engine?.memoryNote(id, text: text)
         refreshHint()
     }
@@ -6393,10 +6665,7 @@ struct ScopeChip: View {
     private var dating: Bool { model.scope.scene == MemoryScope.dating }
 
     private var title: String {
-        guard dating, let contact = model.currentContact else {
-            return MemoryScope.title(of: model.scope.scene)
-        }
-        return "\(contact.name) · 恋爱"
+        ScopeDisplay.chipTitle(scene: model.scope.scene, contactName: model.currentContact?.name)
     }
 }
 ```
@@ -6420,13 +6689,16 @@ struct ScopePicker: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
 
     var body: some View {
-        if model.fullAccess { picker } else { noAccess }
+        switch ScopeDisplay.pickerMode(fullAccess: model.fullAccess) {
+        case .picker: picker
+        case .needsFullAccess: noAccess
+        }
     }
 
     private var noAccess: some View {
         VStack(spacing: 12) {
             Spacer(minLength: 0)
-            Text("开启完全访问后才能使用记忆")
+            Text(ScopeDisplay.needsFullAccessText)
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
             Text("收起")
@@ -6814,11 +7086,17 @@ Modify `cloud/ios/Keyboard/Sources/KeyboardViewController.swift`：
     override func textDidChange(_ textInput: (any UITextInput)?) {
         super.textDidChange(textInput)
         updatePrivacy()
-        let document = textDocumentProxy.documentIdentifier
-        if document != lastDocument {
+        let document = hostDocumentIdentifier
+        if HostDocument.changed(from: lastDocument, to: document) {
             lastDocument = document
             model.hostChanged()
         }
+    }
+
+    /// 宿主输入框的标识。`documentIdentifier` 声明为非可选，但连上宿主之前系统返回 nil，Swift 桥接时直接崩（textDidChange 在这之前就会被调，
+    /// 模拟器里实测 EXC_BREAKPOINT），所以走 KVC 取成可选值。
+    private var hostDocumentIdentifier: UUID? {
+        (textDocumentProxy as? NSObject)?.value(forKey: "documentIdentifier") as? UUID
     }
 ```
 
@@ -6838,7 +7116,7 @@ Expected: 没有 `error:`，最后 `** BUILD SUCCEEDED **`。（Swift 6 并发�
 - [ ] **Step 9: 原有单元测试照过**
 
 Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "Executed|TEST (SUCCEEDED|FAILED)" | tail -3`
-Expected: `** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests` 照过）。
+Expected: `** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests` 照过，加 `MemoryModelTests` 21 个，共 37 个）。
 
 - [ ] **Step 10: 模拟器里对照截图**
 
@@ -6875,6 +7153,7 @@ mkdir -p build/screenshots
 8. 在「备忘录」这类输入框靠近屏幕底部的应用里打字，切到「恋爱 · 小美」（键盘高一行）时宿主输入框跟着上移、没被键盘挡住；之后提示出现消失时宿主不跳 → `task5-host.png`。
 9. 恋爱 · 小美下打 `dangao` 上屏「蛋糕」看到提示后，点到同一个应用的另一个输入框再打 `nihao`：不出「蛋糕」那张卡的提示（换输入框时清了最近上屏的字）。
 
+模拟器操作的坑（落地时踩的）：开完全访问要先点 设置 → 通用 → 键盘 → 键盘 → 青简 → 允许完全访问，再在弹窗点「允许」，回试打框前确认开关是绿的；软键盘不出来时 `xcrun simctl shutdown/boot` 重启设备再试；点 App 里的试打框后要等 1–2 秒键盘才出；剪贴板有字时才有「记一笔」。
 Expected: 9 张截图都在 `cloud/ios/build/screenshots/`（`build/` 已在 `.gitignore`），结构与 01 的 1a–1f、05 的 2c 对得上（结构一致即可，视觉打磨留给子项目 3）。
 
 - [ ] **Step 11: 提交**
