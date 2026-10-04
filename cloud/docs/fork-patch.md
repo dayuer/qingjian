@@ -113,7 +113,7 @@ NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都�
 | 文件 | 改动 | 说明 |
 |---|---|---|
 | `Cargo.toml`（根） | 加 2 行 | `exclude = ["cloud"]`：不然按路径引用 cloud 的 crate 时，它的 `*.workspace = true` 会去找根 workspace |
-| `Cargo.lock` | 新增条目 | ureq、native-tls 证书等；`uuid` 1.26.1 → 1.27.0（cloud 要求） |
+| `Cargo.lock` | 新增条目 | ureq、native-tls 证书等；`uuid` 1.26.1 → 1.27.0（cloud 要求）；2026-10-04 账号登录新增 objc2-authentication-services（block2、base64、getrandom、percent-encoding、toml_edit 等根 Cargo.lock 里本来就有，只是多了依赖边） |
 | `apps/macos/Cargo.toml` | 加 2 行 | 依赖 `qingjian-cloud-mac` |
 | `apps/macos/src/main.rs` | 加 2 行 | IMKServer 建好后 `qingjian_cloud_mac::start(mtm)` |
 | `apps/macos/src/menubar/cloud_agent.rs` | 新文件 | 照菜单行画「青简 Cloud ›」子菜单 |
