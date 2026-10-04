@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::phone::is_phone_with_prefix;
-use super::replace::{luhn_ok, replace_where, touches_digit};
+use super::replace::{luhn_ok, replace_where};
 
 const PLACEHOLDER: &str = "〔卡号〕";
 
@@ -15,11 +15,11 @@ static BANK_CARD: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub fn apply(text: &str) -> (String, u32) {
-    replace_where(text, &BANK_CARD, PLACEHOLDER, |found, before, after| {
-        if touches_digit(before, after) || before == Some('+') {
+    replace_where(text, &BANK_CARD, PLACEHOLDER, |hit| {
+        if hit.touches_digit() || hit.before() == Some('+') {
             return false;
         }
-        let digits: String = found.chars().filter(char::is_ascii_digit).collect();
+        let digits: String = hit.found.chars().filter(char::is_ascii_digit).collect();
         (13..=19).contains(&digits.len())
             && luhn_ok(&digits)
             && !is_phone_with_prefix(&digits)

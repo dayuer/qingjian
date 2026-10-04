@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::replace::{replace_where, touches_digit};
+use super::replace::replace_where;
 
 const PLACEHOLDER: &str = "〔手机号〕";
 
@@ -14,9 +14,7 @@ static PHONE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub fn apply(text: &str) -> (String, u32) {
-    replace_where(text, &PHONE, PLACEHOLDER, |_, before, after| {
-        !touches_digit(before, after)
-    })
+    replace_where(text, &PHONE, PLACEHOLDER, |hit| !hit.touches_digit())
 }
 
 /// 去掉国家区号前缀与分隔后是不是一个手机号（银行卡规则用它避开「+86 手机号」被当成 13 位卡号）。

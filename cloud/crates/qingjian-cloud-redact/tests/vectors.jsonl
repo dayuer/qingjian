@@ -96,6 +96,32 @@
 {"input": "我去了北京市", "expected": "我去了北京市", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
 {"input": "88号", "expected": "88号", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
 {"input": "3号楼", "expected": "3号楼", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "北京市海淀区中关村大街27号院3号楼502室", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市海淀区中关村大街27号院3号楼5单元1201室", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市朝阳区建国路88号院", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "上海市浦东新区世纪大道100号12层", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市朝阳区建国路88号1单元101户", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市朝阳区建国路88号，我在家等你", "expected": "〔地址〕，我在家等你", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市海淀区中关村大街27号院3号楼502室的快递", "expected": "〔地址〕的快递", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "杭州市西湖区文三路90号A座1204室", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "杭州市西湖区文三路90号B栋2单元301室", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "深圳市南山区科技园路1号C1栋", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市朝阳区建国路88号3楼见", "expected": "〔地址〕见", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "我住在北京市朝阳区建国路88号院，3号楼", "expected": "我住在〔地址〕，3号楼", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "北京市朝阳区建国路88号3号楼5单元12层1201室", "expected": "〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 1}}
+{"input": "(010)62345678", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "（010）62345678", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "(0755)88886666", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "电话（021）8765 4321", "expected": "电话〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "0755 8888 6666", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "010 6234 5678", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "0755-8888-6666", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "(0571)8888888。", "expected": "〔电话〕。", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "010 1234567", "expected": "010 1234567", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "(010)1234567", "expected": "(010)1234567", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "0755 8888 66667777", "expected": "0755 8888 66667777", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "0755 8888 6666 1230", "expected": "0755 8888 6666 1230", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
+{"input": "023 0755 8888 6666", "expected": "023 0755 8888 6666", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0}}
 {"input": "我是张三，手机13812345678，邮箱a@b.com，住北京市海淀区中关村大街1号", "expected": "我是张三，手机〔手机号〕，邮箱〔邮箱〕，住〔地址〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 1}}
 {"input": "联系 a@b.com 或 https://a.com 或 13812345678", "expected": "联系 〔邮箱〕 或 〔链接〕 或 〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 1, "address": 0}}
 {"input": "https://a.com/北京市朝阳区建国路88号", "expected": "〔链接〕〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 1}}

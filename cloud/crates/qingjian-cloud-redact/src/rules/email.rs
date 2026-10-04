@@ -14,5 +14,5 @@ static EMAIL: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub fn apply(text: &str) -> (String, u32) {
-    replace_where(text, &EMAIL, PLACEHOLDER, |_, _, _| true)
+    replace_where(text, &EMAIL, PLACEHOLDER, |_| true)
 }
