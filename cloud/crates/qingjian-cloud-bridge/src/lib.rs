@@ -9,6 +9,7 @@ mod cloud_config;
 mod entry;
 mod error;
 mod rewrite;
+mod scope;
 mod session;
 mod settings;
 
@@ -23,6 +24,10 @@ pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::rewrite::{RewriteState, Rewriter};
+pub use self::scope::{
+    ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
+    scene_learning_dir, scene_name,
+};
 pub use self::session::Session;
 pub use self::settings::{DomainSetting, SchemeOption, Settings};
 
