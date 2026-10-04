@@ -204,10 +204,11 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         hosting.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(hosting)
         view.addSubview(hosting.view)
-        // 键盘高度由我们定，钉在 inputView 上系统才按这个给（否则沿用上一个键盘的高度，内容被居中撑开、整体下移）；
-        // 系统旋转或切换时会临时塞一个冲突的高度约束，留一档优先级让它赢
+        // 键盘高度由我们定，viewDidLoad 里就按最终高度钉在 inputView 上（配合 KeyboardInputView.allowsSelfSizing），
+        // 系统第一次就按这个给；优先级 999：750 时会先沿用上一个键盘（如系统英文键盘）的高度、出现后才改，
+        // 微信这类宿主按旧高度布局，输入栏下半截被盖住。留一档给系统旋转时临时塞的冲突约束
         let height = view.heightAnchor.constraint(equalToConstant: baseHeight)
-        height.priority = .defaultHigh
+        height.priority = UILayoutPriority(999)
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
