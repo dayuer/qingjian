@@ -7906,6 +7906,14 @@ git commit -m "feat(cloud): iOS 键盘加场景牌子、记忆提示行、对象
    - 截图验收补 02 的 1a（首页）与写回冲突、按人关提示两项。
    - **手写卡上限（卡片契约）：** `CardEditor` 文字超过 200 字截掉、下面显示「137 / 200」；关键词改成一个一个加（每个 2–8 字），满 8 个「添加」不可点、标题显示「关键词 n / 8」；`ContactEditor` 生成的卡也截到 200 字。纯函数在 `MemoryLimits`（Task 5），单测 `testCardLimitsCountUnicodeScalars`；`MemoryCard` 带 `faded` / `seq` / `updatedAt` 往返不丢（`testCardKeepsCloudFieldsOnRoundTrip`）。
 
+8. **执行时补的（2026-10-04，审计会话确认）：**
+   - 首页「今天」与「本周」跳过关了「日子提醒」的人（`MemoryStore.upcoming` 只看 `remindOn` 为真的人）；对象设置里「日子提醒」下面一行小字「关掉后，今天和本周里不再提{称呼}的日子」，称呼用 `MemoryPronoun.label`。
+   - 读写不占主线程：`MemoryWorker` 是跑在自己串行队列上的 actor，同一时刻只有一个读或写；保存中界面显示「正在保存」、按钮置灰，再提交的保存直接拒掉；结果回主线程再更新界面、弹提示。启动时读一次，从后台回到前台再读（不在 inactive → active 时重复读）。
+   - 任何读写失败都给中文提示：容器拿不到、读不出时首页、详情、设置页顶上常驻原因；写失败弹「没存上：原因」；冲突合并时重读到坏文件也提示已备份；「忘掉」只做了一半（目录删了、名单没写进去）时提示再点一次。
+   - 「忘掉」用 `.alert`（忘掉 / 再想想），等确认框收起后再写，免得失败提示撞上收起动画弹不出来。
+   - 每次保存记一条系统日志（subsystem `app.qingjian.cloud`，category `memory`，public）：序号、写入前后的修订号、写之前锁是否被占、写入耗时（含等锁）、冲突轮数、成败。Debug 包的对象详情有「连续保存 20 次」给真机验并发。
+   - App 的开关照设计稿 `.toggle` 用 `Theme.accent`，是「控件中性色」的例外（那条只管键盘面板），记在 `ColorUsage.appToggle`。
+
 ### 步骤
 
 **Files:**
