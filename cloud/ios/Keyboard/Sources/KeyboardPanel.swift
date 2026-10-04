@@ -7,4 +7,10 @@ enum KeyboardPanel: Hashable {
     case candidates
 
     case emoji
+
+    /// 点场景牌子打开的场景 / 对象选择。
+    case scope
+
+    /// 提示行「展开」打开的对象卡。
+    case contactCard
 }

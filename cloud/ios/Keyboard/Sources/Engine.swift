@@ -5,8 +5,8 @@ import QingjianBridge
 
 @MainActor
 final class Engine {
-    /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。
-    private nonisolated(unsafe) let session: OpaquePointer
+    /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。MemoryBridge.swift 的扩展也用它。
+    nonisolated(unsafe) let session: OpaquePointer
 
     /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据；`configFile` 是设置（config.toml，
     /// 变了轮询时自动重读）；`cloudConfig` 指向 cloud.toml，没有就完全离线。打不开返回 nil。
@@ -116,13 +116,13 @@ final class Engine {
         text.withCString { qj_clip_push(session, $0) }
     }
 
-    private func take(_ raw: UnsafeMutablePointer<CChar>?) -> String? {
+    func take(_ raw: UnsafeMutablePointer<CChar>?) -> String? {
         guard let raw else { return nil }
         defer { qj_string_free(raw) }
         return String(cString: raw)
     }
 
-    private static func withOptionalCString<T>(
+    static func withOptionalCString<T>(
         _ string: String?, _ body: (UnsafePointer<CChar>?) -> T
     ) -> T {
         guard let string else { return body(nil) }

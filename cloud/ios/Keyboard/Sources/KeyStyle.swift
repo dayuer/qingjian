@@ -16,6 +16,9 @@ enum KeyStyle {
 
     static let candidateBarHeight: CGFloat = 50
 
+    /// 候选栏上方记忆提示行的高度。
+    static let hintRowHeight: CGFloat = 34
+
     /// ⇧ / ⌫ / 切层键的宽度，以字母键宽为 1。
     static let edgeKeyUnits: CGFloat = 1.36
 
