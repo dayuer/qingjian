@@ -15,4 +15,7 @@ pub struct RuleCounts {
     pub url: u32,
 
     pub address: u32,
+
+    /// 微信号、QQ 号。
+    pub account: u32,
 }

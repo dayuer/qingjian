@@ -11,28 +11,43 @@ pub fn replace_where(
     placeholder: &str,
     accept: impl Fn(&Hit) -> bool,
 ) -> (String, u32) {
+    replace_group(text, re, 0, placeholder, accept)
+}
+
+/// 同 [`replace_where`]，但只换正则里第 `group` 组（关键词留着，只换后面的号码）；候选的上下文也按这一组算。
+pub fn replace_group(
+    text: &str,
+    re: &Regex,
+    group: usize,
+    placeholder: &str,
+    accept: impl Fn(&Hit) -> bool,
+) -> (String, u32) {
     let mut output = String::with_capacity(text.len());
     let mut copied = 0;
     let mut position = 0;
     let mut count = 0;
-    while let Some(found) = re.find_at(text, position) {
+    while let Some(captures) = re.captures_at(text, position) {
+        let whole = captures.get(0).expect("整体匹配");
+        let Some(span) = captures.get(group) else {
+            break;
+        };
         let hit = Hit {
-            found: found.as_str(),
-            prefix: &text[..found.start()],
-            suffix: &text[found.end()..],
+            found: span.as_str(),
+            prefix: &text[..span.start()],
+            suffix: &text[span.end()..],
         };
         if accept(&hit) {
-            output.push_str(&text[copied..found.start()]);
+            output.push_str(&text[copied..span.start()]);
             output.push_str(placeholder);
-            copied = found.end();
-            position = found.end();
+            copied = span.end();
+            position = span.end();
             count += 1;
         } else {
-            let step = text[found.start()..]
+            let step = text[whole.start()..]
                 .chars()
                 .next()
                 .map_or(1, char::len_utf8);
-            position = found.start() + step;
+            position = whole.start() + step;
         }
         if position >= text.len() {
             break;
