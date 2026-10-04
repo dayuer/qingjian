@@ -2670,7 +2670,8 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && git add cloud/crates/qi
 测试用 iOS 实际有的东西——静态语言模型、没有神经模型——能分开的同音词：`quanli`（无前文「权力」，「保护自己的」之后「权利」）与
 `jingli`（无前文「经历」，「他是部门」之后「经理」）；原计划写的「汽车 + youxiang → 油箱」静态语言模型里没有 汽车→油箱 的 bigram，
 要知微才行（见 Task 4），iOS 上做不到，不拿它当测试。另有一条私密输入不看前文的测试。两条测试在撤掉桥改动时都失败、有改动时通过。
-测试要真数据：`QINGJIAN_DATA` 用**绝对路径**，加 `QINGJIAN_REQUIRE_DATA=1` 才不会因路径错误静默跳过。
+测试要真数据：`QINGJIAN_DATA` 用**绝对路径**。`tests/support::data_dir()` 现在对「设了但无效」（相对路径、缺 `dict.qj`）一律 panic，
+没设才跳过（`QINGJIAN_REQUIRE_DATA=1` 时没设也 panic）——之前相对路径会让测试 0.00 秒静默"通过"。
 
 ## 收尾
 
