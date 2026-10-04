@@ -73,10 +73,7 @@ impl Shared {
 
     /// 按错误种类改状态。
     pub fn set_error(&self, error: &ClientError) {
-        match error {
-            ClientError::Unauthorized => self.set_status(Status::Unauthorized),
-            other => self.set_status(Status::Offline(other.to_string())),
-        }
+        self.set_status(Status::from_error(error));
     }
 
     pub fn cursor(&self) -> u64 {

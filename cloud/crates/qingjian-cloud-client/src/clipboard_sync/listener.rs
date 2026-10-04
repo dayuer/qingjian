@@ -7,7 +7,7 @@ use super::{Backoff, Shared, Status};
 use crate::ClientError;
 use crate::supervise::{Exit, supervise};
 
-/// 令牌被拒后多久再试。
+/// 令牌被拒或服务器上没开剪贴板后多久再试：这两种都要用户操作，不按退避空转。
 const UNAUTHORIZED_RETRY: Duration = Duration::from_secs(300);
 
 /// 两次重连之间至少隔这么久，防止连接一建立就断时空转。
@@ -41,7 +41,7 @@ fn run(shared: &Shared) {
             Err(error) => {
                 shared.set_error(&error);
                 let delay = match error {
-                    ClientError::Unauthorized => UNAUTHORIZED_RETRY,
+                    ClientError::Unauthorized | ClientError::Forbidden(_) => UNAUTHORIZED_RETRY,
                     _ => backoff.next_delay(),
                 };
                 sleep_unless_stopped(shared, delay);

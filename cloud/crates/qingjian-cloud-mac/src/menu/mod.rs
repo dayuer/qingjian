@@ -55,6 +55,7 @@ pub fn status_line(display: &Display) -> String {
                 Status::Online => "已连接".to_owned(),
                 Status::Offline(error) => format!("离线，稍后自动重试（{}）", short(error)),
                 Status::Unauthorized => "令牌无效：在服务器上重新登记设备".to_owned(),
+                Status::Disabled => "跨设备剪贴板在服务器上没开".to_owned(),
             };
             if *pending > 0 {
                 format!("{base} · {pending} 条待上传")
