@@ -2,6 +2,7 @@
 //! 真正打开登录窗口的 [`WebLogin`] 与它的展示锚点只在 macOS 上编。
 
 mod event;
+mod flow;
 mod reset;
 
 #[cfg(target_os = "macos")]
@@ -11,14 +12,16 @@ mod web_login;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use qingjian_cloud_client::ClientError;
 use qingjian_cloud_proto::{LOGIN_CALLBACK_SCHEME, PATH_LOGIN};
 use sha2::{Digest, Sha256};
 
 pub use self::event::AccountEvent;
+pub use self::flow::AccountFlow;
 pub use self::reset::{
-    progress_exists, reset_account_data, reset_after_sync_toggle, should_reset, sync_toggled,
+    progress_exists, request_input_log_reset, reset_account_data, reset_after_sync_toggle,
+    should_reset, sync_toggled, take_input_log_reset,
 };
 
 #[cfg(target_os = "macos")]
@@ -71,27 +74,29 @@ pub fn login_url(server: &str, challenge: &str, device: &str) -> String {
     )
 }
 
-/// 从 `sujian://auth?handoff=…` 取出一次性码；别的地址、没有或为空返回 `None`。
+/// 一次性码最长多少个字符。
+const MAX_HANDOFF_CHARS: usize = 512;
+
+/// 从 `sujian://auth?handoff=…` 取出一次性码。只认这一种形状：scheme 是 `sujian`、主机恰好是 `auth`
+/// （没有用户信息、端口与路径）、查询里恰好一个参数 `handoff`，值非空、不超过 512 个字符且只含 `A-Za-z0-9_-`
+/// （不做百分号解码）；片段忽略。别的一律 `None`。
 pub fn handoff_from_callback(url: &str) -> Option<String> {
     let (scheme, rest) = url.split_once("://")?;
     if !scheme.eq_ignore_ascii_case(LOGIN_CALLBACK_SCHEME) {
         return None;
     }
+    let rest = rest.split('#').next().unwrap_or_default();
     let (host, query) = rest.split_once('?')?;
-    if !host
-        .trim_end_matches('/')
-        .eq_ignore_ascii_case(CALLBACK_HOST)
-    {
+    if !host.eq_ignore_ascii_case(CALLBACK_HOST) {
         return None;
     }
-    let query = query.split('#').next().unwrap_or_default();
-    query
-        .split('&')
-        .filter_map(|pair| pair.split_once('='))
-        .find(|(key, _)| *key == "handoff")
-        .and_then(|(_, value)| percent_decode_str(value).decode_utf8().ok())
-        .map(|value| value.into_owned())
-        .filter(|value| !value.is_empty())
+    let value = query.strip_prefix("handoff=")?;
+    let valid = !value.is_empty()
+        && value.len() <= MAX_HANDOFF_CHARS
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    valid.then(|| value.to_owned())
 }
 
 /// 「系统设置 → 通用 → 关于本机」里的电脑名，设备列表里显示。
@@ -107,7 +112,10 @@ pub fn device_name() -> String {
 
 fn clean_device_name(raw: Option<String>) -> String {
     raw.map(|name| {
-        name.trim()
+        name.chars()
+            .filter(|c| !c.is_control())
+            .collect::<String>()
+            .trim()
             .chars()
             .take(MAX_DEVICE_CHARS)
             .collect::<String>()
@@ -185,19 +193,52 @@ mod tests {
     }
 
     #[test]
+    fn login_url_escapes_query_delimiters_in_device_name() {
+        let url = login_url("https://s", "c", "a&b#c+d=e f 李");
+        assert_eq!(
+            url,
+            "https://s/login?challenge=c&device=a%26b%23c%2Bd%3De%20f%20%E6%9D%8E&callback=sujian"
+        );
+    }
+
+    #[test]
     fn handoff_comes_from_the_sujian_callback_only() {
         assert_eq!(
-            handoff_from_callback("sujian://auth?handoff=h%2B1&x=y").as_deref(),
-            Some("h+1")
+            handoff_from_callback("sujian://auth?handoff=h-1_Z").as_deref(),
+            Some("h-1_Z")
         );
         assert_eq!(
-            handoff_from_callback("SUJIAN://auth/?x=1&handoff=abc#frag").as_deref(),
+            handoff_from_callback("SUJIAN://AUTH?handoff=abc#frag").as_deref(),
             Some("abc")
         );
-        assert_eq!(handoff_from_callback("https://auth?handoff=abc"), None);
-        assert_eq!(handoff_from_callback("sujian://other?handoff=abc"), None);
-        assert_eq!(handoff_from_callback("sujian://auth?handoff="), None);
-        assert_eq!(handoff_from_callback("sujian://auth"), None);
+        let long_ok = format!("sujian://auth?handoff={}", "a".repeat(512));
+        assert!(handoff_from_callback(&long_ok).is_some());
+    }
+
+    #[test]
+    fn handoff_rejects_anything_unusual() {
+        let long = format!("sujian://auth?handoff={}", "a".repeat(513));
+        for url in [
+            "https://auth?handoff=abc",
+            "sujian://other?handoff=abc",
+            "sujian://auth?handoff=",
+            "sujian://auth",
+            "sujian://auth?handoff",
+            "sujian://auth?handoff=a&handoff=b",
+            "sujian://auth?handoff=a&x=y",
+            "sujian://auth?x=y",
+            "sujian://auth@evil?handoff=x",
+            "sujian://auth.evil?handoff=x",
+            "sujian://auth:80?handoff=x",
+            "sujian://auth/?handoff=x",
+            "sujian://auth/path?handoff=x",
+            "sujian://auth?handoff=h%2B1",
+            "sujian://auth?handoff=a%0Ab",
+            "sujian://auth?handoff=a+b",
+            &long,
+        ] {
+            assert_eq!(handoff_from_callback(url), None, "{url}");
+        }
     }
 
     #[test]
@@ -212,6 +253,11 @@ mod tests {
             clean_device_name(Some("长".repeat(100))).chars().count(),
             64
         );
+        assert_eq!(
+            clean_device_name(Some("A\u{7}\nB\u{1b}[0m".to_owned())),
+            "AB[0m"
+        );
+        assert_eq!(clean_device_name(Some("\u{7}".to_owned())), "Mac");
     }
 
     #[test]

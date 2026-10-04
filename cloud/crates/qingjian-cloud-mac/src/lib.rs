@@ -3,7 +3,8 @@
 //! 网络都在后台线程；只在当前输入法是青简时同步，切走 30 秒后暂停。配置在 `~/Library/Application Support/QingjianCloud/config.toml`。
 //!
 //! 输入法调四个函数：启动时 [`start`]，「青简 Cloud ›」子菜单照 [`menu_lines`] 画，点了调 [`perform`]；
-//! 云联想选青简 Cloud 时用 [`llm_endpoint`] 拿大模型代理的地址与令牌。
+//! 云联想选青简 Cloud 时用 [`llm_endpoint`] 拿大模型代理的地址与令牌；
+//! 换账号清了输入日志后 [`take_input_log_reset`] 返回一次 true，输入法据此丢掉输入日志写入端的缓冲并重开。
 //! 设计见 `cloud/docs/design.md`，输入法侧的挂钩见 `cloud/docs/fork-patch.md`。
 
 // 别的平台上只编配置解析等可移植部分（让整个 workspace 在 Linux 上能构建、测试）
@@ -27,6 +28,7 @@ mod timer;
 #[cfg(target_os = "macos")]
 mod watcher;
 
+pub use account::take_input_log_reset;
 pub use llm_endpoint::LlmEndpoint;
 pub use menu::Line;
 #[cfg(target_os = "macos")]

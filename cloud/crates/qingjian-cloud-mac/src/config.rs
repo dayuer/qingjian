@@ -2,7 +2,9 @@
 //! 令牌由菜单里的「登录…」写入、「退出登录」清空；开关在菜单里切换（先告诉服务器）。都经 `toml_edit` 改，注释保留。
 //! 不并进输入法的 `config.toml`：那份会同步到别的设备，令牌是每台设备自己的。
 
+use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use qingjian_cloud_proto::{Consents, TOKEN_PREFIX};
 use serde::Deserialize;
@@ -94,7 +96,7 @@ impl AgentConfig {
             }
             Err(error) => return Err(format!("配置文件读不了：{error}")),
         };
-        toml::from_str(&text).map_err(|error| format!("配置文件有错：{error}"))
+        toml::from_str(&text).map_err(|error| parse_failure(&text, error.span(), error.message()))
     }
 
     pub fn signed_in(&self) -> bool {
@@ -162,26 +164,81 @@ fn edit(path: &Path, change: impl FnOnce(&mut DocumentMut)) -> Result<(), String
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => TEMPLATE.to_owned(),
         Err(error) => return Err(format!("配置文件读不了：{error}")),
     };
-    let mut document: DocumentMut = text
-        .parse()
-        .map_err(|error| format!("配置文件有错：{error}"))?;
+    let mut document: DocumentMut = text.parse().map_err(|error: toml_edit::TomlError| {
+        parse_failure(&text, error.span(), error.message())
+    })?;
     change(&mut document);
     write_private(path, &document.to_string())
 }
 
-/// 写文件并设成仅本人可读写（里面有令牌）。
-fn write_private(path: &Path, text: &str) -> Result<(), String> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|error| error.to_string())?;
+/// 配置解析失败给用户与日志看的话：只有行号与原因，绝不带源码片段。
+/// `toml` 错误的 `Display` 会带出错行原文，那一行可能就是 `token = "sjt_…"`；`message` 里偶尔含值（类型不符时），
+/// 所以在第一个引号或反引号处截断。
+fn parse_failure(text: &str, span: Option<std::ops::Range<usize>>, message: &str) -> String {
+    let message = match message.find(['"', '`', '\'']) {
+        Some(at) => format!("{}…", message[..at].trim_end()),
+        None => message.to_owned(),
+    };
+    match span {
+        Some(span) => {
+            let upto = span.start.min(text.len());
+            let line = text.as_bytes()[..upto]
+                .iter()
+                .filter(|&&b| b == b'\n')
+                .count()
+                + 1;
+            format!("配置文件第 {line} 行格式不对：{message}")
+        }
+        None => format!("配置文件格式不对：{message}"),
     }
-    std::fs::write(path, text).map_err(|error| error.to_string())?;
+}
+
+/// 临时文件名里的递增计数。
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// 原子地写文件并设成仅本人可读写（里面有令牌）：同目录建 0600 的临时文件、写满、落盘后改名覆盖，
+/// 读的一方（输入法重载配置）不会看到写了一半的文件，旧文件的宽权限也不会带过来。
+fn write_private(path: &Path, text: &str) -> Result<(), String> {
+    write_private_io(path, text).map_err(|error| error.to_string())
+}
+
+fn write_private_io(path: &Path, text: &str) -> std::io::Result<()> {
+    let dir = path.parent().unwrap_or(Path::new("."));
+    std::fs::create_dir_all(dir)?;
+    let serial = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp = dir.join(format!(
+        ".{}.{}.{serial}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id()
+    ));
+    // 崩溃遗留的同名临时文件可能是宽权限的，先删掉再 create_new
+    match std::fs::remove_file(&tmp) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-            .map_err(|error| error.to_string())?;
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
     }
-    Ok(())
+    let written = (|| {
+        let mut file = options.open(&tmp)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        file.write_all(text.as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&tmp, path)
+    })();
+    if written.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    written
 }
 
 #[cfg(test)]
@@ -281,6 +338,64 @@ mod tests {
         AgentConfig::clear_session(&path).unwrap();
         AgentConfig::store_session(&path, "sjt_b", 8, Consents::default()).unwrap();
         assert_eq!(AgentConfig::load(&path).unwrap().user_id, Some(8));
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn parse_failure_never_contains_source_text() {
+        let path = temp("badtoml");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        for text in [
+            "server = \"x\"\ntoken = \"sjt_SECRET\" oops\n",
+            "token = \"sjt_SECRET\"\nclipboard = \"sjt_SECRET\"\n",
+            "token = \"sjt_SECRET\n",
+        ] {
+            std::fs::write(&path, text).unwrap();
+            let load = AgentConfig::load(&path).unwrap_err();
+            assert!(load.starts_with("配置文件第 "), "{load}");
+            assert!(!load.contains("sjt_"), "{load}");
+            // 只是类型不对的文件 toml_edit 能改；语法错的改不了，报错同样不带原文
+            if let Err(edit) = AgentConfig::store_consents(&path, Consents::default()) {
+                assert!(!edit.contains("sjt_"), "{edit}");
+            }
+        }
+        std::fs::write(&path, "server = \"x\"\ntoken = \"sjt_SECRET\" oops\n").unwrap();
+        assert!(
+            AgentConfig::load(&path)
+                .unwrap_err()
+                .starts_with("配置文件第 2 行格式不对：")
+        );
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn write_private_replaces_atomically_with_0600() {
+        let path = temp("atomic");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            "a very long old content that is longer than the new one\n",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        }
+        write_private(&path, "short\n").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "short\n");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+        let leftovers: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(leftovers, ["config.toml"]);
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }

@@ -16,7 +16,7 @@ use objc2_foundation::NSTimer;
 use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
 use qingjian_cloud_proto::EventKind;
 
-use crate::account::{AccountEvent, WebLogin};
+use crate::account::{AccountEvent, AccountFlow, WebLogin};
 use crate::config::AgentConfig;
 use crate::history::History;
 use crate::llm_endpoint::LlmEndpoint;
@@ -209,13 +209,13 @@ struct Service {
     /// 开着的网页登录窗口；丢掉即取消登录、关窗。
     login: Option<WebLogin>,
 
-    /// 登录窗已关、正在用一次性码换令牌。
-    exchanging: bool,
+    /// 登录阶段与事件代数：晚到的旧结果靠它丢掉。
+    flow: AccountFlow,
 
-    /// 账号操作的后台线程与登录窗口回调把结果发到这里，主线程每拍取。
-    events: Receiver<AccountEvent>,
+    /// 账号操作的后台线程与登录窗口回调把（发出时的代数，结果）发到这里，主线程每拍取。
+    events: Receiver<(u64, AccountEvent)>,
 
-    sender: Sender<AccountEvent>,
+    sender: Sender<(u64, AccountEvent)>,
 
     /// 最近一次登录或切换开关失败的原因，菜单里显示。
     note: Option<String>,
@@ -241,7 +241,7 @@ impl Service {
             last_synced: None,
             other_input_since: None,
             login: None,
-            exchanging: false,
+            flow: AccountFlow::default(),
             events,
             sender,
             note: None,
@@ -478,7 +478,7 @@ impl Service {
         }
         let account = AccountMenu {
             signed_in: self.signed_in(),
-            signing_in: self.login.is_some() || self.exchanging,
+            signing_in: self.flow.signing_in(),
             consents: self
                 .config
                 .as_ref()

@@ -101,7 +101,7 @@ pub fn build_lines(
 
 pub fn status_line(display: &Display) -> String {
     match display {
-        Display::Unconfigured(reason) => reason.clone(),
+        Display::Unconfigured(reason) => short(reason),
         Display::SignedOut => "未登录".to_owned(),
         Display::SignedIn => "已登录".to_owned(),
         Display::Paused => "已暂停同步".to_owned(),
@@ -253,9 +253,9 @@ mod tests {
     fn signing_in_menu_can_cancel() {
         let mut menu = account(false);
         menu.signing_in = true;
-        menu.note = Some("已取消登录".to_owned());
+        menu.note = Some("登录窗口出错".to_owned());
         let lines = build_lines(&Display::SignedOut, &menu, None, &History::default());
-        assert!(lines.contains(&Line::Text("已取消登录".to_owned())));
+        assert!(lines.contains(&Line::Text("登录窗口出错".to_owned())));
         assert!(lines.contains(&Line::Action("取消登录".to_owned(), TAG_CANCEL_SIGN_IN)));
         assert!(!lines.contains(&Line::Action("登录…".to_owned(), TAG_SIGN_IN)));
     }
@@ -333,5 +333,12 @@ mod tests {
             status_line(&disabled),
             "跨设备剪贴板在服务器上没开 · 2 条待上传"
         );
+    }
+
+    #[test]
+    fn unconfigured_reason_is_truncated() {
+        let reason = "配置文件第 12 行格式不对：".to_owned() + &"很长".repeat(50);
+        let line = status_line(&Display::Unconfigured(reason));
+        assert_eq!(line.chars().count(), 40);
     }
 }
