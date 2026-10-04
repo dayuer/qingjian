@@ -67,3 +67,153 @@ fn put_consent_targets_feature_path() {
     assert_eq!(request_line(&head), "PUT /v1/consents/clipboard HTTP/1.1");
     assert!(head.contains("Bearer tok"), "{head}");
 }
+
+mod reply_mapping {
+    use qingjian_cloud_client::{Client, ClientError};
+    use qingjian_cloud_proto::{
+        AppleClient, AppleSignIn, Device, EmailVerify, HandoffExchange, Platform,
+    };
+
+    use crate::support::fake_server_with_body;
+
+    fn device() -> Device {
+        Device {
+            name: "t".to_owned(),
+            platform: Platform::Macos,
+        }
+    }
+
+    fn apple() -> AppleSignIn {
+        AppleSignIn {
+            identity_token: String::new(),
+            authorization_code: String::new(),
+            nonce: String::new(),
+            client: AppleClient::Ios,
+            device: device(),
+            challenge: None,
+        }
+    }
+
+    fn handoff() -> HandoffExchange {
+        HandoffExchange {
+            handoff: String::new(),
+            verifier: String::new(),
+            device: device(),
+        }
+    }
+
+    fn verify(client: &Client) -> Result<(), ClientError> {
+        client
+            .email_verify(&EmailVerify {
+                email: "a@b.c".to_owned(),
+                code: "000000".to_owned(),
+                device: device(),
+                challenge: None,
+            })
+            .map(|_| ())
+    }
+
+    #[test]
+    fn login_401_is_auth_failed_with_message() {
+        let (url, _rx) = fake_server_with_body("401 Unauthorized", r#"{"error":"wrong code"}"#);
+        let error = verify(&Client::anonymous(&url)).unwrap_err();
+        assert!(matches!(error, ClientError::AuthFailed(m) if m == "wrong code"));
+    }
+
+    #[test]
+    fn login_503_is_not_configured_but_other_methods_503_is_unreachable() {
+        let (url, _rx) = fake_server_with_body("503 Service Unavailable", r#"{"error":"smtp"}"#);
+        let client = Client::anonymous(&url);
+        assert!(matches!(
+            client.email_start("a@b.c").unwrap_err(),
+            ClientError::NotConfigured(m) if m == "smtp"
+        ));
+        assert!(matches!(
+            client.sign_in_apple(&apple()).unwrap_err(),
+            ClientError::NotConfigured(_)
+        ));
+        assert!(matches!(
+            client.exchange_handoff(&handoff()).unwrap_err(),
+            ClientError::NotConfigured(_)
+        ));
+        // 同步线程用的方法保持原映射
+        assert!(matches!(
+            client.whoami().unwrap_err(),
+            ClientError::Unreachable(_)
+        ));
+    }
+
+    #[test]
+    fn login_502_is_retryable_unreachable() {
+        let (url, _rx) = fake_server_with_body("502 Bad Gateway", "");
+        let error = verify(&Client::anonymous(&url)).unwrap_err();
+        assert!(matches!(error, ClientError::Unreachable(_)));
+        assert!(error.is_retryable());
+    }
+
+    #[test]
+    fn login_429_is_rate_limited() {
+        let (url, _rx) = fake_server_with_body("429 Too Many Requests", r#"{"error":"slow"}"#);
+        assert!(matches!(
+            Client::anonymous(&url).email_start("a@b.c").unwrap_err(),
+            ClientError::RateLimited
+        ));
+    }
+
+    #[test]
+    fn login_other_4xx_is_rejected_with_message() {
+        let (url, _rx) = fake_server_with_body("400 Bad Request", r#"{"error":"bad email"}"#);
+        assert!(matches!(
+            Client::anonymous(&url).email_start("x").unwrap_err(),
+            ClientError::Rejected { status: 400, message } if message == "bad email"
+        ));
+    }
+
+    #[test]
+    fn account_403_carries_message() {
+        let (url, _rx) = fake_server_with_body(
+            "403 Forbidden",
+            r#"{"error":"feature not enabled: clipboard"}"#,
+        );
+        assert!(matches!(
+            Client::new(&url, "t").account().unwrap_err(),
+            ClientError::Forbidden(m) if m == "feature not enabled: clipboard"
+        ));
+    }
+
+    #[test]
+    fn account_401_is_unauthorized() {
+        let (url, _rx) = fake_server_with_body("401 Unauthorized", r#"{"error":"x"}"#);
+        assert!(matches!(
+            Client::new(&url, "t").sign_out().unwrap_err(),
+            ClientError::Unauthorized
+        ));
+    }
+
+    #[test]
+    fn account_404_is_rejected_with_message() {
+        let (url, _rx) = fake_server_with_body("404 Not Found", r#"{"error":"no such session"}"#);
+        assert!(matches!(
+            Client::new(&url, "t").revoke_session(9).unwrap_err(),
+            ClientError::Rejected { status: 404, message } if message == "no such session"
+        ));
+    }
+
+    #[test]
+    fn account_5xx_is_unreachable() {
+        let (url, _rx) = fake_server_with_body("503 Service Unavailable", "");
+        assert!(matches!(
+            Client::new(&url, "t").delete_account().unwrap_err(),
+            ClientError::Unreachable(_)
+        ));
+    }
+
+    #[test]
+    fn non_json_body_gives_empty_message() {
+        let (url, _rx) = fake_server_with_body("403 Forbidden", "<html>nope</html>");
+        assert!(matches!(
+            Client::new(&url, "t").account().unwrap_err(),
+            ClientError::Forbidden(m) if m.is_empty()
+        ));
+    }
+}
