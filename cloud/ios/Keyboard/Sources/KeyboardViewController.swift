@@ -2,6 +2,7 @@
 
 import SwiftUI
 import UIKit
+import os
 
 final class KeyboardViewController: UIInputViewController, TextOutput {
     private var model: KeyboardModel!
@@ -148,6 +149,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         updatePrivacy()
         let document = hostDocumentIdentifier
         if HostDocument.changed(from: lastDocument, to: document) {
+            // 真机核对换输入框时标识是否变化、上下文是否清掉；标识是系统给的随机 UUID，不含输入内容
+            let from = Self.short(lastDocument), to = Self.short(document)
+            Self.log.info("宿主输入框切换 \(from, privacy: .public) → \(to, privacy: .public)，清上下文")
             lastDocument = document
             model.hostChanged()
         }
@@ -155,6 +159,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     /// 宿主输入框的标识。`textDocumentProxy.documentIdentifier` 声明为非可选 UUID，但键盘刚弹出、连上宿主之前系统返回 nil，
     /// 直接读会在 UUID 桥接处 EXC_BREAKPOINT 崩溃，所以走 KVC 取成可选值，别「简化」回去。
+    private static let log = Logger(subsystem: "app.qingjian.cloud.keyboard", category: "host")
+
+    private static func short(_ id: UUID?) -> String { id.map { String($0.uuidString.prefix(8)) } ?? "nil" }
+
     private var hostDocumentIdentifier: UUID? {
         (textDocumentProxy as? NSObject)?.value(forKey: "documentIdentifier") as? UUID
     }
