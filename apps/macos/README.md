@@ -9,8 +9,9 @@ macOS 输入法壳（InputMethodKit）。按键进 Core 的 `Engine`，候选画
 apps/macos/scripts/bundle.sh --install
 ```
 
-打包到 `target/Sujian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
-首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「素笺」，列表里没有就注销再登录。
+打包到 `target/macos.noindex/Sujian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
+首次装加 `--register`（`bundle.sh --install --register`）由已安装那份注册并启用；或在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「素笺」，列表里没有就注销再登录。
+构建目录放在 `.noindex` 里，免得 LaunchServices 登记这份同 id 的包、系统切换时拉起它；`--install` 最后检查只有已安装那份在跑。
 日志在 `~/Library/Logs/Qingjian/`，用户数据与 `config.toml` 在 `~/Library/Application Support/Qingjian/`。
 
 ## 分发 pkg
