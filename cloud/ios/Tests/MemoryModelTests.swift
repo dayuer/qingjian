@@ -207,5 +207,6 @@ final class MemoryModelTests: XCTestCase {
         XCTAssertTrue(HostDocument.changed(from: a, to: b))
         XCTAssertTrue(HostDocument.changed(from: nil, to: a), "第一次看到输入框也清一次")
         XCTAssertFalse(HostDocument.changed(from: nil, to: nil))
+        XCTAssertTrue(HostDocument.changed(from: a, to: nil), "离开输入框（标识变 nil）也算换了，组字要清")
     }
 }
