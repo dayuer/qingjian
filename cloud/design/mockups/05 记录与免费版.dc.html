@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /><style>
+        .rec{display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:13px;font:12px var(--sans);color:var(--ink-2);background:var(--key)}
+        .rec i{display:block;width:7px;height:7px;border-radius:50%;background:var(--accent-ink)}
+        .rec.off i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--ink-3)}
+        .plan{background:#fff;border-radius:18px;box-shadow:0 0 0 1px var(--line);padding:18px;display:flex;flex-direction:column;gap:10px}
+        .plan.on{box-shadow:0 0 0 2px var(--accent-ink)}
+        .plan h4{margin:0;font:600 18px var(--serif)}
+        .plan ul{margin:0;padding:0 0 0 18px;font:13.5px/1.75 var(--sans);color:var(--ink-2)}
+        .price{font:600 15px var(--sans);color:var(--ink)}
+        .check{width:22px;height:22px;border-radius:6px;background:var(--accent);flex:none;display:flex;align-items:center;justify-content:center;color:var(--ink);font:600 13px var(--sans)}
+        .check.m3{width:18px;height:18px;border-radius:2px;margin:2px 3px 0;background:var(--accent-ink);color:#fff;font:700 12px var(--sans)}
+        .check.off{background:#fff;box-shadow:inset 0 0 0 1.5px var(--line)}
+        .sec-h{font:600 13px var(--sans);color:var(--ink-3);margin:6px 0 -6px;width:100%}
+      </style></helmet>
+      <section class="dv-turn" id="t2" data-screen-label="第二轮：记录与免费版">
+        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">第二轮：主动开启记录、免费版与云服务的分界</span></div>
+        <p class="dv-intro">这一轮按审核要求改了四处：① 引导里完全访问可以跳过，跳过就是免费的离线输入法（替代第一轮的引导 1b）；② 新增「开启记录」同意页：分场景勾选、写明交给哪家大模型并单独同意、随时可撤回；③ 键盘上始终看得见「记录中」，点一下暂停；④ App 首页叫「键盘记住的事」。免费版保留手动记忆卡与本地提示，不上传任何东西。第一轮的屏幕在 01–04 文件里保持不动。</p>
+        <div class="dv-opts">
+
+          <div class="sec-h">键盘</div>
+
+          <div class="dv-opt" id="2a">
+            <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>iOS · 云服务 · 记录中</div>
+            <div class="ios">
+              <div class="sb-ios"><span>21:42</span><span class="sb-dots"><i></i></span></div>
+              <div class="host">
+                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+                <div class="host-msgs"><div class="bub them">累死了，刚从驾校回来</div></div>
+                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+              </div>
+              <div class="kbd">
+                <div class="k-bar"><div class="chip love"><span class="dot"></span>小美<span class="scene">· 恋爱</span></div><div class="rec"><i></i>记录中</div><span class="tool sp">记一笔</span><span class="tool">改写</span></div>
+                <div class="krows">
+                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
+                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
+                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
+                </div>
+                <div class="kfoot"></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">「记录中」紧跟在对象牌子后面，只要在上传就永远可见。点它即暂停，不弹确认。密码框、工作场景、没开记录的场景里它不出现。</p>
+          </div>
+
+          <div class="dv-opt" id="2b">
+            <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>iOS · 云服务 · 已暂停</div>
+            <div class="ios">
+              <div class="sb-ios"><span>21:43</span><span class="sb-dots"><i></i></span></div>
+              <div class="host">
+                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+                <div class="host-msgs"><div class="bub them">累死了，刚从驾校回来</div></div>
+                <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
+              </div>
+              <div class="kbd">
+                <div class="toast"><span class="dot ink"></span>已暂停记录，提示照常。切走应用或 1 小时后恢复<span style="margin-left:auto;color:var(--accent-ink)">一直暂停</span></div>
+                <div class="k-hint"><span class="dot"></span><span>她周三考<b>科目二</b>，今天该出成绩了</span><span class="more">展开</span></div>
+                <div class="k-comp">
+                  <div class="k-py">kao'shi</div>
+                  <div class="k-cands"><span class="first">考试</span><span>考得怎么样</span><span>考是</span><span class="exp">∨</span></div>
+                </div>
+                <div class="krows">
+                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
+                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
+                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
+                </div>
+                <div class="kfoot"></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">暂停只停上传，本地记忆与提示不受影响。缺省自动恢复，避免用户忘了开回来；「一直暂停」就是关掉这个场景的记录。暂停时牌子变成空心圈「已暂停」。</p>
+          </div>
+
+          <div class="dv-opt" id="2c">
+            <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>iOS · 免费版：手动记忆卡的提示</div>
+            <div class="ios">
+              <div class="sb-ios"><span>12:10</span><span class="sb-dots"><i></i></span></div>
+              <div class="host">
+                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+                <div class="host-msgs"><div class="bub them">中午吃什么呀</div></div>
+                <div class="host-input"><div class="host-field">去吃<span class="caret"></span></div></div>
+              </div>
+              <div class="kbd">
+                <div class="k-hint"><span class="dot"></span><span>她<b>不吃香菜</b>，喜欢冰美式</span><span class="more">你写的</span></div>
+                <div class="k-comp">
+                  <div class="k-py">yue'nan'fen</div>
+                  <div class="k-cands"><span class="first">越南粉</span><span>越南</span><span>悦</span><span class="exp">∨</span></div>
+                </div>
+                <div class="krows">
+                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
+                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
+                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
+                </div>
+                <div class="kfoot"></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">免费版与付费版的提示长得一样，只是卡片是用户自己写的（右侧标「你写的」）。没有「记录中」、不联网、不需要完全访问——这就是审核员拿到的完整键盘功能。点工具栏「记一笔」在免费版里是直接写一张本地卡。</p>
+          </div>
+
+          <div class="sec-h">引导</div>
+
+          <div class="dv-opt" id="2d">
+            <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>iOS · 开启键盘（完全访问可跳过）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:01</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 46px">
+                <div class="progress" style="padding:16px 0 0"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:32px">先打开键盘</span>
+                <div class="fx col gap16" style="margin-top:24px">
+                  <div class="step"><span class="n done">✓</span><span class="tx">设置 → 通用 → 键盘 → 添加新键盘 → <b>素笺</b></span></div>
+                </div>
+                <div class="group" style="margin:28px 0 0">
+                  <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">这就能用了</span><span class="sub" style="font-size:13.5px;line-height:1.65;margin-top:4px">打字、记住你的用词习惯、自己写记忆卡、打字时提示——全在手机上，不联网，免费。</span></div></div>
+                  <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">「允许完全访问」暂时不用开</span><span class="sub" style="font-size:13.5px;line-height:1.65;margin-top:4px">只有以后开通云服务、让键盘自己学的时候才需要，到时会再问你。</span></div></div>
+                </div>
+                <div style="flex:1"></div>
+                <span class="btn lg pri" style="display:flex">去设置添加</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">替代第一轮引导 1b。完全访问从必经步骤退到「以后再说」，对应审核指南 4.4.1：不开完全访问也必须能用。</p>
+          </div>
+
+          <div class="dv-opt" id="2e">
+            <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>iOS · 免费版与云服务</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:02</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 20px 46px;gap:14px">
+                <div class="progress" style="padding:16px 4px 0"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:18px;padding:0 4px">要不要让键盘自己记？</span>
+                <div class="plan on">
+                  <div class="fx jb ac"><h4>免费</h4><span class="pill r">现在就是</span></div>
+                  <ul><li>完整的输入法</li><li>自己写记忆卡，打字时提示</li><li>什么都不上传</li></ul>
+                </div>
+                <div class="plan">
+                  <div class="fx jb ac"><h4>素笺云服务</h4><span class="price">¥ — / 月</span></div>
+                  <ul><li>你开启的场景里，键盘自己记、每天整理</li><li>每周一张「这周记住了什么」，你确认</li><li>选中文字一键改写</li><li>换手机记忆还在</li></ul>
+                </div>
+                <div style="flex:1"></div>
+                <span class="btn lg pri" style="display:flex">先用免费版</span>
+                <span class="btn lg ghost" style="display:flex;height:36px;margin-top:-6px">了解云服务</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">主按钮是免费版：不在引导里推付费，也不把「交出数据」和付费绑在一起。价格是占位，订阅走苹果内购。</p>
+          </div>
+
+          <div class="dv-opt" id="2f">
+            <div class="dv-olabel"><a class="dv-oid" href="#2f">2f</a>iOS · 开启记录（付费后、上传前）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:10</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span class="back">‹ 返回</span></div>
+                <span class="serif" style="font-size:26px;font-weight:600;padding:4px 20px 0">在哪些场景里记？</span>
+                <div class="scroll" style="gap:14px">
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">恋爱</span><span class="sub">你发出的话、你记的一笔</span></div><div class="toggle"></div></div>
+                    <div class="row"><div class="main"><span class="ttl">日常</span><span class="sub">没有选对象时也记，整理时让你补是谁</span></div><div class="toggle off"></div></div>
+                    <div class="row"><div class="main"><span class="ttl">工作</span><span class="sub">待办、约好的时间</span></div><div class="toggle off"></div></div>
+                  </div>
+                  <div class="sec-t">交给谁处理</div>
+                  <div class="group">
+                    <div class="row" style="align-items:flex-start"><span class="check">✓</span><div class="main"><span class="ttl" style="font-size:14.5px">同意交给（大模型供应商）整理</span><span class="sub">先抹去姓名、电话、地址等再发送；对方不保存、不拿来训练。整理完原文即删。</span></div></div>
+                  </div>
+                  <div class="sec-t">永远不记</div>
+                  <div class="lead" style="margin-top:-6px">密码框、银行与支付类应用、你没打开的场景、对方发来的消息（除非你自己记一笔）。</div>
+                  <div class="sec-t">随时可以停</div>
+                  <div class="lead" style="margin-top:-6px">键盘上点「记录中」就暂停；在「我」里可以撤回同意，并把云端的数据一起删掉。</div>
+                </div>
+                <div style="padding:0 20px 46px"><span class="btn lg acc" style="display:flex">同意并开始记录</span></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">对应 5.1.1 同意与撤回、 5.1.2 第三方 AI 单独同意。第三方那一项不勾，按钮不可用。缺省只开恋爱场景，日常与工作要用户自己打开。接下来才跳系统设置开完全访问。</p>
+          </div>
+
+          <div class="dv-opt" id="2g">
+            <div class="dv-olabel"><a class="dv-oid" href="#2g">2g</a>iOS · 第一个对象（加了称呼）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>20:05</span><span class="sb-dots"><i></i></span></div>
+              <div class="app" style="padding:0 24px 46px">
+                <span class="serif" style="font-size:26px;font-weight:600;margin-top:32px">想记得谁？</span>
+                <div class="lbl" style="margin-top:24px">名字或代号</div>
+                <div class="field" style="margin-top:8px">小美<span class="caret" style="vertical-align:middle"></span></div>
+                <span style="font:12.5px/1.6 var(--sans);color:var(--ink-3);margin-top:8px">只保存在这台手机上。</span>
+                <div class="lbl" style="margin-top:20px">提示里怎么称呼</div>
+                <div class="opts" style="margin-top:8px"><span>他</span><span class="on">她</span><span>TA</span><span>直接用名字</span></div>
+                <div class="lbl" style="margin-top:22px">先写几件你已经知道的事（可以跳过）</div>
+                <div class="group" style="margin:8px 0 0">
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">生日</span></div><span class="side" style="color:var(--ink)">10 月 5 日</span></div>
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">喜欢 / 不喜欢</span></div><span class="side" style="color:var(--ink)">不吃香菜</span></div>
+                  <div class="row"><div class="main"><span class="ttl" style="color:var(--accent-ink)">+ 再写一条</span></div></div>
+                </div>
+                <div style="flex:1"></div>
+                <span class="btn lg acc" style="display:flex">好了</span>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">称呼由用户选，缺省 TA；提示、每周卡片里的「她」都按这里替换。按钮文案不再带代词。这是免费版也有的一步。</p>
+          </div>
+
+          <div class="sec-h">App</div>
+
+          <div class="dv-opt" id="2h">
+            <div class="dv-olabel"><a class="dv-oid" href="#2h">2h</a>iOS · 首页（云服务）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span></span><span style="color:var(--accent-ink)">编辑</span></div>
+                <div class="big-t">键盘记住的事</div>
+                <div class="fx ac gap8" style="padding:0 20px;font:12.5px var(--sans);color:var(--ink-3)"><span class="rec" style="background:#fff;box-shadow:0 0 0 1px var(--line)"><i></i>记录中 · 恋爱</span><span>今天 04:12 整理过</span></div>
+                <div class="scroll">
+                  <div class="group" style="background:var(--accent-soft);box-shadow:none">
+                    <div class="row"><div class="when">明天</div><div class="main"><span class="ttl">小美生日</span><span class="sub">去年送的是香水，她说太浓了</span></div></div>
+                  </div>
+                  <div class="sec-t">人 · 2 / 8</div>
+                  <div class="group">
+                    <div class="row"><div class="avatar r">美</div><div class="main"><span class="ttl">小美</span><span class="sub">46 件 · 2 件待确认</span></div><span class="pill r">2</span><span class="chev">›</span></div>
+                    <div class="row"><div class="avatar">林</div><div class="main"><span class="ttl">阿林</span><span class="sub">12 件</span></div><span class="chev">›</span></div>
+                  </div>
+                  <div class="sec-t">还没归到人的</div>
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">周五晚上订了两个人的位子</span><span class="sub">和谁？</span></div><span class="btn line" style="height:28px;padding:0 12px">补上</span></div>
+                  </div>
+                </div>
+                <div class="tabbar"><div class="tab on"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">「还没归到人的」就是日常场景里没选对象时记下的：只问「和谁？」让用户补，不替用户猜。场景设置移到「我」里。</p>
+          </div>
+
+          <div class="dv-opt" id="2i">
+            <div class="dv-olabel"><a class="dv-oid" href="#2i">2i</a>iOS · 首页（免费版）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span></span><span style="color:var(--accent-ink)">编辑</span></div>
+                <div class="big-t">键盘记住的事</div>
+                <div style="padding:0 20px;font:12.5px var(--sans);color:var(--ink-3)">都是你写的 · 只存在这台手机上</div>
+                <div class="scroll">
+                  <div class="group" style="background:var(--accent-soft);box-shadow:none">
+                    <div class="row"><div class="when">明天</div><div class="main"><span class="ttl">小美生日</span></div></div>
+                  </div>
+                  <div class="sec-t">人 · 1 / 8</div>
+                  <div class="group">
+                    <div class="row"><div class="avatar r">美</div><div class="main"><span class="ttl">小美</span><span class="sub">5 件</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="avatar" style="background:transparent;box-shadow:inset 0 0 0 1px var(--line)">+</div><div class="main"><span class="ttl" style="color:var(--accent-ink)">加一个人</span></div></div>
+                  </div>
+                  <div class="group" style="box-shadow:none;background:var(--paper-2)">
+                    <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">懒得自己写？</span><span class="sub" style="line-height:1.6">开通素笺云服务后，键盘会在你选的场景里自己记、每天整理，你只用每周确认一下。</span><span style="font:500 13px var(--sans);color:var(--accent-ink);margin-top:6px">了解一下</span></div></div>
+                  </div>
+                </div>
+                <div class="tabbar"><div class="tab on"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">免费版首页结构与付费版一致，只是没有「记录中」和「待确认」。付费入口只有底部一张灰底小卡，可以关掉。「本周」在免费版里只列临近的日子与约定。</p>
+          </div>
+
+          <div class="dv-opt" id="2j">
+            <div class="dv-olabel"><a class="dv-oid" href="#2j">2j</a>iOS · 我：记录、同意与账号</div>
+            <div class="ios">
+              <div class="sb-ios"><span>08:20</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="big-t" style="padding-top:40px">我</div>
+                <div class="scroll" style="gap:10px;padding-top:4px" data-tight="1">
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">素笺云服务</span><span class="sub">已开通 · 下次续费 11 月 3 日</span></div><span class="chev">›</span></div>
+                  </div>
+                  <div class="sec-t" style="display:flex;justify-content:space-between;padding-right:20px"><span>场景</span><span style="color:var(--accent-ink);font-weight:400">＋ 添加</span></div>
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">恋爱</span><span class="sub">记录中 · 人设温和 · 2 个应用</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">日常</span><span class="sub">不记 · 只用基础输入</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">工作</span><span class="sub">不提示、不叠加、不上传 · 4 个应用</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">哪些应用里自动切到哪个场景</span></div><span class="chev">›</span></div>
+                  </div>
+                  <div class="sec-t">数据</div>
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">交给谁处理</span><span class="sub">（大模型供应商）· 已同意</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">导出我的记忆</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl" style="color:oklch(0.5 0.13 28)">撤回同意并删除云端数据</span><span class="sub">手机上的记忆卡留着</span></div></div>
+                    <div class="row"><div class="main"><span class="ttl" style="color:oklch(0.5 0.13 28)">删除账号</span></div></div>
+                  </div>
+                </div>
+                <div class="tabbar"><div class="tab"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab on"><i class="i-me"></i>我</div></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">「撤回同意」与「删除账号」都在 App 内一层就能找到（审核指南 5.1.1(ii)、(v)）。撤回后退回免费版：本地已确认的卡片转为「你写的」继续可用。</p>
+          </div>
+
+          <div class="dv-opt" id="2k">
+            <div class="dv-olabel"><a class="dv-oid" href="#2k">2k</a>Android · 开启记录（显著披露）</div>
+            <div class="and">
+              <div class="sb-and"><span>20:10</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="mtop"><span style="font-size:22px">←</span></div>
+                <span class="serif" style="font-size:28px;font-weight:600;padding:0 20px">在哪些场景里记？</span>
+                <div class="scroll" style="gap:14px">
+                  <div class="group" style="border-radius:20px">
+                    <div class="row" style="padding:14px 16px"><div class="main"><span class="ttl">恋爱</span><span class="sub">你发出的话、你记的一笔</span></div><div class="toggle m3"></div></div>
+                    <div class="row" style="padding:14px 16px"><div class="main"><span class="ttl">日常</span></div><div class="toggle m3 off"></div></div>
+                    <div class="row" style="padding:14px 16px"><div class="main"><span class="ttl">工作</span></div><div class="toggle m3 off"></div></div>
+                  </div>
+                  <div class="group" style="border-radius:20px">
+                    <div class="row" style="align-items:flex-start;padding:14px 16px"><span class="check m3">✓</span><div class="main"><span class="ttl" style="font-size:14.5px">同意交给（大模型供应商）整理</span><span class="sub">先抹去姓名、电话、地址等再发送；不保存、不训练。</span></div></div>
+                  </div>
+                  <div class="lead">永远不记：密码框、银行与支付类应用、没打开的场景。随时在键盘上暂停，或在「我」里撤回。</div>
+                </div>
+                <div class="fx gap12" style="padding:0 20px 48px"><span class="btn lg line" style="flex:1;display:flex">不同意</span><span class="btn lg acc" style="flex:1.4;display:flex">同意并开始</span></div>
+              </div>
+              <div class="gest-and"></div>
+            </div>
+            <p class="dv-note">Google Play 要求「显著披露」时同意与拒绝并列，所以 Android 版给出显式的「不同意」。</p>
+          </div>
+
+        </div>
+        <p class="dv-next">可以接着说：「<a class="dv-oid" href="#2a">2a</a> 的记录标记再小一点，只留圆点」·「<a class="dv-oid" href="#2e">2e</a> 加上年付价格」·「补一屏『还没归到人的』怎么补」</p>
+      </section>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{}'>
+      class Component extends DCLogic {
+        renderVals() {
+          return {
+            rows: [{ k: ['q','w','e','r','t','y','u','i','o','p'] }, { k: ['a','s','d','f','g','h','j','k','l'] }],
+            r3: ['z','x','c','v','b','n','m']
+          };
+        }
+      }
+    </script>
+  </body>
+</html>
