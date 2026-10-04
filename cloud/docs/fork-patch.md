@@ -152,6 +152,7 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/macos/tests/info_plist.rs` | 改 2 处断言文案 | 图标说明与失败信息 |
 | `apps/macos/Info.plist` | 再加 2 行 | `LSHasLocalizedDisplayName = true`，访达按本地化名显示「素笺」 |
 | `apps/macos/Info.plist`、`scripts/{bundle,uninstall}.sh`、`pkg/scripts/postinstall` | 包名改 Sujian.app | `CFBundleDisplayName` 与文件名主干一致为 `Sujian`（访达才换成本地化名）；安装与卸载顺手清改名前的 `Qingjian.app`（同 bundle id）；`--install` 后注销构建目录那份 |
+| `apps/macos/Info.plist`、`scripts/bundle.sh` | 菜单图标改回 PDF | 四个图标键指向 `qingjian-menu.pdf`，源自 `cloud/brand/icon/macos-menu.pdf`（线框白纸，22×16pt）；位图 tiff 时 `TISIconIsTemplate` 不生效，深色菜单栏上仍是黑的 |
 | `apps/macos/src/preferences/{pages/about.rs,pages/mod.rs,mod.rs,setting/mod.rs}`、`host/settings.rs` | 删「官网」按钮 | 去掉 `WEBSITE_URL`、`Setting::OpenWebsite` 与分发（上游官网会误导）；素笺有官网后再加回 |
 | `apps/macos/pkg/resources/{welcome,conclusion}.html`、`README.md` | 改 | 安装器页面不写路径，改「卸载方法见 README」；README 卸载一节补路径清单 |
 

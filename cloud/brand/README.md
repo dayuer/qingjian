@@ -14,7 +14,8 @@
 | android-monochrome-432 | Android 13+ 主题图标（单色） |
 | android-preview-432 | 圆形遮罩下的效果预览，不用于打包 |
 | macos-1024 | macOS 应用图标（Big Sur 网格：824 圆角方块居中、带投影，生成 .icns 用） |
-| macos-menu-16 / -32、macos-menu.tiff | 输入法菜单栏模板图标（纯黑透明底，系统按深浅色反色）；tiff 由 `tiffutil -cathidpicheck` 合成 |
+| macos-menu.svg / .pdf | 输入法菜单栏模板图标：线框白纸，22×16pt 画布（同上游约定），纯黑透明底，系统按深浅色反色；pdf 由 `cairosvg macos-menu.svg -f pdf -o macos-menu.pdf` 导出。位图 tiff 系统不反色，别用 |
+| macos-menu-16 / -32 | 同一造型的 16 / 32 像素预览，不打包 |
 
 ## wordmark/
 
