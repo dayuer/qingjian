@@ -2,26 +2,56 @@
 //!
 //! 所有变化都是带全局递增 `seq` 的事件，客户端记住拉到哪个 `seq`，断线后从那里补拉。
 
+mod account;
+mod apple_client;
+mod apple_sign_in;
 mod config_doc;
+mod consents;
+mod device;
+mod email_start;
+mod email_verify;
 mod event;
 mod event_kind;
 mod event_page;
+mod feature;
+mod handoff_exchange;
+mod handoff_grant;
+mod identity_info;
 mod input_log;
 mod learning_page;
 mod learning_push;
 mod learning_row;
+mod platform;
 mod push_clip;
+mod put_consent;
+mod session_grant;
+mod session_info;
 mod whoami;
 
+pub use account::Account;
+pub use apple_client::AppleClient;
+pub use apple_sign_in::AppleSignIn;
 pub use config_doc::{ConfigDoc, PutConfig};
+pub use consents::Consents;
+pub use device::Device;
+pub use email_start::EmailStart;
+pub use email_verify::EmailVerify;
 pub use event::Event;
 pub use event_kind::EventKind;
 pub use event_page::EventPage;
+pub use feature::Feature;
+pub use handoff_exchange::HandoffExchange;
+pub use handoff_grant::HandoffGrant;
+pub use identity_info::IdentityInfo;
 pub use input_log::{InputLogLine, InputLogPage, InputLogPush};
 pub use learning_page::LearningPage;
 pub use learning_push::{CountDelta, LearningPush, MAX_LEARNING_PUSH, SetDelete, SetPut};
 pub use learning_row::LearningRow;
+pub use platform::Platform;
 pub use push_clip::PushClip;
+pub use put_consent::PutConsent;
+pub use session_grant::SessionGrant;
+pub use session_info::SessionInfo;
 pub use whoami::Whoami;
 
 /// 剪贴板单条文本的上限（UTF-8 字节）。
@@ -30,13 +60,40 @@ pub const MAX_CLIP_BYTES: usize = 1024 * 1024;
 /// 一次拉取最多返回多少条事件。
 pub const MAX_PAGE: usize = 500;
 
-/// 设备令牌的前缀，便于在配置里认出来。
-pub const TOKEN_PREFIX: &str = "qjc_";
+/// 会话令牌的前缀，便于在配置里认出来；旧的设备令牌是 `qjc_`，已作废。
+pub const TOKEN_PREFIX: &str = "sjt_";
 
 /// 健康检查，不要鉴权。
 pub const PATH_HEALTH: &str = "/healthz";
 
-/// 查询当前令牌对应的设备。
+/// `POST` Apple 登录（不要鉴权）。
+pub const PATH_AUTH_APPLE: &str = "/v1/auth/apple";
+
+/// `POST` 给邮箱发验证码（不要鉴权），成功是 204。
+pub const PATH_AUTH_EMAIL_START: &str = "/v1/auth/email/start";
+
+/// `POST` 邮箱加验证码登录（不要鉴权）。
+pub const PATH_AUTH_EMAIL_VERIFY: &str = "/v1/auth/email/verify";
+
+/// `POST` 网页登录的一次性码加 verifier 换会话（不要鉴权）。
+pub const PATH_AUTH_HANDOFF: &str = "/v1/auth/handoff";
+
+/// `GET` 账号；`DELETE` 删账号。
+pub const PATH_ACCOUNT: &str = "/v1/account";
+
+/// `DELETE /v1/sessions/{id}` 注销某台设备，`DELETE /v1/sessions/current` 退出登录。
+pub const PATH_SESSIONS: &str = "/v1/sessions";
+
+/// `PUT /v1/consents/{feature}` 开关一项功能。
+pub const PATH_CONSENTS: &str = "/v1/consents";
+
+/// 网页登录页（Mac 用 `ASWebAuthenticationSession` 打开）。
+pub const PATH_LOGIN: &str = "/login";
+
+/// 网页登录回跳的 URL scheme：`sujian://auth?handoff=…`。
+pub const LOGIN_CALLBACK_SCHEME: &str = "sujian";
+
+/// 查询当前会话对应的设备名与本用户最新的 seq。
 pub const PATH_WHOAMI: &str = "/v1/whoami";
 
 /// `POST` 上传一条剪贴板；`DELETE /v1/clipboard/{seq}` 删除一条。
