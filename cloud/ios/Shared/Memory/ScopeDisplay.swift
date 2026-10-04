@@ -20,11 +20,6 @@ enum ScopeDisplay {
     /// 没开完全访问读不到 App Group 里的记忆，也不让切场景（桥不知道有没有完全访问，这道门在 Swift 侧）。
     static func pickerMode(fullAccess: Bool) -> PickerMode { fullAccess ? .picker : .needsFullAccess }
 
-    /// 候选栏右端「完成」/「收起」的颜色：选择面板与对象卡是对象相关，用强调色；没开完全访问那一屏与对象无关，用中性色。
-    static func panelCloseRole(fullAccess: Bool) -> ColorRole {
-        fullAccess ? .accent : NoFullAccessStyle.standard.closeText
-    }
-
     static let needsFullAccessText = "开启完全访问后才能使用记忆"
 
     /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。

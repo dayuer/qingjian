@@ -29,7 +29,7 @@ struct HintRow: View {
                 }
                 Text(hint.reason == .today ? "知道了" : "展开")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Theme.accentInk.color)
+                    .foregroundStyle(ColorUsage.hintButton.role.color)
                     .padding(.trailing, 12)
                     .frame(maxHeight: .infinity)
                     .onKeyboardPress {
