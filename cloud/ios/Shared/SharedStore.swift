@@ -4,7 +4,7 @@
 import Foundation
 
 enum SharedStore {
-    static let groupIdentifier = "group.app.qingjian.cloud"
+    static let groupIdentifier = "group.sujian.synon.ai"
 
     /// App Group 容器下的 `Library/Application Support/Qingjian`；签名没带 App Group 时为 nil。
     static var directory: URL? {

@@ -11,7 +11,7 @@ import os
 @MainActor
 @Observable
 final class KeyboardModel {
-    private static let log = Logger(subsystem: "app.qingjian.cloud.keyboard", category: "memory")
+    private static let log = Logger(subsystem: "sujian.synon.ai.keyboard", category: "memory")
 
     private(set) var preedit = ""
 

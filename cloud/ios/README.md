@@ -43,11 +43,11 @@ Keyboard target 的 preBuildScript 会跑 `scripts/build-bridge.sh`，它做三�
 
 产品数据默认取仓库根的 `data/generated/`，没有就先跑 `tools/release/data-fetch.sh`。Rust 工具链要有 `aarch64-apple-ios` 与 `aarch64-apple-ios-sim` 两个 target。
 
-装到真机：主 App 与键盘靠 App Group `group.app.qingjian.cloud` 共享设置，通配符描述文件不支持，必须自动签名——
+装到真机：主 App 与键盘靠 App Group `group.sujian.synon.ai` 共享设置，通配符描述文件不支持，必须自动签名——
 先在 Xcode → Settings → Accounts 登录团队 L9YRXEKYN2 的账号，然后直接在 Xcode 里 Run，或跑 `scripts/install-device.sh`
 （编 Release、`-allowProvisioningUpdates` 自动生成描述文件、装到连着的 iPhone，并检查键盘签名里带了 App Group）。
 
-App target 带 Sign in with Apple 权限（`com.apple.developer.applesignin`），自动签名会给 App ID `app.qingjian.cloud` 打开这项能力。
+App target 带 Sign in with Apple 权限（`com.apple.developer.applesignin`），自动签名会给 App ID `sujian.synon.ai` 打开这项能力。
 **Apple 登录只能在真机上测**；模拟器里能看到账号页、能走邮箱登录。`install-device.sh` 发现包里的 `cloud.toml` 带令牌会拒装。
 以前用过的 `cloud.local.toml`（带旧的 `qjc_` 令牌）已作废，删掉即可。
 
@@ -92,7 +92,7 @@ App target 带 Sign in with Apple 权限（`com.apple.developer.applesignin`）�
 模拟器里可以省掉在设置里点来点去：
 
 ```bash
-xcrun simctl spawn booted defaults write .GlobalPreferences AppleKeyboards -array "app.qingjian.cloud.keyboard" "en_US@sw=QWERTY;hw=Automatic"
+xcrun simctl spawn booted defaults write .GlobalPreferences AppleKeyboards -array "sujian.synon.ai.keyboard" "en_US@sw=QWERTY;hw=Automatic"
 ```
 
 ## 已知问题

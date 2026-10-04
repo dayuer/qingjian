@@ -29,9 +29,9 @@ if grep -q '^token' "$seed"; then
   echo "包里的 cloud.toml 带着令牌，不能装出去（令牌只由账号页登录写入）" >&2
   exit 1
 fi
-codesign -d --entitlements - "$app/PlugIns/Keyboard.appex" 2>/dev/null | grep -q group.app.qingjian.cloud \
+codesign -d --entitlements - "$app/PlugIns/Keyboard.appex" 2>/dev/null | grep -q group.sujian.synon.ai \
   || { echo "键盘的签名里没有 App Group，设置改不到键盘上" >&2; exit 1; }
 
 xcrun devicectl device install app --device "$device" "$app" >/dev/null
-xcrun devicectl device process launch --device "$device" app.qingjian.cloud >/dev/null
+xcrun devicectl device process launch --device "$device" sujian.synon.ai >/dev/null
 echo "已装 $config 包到 $device 并启动"
