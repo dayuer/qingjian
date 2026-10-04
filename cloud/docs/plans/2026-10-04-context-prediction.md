@@ -2573,12 +2573,16 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git 
 
 | 项 | 结果 |
 |---|---|
-| A 前文影响排序（10 对实际位次） | |
-| B 选过的词加分（空前文位次 / 强前文位次 / 已还原） | |
-| D TextEdit 10 句：没排第一的次数 | |
-| D 聊天应用（名字）10 句：没排第一的次数 | |
-| E 内存 both / tongbian（IMK 进程，MB） | |
-| 日志里的问题 | |
+| 安装与进程（2026-10-04） | `0.1.5-dev-c091c54`，`~/Library/Input Methods/` 下只有 `Sujian.app`；输入法进程只有一个（pid 56804）；LaunchServices 无 `target/` 下的副本 |
+| 日志（`~/Library/Logs/Qingjian/qingjian.log.2026-10-04`，UTC 13:03 起） | 「知微已加载并预热 total_ms=168」「本地模型已加载并预热」（通变）；装包后没有 ERROR，WARN 只有旧的无害项（字体 hvgl 格式、云联想未启用） |
+| E 内存 both（IMK 进程，进程跑 1 分 15 秒、基本没打字） | Physical footprint 248.1 MB（peak 256.4 MB）；RSS 373 MB。tongbian 对照**待用户真机结果** |
+| A 前文影响排序（10 对实际位次） | **待用户真机结果**（清单 A 节） |
+| B 选过的词加分（空前文位次 / 强前文位次 / 已还原） | **待用户真机结果**（清单 B 节） |
+| D TextEdit 10 句：没排第一的次数 | **待用户真机结果**（清单 D 节） |
+| D 聊天应用（名字）10 句：没排第一的次数 | **待用户真机结果**（清单 D 节） |
+| E 内存 tongbian 与差值（预计差约 67 MB） | **待用户真机结果**（清单 E 节） |
+
+真机结果由用户按 [`2026-10-04-context-prediction-device-test.md`](2026-10-04-context-prediction-device-test.md) 测完后补进来；以后谁接手都可以照清单补这张表。
 
 ## Task 8：iOS 桥接前文
 
