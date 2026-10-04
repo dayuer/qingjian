@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use qingjian_cloud_bridge::{CloudConfig, CloudStatus, CloudSwitches, Session, Settings};
+use qingjian_cloud_bridge::{CloudConfig, Session, Settings};
 use qingjian_core::CustomPhrase;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -104,27 +104,4 @@ fn session_applies_config_changes() {
     session.poll();
     assert_eq!(first(&mut session), "中國");
     std::fs::remove_dir_all(&user).ok();
-}
-
-#[test]
-fn switches_keep_server_and_token() {
-    let dir = temp_dir("switches");
-    let path = dir.join("cloud.toml");
-    let config = CloudConfig {
-        server: "https://example.com".into(),
-        token: "secret".into(),
-        ..CloudConfig::default()
-    };
-    config.save(&path).unwrap();
-    let mut switches = CloudSwitches::of(&config);
-    switches.clipboard = false;
-    CloudConfig::save_switches(&path, switches).unwrap();
-    let saved = CloudConfig::read(&path).unwrap();
-    assert_eq!(saved.token, "secret");
-    assert_eq!(saved.server, "https://example.com");
-    assert!(!saved.clipboard);
-    let status = serde_json::to_string(&CloudStatus::of(&saved)).unwrap();
-    assert!(status.contains("\"connected\":true"));
-    assert!(!status.contains("secret"));
-    std::fs::remove_dir_all(&dir).ok();
 }

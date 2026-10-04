@@ -62,9 +62,23 @@ void qj_clip_push(QjSession *session, const char *text);
 // config.toml 与 Mac 同格式并经青简 Cloud 同步，键盘每次轮询按修改时间重读。
 char *qj_settings_read(const char *config_path, const char *dicts_dir);
 char *qj_settings_write(const char *config_path, const char *json);
-// cloud.toml：读返回服务器地址、是否已连与各开关（不含令牌）；写只改开关，地址与令牌不动。键盘下次弹出时生效。
-char *qj_cloud_config_read(const char *path);
-char *qj_cloud_config_write(const char *path, const char *json);
+// 账号（主 App 用）：path 是 App Group 里的 cloud.toml；都是阻塞的网络请求，在后台线程调。令牌只在 cloud.toml 与桥之间流转。
+// status 返回 JSON（参数无效时为 NULL，没登录时不联网）；其余成功返回 NULL，失败返回给用户看的原因。键盘下次弹出时按新的 cloud.toml 重连。
+char *qj_account_status(const char *path);
+// nonce 是原始值（交给 Apple 的是它的 SHA-256 十六进制）；device 是设备名，可为 NULL。
+char *qj_account_sign_in_apple(const char *path, const char *identity_token,
+                               const char *authorization_code, const char *nonce,
+                               const char *device);
+char *qj_account_email_start(const char *path, const char *email);
+char *qj_account_email_verify(const char *path, const char *email, const char *code,
+                              const char *device);
+// feature：clipboard / sync / input_log / llm；成功后同时写回 cloud.toml 的开关。改 sync 时还会清本机学习数据与配置的同步进度。
+char *qj_account_set_consent(const char *path, const char *feature, bool enabled);
+char *qj_account_revoke_session(const char *path, int64_t session_id);
+// 退出登录：本机总会退出（清令牌与开关），服务器上没注销掉只记日志。
+char *qj_account_sign_out(const char *path);
+// 删账号：服务器删成功才清本机令牌。
+char *qj_account_delete(const char *path);
 
 void qj_string_free(char *text);
 
