@@ -211,6 +211,11 @@ impl Session {
         self.entries.clear();
         self.preedit.clear();
         if self.composing() {
+            // 宿主前文给词级排序（Core 的 query/left_context.rs）；`clear()` 会清掉，每键设一次；私密输入不给
+            let before = (!self.engine.is_private())
+                .then(|| self.context.as_ref().map(|c| c.before.clone()))
+                .flatten();
+            self.engine.set_rescoring_context(before);
             match self.engine.query() {
                 Ok(query) => {
                     self.preedit = query.marked_text();
