@@ -99,3 +99,45 @@ fn candidates_come_back_in_one_string() {
     assert_eq!(cells[0], "0你好");
     unsafe { qingjian_cloud_bridge::qj_session_free(session) };
 }
+
+/// 宿主前文进词级排序（素笺上下文预测）。iOS 没有神经模型，只靠静态语言模型能分开的同音词：
+/// 「保护自己的」之后 quanli 出「权利」，「他是部门」之后 jingli 出「经理」，没有前文时首选是「权力」「经历」。用产品数据，没有就跳过。
+#[test]
+fn host_context_reorders_candidates() {
+    let Some(data) = data_dir() else {
+        eprintln!("没有 QINGJIAN_DATA，跳过");
+        return;
+    };
+    let first_with = |before: &str, pinyin: &str| {
+        let mut session = Session::open(&data, None, None, None).unwrap();
+        session.set_context(before, "");
+        for c in pinyin.chars() {
+            session.push(c);
+        }
+        session.entries()[0].text().to_owned()
+    };
+    assert_eq!(first_with("", "quanli"), "权力");
+    assert_eq!(first_with("保护自己的", "quanli"), "权利");
+    assert_eq!(first_with("", "jingli"), "经历");
+    assert_eq!(first_with("他是部门", "jingli"), "经理");
+}
+
+/// 私密输入框里不看宿主前文。
+#[test]
+fn private_input_ignores_host_context() {
+    let Some(data) = data_dir() else {
+        eprintln!("没有 QINGJIAN_DATA，跳过");
+        return;
+    };
+    let first = |private: bool| {
+        let mut session = Session::open(&data, None, None, None).unwrap();
+        session.set_private(private);
+        session.set_context("保护自己的", "");
+        for c in "quanli".chars() {
+            session.push(c);
+        }
+        session.entries()[0].text().to_owned()
+    };
+    assert_eq!(first(false), "权利");
+    assert_eq!(first(true), "权力");
+}
