@@ -129,6 +129,7 @@ fn status_without_token_stays_offline() {
     assert_eq!(json["consents"]["input_log"], false);
     assert_eq!(json["signed_in"], false);
     assert!(json.get("token").is_none());
+    assert!(json.get("error_code").is_none() && json.get("error").is_some_and(|v| v.is_null()));
 }
 
 #[test]
@@ -202,4 +203,60 @@ fn parse_failure_note_does_not_leak_the_line() {
     let note = qingjian_cloud_bridge::parse_failure_note(&error);
     assert!(!note.is_empty());
     assert!(!note.contains("sjt_abc"), "{note}");
+}
+
+#[cfg(unix)]
+#[test]
+fn concurrent_writes_stay_valid_private_and_leave_no_tmp() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = temp_file("concurrent");
+    CloudConfig::store_session(
+        &path,
+        "https://example.com",
+        "sjt_abc",
+        7,
+        Consents::default(),
+    )
+    .unwrap();
+    let handles: Vec<_> = (0..8)
+        .map(|n| {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                for i in 0..25 {
+                    let consents = Consents {
+                        sync: (n + i) % 2 == 0,
+                        ..Consents::default()
+                    };
+                    if i % 5 == 0 {
+                        CloudConfig::store_session(
+                            &path,
+                            "https://example.com",
+                            "sjt_abc",
+                            7,
+                            consents,
+                        )
+                        .unwrap();
+                    } else {
+                        CloudConfig::store_consents(&path, consents).unwrap();
+                    }
+                }
+            })
+        })
+        .collect();
+    for handle in handles {
+        handle.join().unwrap();
+    }
+    let config = CloudConfig::read(&path).unwrap();
+    assert_eq!(config.token, "sjt_abc");
+    assert_eq!(config.user_id, Some(7));
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let names: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["cloud.toml"]);
 }

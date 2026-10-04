@@ -3,9 +3,17 @@
 //! 开关跟着服务器上的同意记录走，缺省全关。没有这个文件、地址为空或没登录，键盘就完全离线。
 
 use std::path::Path;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use qingjian_cloud_proto::{Consents, TOKEN_PREFIX};
 use serde::{Deserialize, Serialize};
+
+/// 进程内串起 `cloud.toml` 的读-改-写：Swift 可能在不同后台线程同时调账号接口。网络请求不要在锁里做。
+static WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+/// 临时文件名里的递增计数。
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// `cloud.toml` 里没写地址时用的服务器。
 pub const DEFAULT_SERVER: &str = "https://pinyin.synon.ai";
@@ -90,6 +98,7 @@ impl CloudConfig {
         user_id: i64,
         consents: Consents,
     ) -> Result<(), String> {
+        let _guard = lock();
         let mut config = Self::read(path).unwrap_or_default();
         config.server = server.to_owned();
         config.token = token.to_owned();
@@ -100,6 +109,7 @@ impl CloudConfig {
 
     /// 服务器上的开关变了：只改开关，地址与令牌不动。读不到现有文件就报错，不用默认值写出一份没有令牌的把登录状态清掉。
     pub fn store_consents(path: &Path, consents: Consents) -> Result<(), String> {
+        let _guard = lock();
         let mut config = Self::read(path).ok_or_else(|| "cloud.toml 读不了".to_owned())?;
         config.set_consents(consents);
         config.save(path)
@@ -107,6 +117,7 @@ impl CloudConfig {
 
     /// 退出登录、令牌失效：清掉令牌与开关，地址与 `user_id` 留着。没有文件也算成功。
     pub fn clear_session(path: &Path) -> Result<(), String> {
+        let _guard = lock();
         let Some(mut config) = Self::read(path) else {
             return Ok(());
         };
@@ -117,6 +128,7 @@ impl CloudConfig {
 
     /// 删账号成功：在 [`CloudConfig::clear_session`] 之外连 `user_id` 也忘掉，之后再登录一律按换账号处理。
     pub fn clear_account(path: &Path) -> Result<(), String> {
+        let _guard = lock();
         let Some(mut config) = Self::read(path) else {
             return Ok(());
         };
@@ -126,7 +138,7 @@ impl CloudConfig {
         config.save(path)
     }
 
-    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌：同目录写 `.tmp`（Unix 上 0600）再改名，
+    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌：同目录写 `.tmp`（名字带进程号与序号，Unix 上 0600）再改名，
     /// 键盘随时在读，不能让它读到写了一半的文件。
     pub fn save(&self, path: &Path) -> Result<(), String> {
         let text = toml::to_string(self).map_err(|e| e.to_string())?;
@@ -134,7 +146,8 @@ impl CloudConfig {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
         let mut name = path.file_name().unwrap_or_default().to_os_string();
-        name.push(".tmp");
+        let serial = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        name.push(format!(".{}.{serial}.tmp", std::process::id()));
         let temp = path.with_file_name(name);
         let written =
             write_private(&temp, text.as_bytes()).and_then(|()| std::fs::rename(&temp, path));
@@ -150,6 +163,12 @@ impl CloudConfig {
     }
 }
 
+fn lock() -> std::sync::MutexGuard<'static, ()> {
+    WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// 解析失败的日志文案：只有原因与出错位置。`toml` 错误的 `Display` 会带出错行原文，那一行可能就是令牌。
 pub fn parse_failure_note(error: &toml::de::Error) -> String {
     match error.span() {
@@ -161,14 +180,25 @@ pub fn parse_failure_note(error: &toml::de::Error) -> String {
 fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
 
+    // 崩溃遗留的 tmp 可能是宽权限的，先删掉再建，免得带令牌的文件继承它
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
     let mut options = std::fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
     let mut file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    }
     file.write_all(bytes)?;
     file.sync_all()
 }

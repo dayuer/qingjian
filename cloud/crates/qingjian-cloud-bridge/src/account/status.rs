@@ -22,8 +22,12 @@ pub struct AccountStatus {
 
     pub sessions: Vec<SessionInfo>,
 
-    /// 这次没能从服务器取到账号的原因。
+    /// 这次没能从服务器取到账号的原因（中文）。
     pub error: Option<String>,
+
+    /// 同一个原因的种类，取值同 [`super::failure::Failure`] 的 `code`；没有错误时省略。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<&'static str>,
 }
 
 impl AccountStatus {
@@ -47,9 +51,13 @@ impl AccountStatus {
                     tracing::warn!(%reason, "清令牌失败");
                 }
                 status = Self::offline(&CloudConfig::read(path).unwrap_or_default());
-                status.error = Some("登录已失效，请重新登录".to_owned());
+                status.error = Some(super::failure::message(&ClientError::Unauthorized));
+                status.error_code = Some("unauthorized");
             }
-            Err(error) => status.error = Some(super::message(&error)),
+            Err(error) => {
+                status.error = Some(super::failure::message(&error));
+                status.error_code = Some(super::failure::code_of(&error));
+            }
         }
         status
     }
@@ -63,6 +71,7 @@ impl AccountStatus {
             identities: Vec::new(),
             sessions: Vec::new(),
             error: None,
+            error_code: None,
         }
     }
 }
