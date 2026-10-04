@@ -48,11 +48,11 @@ pub fn rank(
     limit: usize,
     bonus: f64,
     context: impl Fn(&Scored<'_>) -> (u32, f64),
-) {
+) -> Vec<f64> {
     rank_choice_first(items, limit, |item| {
         let (choice, log_prob) = context(item);
         (0, log_prob + choice_bonus(choice, bonus))
-    });
+    })
 }
 
 /// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条。
@@ -60,11 +60,13 @@ pub fn rank(
 /// `context` 给每条命中算（同输入串下的选择次数, 上下文 log 概率），只对预选后剩下的那些调用。
 ///
 /// 排序键先算好再排：单字母简拼能命中两万条，比较器里每次数字符数会让排序占掉几十毫秒；去重也只做到够数为止。
+///
+/// 返回留下的每条的最终得分（上下文得分 + 用户加分 − 扣分），与 `items` 同序：知微词级重排拿它当静态分。
 pub fn rank_choice_first(
     items: &mut Vec<Scored<'_>>,
     limit: usize,
     context: impl Fn(&Scored<'_>) -> (u32, f64),
-) {
+) -> Vec<f64> {
     // 远超上限时先按结构键 + 词频线性选出前面一段：同一个词会被多种切分命中，多选一倍留给去重（结果仍可能略少于上限，无妨）
     let preselect = limit.saturating_mul(2);
     if items.len() > preselect.saturating_mul(2) {
@@ -76,23 +78,28 @@ pub fn rank_choice_first(
         keyed.truncate(preselect);
         items.extend(keyed.into_iter().map(|(_, item)| item));
     }
-    let mut keyed: Vec<(SortKey<'_>, Scored<'_>)> = items
+    let mut keyed: Vec<(SortKey<'_>, f64, Scored<'_>)> = items
         .drain(..)
         .map(|item| {
             let (choice, log_prob) = context(&item);
             let score = log_prob + weight_bonus(item.weight) - item.penalty;
-            (item.key(choice, score), item)
+            (item.key(choice, score), score, item)
         })
         .collect();
     keyed.sort_unstable_by(|a, b| a.0.cmp(&b.0));
     let mut seen: HashSet<&str> = HashSet::with_capacity(limit.min(keyed.len()));
+    let mut scores = Vec::with_capacity(limit.min(keyed.len()));
     items.extend(
         keyed
             .into_iter()
-            .map(|(_, item)| item)
-            .filter(|item| seen.insert(item.hit.text))
-            .take(limit),
+            .filter(|(_, _, item)| seen.insert(item.hit.text))
+            .take(limit)
+            .map(|(_, score, item)| {
+                scores.push(score);
+                item
+            }),
     );
+    scores
 }
 
 #[cfg(test)]

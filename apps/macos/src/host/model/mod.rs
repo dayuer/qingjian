@@ -153,7 +153,10 @@ impl Host {
             }
             return;
         }
-        self.rescore.stop();
+        // 通变和知微是两条后台线程：先回来的先重画，另一条还在算就继续轮询，不然它的结果白算
+        if !self.engine.rescoring_in_flight() {
+            self.rescore.stop();
+        }
         if self.session.page != 0 || self.session.navigated {
             return;
         }

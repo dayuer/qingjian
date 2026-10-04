@@ -183,6 +183,17 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `crates/qingjian-core/src/engine/mod.rs`、`setup.rs` | 加 1 个字段、2 个方法 | `choice_bonus`、`set_choice_bonus`（回放调参） |
 | `apps/cli/src/tuning.rs`、`args.rs` | 加 1 个键、1 行文档 | `--tune choice=β` |
 | `cloud/scripts/choice-sweep.sh` | 新文件 | 扫 β 的脚本 |
+| `crates/qingjian-core/src/engine/rescoring/word_rescore/mod.rs`、`tests.rs` | 新文件 | 知微词级重排：取档、请求、收结果；测试 |
+| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 1 行 mod、1 行导出，改 3 个入口，加 `rescoring_in_flight` | `rescoring_pending` / `request_rescoring` / `poll_rescoring` 带上知微；记「在飞」任务序号 |
+| `crates/qingjian-core/src/engine/rescoring/worker.rs` | 加 `id` 字段与 `AtomicU64`，`submit` 返回序号 | 任务序号，供 `rescoring_in_flight` 判断最新一条回来没有 |
+| `crates/qingjian-core/src/engine/mod.rs` | 加 6 个字段 | `word_scorer` / `word_rescorer` / `word_cache` / `word_weight` / `sentence_awaiting` / `word_awaiting` |
+| `crates/qingjian-core/src/engine/setup.rs` | 加 1 行 | 换 / 卸整句重打分器时清 `sentence_awaiting` |
+| `crates/qingjian-core/src/ranking/mod.rs` | 改返回值 | `rank` / `rank_choice_first` 返回每条的最终分，给词级重排当静态分 |
+| `crates/qingjian-core/src/engine/query/phonetic.rs` | 再加 3 行 | 取档（`word_tier`）、调 `rescore_first_page` |
+| `apps/cli/src/rescoring.rs` | 改 `settle` | 等 `rescoring_in_flight` 归零而不是第一次收到结果 |
+| `apps/cli/src/args.rs`、`main.rs` | 加 2 个参数与加载 | `--word-model`、`--word-weight` |
+| `apps/macos/src/host/model/mod.rs` | 改 `poll_rescoring` 1 处 | 另一条线程还在算就继续轮询 |
+| `cloud/scripts/word-sweep.sh` | 新文件 | 扫 λ_w 的脚本 |
 
 ## 合并上游时
 

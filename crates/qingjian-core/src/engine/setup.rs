@@ -288,6 +288,7 @@ impl Engine {
     pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
         self.sentence_scorer = None;
         self.rescorer = scorer.map(super::rescoring::RescoreWorker::spawn);
+        self.sentence_awaiting = None;
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
         self.forget_span_cache();
     }

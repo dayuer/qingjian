@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
@@ -8,6 +9,9 @@ use super::{GENERATE_BEAM, GENERATE_MAX_CHARS};
 /// 一次后台任务：两个条件与一批要打分的文本，外加可选的「直接按这段按键生成整句」。
 /// 两件事合成一条任务是因为它们都在用户停顿后一起发出，而排队的任务只算最新一条。
 struct Job {
+    /// 提交序号（单调递增）：壳据此知道自己最新的那条任务回来了没有。
+    id: u64,
+
     context: String,
     keys: String,
     texts: Vec<String>,
@@ -18,6 +22,9 @@ struct Job {
 
 /// 后台算好的结果，与任务一一对应。
 pub(crate) struct Scored {
+    /// 对应任务的提交序号。
+    pub id: u64,
+
     pub context: String,
     pub keys: String,
     pub texts: Vec<String>,
@@ -33,6 +40,7 @@ pub(crate) struct RescoreWorker {
     jobs: Sender<Job>,
     results: Receiver<Scored>,
     handle: Option<JoinHandle<()>>,
+    next_id: AtomicU64,
 }
 
 impl RescoreWorker {
@@ -69,6 +77,7 @@ impl RescoreWorker {
                         (keys, texts)
                     });
                     let done = Scored {
+                        id: job.id,
                         context: job.context,
                         keys: job.keys,
                         texts: job.texts,
@@ -88,6 +97,7 @@ impl RescoreWorker {
             jobs,
             results,
             handle,
+            next_id: AtomicU64::new(1),
         }
     }
 
@@ -101,10 +111,12 @@ impl RescoreWorker {
         keys: String,
         texts: Vec<String>,
         generate: Option<String>,
-    ) {
+    ) -> u64 {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         if self
             .jobs
             .send(Job {
+                id,
                 context,
                 keys,
                 texts,
@@ -114,6 +126,7 @@ impl RescoreWorker {
         {
             tracing::warn!("神经重打分线程已退出");
         }
+        id
     }
 
     /// 取一条打好的分；没有就 `None`。

@@ -156,6 +156,24 @@ pub struct Engine {
     /// 同一输入串下选过的加分系数 β（[`crate::ranking::CHOICE_BONUS`]）；只有回放调参会改。
     choice_bonus: f64,
 
+    /// 知微：给第一页词级候选按前文打分的同步打分器（CLI 评测用）。素笺分叉，见 rescoring/word_rescore。
+    word_scorer: Option<Box<dyn SentenceScorer>>,
+
+    /// 异步的知微（壳里用）；与整句重排的线程分开，模型不同。
+    word_rescorer: Option<rescoring::RescoreWorker>,
+
+    /// 「前文 + 候选 → 知微分」缓存。
+    word_cache: std::cell::RefCell<rescoring::NeuralCache>,
+
+    /// 词级重排里神经分的权重 λ_w。
+    word_weight: f64,
+
+    /// 最近一次送去整句重排后台的任务序号；它的结果（或更新的）回来前算「在飞」，见 [`Engine::rescoring_in_flight`]。
+    sentence_awaiting: Option<u64>,
+
+    /// 同上，知微词级重排那条线程的。
+    word_awaiting: Option<u64>,
+
     /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
     interpolation: Interpolation,
 
@@ -434,6 +452,12 @@ impl Engine {
             typo_costs: TypoCosts::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
             choice_bonus: crate::ranking::CHOICE_BONUS,
+            word_scorer: None,
+            word_rescorer: None,
+            word_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
+            word_weight: rescoring::WORD_NEURAL_WEIGHT,
+            sentence_awaiting: None,
+            word_awaiting: None,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
             recent_commits: Vec::new(),

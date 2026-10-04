@@ -146,7 +146,7 @@ impl Engine {
         let letters = choice_key(scope, scope.len());
         // 上下文：链上的上一个词，链空着就是宿主前文末尾的词（素笺分叉，见 query/left_context.rs）
         let context = self.word_context();
-        ranking::rank(&mut scored, MAX_CANDIDATES, self.choice_bonus, |item| {
+        let scores = ranking::rank(&mut scored, MAX_CANDIDATES, self.choice_bonus, |item| {
             let hit = &item.hit;
             // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
             let covered = correction
@@ -164,6 +164,8 @@ impl Engine {
             );
             (choice, log_prob)
         });
+        // 知微重排的对象（素笺分叉，见 rescoring/word_rescore）
+        let tier = self.word_tier(&scored, &scores);
         // 辅码态：词库候选按码段**反向**过滤（逐个问「有没有以码段开头的码」），无码词直接隐藏；
         // 命中的按「完全匹配码 > 码长降序 > 原词频序」重排（stable sort 保住 rank 排好的原序）。
         // 码段为空（刚敲下触发键）时不过滤，候选与纯拼音态一模一样。
@@ -225,6 +227,7 @@ impl Engine {
             self.insert_shortcuts(&mut items, keys);
             self.insert_emoji(&mut items);
         }
+        self.rescore_first_page(&mut items, &tier);
         let rank = start.elapsed();
 
         // 按头段算时英文尾段不参与拼音候选，显示上跟在切分后面：`wo'xiang'xue'hao'rust`
