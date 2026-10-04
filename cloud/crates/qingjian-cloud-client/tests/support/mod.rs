@@ -9,6 +9,14 @@ use std::sync::mpsc;
 
 /// 起一个假服务，返回地址与请求头的接收端。`status_line` 如 `"403 Forbidden"`。
 pub fn fake_server(status_line: &'static str) -> (String, mpsc::Receiver<String>) {
+    fake_server_with_body(status_line, "")
+}
+
+/// 同 [`fake_server`]，响应带一个 JSON 体。
+pub fn fake_server_with_body(
+    status_line: &'static str,
+    body: &'static str,
+) -> (String, mpsc::Receiver<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let (tx, rx) = mpsc::channel();
@@ -38,7 +46,8 @@ pub fn fake_server(status_line: &'static str) -> (String, mpsc::Receiver<String>
             tx.send(head).ok();
             write!(
                 &stream,
-                "HTTP/1.1 {status_line}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
             )
             .ok();
         }

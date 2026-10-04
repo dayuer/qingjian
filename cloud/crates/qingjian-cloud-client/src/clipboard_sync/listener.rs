@@ -38,6 +38,7 @@ fn run(shared: &Shared) {
             }
             Err(error) => {
                 shared.set_error(&error);
+                // 403 / 401 后每 300 秒轮询一次是有意的：用户可能在别的设备或设置里重新打开了这项功能，一次请求的代价很低，成功了会自动恢复；不是退避。
                 let delay = retry_delay(&error, &mut backoff);
                 sleep_unless_stopped(shared, delay);
             }

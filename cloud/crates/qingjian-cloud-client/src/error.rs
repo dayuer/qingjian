@@ -10,6 +10,14 @@ pub enum ClientError {
     #[error("session token rejected")]
     Unauthorized,
 
+    /// 登录没通过：验证码错、Apple 令牌无效（登录类接口的 401，带服务端给的原因）。
+    #[error("sign-in failed: {0}")]
+    AuthFailed(String),
+
+    /// 服务器没配这种登录方式，例如没配 Apple 或邮件发送（登录类接口的 503）：重试没用。
+    #[error("not configured on this server: {0}")]
+    NotConfigured(String),
+
     /// 这项功能在服务器上没开，或访问了别人的东西（403）：停下，等用户在设置里打开，不重试。
     #[error("forbidden: {0}")]
     Forbidden(String),
@@ -79,6 +87,12 @@ mod tests {
             ClientError::from(ureq::Error::StatusCode(503)),
             ClientError::Unreachable(_)
         ));
+    }
+
+    #[test]
+    fn auth_failed_and_not_configured_are_not_retryable() {
+        assert!(!ClientError::AuthFailed("x".to_owned()).is_retryable());
+        assert!(!ClientError::NotConfigured("x".to_owned()).is_retryable());
     }
 
     #[test]

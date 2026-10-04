@@ -34,6 +34,7 @@ impl Backoff {
 }
 
 /// 失败后该等多久：401 / 403 固定间隔且不推进退避，其余按退避。
+/// 403 / 401 后每 300 秒轮询一次是有意的：用户可能在别的设备或设置里重新打开了这项功能，一次请求的代价很低，成功了会自动恢复；不是退避。
 pub fn retry_delay(error: &ClientError, backoff: &mut Backoff) -> Duration {
     match error {
         ClientError::Unauthorized | ClientError::Forbidden(_) => USER_ACTION_RETRY,
