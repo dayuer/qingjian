@@ -31,7 +31,7 @@ struct IntroStep: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(.separator).opacity(0.5)))
                     .accessibilityHidden(true)
                 Text("素笺")
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .font(SerifFont.font(size: 22, weight: .semibold))
                     .tracking(3)
             }
             .padding(.top, 28)
@@ -42,7 +42,7 @@ struct IntroStep: View {
                 .padding(.top, 28)
             VStack(alignment: .leading, spacing: 12) {
                 Text(Self.title)
-                    .font(.system(size: 32, weight: .semibold, design: .serif))
+                    .font(SerifFont.font(size: 32, weight: .semibold))
                     .lineSpacing(8)
                 Text(Self.detail)
                     .font(.system(size: 15))

@@ -33,7 +33,7 @@ final class NoFullAccessStyleTests: XCTestCase {
             accent,
             [.chipBackground, .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
              .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink, .onboardingProgress,
-             .onboardingStepDone, .onboardingCurrentPlan, .onboardingPlanBadge])
+             .onboardingCurrentPlan, .onboardingPlanBadge])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {

@@ -14,7 +14,7 @@ struct ContactCardPanel: View {
                 HStack(spacing: 12) {
                     MemoryAvatar(name: contact.chipName, size: 56, scene: contact.scene, serif: true)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(contact.chipName).font(.system(size: 18, weight: .semibold, design: .serif))
+                        Text(contact.chipName).font(SerifFont.font(size: 18, weight: .semibold))
                         Text(ScopeDisplay.contactSubtitle(knownDays: contact.knownDays()))
                             .font(.system(size: 12))
                             .foregroundStyle(Theme.ink3)
@@ -64,7 +64,7 @@ struct ContactCardPanel: View {
         let date = card.dateLabel()
         return HStack(spacing: 12) {
             Text(date ?? card.kind.title)
-                .font(.system(size: 13, weight: .semibold, design: .serif))
+                .font(SerifFont.font(size: 13, weight: .semibold))
                 .foregroundStyle(date == nil ? Theme.ink3 : Theme.accentInk.color)
                 .frame(width: 44)
             VStack(alignment: .leading, spacing: 1) {

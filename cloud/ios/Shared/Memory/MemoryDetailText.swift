@@ -32,10 +32,10 @@ enum MemoryDetailText {
         [kind.title, HintText.sourceLabel(for: source)].compactMap { $0 }.joined(separator: " · ")
     }
 
-    /// 改一条里「到哪天」那一行右边的说明，只写真有的行为：约定在键盘上提前 3 天起提醒（提示行，选中这个人时），
-    /// 日子设计稿没画，不写；这个人关了「日子提醒」或在工作场景（不出提醒）时也不写。
+    /// 改一条里「到哪天」那一行右边的说明，只写真有的行为：日子与约定都在键盘提示行里提前 3 天起提醒（选中这个人时），
+    /// 设计稿写的「前一天提醒」与实情不符，照实写（UI 清单约束 7）；这个人关了「日子提醒」或在工作场景（不出提醒）时不写。
     static func reminderNote(kind: MemoryCard.Kind, contact: MemoryContact?) -> String? {
-        guard kind == .promise, let contact, contact.remindOn, MemoryScope.reminds(contact.scene) else { return nil }
+        guard kind == .promise || kind == .date, let contact, contact.remindOn, MemoryScope.reminds(contact.scene) else { return nil }
         return "提前 \(reminderLeadDays) 天提醒"
     }
 

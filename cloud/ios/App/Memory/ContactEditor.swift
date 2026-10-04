@@ -35,12 +35,12 @@ struct ContactEditor: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Button("取消") { dismiss() }
-                        .font(.system(size: 15))
+                        .font(SerifFont.font(size: 15))
                         .foregroundStyle(ColorUsage.cardNotice.role.color)
                     Spacer()
                 }
                 Text("想记得谁？")
-                    .font(.system(size: 26, weight: .semibold, design: .serif))
+                    .font(.system(size: 26, weight: .semibold))
                     .padding(.top, 20)
                 label("名字或代号").padding(.top, 24)
                 TextField("", text: $name)

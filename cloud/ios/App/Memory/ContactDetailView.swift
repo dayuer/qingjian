@@ -75,9 +75,9 @@ struct ContactDetailView: View {
         HStack(spacing: 14) {
             MemoryAvatar(name: contact.name, size: 56, scene: contact.scene, serif: true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(contact.name).font(.system(size: 26, weight: .semibold, design: .serif))
+                Text(contact.name).font(SerifFont.font(size: 26, weight: .semibold))
                 Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count))
-                    .font(.system(size: 12.5))
+                    .font(SerifFont.font(size: 12.5))
                     .foregroundStyle(Theme.ink3)
             }
         }
@@ -89,7 +89,7 @@ struct ContactDetailView: View {
             HStack(spacing: 12) {
                 VStack(spacing: 1) {
                     Text(monthDay)
-                        .font(.system(size: 13, weight: .semibold, design: .serif))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.accentInk.color)
                         .monospacedDigit()
                     if let days = card.daysAway(), let target = card.nextDate(),

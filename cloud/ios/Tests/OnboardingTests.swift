@@ -75,7 +75,7 @@ final class OnboardingTests: XCTestCase {
     /// 约束 1：App 的配色照设计稿，进度条与对勾是 theme.css 的 var(--accent) 实底。
     func testOnboardingColorsAreAccent() {
         XCTAssertEqual(ColorUsage.onboardingProgress.role, .accentFill)
-        XCTAssertEqual(ColorUsage.onboardingStepDone.role, .accentFill)
+        XCTAssertEqual(ColorUsage.onboardingStepNumber.role, .ink, "步骤编号不画成已完成")
         XCTAssertEqual(ColorUsage.onboardingCurrentPlan.role, .accent)
         XCTAssertEqual(ColorUsage.onboardingPlanBadge.role, .accentSoft)
     }
