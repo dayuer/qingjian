@@ -138,6 +138,8 @@ pub fn reason(error: &ClientError) -> String {
             "这项功能还没打开".to_owned()
         }
         ClientError::LockedToday(_) => LOCKED_TODAY.to_owned(),
+        // Mac 只走网页登录，不会发出这个请求；兜底文案
+        ClientError::ConsentRequired(_) => "需要先同意把数据发到境外服务器".to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级输入法".to_owned(),

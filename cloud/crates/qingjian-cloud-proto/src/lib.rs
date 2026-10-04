@@ -63,6 +63,9 @@ pub const MAX_PAGE: usize = 500;
 /// 会话令牌的前缀，便于在配置里认出来；旧的设备令牌是 `qjc_`，已作废。
 pub const TOKEN_PREFIX: &str = "sjt_";
 
+/// 客户端发送的出境同意文本版本；改了同意文本就换版本号，服务端只认已知版本。
+pub const CROSS_BORDER_CONSENT_VERSION: &str = "2026-10-04";
+
 /// 健康检查，不要鉴权。
 pub const PATH_HEALTH: &str = "/healthz";
 

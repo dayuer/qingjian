@@ -16,4 +16,8 @@ pub struct EmailVerify {
     /// 只有网页登录带：S256(verifier)，有它时服务端返回 HandoffGrant。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
+
+    /// 同意把账号与数据发到境外服务器的文本版本号，缺省空串；服务端缺字段、空串、未知版本都返回 400 `consent_required`。
+    #[serde(default)]
+    pub cross_border_consent: String,
 }

@@ -10,7 +10,7 @@ pub const LOCKED_TODAY: &str = "今天验证失败次数过多，请明天再试
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Failure {
     /// `auth_failed` `locked_today` `unauthorized` `not_configured` `rate_limited` `forbidden`
-    /// `unreachable` `invalid_argument` `not_signed_in` `other`。
+    /// `consent_required` `unreachable` `invalid_argument` `not_signed_in` `other`。
     pub code: &'static str,
 
     pub message: String,
@@ -48,6 +48,7 @@ pub fn code_of(error: &ClientError) -> &'static str {
     match error {
         ClientError::AuthFailed(_) => "auth_failed",
         ClientError::LockedToday(_) => "locked_today",
+        ClientError::ConsentRequired(_) => "consent_required",
         ClientError::Unauthorized => "unauthorized",
         ClientError::NotConfigured(_) => "not_configured",
         ClientError::RateLimited => "rate_limited",
@@ -98,6 +99,7 @@ pub fn message(error: &ClientError) -> String {
             "这项功能还没打开".to_owned()
         }
         ClientError::LockedToday(_) => LOCKED_TODAY.to_owned(),
+        ClientError::ConsentRequired(_) => "需要先同意把数据发到境外服务器".to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级 App".to_owned(),

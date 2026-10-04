@@ -50,6 +50,7 @@ fn client_errors_map_to_codes() {
     let cases = [
         (ClientError::AuthFailed("x".into()), "auth_failed"),
         (ClientError::LockedToday("x".into()), "locked_today"),
+        (ClientError::ConsentRequired("x".into()), "consent_required"),
         (ClientError::Unauthorized, "unauthorized"),
         (ClientError::NotConfigured("x".into()), "not_configured"),
         (ClientError::RateLimited, "rate_limited"),

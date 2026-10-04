@@ -31,6 +31,11 @@ pub enum ClientError {
     #[error("locked for today: {0}")]
     LockedToday(String),
 
+    /// 没有出境同意，或同意文本版本服务端不认（登录类 400 带 `consent_required`）：
+    /// 要让用户重新同意后再发，重试没用。
+    #[error("cross-border consent required: {0}")]
+    ConsentRequired(String),
+
     /// 服务端拒绝了这个请求（其余 4xx），重试也没用。
     #[error("request rejected ({status}): {message}")]
     Rejected { status: u16, message: String },
@@ -105,6 +110,7 @@ mod tests {
         assert!(!ClientError::Forbidden(String::new()).is_retryable());
         assert!(!ClientError::RateLimited.is_retryable());
         assert!(!ClientError::LockedToday("x".to_owned()).is_retryable());
+        assert!(!ClientError::ConsentRequired("x".to_owned()).is_retryable());
         assert!(!ClientError::Unauthorized.is_retryable());
         assert!(ClientError::Unreachable("x".to_owned()).is_retryable());
     }
