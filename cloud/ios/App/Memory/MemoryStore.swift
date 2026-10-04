@@ -1,4 +1,4 @@
-// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（恋爱场景最多 8 个人、日期格式）在桥里。
+// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（每个场景最多 8 个人、人建好后不能换场景、日期格式）在桥里。
 // 任何读写失败都要变成界面上的一句中文（loadError 常驻首页、详情与设置页顶上，message 弹窗），不静默。
 // 读写都交给 MemoryWorker 在后台串行做（桥等锁最多 2 秒，不能卡界面），这里只管界面状态：loading / saving、结果回来后更新与弹提示。
 // conflict（键盘这期间「记一笔」改过）时 MemoryWorker 重读、用 MemoryMerge 合并上去再写，最多三轮；App 回到前台时重读（SetupView）。
@@ -10,7 +10,7 @@ import Observation
 @MainActor
 @Observable
 final class MemoryStore {
-    static let contactLimit = ScopeDisplay.maxContacts
+    static let contactLimit = SceneGroup.limit
 
     /// memory/ 的数据保护级别：开机后第一次解锁前读不了，之后锁屏也能读。桥建的子目录与原子写的临时文件继承所在目录的级别。
     nonisolated static let protection = FileProtectionType.completeUntilFirstUserAuthentication
@@ -50,8 +50,8 @@ final class MemoryStore {
     /// 能不能改：容器在、读成功过、现在没有读失败。
     var canEdit: Bool { loaded && loadError == nil }
 
-    /// 恋爱场景的人。
-    var people: [MemoryContact] { snapshot.contacts.filter { $0.scene == MemoryScope.dating } }
+    /// 首页的三组人：恋爱、日常、工作，各自最多 8 个。
+    var groups: [SceneGroup] { SceneGroup.all(snapshot.contacts) }
 
     func contact(_ id: String) -> MemoryContact? { snapshot.contacts.first { $0.id == id } }
 

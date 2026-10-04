@@ -1,4 +1,5 @@
-// 「键盘记住的事」首页（05 的 2i）：副标题、3 天内的提醒卡、恋爱场景的人（n / 8）、加一个人、底部灰底「懒得自己写？」。
+// 「键盘记住的事」首页（05 的 2i）：副标题、3 天内的提醒卡（恋爱与日常的人）、按场景分组的人（恋爱、日常、工作，各自 n / 8，
+// 每组下面「加一个人」，从哪组点进去就建在哪个场景；工作组的头像用中性色）、底部灰底「懒得自己写？」。
 // 读不出来时顶上常驻原因（MemoryFailureBanner），不让列表静默地空着。
 
 import SwiftUI
@@ -6,7 +7,8 @@ import SwiftUI
 struct MemoryHomeView: View {
     let store: MemoryStore
 
-    @State private var addingContact = false
+    /// 正在哪个场景里「加一个人」；nil 时弹层收着。
+    @State private var addingScene: String?
 
     @State private var path: [MemoryRoute] = []
 
@@ -29,28 +31,30 @@ struct MemoryHomeView: View {
                 } header: {
                     Text("都是你写的 · 只存在这台手机上").textCase(nil)
                 }
-                Section {
-                    if store.canEdit && store.people.isEmpty {
-                        Text("还没有记下任何人。加一个人，打字时键盘就能想起 TA 的事。")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(store.people) { contact in
-                        NavigationLink(value: MemoryRoute.contact(contact.id)) { personRow(contact) }
-                    }
-                    if store.people.count < MemoryStore.contactLimit {
-                        Button {
-                            addingContact = true
-                        } label: {
-                            addRow
+                ForEach(store.groups) { group in
+                    Section {
+                        if store.canEdit && store.snapshot.contacts.isEmpty && group.scene == MemoryScope.homeOrder.first {
+                            Text("还没有记下任何人。加一个人，打字时键盘就能想起 TA 的事。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
-                        .disabled(!store.canEdit)
-                        .opacity(store.canEdit ? 1 : 0.4)
+                        ForEach(group.people) { contact in
+                            NavigationLink(value: MemoryRoute.contact(contact.id)) { personRow(contact) }
+                        }
+                        if !group.isFull {
+                            Button {
+                                addingScene = group.scene
+                            } label: {
+                                addRow
+                            }
+                            .disabled(!store.canEdit)
+                            .opacity(store.canEdit ? 1 : 0.4)
+                        }
+                    } header: {
+                        Text(group.header)
+                    } footer: {
+                        if group.isFull { Text(group.fullNote) }
                     }
-                } header: {
-                    Text("人 · \(store.people.count) / \(MemoryStore.contactLimit)")
-                } footer: {
-                    if store.people.count >= MemoryStore.contactLimit { Text("恋爱场景最多 8 个人") }
                 }
                 Section {
                     NavigationLink {
@@ -81,7 +85,7 @@ struct MemoryHomeView: View {
             .onChange(of: store.snapshot.contacts.map(\.id)) { _, ids in
                 path.removeAll { !ids.contains($0.contactId) }
             }
-            .sheet(isPresented: $addingContact) { ContactEditor(store: store) }
+            .sheet(isPresented: adding) { ContactEditor(store: store, scene: addingScene ?? MemoryScope.dating) }
             .refreshable { await store.reload() }
         }
     }
@@ -98,7 +102,7 @@ struct MemoryHomeView: View {
 
     private func personRow(_ contact: MemoryContact) -> some View {
         HStack(spacing: 12) {
-            MemoryAvatar(name: contact.name, size: 36)
+            MemoryAvatar(name: contact.name, size: 36, scene: contact.scene)
             VStack(alignment: .leading, spacing: 2) {
                 Text(contact.name)
                 Text("\(store.cards(of: contact.id).count) 件")
@@ -106,6 +110,10 @@ struct MemoryHomeView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var adding: Binding<Bool> {
+        Binding(get: { addingScene != nil }, set: { if !$0 { addingScene = nil } })
     }
 
     private var addRow: some View {

@@ -1,4 +1,5 @@
-// 对象设置（02 的 1d）：名字、称呼、这个人的两个提示开关（按人，只对 TA 生效）、导出记忆、忘掉这个人（.alert 确认一次，桥连对象目录一起删）。
+// 对象设置（02 的 1d）：名字、所在场景（只显示，不能改：换场景要忘掉再加）、称呼、这个人的两个提示开关（按人，只对 TA 生效）、
+// 导出记忆、忘掉这个人（.alert 确认一次，桥连对象目录一起删）。工作场景的人不出提示与提醒，开关下面写明。
 // 每一项改了就交给后台写；写的时候界面先按改后的显示（pending），存不上就弹回 store 里的原样并弹原因。
 // 「忘掉」等确认框收起后才执行：在按钮回调里直接写，失败提示会撞上确认框的收起动画弹不出来（"already presenting"），变成静默失败。
 
@@ -52,6 +53,11 @@ struct ContactSettingsView: View {
         } footer: {
             Text("名字只保存在这台手机上。")
         }
+        Section {
+            LabeledContent("所在场景", value: MemoryScope.title(of: contact.scene))
+        } footer: {
+            Text(MemoryStore.Wording.sceneLocked)
+        }
         Section("提示里怎么称呼") {
             Picker("称呼", selection: binding(contact, \.pronoun)) {
                 ForEach(MemoryPronoun.choices, id: \.self) { Text($0.title).tag($0) }
@@ -71,7 +77,7 @@ struct ContactSettingsView: View {
             }
             .tint(ColorUsage.appToggle.role.color)
         } footer: {
-            Text(store.saving ? MemoryStore.Wording.saving : "只对\(contact.name)生效。")
+            Text(store.saving ? MemoryStore.Wording.saving : MemoryStore.Wording.switchesNote(contact))
         }
         Section {
             ShareLink(item: store.exportText(contactId)) {

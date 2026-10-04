@@ -157,6 +157,14 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertEqual(items.map(\.contact.name), ["妈妈"], "日常的人提醒，工作的人不提醒")
     }
 
+    func testSettingsWordingForScenes() {
+        XCTAssertEqual(MemoryStore.Wording.sceneLocked, "换场景需要忘掉后重新加")
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: MemoryScope.daily)
+        XCTAssertEqual(MemoryStore.Wording.switchesNote(mom), "只对妈妈生效。")
+        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: MemoryScope.work)
+        XCTAssertEqual(MemoryStore.Wording.switchesNote(boss), "工作场景的人不出提示和提醒，只用来分开学习。")
+    }
+
     // 三方合并
 
     func testMergeKeepsKeyboardNotesAndAppEdits() async {
@@ -200,7 +208,7 @@ final class MemoryStoreTests: XCTestCase {
         let store = MemoryStore(directory: { nil }, backend: FakeBridge(disk: sampleSnapshot()).backend)
         await store.reload()
         XCTAssertEqual(store.loadError, MemoryStore.Wording.noAppGroup, "首页常驻显示，不是静默的空列表")
-        XCTAssertTrue(store.people.isEmpty)
+        XCTAssertTrue(store.snapshot.contacts.isEmpty)
         XCTAssertFalse(store.canEdit)
         let ok1 = await store.saveCard(card("x", "新的", touched: 1), for: contactId)
         XCTAssertFalse(ok1)
@@ -223,7 +231,7 @@ final class MemoryStoreTests: XCTestCase {
         bridge.disk = sampleSnapshot()
         await store.reload()
         XCTAssertNil(store.loadError)
-        XCTAssertEqual(store.people.map(\.name), ["小美"])
+        XCTAssertEqual(store.snapshot.contacts.map(\.name), ["小美"])
     }
 
     func testBrokenFileIsReported() async {
@@ -260,7 +268,7 @@ final class MemoryStoreTests: XCTestCase {
         let ok6 = await store.deleteCard("a", for: contactId)
         XCTAssertFalse(ok6)
         XCTAssertEqual(store.message, "没存上：不是 JSON")
-        XCTAssertEqual(store.people.count, 1)
+        XCTAssertEqual(store.snapshot.contacts.count, 1)
     }
 
     func testConflictMergesRereadsAndTellsTheUser() async {
