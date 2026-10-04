@@ -2766,7 +2766,7 @@ git add cloud/Cargo.lock cloud/crates/qingjian-cloud-bridge/Cargo.toml \
 git commit -m "feat(cloud): 桥加本地记忆存储 MemoryStore
 
 memory/ 下 contacts.json、state.json、dismissed.json、<id>/cards.json。App 与键盘两个进程都会读-改-写：
-每个操作都在 memory/.lock 的 flock（File::try_lock 加重试、2 秒超时）里做，读也在锁里；cards.json 带修订号，
+每个操作都在 memory/.lock 的 flock（File::try_lock 加重试；App 2 秒超时、键盘 200 毫秒，键盘拿不到锁就把写入放进内存待办，Task 4）里做，读也在锁里；cards.json 带修订号，
 App 拿旧快照写回时整份不写、返回 conflict，由 App 重读合并；只重写有变化的对象。
 读不了（锁屏）的文件不改名、读-改-写直接报错，不拿空表覆盖；写不建父目录，对象目录只在建对象时创建，忘掉的人不会复活。
 「记一笔」与切场景都在锁里按磁盘上的名单与 state 读-改-写；提示开关按人放在 Contact 上；日子按年重复用 next_anniversary。
@@ -7873,7 +7873,7 @@ Modify `cloud/docs/design.md`：在第 262 行 `## 分期` 之前插入下面这
 - **数据**：学习数据目录下的 `memory/`（iOS 开了完全访问时就是 App Group 的 `Qingjian/memory/`）：`state.json`（当前场景与对象，键盘写）、`contacts.json`（含每个人的两个提示开关）、
   `dismissed.json`（「知道了」，键盘写）、`<对象 id>/cards.json`（`{"rev","cards"}`），以及与全局层同构的分区学习 `<对象 id>/learning/user*.tsv`、`scene-<场景>/learning/user*.tsv`。
   对象 id 是 16 字节随机数的十六进制，名字只在 `contacts.json`。
-- **两个进程的读写**：App 与键盘的每个操作（读也算）都在 `memory/.lock` 的 flock 里做（`File::try_lock` 加重试，2 秒超时）；写走同目录临时文件加改名，不建父目录（对象目录只在建对象时创建，忘掉的人不会被写卡片重新建出来）。
+- **两个进程的读写**：App 与键盘的每个操作（读也算）都在 `memory/.lock` 的 flock 里做（`File::try_lock` 加重试；App 等 2 秒、键盘只等 200 毫秒，键盘拿不到锁就把这次写入放进内存待办、下次 refresh 重试，见 Task 4）；写走同目录临时文件加改名，不建父目录（对象目录只在建对象时创建，忘掉的人不会被写卡片重新建出来）。
   `cards.json` 每写一次修订号加一；App 整份写回时带着读时的修订号，磁盘上更新（键盘这期间记过一笔）就整份不写、返回 `conflict`，App 重读、以 id 为键三方合并后再写；只重写有变化的对象。
   解析不了的文件改名 `.broken-<秒>` 后按空处理；读不了的（锁屏时数据保护）不改名，读-改-写直接报错，键盘内存里的名单与卡片保留原来的。iOS 上 `memory/` 第一次递归设数据保护 `complete`。
   键盘切场景、「记一笔」都在锁里按磁盘上的 `state` 与名单读-改-写；App 改了按修改时间重载，App 回到前台时也重读。
@@ -7985,7 +7985,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 1. **（已解决）`tests/session.rs::logs_only_when_connected`**：它靠 `QINGJIAN_DATA` 才会真正运行（没设就静默跳过并显示 ok），设上数据后确实失败，原因是账号改造把桥的开关缺省关、测试的 `cloud.toml` 没写 `logs = true`；已由单独提交修好（测试配置补上 `logs = true`），Task 4 Step 9 的预期是 4 个全过。**教训：凡是跑桥的会话测试都要带 `QINGJIAN_DATA`，否则「全过」可能是被跳过。**
 2. **合并时「App 删卡、键盘同时改了这张卡」**：现在是 App 的删除赢（`MemoryMerge` 里 local 删掉的一律删）。键盘不改已有的卡（「记一笔」只加新卡），2A 里碰不到；2C 云端改卡后可能要重新定。
 3. **`dismissed.json` 里别的对象的卡**：重建索引时「知道了」整份带过去，不按当前对象的卡丢（否则切对象再切回来，记录就没了）；过期与已删的卡在加载时按 30 天与「是否还存在」清。审计原话是「卡已不存在的丢弃」，这里把「不存在」理解为「哪个对象下都没有」，请确认。
-4. **锁的超时**：等 `memory/.lock` 最多 2 秒，超时按 `io` 报错（键盘里表现为这次切场景 / 记一笔没成功）。App 写回只占几毫秒，2 秒够用；要不要更短（键盘主线程上等 2 秒会卡一下）请定，建议键盘侧以后改成后台线程调，2A 先接受。
+4. **（已决定）锁的超时**：App 等 `memory/.lock` 最多 2 秒；键盘只等 200 毫秒，超时返回独立错误 `MemoryError::LockTimeout`（不再套在 `io` 里），键盘把这次写入（记一笔、切场景）放进**内存待办、下次 `refresh` 重试**，主线程不会卡 2 秒（待办与重试在 Task 4；Task 2 已提供可配置超时与 `LockTimeout`）。
 5. **叠加权重要不要因决定点 5 改成 8。** 恋爱场景不记转移后重跑回放（Task 7「与大纲的差异」第 3 条）：对象词成为首选的条件从 `2k·n > W` 变成约 `k·n > W`，同样 k=4 要多选一倍次数（全局里选过 20 次的词，6 轮内都换不过来）。
    选项：A 维持 4（慢一些，对象之间外溢也少）；B 改成 8（恢复第一次展开时 k=4 的速度，外溢条件变成 `8·n > W`）。我倾向 A：真实用户的全局计数分布与合成序列不同，先上线看真机日志再调；若审计更看重「一个对象下很快学会」就选 B，改常数一处、测试不用改。
 
@@ -8024,7 +8024,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
 | 条目 | 改在哪 | 行号 |
 |---|---|---|
-| **阻断：两个进程写同一份数据** ①文件锁 | Task 2 差异 3；Step 6 `store.rs` 的 `lock()`（`File::try_lock`，5 毫秒重试、2 秒超时），所有读与读-改-写都在锁里 | 939–960、2197–2670 |
+| **阻断：两个进程写同一份数据** ①文件锁 | Task 2 差异 3；Step 6 `store.rs` 的 `lock()`（`File::try_lock`，5 毫秒重试；超时是构造参数：App 2 秒、键盘 200 毫秒，超时返回 `LockTimeout`，键盘侧待办在 Task 4），所有读与读-改-写都在锁里 | 939–960、2197–2670 |
 | ②修订号与 `conflict` | Task 2 Step 5 `cards_file.rs`、`snapshot.rs`（`revs`）、`error.rs`（`Conflict`）；Step 6 `write_snapshot` 先比修订号、只写有变化的对象；Task 4 头文件（`conflict`）；Task 6 `MemoryStore.update` 重读重试、`MemoryMerge` 三方合并规则 | 1708–2196、2199–2670、4887–4921、6632–6862 |
 | ③回前台重读 | Task 6 Step 8 `SetupView` 的 `scenePhase` | 7391–7467 |
 | 双进程测试 | Task 2 Step 3 `tests/sync.rs`：`stale_snapshot_conflicts_and_merges`、`two_processes_lose_no_notes`（两个线程各持一个 `MemoryStore`，键盘 40 次 `add_note`、App 40 次整份写回旧快照，冲突重读合并，断言一条不丢） | 1506–1691 |
