@@ -330,10 +330,14 @@ final class KeyboardModel {
     /// 键盘高度只在进出这个状态时变，提示出现与消失不再让宿主界面跳。
     var hasHintRow: Bool { ScopeDisplay.hasHintRow(scene: scope.scene, hasContact: currentContact != nil) }
 
-    /// 宿主换了输入框（控制器按 documentIdentifier 判断）：清掉最近上屏的字与提示。
+    /// 宿主换了输入框（控制器按 documentIdentifier 判断）：丢掉没上屏的拼音，清掉最近上屏的字与提示。
     func hostChanged() {
+        // 没上屏的拼音也丢掉：留着的话，在新输入框按空格会把旧拼音的首选上屏到这里
+        dismissRewrite()
+        engine?.clear()
         engine?.resetContext()
-        refreshHint()
+        panel = .keys
+        refresh()
     }
 
     /// 当前对象（名单里找得到的）。

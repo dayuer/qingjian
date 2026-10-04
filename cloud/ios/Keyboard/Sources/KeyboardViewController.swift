@@ -153,6 +153,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             let from = Self.short(lastDocument), to = Self.short(document)
             Self.log.info("宿主输入框切换 \(from, privacy: .public) → \(to, privacy: .public)，清上下文")
             lastDocument = document
+            // 旧输入框里的 marked text 已由系统收尾，这里只忘掉它；否则清组字时的 setMarked("") 会写进新输入框
+            hasMarkedText = false
             model.hostChanged()
         }
     }
