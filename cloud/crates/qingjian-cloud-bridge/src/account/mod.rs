@@ -76,14 +76,16 @@ pub fn email_verify(path: &Path, email: &str, code: &str, device_name: &str) -> 
 }
 
 /// 先改服务器上的同意记录，成功后把服务器回的四项开关写回 `cloud.toml`。
-/// 改的是「同步」时（开或关）还要清掉本机学习数据与配置的同步进度：服务器关同步会删云端数据，
-/// 本机基线不清，重新打开只推增量、补不回去。键盘的 `DataSync` 在 `cloud.toml` 变了之后的下次弹出时重建。
+/// 「同步」的值真的变了（开或关）时还要清掉本机学习数据与配置的同步进度：服务器关同步会删云端数据，
+/// 本机基线不清，重新打开只推增量、补不回去。值没变（重复点、别的设备已改过）不清，免得白白重推全量。
+/// 清进度失败只记日志，开关照样写回；已知竞态：键盘进程里正在跑的 `DataSync` 理论上可能在清除的同一刻把进度写回，
+/// 窗口很小（App 会先释放旧引擎再开新的）；开关本身若与服务器不一致，下次 `AccountStatus::load` 以服务器为准写回。
 pub fn set_consent(path: &Path, feature: Feature, enabled: bool) -> Result<(), String> {
     let config = signed_in(path)?;
     match client(&config).put_consent(feature, enabled) {
         Ok(consents) => {
-            if feature == Feature::Sync {
-                reset_sync_progress(path);
+            if sync_toggled(feature, config.sync, consents.sync) {
+                reset_after_sync_toggle(path);
             }
             CloudConfig::store_consents(path, consents)
         }
@@ -112,26 +114,49 @@ pub fn sign_out(path: &Path) -> Result<(), String> {
 pub fn delete_account(path: &Path) -> Result<(), String> {
     let config = signed_in(path)?;
     match client(&config).delete_account() {
-        Ok(()) => CloudConfig::clear_session(path),
+        Ok(()) => CloudConfig::clear_account(path),
         Err(error) => Err(expired(path, &error)),
     }
 }
 
 /// 登录拿到令牌：先问一次服务器上的开关（老用户在别的设备上开过的照旧开，取不到就全关），
-/// 连同地址、令牌写进 `cloud.toml`。换了账号，旧的同步进度作废，删掉重来。
+/// 连同地址、令牌、账号 id 写进 `cloud.toml`。换了账号（[`should_reset`]）才作废旧的同步进度，同一账号重登保留。
+/// 换账号时整个删 `cloud/`：`outbox.jsonl` 里是旧账号的离线事件，不删会传到新账号；
+/// 而开关切换只删三个状态文件（[`reset_after_sync_toggle`]），outbox 属于剪贴板，不该删。
 fn finish(path: &Path, server: &str, grant: &SessionGrant) -> Result<(), String> {
     let consents = Client::new(server, &grant.token)
         .account()
         .map(|account| account.consents)
         .inspect_err(|error| tracing::warn!(%error, "登录后取开关失败，先全关"))
         .unwrap_or_default();
-    reset_sync_state(path);
-    CloudConfig::store_session(path, server, &grant.token, consents)
+    let previous = CloudConfig::read(path).and_then(|config| config.user_id);
+    let cloud_dir_exists = cloud_dir(path).is_some_and(|dir| dir.exists());
+    if should_reset(previous, grant.user_id, cloud_dir_exists) {
+        reset_sync_state(path);
+    }
+    CloudConfig::store_session(path, server, &grant.token, grant.user_id, consents)
+}
+
+/// 登录后要不要作废旧的同步进度：账号 id 变了要；本机没记过账号（旧版本写的文件、删号后）但留着进度，按换了账号处理。
+fn should_reset(previous: Option<i64>, now: i64, cloud_dir_exists: bool) -> bool {
+    match previous {
+        Some(previous) => previous != now,
+        None => cloud_dir_exists,
+    }
+}
+
+/// 改的是「同步」且服务器给的新值与本机原来的不同。
+fn sync_toggled(feature: Feature, was: bool, now: bool) -> bool {
+    feature == Feature::Sync && was != now
+}
+
+fn cloud_dir(path: &Path) -> Option<std::path::PathBuf> {
+    path.parent().map(|dir| dir.join("cloud"))
 }
 
 /// 只清学习数据与配置的同步进度（剪贴板与输入日志的留着），文件在 `cloud.toml` 同目录的 `cloud/` 下。
-fn reset_sync_progress(path: &Path) {
-    let Some(dir) = path.parent().map(|dir| dir.join("cloud")) else {
+fn reset_after_sync_toggle(path: &Path) {
+    let Some(dir) = cloud_dir(path) else {
         return;
     };
     if let Err(error) = qingjian_cloud_client::reset_sync_progress(&dir) {
@@ -143,7 +168,7 @@ fn reset_sync_progress(path: &Path) {
 /// （开了完全访问时学习数据目录就是 App Group 目录）。基线留着的话，新账号服务器上是空的，
 /// 算出来「别的设备的增量」是负的，会把本机学到的减掉。
 fn reset_sync_state(path: &Path) {
-    let Some(dir) = path.parent().map(|dir| dir.join("cloud")) else {
+    let Some(dir) = cloud_dir(path) else {
         return;
     };
     match std::fs::remove_dir_all(&dir) {

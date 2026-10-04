@@ -64,18 +64,25 @@ fn store_session_writes_server_token_and_consents() {
         sync: true,
         ..Consents::default()
     };
-    CloudConfig::store_session(&path, "https://example.com", "sjt_abc", consents).unwrap();
+    CloudConfig::store_session(&path, "https://example.com", "sjt_abc", 7, consents).unwrap();
     let config = CloudConfig::load(&path).unwrap();
     assert_eq!(config.server, "https://example.com");
     assert_eq!(config.token, "sjt_abc");
+    assert_eq!(config.user_id, Some(7));
     assert!(config.sync && !config.clipboard && !config.logs && !config.llm);
 }
 
 #[test]
 fn store_consents_keeps_server_and_token() {
     let path = temp_file("consents");
-    CloudConfig::store_session(&path, "https://example.com", "sjt_abc", Consents::default())
-        .unwrap();
+    CloudConfig::store_session(
+        &path,
+        "https://example.com",
+        "sjt_abc",
+        7,
+        Consents::default(),
+    )
+    .unwrap();
     let consents = Consents {
         clipboard: true,
         input_log: true,
@@ -97,12 +104,14 @@ fn clear_session_drops_token_and_switches_but_keeps_server() {
         input_log: true,
         llm: true,
     };
-    CloudConfig::store_session(&path, "https://example.com", "sjt_abc", all).unwrap();
+    CloudConfig::store_session(&path, "https://example.com", "sjt_abc", 7, all).unwrap();
     CloudConfig::clear_session(&path).unwrap();
     let config = CloudConfig::read(&path).unwrap();
     assert!(config.token.is_empty());
     assert_eq!(config.consents(), Consents::default());
     assert_eq!(config.server, "https://example.com");
+    // 退出登录留着 user_id：同一账号再登录不用清同步进度
+    assert_eq!(config.user_id, Some(7));
     assert!(CloudConfig::load(&path).is_none());
     // 没有文件时退出登录也算成功
     assert!(CloudConfig::clear_session(&temp_file("clear-missing")).is_ok());
@@ -120,4 +129,77 @@ fn status_without_token_stays_offline() {
     assert_eq!(json["consents"]["input_log"], false);
     assert_eq!(json["signed_in"], false);
     assert!(json.get("token").is_none());
+}
+
+#[test]
+fn clear_account_also_forgets_user_id() {
+    let path = temp_file("clear-account");
+    CloudConfig::store_session(
+        &path,
+        "https://example.com",
+        "sjt_abc",
+        7,
+        Consents::default(),
+    )
+    .unwrap();
+    CloudConfig::clear_account(&path).unwrap();
+    let config = CloudConfig::read(&path).unwrap();
+    assert!(config.token.is_empty());
+    assert_eq!(config.user_id, None);
+    assert_eq!(config.server, "https://example.com");
+    assert!(CloudConfig::clear_account(&temp_file("clear-account-missing")).is_ok());
+}
+
+#[test]
+fn user_id_defaults_to_none_for_old_files() {
+    let config = load("old-shape", "server = \"s\"\ntoken = \"sjt_t\"\n").unwrap();
+    assert_eq!(config.user_id, None);
+}
+
+#[test]
+fn store_consents_without_a_readable_file_fails_and_writes_nothing() {
+    let path = temp_file("consents-missing");
+    assert!(CloudConfig::store_consents(&path, Consents::default()).is_err());
+    assert!(!path.exists());
+    std::fs::write(&path, "server = ").unwrap();
+    assert!(CloudConfig::store_consents(&path, Consents::default()).is_err());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "server = ");
+}
+
+#[cfg(unix)]
+#[test]
+fn save_is_private_atomic_and_complete() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let path = temp_file("save");
+    let long = CloudConfig {
+        server: "https://example.com/".repeat(50),
+        token: "sjt_".to_owned() + &"a".repeat(200),
+        ..CloudConfig::default()
+    };
+    long.save(&path).unwrap();
+    let short = CloudConfig {
+        server: "s".into(),
+        token: "sjt_b".into(),
+        user_id: Some(3),
+        ..CloudConfig::default()
+    };
+    short.save(&path).unwrap();
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o600);
+    assert_eq!(CloudConfig::read(&path).unwrap(), short);
+    let names: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["cloud.toml"]);
+}
+
+#[test]
+fn parse_failure_note_does_not_leak_the_line() {
+    let text = "server = \"s\"\ntoken = \"sjt_abc\" oops\n";
+    let error = toml::from_str::<CloudConfig>(text).unwrap_err();
+    let note = qingjian_cloud_bridge::parse_failure_note(&error);
+    assert!(!note.is_empty());
+    assert!(!note.contains("sjt_abc"), "{note}");
 }

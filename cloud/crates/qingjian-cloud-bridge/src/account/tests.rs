@@ -4,7 +4,10 @@ use std::path::PathBuf;
 
 use qingjian_cloud_client::ClientError;
 
-use super::{message, reset_sync_progress};
+use qingjian_cloud_proto::{Consents, Feature};
+
+use super::{message, reset_after_sync_toggle, should_reset, sync_toggled};
+use crate::cloud_config::CloudConfig;
 
 fn temp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("qj-account-{name}-{}", std::process::id()));
@@ -55,7 +58,7 @@ fn reset_removes_learning_and_config_progress_but_keeps_the_rest() {
     for name in gone.iter().chain(&kept) {
         std::fs::write(state.join(name), "x").unwrap();
     }
-    reset_sync_progress(&dir.join("cloud.toml"));
+    reset_after_sync_toggle(&dir.join("cloud.toml"));
     for name in gone {
         assert!(!state.join(name).exists(), "{name} 应该被删");
     }
@@ -63,4 +66,46 @@ fn reset_removes_learning_and_config_progress_but_keeps_the_rest() {
         assert!(state.join(name).exists(), "{name} 应该还在");
     }
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn same_account_keeps_progress_other_account_clears_it() {
+    assert!(!should_reset(Some(7), 7, true));
+    assert!(should_reset(Some(7), 8, true));
+    assert!(should_reset(Some(7), 8, false));
+    // 没有旧 user_id：有旧进度就当换了账号，没有就无事可清
+    assert!(should_reset(None, 7, true));
+    assert!(!should_reset(None, 7, false));
+}
+
+#[test]
+fn sign_out_then_same_account_does_not_reset_but_delete_does() {
+    let dir = temp_dir("flow");
+    let path = dir.join("cloud.toml");
+    CloudConfig::store_session(&path, "https://x", "sjt_a", 7, Consents::default()).unwrap();
+    let has_progress = dir.join("cloud").exists();
+    assert!(has_progress);
+
+    CloudConfig::clear_session(&path).unwrap();
+    let previous = CloudConfig::read(&path).unwrap().user_id;
+    assert!(!should_reset(previous, 7, has_progress), "同账号重登不清");
+    assert!(should_reset(previous, 8, has_progress), "换账号要清");
+
+    CloudConfig::clear_account(&path).unwrap();
+    let previous = CloudConfig::read(&path).unwrap().user_id;
+    assert!(
+        should_reset(previous, 7, has_progress),
+        "删号后重登按换账号"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn only_a_changed_sync_value_resets() {
+    assert!(!sync_toggled(Feature::Sync, true, true));
+    assert!(!sync_toggled(Feature::Sync, false, false));
+    assert!(sync_toggled(Feature::Sync, true, false));
+    assert!(sync_toggled(Feature::Sync, false, true));
+    assert!(!sync_toggled(Feature::Clipboard, true, false));
+    assert!(!sync_toggled(Feature::Llm, false, true));
 }
