@@ -181,6 +181,7 @@ impl Session {
         memory.store.put_contact(Contact {
             id: id.clone(),
             name: name.to_owned(),
+            display_name: None,
             pronoun,
             scene,
             created_at: now_unix(),
@@ -305,7 +306,7 @@ impl Session {
         memory.today = memory.contact().and_then(|contact| {
             memory
                 .hints
-                .today(LocalDate::today(), contact.pronoun, &contact.name)
+                .today(LocalDate::today(), contact.pronoun, contact.chip_name())
         });
     }
 

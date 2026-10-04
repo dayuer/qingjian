@@ -15,8 +15,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use super::{
-    Card, CardsFile, Contact, DismissedFile, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError,
-    MemorySnapshot, now_unix, sanitized_scope, scope_with,
+    Card, CardsFile, Contact, DismissedFile, LocalDate, MAX_CONTACTS, MAX_DISPLAY_NAME_CHARS,
+    MEMORY_DIR, MemoryError, MemorySnapshot, now_unix, sanitized_scope, scope_with,
 };
 use crate::cloud_config::write_atomic;
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
@@ -114,6 +114,7 @@ impl MemoryStore {
     /// 加一个对象或改已有的（同 id，场景不能改）。这个场景超过 [`MAX_CONTACTS`] 个返回 [`MemoryError::ContactLimit`]。
     /// 对象目录在这里建，别处写卡片都不建目录。
     pub fn put_contact(&self, contact: Contact) -> Result<(), MemoryError> {
+        let contact = contact.normalized();
         validate_contacts(std::slice::from_ref(&contact))?;
         let _lock = self.lock()?;
         let mut contacts = self.read_contacts()?;
@@ -213,17 +214,23 @@ impl MemoryStore {
     /// App 整份写回。先校验（已有的人不能换场景）；锁里逐个比修订号，磁盘上比快照新（键盘这期间改过）就整份不写、返回 [`MemoryError::Conflict`]；
     /// 名单上没了的人连目录一起删；只重写卡片有变化的对象（修订号加一）；`state` 不采纳，当前对象被删了就置空。
     pub fn write_snapshot(&self, snapshot: &MemorySnapshot) -> Result<(), MemoryError> {
-        validate_contacts(&snapshot.contacts)?;
-        check_limit(&snapshot.contacts)?;
+        let contacts: Vec<Contact> = snapshot
+            .contacts
+            .iter()
+            .cloned()
+            .map(Contact::normalized)
+            .collect();
+        validate_contacts(&contacts)?;
+        check_limit(&contacts)?;
         for (id, cards) in &snapshot.cards {
-            if !snapshot.contacts.iter().any(|c| &c.id == id) {
+            if !contacts.iter().any(|c| &c.id == id) {
                 return Err(MemoryError::Invalid("卡片对不上人"));
             }
             validate_cards(cards)?;
         }
         let _lock = self.lock()?;
         let old = self.read_contacts()?;
-        check_scenes_kept(&old, &snapshot.contacts)?;
+        check_scenes_kept(&old, &contacts)?;
         let mut changed = Vec::new();
         for (id, cards) in &snapshot.cards {
             let (disk, _) = self.read_cards(id)?;
@@ -236,19 +243,19 @@ impl MemoryStore {
         }
         for gone in old
             .iter()
-            .filter(|o| is_contact_id(&o.id) && !snapshot.contacts.iter().any(|c| c.id == o.id))
+            .filter(|o| is_contact_id(&o.id) && !contacts.iter().any(|c| c.id == o.id))
         {
             remove_dir(&self.root.join(&gone.id))?;
         }
-        for contact in &snapshot.contacts {
+        for contact in &contacts {
             std::fs::create_dir_all(self.root.join(&contact.id))?;
         }
         for (id, rev, cards) in changed {
             self.write_cards(id, rev, cards)?;
         }
-        write_json(&self.contacts_path(), &snapshot.contacts)?;
+        write_json(&self.contacts_path(), &contacts)?;
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        let fixed = sanitized_scope(state.clone(), &snapshot.contacts);
+        let fixed = sanitized_scope(state.clone(), &contacts);
         if fixed != state {
             write_json(&self.state_path(), &fixed)?;
         }
@@ -454,6 +461,13 @@ fn validate_contacts(contacts: &[Contact]) -> Result<(), MemoryError> {
         }
         if contact.name.trim().is_empty() {
             return Err(MemoryError::Invalid("名字不能是空的"));
+        }
+        if contact
+            .display_name
+            .as_deref()
+            .is_some_and(|name| name.trim().chars().count() > MAX_DISPLAY_NAME_CHARS)
+        {
+            return Err(MemoryError::Invalid("键盘上的代号最多 12 个字"));
         }
         if !seen.insert(contact.id.as_str()) {
             return Err(MemoryError::Invalid("同一个人出现了两次"));
