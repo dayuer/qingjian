@@ -16,4 +16,7 @@ struct AccountState: Codable, Equatable {
 
     /// 这次没能从服务器取到账号的原因。
     var error: String?
+
+    /// `error` 的种类；没有错误时没有。
+    var errorCode: AccountFailure.Code?
 }

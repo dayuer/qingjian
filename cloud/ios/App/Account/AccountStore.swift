@@ -17,6 +17,19 @@ final class AccountStore {
     /// 给用户看的结果或失败原因，显示在页面顶上。
     var message: String?
 
+    /// 邮箱登录走到哪一步，以及两个输入框的内容（放在这里，失败时才能清空验证码）。
+    var loginStep = LoginStep.email
+
+    var email = ""
+
+    var code = ""
+
+    /// 当天验证失败太多次被锁：邮箱区域禁用，只能用 Apple 登录。
+    private(set) var emailLocked = false
+
+    /// 每加一次，验证码输入框抢一次焦点。
+    private(set) var codeFocusTick = 0
+
     /// 这一次 Apple 登录的原始 nonce；请求里给 Apple 的是它的 SHA-256。
     private var appleNonce: String?
 
@@ -34,7 +47,19 @@ final class AccountStore {
             return
         }
         state = next
+        if next.signedIn { emailLocked = false }
         if let error = next.error { message = error }
+    }
+
+    /// 失败的 code 加登录步骤 → 界面动作；message 总是显示。
+    nonisolated static func reaction(for failure: AccountFailure, step: LoginStep) -> AccountReaction {
+        switch failure.code {
+        case .authFailed: step == .code ? .retryCode : .showMessage
+        case .lockedToday: .lockEmail
+        case .unauthorized: .signOutLocally
+        case .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .other:
+            .showMessage
+        }
     }
 
     /// SignInWithAppleButton 发请求前调：生成这一次的 nonce。
@@ -77,7 +102,10 @@ final class AccountStore {
     /// 发验证码；成功返回 true。
     func emailStart(_ email: String) async -> Bool {
         let sent = await perform({ AccountBridge.emailStart($0, email: email) }, refreshAfter: false)
-        if sent { message = "验证码已发出，10 分钟内有效" }
+        if sent {
+            loginStep = .code
+            message = "验证码已发出，10 分钟内有效"
+        }
         return sent
     }
 
@@ -87,7 +115,11 @@ final class AccountStore {
         let signedIn = await perform({
             AccountBridge.emailVerify($0, email: email, code: code, device: device)
         })
-        if signedIn { message = "已登录" }
+        if signedIn {
+            loginStep = .email
+            self.code = ""
+            message = "已登录"
+        }
         return signedIn
     }
 
@@ -97,7 +129,8 @@ final class AccountStore {
         state?.consents[feature] = enabled
         let name = feature.rawValue
         let changed = await perform({ AccountBridge.setConsent($0, feature: name, enabled: enabled) })
-        if !changed { state?.consents = previous }
+        // 令牌失效时 perform 已把页面刷成未登录，不要把旧开关写回去
+        if !changed, state?.signedIn == true { state?.consents = previous }
     }
 
     func revoke(_ device: AccountDevice) async {
@@ -117,10 +150,10 @@ final class AccountStore {
         }
     }
 
-    /// 在后台跑一次桥的操作；失败把原因放进 message。成功后默认整页重取。
+    /// 在后台跑一次桥的操作；失败时按 code 处理并显示 message。成功后默认整页重取。
     @discardableResult
     private func perform(
-        _ work: @escaping @Sendable (URL) -> String?, refreshAfter: Bool = true
+        _ work: @escaping @Sendable (URL) -> AccountFailure?, refreshAfter: Bool = true
     ) async -> Bool {
         guard let file = SharedStore.cloudFile else {
             message = Self.noGroup
@@ -129,9 +162,30 @@ final class AccountStore {
         busy = true
         let failure = await Task.detached(priority: .userInitiated) { work(file) }.value
         busy = false
-        message = failure
-        guard failure == nil else { return false }
+        message = failure?.message
+        if let failure {
+            await apply(Self.reaction(for: failure, step: loginStep))
+            return false
+        }
         if refreshAfter { await refresh() }
         return true
+    }
+
+    private func apply(_ reaction: AccountReaction) async {
+        switch reaction {
+        case .showMessage:
+            break
+        case .retryCode:
+            code = ""
+            codeFocusTick += 1
+        case .lockEmail:
+            code = ""
+            loginStep = .email
+            emailLocked = true
+        case .signOutLocally:
+            let keep = message
+            await refresh()
+            message = keep
+        }
     }
 }
