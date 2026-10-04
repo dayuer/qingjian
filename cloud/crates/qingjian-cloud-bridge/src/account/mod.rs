@@ -8,7 +8,7 @@ use std::path::Path;
 
 use qingjian_cloud_client::{Client, ClientError};
 use qingjian_cloud_proto::{
-    AppleClient, AppleSignIn, Device, EmailVerify, Feature, Platform, SessionGrant,
+    AppleClient, AppleSignIn, Consents, Device, EmailVerify, Feature, Platform, SessionGrant,
 };
 
 use crate::cloud_config::CloudConfig;
@@ -135,6 +135,26 @@ fn finish(path: &Path, server: &str, grant: &SessionGrant) -> Result<(), String>
         reset_sync_state(path);
     }
     CloudConfig::store_session(path, server, &grant.token, grant.user_id, consents)
+}
+
+/// 服务器上的开关与本机 `cloud.toml` 不一样时以服务器为准写回，返回是否清过同步进度。
+/// 「同步」的值变了（用户在别的设备上关了又开，服务端已删过云端学习数据）要先清进度再写回；其它开关变化不清。
+/// 没登录或读不了文件时什么也不做。清进度失败只记日志。
+fn apply_server_consents(path: &Path, consents: Consents) -> bool {
+    let Some(config) = CloudConfig::read(path).filter(CloudConfig::signed_in) else {
+        return false;
+    };
+    if config.consents() == consents {
+        return false;
+    }
+    let reset = sync_toggled(Feature::Sync, config.sync, consents.sync);
+    if reset {
+        reset_after_sync_toggle(path);
+    }
+    if let Err(reason) = CloudConfig::store_consents(path, consents) {
+        tracing::warn!(%reason, "开关写回 cloud.toml 失败");
+    }
+    reset
 }
 
 /// 登录后要不要作废旧的同步进度：账号 id 变了要；本机没记过账号（旧版本写的文件、删号后）但留着进度，按换了账号处理。
