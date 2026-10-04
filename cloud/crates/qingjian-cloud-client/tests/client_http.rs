@@ -29,10 +29,14 @@ fn status_codes_map_to_errors() {
 #[test]
 fn email_start_accepts_204_and_sends_no_authorization() {
     let (url, rx) = fake_server("204 No Content");
-    Client::anonymous(&url).email_start("a@b.c").unwrap();
+    Client::anonymous(&url).email_start("a@b.c", "v1").unwrap();
     let head = rx.recv().unwrap();
     assert_eq!(request_line(&head), "POST /v1/auth/email/start HTTP/1.1");
     assert!(!has_authorization(&head), "{head}");
+    let body = head.split_once("\r\n\r\n").map_or("", |(_, body)| body);
+    let body: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(body["cross_border_consent"], "v1");
+    assert_eq!(body["email"], "a@b.c");
 }
 
 #[test]
@@ -91,6 +95,7 @@ mod reply_mapping {
             client: AppleClient::Ios,
             device: device(),
             challenge: None,
+            cross_border_consent: String::new(),
         }
     }
 
@@ -109,6 +114,7 @@ mod reply_mapping {
                 code: "000000".to_owned(),
                 device: device(),
                 challenge: None,
+                cross_border_consent: "v1".to_owned(),
             })
             .map(|_| ())
     }
@@ -125,7 +131,7 @@ mod reply_mapping {
         let (url, _rx) = fake_server_with_body("503 Service Unavailable", r#"{"error":"smtp"}"#);
         let client = Client::anonymous(&url);
         assert!(matches!(
-            client.email_start("a@b.c").unwrap_err(),
+            client.email_start("a@b.c", "v1").unwrap_err(),
             ClientError::NotConfigured(m) if m == "smtp"
         ));
         assert!(matches!(
@@ -155,7 +161,9 @@ mod reply_mapping {
 
     fn login_429_results(body: &'static str) -> [ClientError; 2] {
         let (url, _rx) = fake_server_with_body("429 Too Many Requests", body);
-        let start = Client::anonymous(&url).email_start("a@b.c").unwrap_err();
+        let start = Client::anonymous(&url)
+            .email_start("a@b.c", "v1")
+            .unwrap_err();
         let (url, _rx) = fake_server_with_body("429 Too Many Requests", body);
         let verified = verify(&Client::anonymous(&url)).unwrap_err();
         [start, verified]
@@ -188,7 +196,9 @@ mod reply_mapping {
     fn login_429_is_rate_limited() {
         let (url, _rx) = fake_server_with_body("429 Too Many Requests", r#"{"error":"slow"}"#);
         assert!(matches!(
-            Client::anonymous(&url).email_start("a@b.c").unwrap_err(),
+            Client::anonymous(&url)
+                .email_start("a@b.c", "v1")
+                .unwrap_err(),
             ClientError::RateLimited
         ));
     }
@@ -197,8 +207,61 @@ mod reply_mapping {
     fn login_other_4xx_is_rejected_with_message() {
         let (url, _rx) = fake_server_with_body("400 Bad Request", r#"{"error":"bad email"}"#);
         assert!(matches!(
-            Client::anonymous(&url).email_start("x").unwrap_err(),
+            Client::anonymous(&url).email_start("x", "v1").unwrap_err(),
             ClientError::Rejected { status: 400, message } if message == "bad email"
+        ));
+    }
+
+    const CONSENT_REQUIRED: &str =
+        r#"{"error":"cross-border consent required","code":"consent_required"}"#;
+
+    #[test]
+    fn login_400_consent_required_is_its_own_error() {
+        let (url, _rx) = fake_server_with_body("400 Bad Request", CONSENT_REQUIRED);
+        assert!(matches!(
+            Client::anonymous(&url).email_start("a@b.c", "").unwrap_err(),
+            ClientError::ConsentRequired(m) if m == "cross-border consent required"
+        ));
+        let (url, _rx) = fake_server_with_body("400 Bad Request", CONSENT_REQUIRED);
+        assert!(matches!(
+            Client::anonymous(&url).sign_in_apple(&apple()).unwrap_err(),
+            ClientError::ConsentRequired(_)
+        ));
+        let (url, _rx) = fake_server_with_body("400 Bad Request", CONSENT_REQUIRED);
+        assert!(matches!(
+            verify(&Client::anonymous(&url)).unwrap_err(),
+            ClientError::ConsentRequired(_)
+        ));
+    }
+
+    #[test]
+    fn login_400_without_or_with_other_code_is_rejected() {
+        for body in [
+            r#"{"error":"bad email"}"#,
+            r#"{"error":"x","code":"other_code"}"#,
+            "<html>bad</html>",
+        ] {
+            let (url, _rx) = fake_server_with_body("400 Bad Request", body);
+            assert!(
+                matches!(
+                    Client::anonymous(&url)
+                        .email_start("a@b.c", "v1")
+                        .unwrap_err(),
+                    ClientError::Rejected { status: 400, .. }
+                ),
+                "{body}"
+            );
+        }
+    }
+
+    #[test]
+    fn account_400_consent_required_stays_rejected() {
+        let (url, _rx) = fake_server_with_body("400 Bad Request", CONSENT_REQUIRED);
+        assert!(matches!(
+            Client::new(&url, "t")
+                .put_consent(qingjian_cloud_proto::Feature::Sync, true)
+                .unwrap_err(),
+            ClientError::Rejected { status: 400, .. }
         ));
     }
 

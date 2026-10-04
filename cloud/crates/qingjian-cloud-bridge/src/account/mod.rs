@@ -11,7 +11,8 @@ use std::path::Path;
 
 use qingjian_cloud_client::{Client, ClientError};
 use qingjian_cloud_proto::{
-    AppleClient, AppleSignIn, Consents, Device, EmailVerify, Feature, Platform, SessionGrant,
+    AppleClient, AppleSignIn, CROSS_BORDER_CONSENT_VERSION, Consents, Device, EmailVerify, Feature,
+    Platform, SessionGrant,
 };
 
 use self::failure::{Failure, apple_message, email_start_message, email_verify_message};
@@ -40,6 +41,8 @@ pub fn sign_in_apple(
         client: AppleClient::Ios,
         device: device(device_name),
         challenge: None,
+        // 下一轮改成由 App 传入用户同意的版本
+        cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
     };
     let grant = Client::anonymous(&server)
         .sign_in_apple(&request)
@@ -49,7 +52,8 @@ pub fn sign_in_apple(
 
 pub fn email_start(path: &Path, email: &str) -> Result<(), Failure> {
     Client::anonymous(&server(path))
-        .email_start(email.trim())
+        // 下一轮改成由 App 传入用户同意的版本
+        .email_start(email.trim(), CROSS_BORDER_CONSENT_VERSION)
         .map_err(|error| Failure::from_client(&error, email_start_message(&error)))
 }
 
@@ -65,6 +69,8 @@ pub fn email_verify(
         code: code.trim().to_owned(),
         device: device(device_name),
         challenge: None,
+        // 下一轮改成由 App 传入用户同意的版本
+        cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
     };
     let grant = Client::anonymous(&server)
         .email_verify(&request)

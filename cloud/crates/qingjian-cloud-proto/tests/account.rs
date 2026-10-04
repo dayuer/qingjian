@@ -1,10 +1,11 @@
 //! 账号相关的 JSON 形状：服务端（synon-ime）与各客户端按这里的字段名对接。
 
 use qingjian_cloud_proto::{
-    Account, AppleClient, AppleSignIn, Consents, Device, EmailVerify, Feature, HandoffExchange,
-    HandoffGrant, IdentityInfo, LOGIN_CALLBACK_SCHEME, PATH_ACCOUNT, PATH_AUTH_APPLE,
-    PATH_AUTH_EMAIL_START, PATH_AUTH_EMAIL_VERIFY, PATH_AUTH_HANDOFF, PATH_CONSENTS, PATH_LOGIN,
-    PATH_SESSIONS, Platform, PutConsent, SessionGrant, SessionInfo, TOKEN_PREFIX,
+    Account, AppleClient, AppleSignIn, CROSS_BORDER_CONSENT_VERSION, Consents, Device, EmailStart,
+    EmailVerify, Feature, HandoffExchange, HandoffGrant, IdentityInfo, LOGIN_CALLBACK_SCHEME,
+    PATH_ACCOUNT, PATH_AUTH_APPLE, PATH_AUTH_EMAIL_START, PATH_AUTH_EMAIL_VERIFY,
+    PATH_AUTH_HANDOFF, PATH_CONSENTS, PATH_LOGIN, PATH_SESSIONS, Platform, PutConsent,
+    SessionGrant, SessionInfo, TOKEN_PREFIX,
 };
 use serde_json::json;
 
@@ -61,13 +62,15 @@ fn apple_sign_in_without_challenge_omits_it() {
         client: AppleClient::Ios,
         device: iphone(),
         challenge: None,
+        cross_border_consent: "v1".to_owned(),
     };
     let value = serde_json::to_value(&request).unwrap();
     assert_eq!(
         value,
         json!({
             "identity_token": "jwt", "authorization_code": "code", "nonce": "raw",
-            "client": "ios", "device": { "name": "iPhone", "platform": "ios" }
+            "client": "ios", "device": { "name": "iPhone", "platform": "ios" },
+            "cross_border_consent": "v1"
         })
     );
     assert_eq!(
@@ -86,6 +89,7 @@ fn email_verify_with_challenge_round_trips() {
             platform: Platform::Web,
         },
         challenge: Some("S256".to_owned()),
+        cross_border_consent: "v1".to_owned(),
     };
     let value = serde_json::to_value(&request).unwrap();
     assert_eq!(value["challenge"], json!("S256"));
@@ -227,4 +231,32 @@ fn unknown_fields_from_a_newer_server_are_ignored() {
     assert!(!account.consents.sync && !account.consents.input_log && !account.consents.llm);
     let partial: Consents = serde_json::from_value(json!({ "clipboard": true })).unwrap();
     assert!(partial.clipboard && !partial.sync && !partial.input_log && !partial.llm);
+}
+
+#[test]
+fn cross_border_consent_is_serialized_and_defaults_to_empty() {
+    assert_eq!(CROSS_BORDER_CONSENT_VERSION, "2026-10-04");
+    let start = EmailStart {
+        email: "a@b.c".to_owned(),
+        cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
+    };
+    assert_eq!(
+        serde_json::to_value(&start).unwrap(),
+        json!({ "email": "a@b.c", "cross_border_consent": "2026-10-04" })
+    );
+    let start: EmailStart = serde_json::from_value(json!({ "email": "a@b.c" })).unwrap();
+    assert_eq!(start.cross_border_consent, "");
+    let verify: EmailVerify = serde_json::from_value(json!({
+        "email": "a@b.c", "code": "1", "device": { "name": "n", "platform": "ios" }
+    }))
+    .unwrap();
+    assert_eq!(verify.cross_border_consent, "");
+    let apple: AppleSignIn = serde_json::from_value(json!({
+        "identity_token": "j", "authorization_code": "c", "nonce": "n", "client": "ios",
+        "device": { "name": "n", "platform": "ios" }
+    }))
+    .unwrap();
+    assert_eq!(apple.cross_border_consent, "");
+    let value = serde_json::to_value(&verify).unwrap();
+    assert_eq!(value["cross_border_consent"], json!(""));
 }

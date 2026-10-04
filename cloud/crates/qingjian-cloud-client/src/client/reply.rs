@@ -12,6 +12,9 @@ const MAX_ERROR_BODY: u64 = 4096;
 /// 同一邮箱当天验证码输错太多次后，登录类 429 带的 `code`。
 const CODE_LOCKED_TODAY: &str = "locked_today";
 
+/// 登录类 400 带这个 `code`：没有出境同意或版本不认。
+const CODE_CONSENT_REQUIRED: &str = "consent_required";
+
 /// 请求属于哪一类，决定状态码的含义。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Context {
@@ -65,6 +68,9 @@ fn map_status(status: u16, message: String, code: Option<&str>, context: Context
         (Context::Account, 403) => ClientError::Forbidden(message),
         (Context::Login, 429) if code == Some(CODE_LOCKED_TODAY) => {
             ClientError::LockedToday(message)
+        }
+        (Context::Login, 400) if code == Some(CODE_CONSENT_REQUIRED) => {
+            ClientError::ConsentRequired(message)
         }
         (_, 429) => ClientError::RateLimited,
         (_, 400..=499) => ClientError::Rejected { status, message },
@@ -132,6 +138,26 @@ mod tests {
         assert!(matches!(
             map_status(429, "m".into(), Some("locked_today"), Context::Account),
             ClientError::RateLimited
+        ));
+    }
+
+    #[test]
+    fn login_400_consent_required_only_with_that_code() {
+        assert!(matches!(
+            map_status(400, "m".into(), Some("consent_required"), Context::Login),
+            ClientError::ConsentRequired(m) if m == "m"
+        ));
+        assert!(matches!(
+            map_status(400, "m".into(), Some("other"), Context::Login),
+            ClientError::Rejected { status: 400, .. }
+        ));
+        assert!(matches!(
+            map_status(400, "m".into(), None, Context::Login),
+            ClientError::Rejected { status: 400, .. }
+        ));
+        assert!(matches!(
+            map_status(400, "m".into(), Some("consent_required"), Context::Account),
+            ClientError::Rejected { status: 400, .. }
         ));
     }
 }

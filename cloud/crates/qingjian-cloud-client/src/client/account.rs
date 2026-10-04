@@ -31,10 +31,12 @@ impl Client {
         json(response.body_mut().read_json())
     }
 
-    /// 给邮箱发 6 位验证码；成功是 204，没有响应体。
-    pub fn email_start(&self, email: &str) -> Result<(), ClientError> {
+    /// 给邮箱发 6 位验证码；成功是 204，没有响应体。`cross_border_consent` 是用户同意的文本版本号
+    /// （[`qingjian_cloud_proto::CROSS_BORDER_CONSENT_VERSION`]），没同意传空串，服务端回 400 `consent_required`。
+    pub fn email_start(&self, email: &str, cross_border_consent: &str) -> Result<(), ClientError> {
         let request = EmailStart {
             email: email.to_owned(),
+            cross_border_consent: cross_border_consent.to_owned(),
         };
         let result = self
             .agent

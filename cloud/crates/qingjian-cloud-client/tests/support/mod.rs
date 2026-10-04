@@ -42,7 +42,15 @@ pub fn fake_server_with_body(
                         .ok()
                 })
                 .unwrap_or(0u64);
-            std::io::copy(&mut reader.by_ref().take(length), &mut std::io::sink()).ok();
+            let mut request_body = String::new();
+            reader
+                .by_ref()
+                .take(length)
+                .read_to_string(&mut request_body)
+                .ok();
+            // 请求头之后空一行接请求体，测试可以断言请求里发了什么
+            head.push_str("\r\n");
+            head.push_str(&request_body);
             tx.send(head).ok();
             write!(
                 &stream,
