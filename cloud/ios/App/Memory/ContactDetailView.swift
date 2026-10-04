@@ -14,6 +14,9 @@ struct ContactDetailView: View {
 
     var body: some View {
         List {
+            if let error = store.loadError {
+                MemoryFailureBanner(text: error) { Task { await store.reload() } }
+            }
             if let contact = store.contact(contactId) {
                 Section {
                     HStack(spacing: 14) {
@@ -57,6 +60,9 @@ struct ContactDetailView: View {
                     .disabled(!store.canEdit)
                     .opacity(store.canEdit ? 1 : 0.4)
                 }
+                #if DEBUG
+                MemoryStressSection(store: store, contactId: contactId)
+                #endif
             }
         }
         .navigationTitle("")

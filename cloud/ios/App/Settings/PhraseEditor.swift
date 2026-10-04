@@ -23,6 +23,7 @@ struct PhraseEditor: View {
                         .lineLimit(1...6)
                     Stepper("第 \(phrase.position) 个候选", value: $phrase.position, in: 1...9)
                     Toggle("启用", isOn: $phrase.enabled)
+                        .tint(ColorUsage.appToggle.role.color)
                 } footer: {
                     if let error { Text(error).foregroundStyle(.red) }
                 }

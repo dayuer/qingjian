@@ -9,7 +9,7 @@ struct WeekView: View {
         NavigationStack {
             List {
                 if let error = store.loadError {
-                    MemoryFailureBanner(text: error) { store.reload() }
+                    MemoryFailureBanner(text: error) { Task { await store.reload() } }
                 }
                 let items = store.upcoming(within: 6)
                 if items.isEmpty && store.loadError == nil {
@@ -29,8 +29,7 @@ struct WeekView: View {
                 }
             }
             .navigationTitle("本周")
-            .task { store.reload() }
-            .refreshable { store.reload() }
+            .refreshable { await store.reload() }
         }
     }
 }

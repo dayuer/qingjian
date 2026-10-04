@@ -50,6 +50,7 @@ struct AccountView: View {
                 Toggle(feature.title, isOn: Binding(
                     get: { store.state?.consents[feature] ?? false },
                     set: { value in Task { await store.setConsent(feature, value) } }))
+                .tint(ColorUsage.appToggle.role.color)
             }
         } header: {
             Text("功能")

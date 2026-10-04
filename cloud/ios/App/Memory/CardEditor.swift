@@ -1,6 +1,6 @@
 // 新建 / 改一张卡（02 的 1c）：写下来（最多 200 字，带计数）、是什么（五选一）、到哪天（日子与约定才有）、
 // 关键词（一个一个加，最多 8 个、每个 2–8 字，满了「添加」不可点）、删掉这条。上限见 MemoryLimits，桥写入前也会校验。
-// 存不上时页面不关、改的内容留着，提示框说原因；存好了但有话要说（冲突已合并）时等用户点掉提示再关。
+// 保存在后台做，期间显示「正在保存」、整页置灰；存不上时页面不关、改的内容留着，提示框说原因；存好了但有话要说（冲突已合并）时等用户点掉提示再关。
 
 import SwiftUI
 
@@ -80,7 +80,7 @@ struct CardEditor: View {
                 if let card {
                     Section {
                         Button("删掉这条", role: .destructive) {
-                            if store.deleteCard(card.id, for: contactId) { close() }
+                            Task { if await store.deleteCard(card.id, for: contactId) { close() } }
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -93,11 +93,16 @@ struct CardEditor: View {
                     Button("取消") { dismiss() }.foregroundStyle(ColorUsage.editorSave.role.color)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("存好") { save() }
-                        .foregroundStyle(ColorUsage.editorSave.role.color)
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if store.saving {
+                        MemorySavingLabel().foregroundStyle(ColorUsage.cardNotice.role.color)
+                    } else {
+                        Button("存好") { save() }
+                            .foregroundStyle(ColorUsage.editorSave.role.color)
+                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
             }
+            .disabled(store.saving)
             .onAppear(perform: load)
             .memoryEditorAlert(store)
             // 存好了但有话要说（冲突已合并）：等提示框点掉再关，在按钮回调里直接关会被提示框的收起动画吞掉
@@ -122,7 +127,7 @@ struct CardEditor: View {
         next.when = kind.hasDate ? MemoryDate.format(when) : nil
         next.keywords = keywords
         next.touchedAt = Int64(Date().timeIntervalSince1970)
-        if store.saveCard(next, for: contactId) { close() }
+        Task { if await store.saveCard(next, for: contactId) { close() } }
     }
 
     /// 存好了：没话要说就关，有话（冲突已合并）就等提示框点掉再关。

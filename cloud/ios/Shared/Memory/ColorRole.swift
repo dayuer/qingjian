@@ -1,10 +1,16 @@
-// 键盘上文字与描边的颜色角色：accent 只给对象相关的显示（牌子、提示行、对象卡、选择面板里的对象、记一笔条），其余用中性的 ink / ink2。
+// 键盘与 App 共用的颜色角色：灰绿三档只给对象相关的显示，其余用中性的 ink / ink2。各元素用哪一档见 ColorUsage。
 
 import SwiftUI
 
 enum ColorRole: Equatable {
-    /// 灰绿强调色（对象相关）。
+    /// 灰绿强调色的文字档 accentInk（对象相关的文字、描边）。
     case accent
+
+    /// 灰绿的实底 accent（App 开关打开时的底色）。
+    case accentFill
+
+    /// 灰绿的浅底 accentSoft（提示行、提醒卡的底色）。
+    case accentSoft
 
     /// 系统 label。
     case ink
@@ -15,8 +21,13 @@ enum ColorRole: Equatable {
     var color: Color {
         switch self {
         case .accent: Theme.accentInk.color
+        case .accentFill: Theme.accent.color
+        case .accentSoft: Theme.accentSoft.color
         case .ink: Theme.ink
         case .ink2: Theme.ink2
         }
     }
+
+    /// 灰绿三档之一。
+    var isAccent: Bool { self == .accent || self == .accentFill || self == .accentSoft }
 }
