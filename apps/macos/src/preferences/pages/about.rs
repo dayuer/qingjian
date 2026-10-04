@@ -17,7 +17,7 @@ use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 /// 许可说明，与仓库根目录 `LICENSE` 一致。
-pub const LICENSE_NOTE: &str = "自由软件，GPL-3.0-or-later 许可证：可以自由使用、修改与再分发，修改后分发须同样开源。官方渠道免费。";
+pub const LICENSE_NOTE: &str = "基于开源的青简输入法（GPL-3.0）。源码：https://github.com/dayuer/qingjian\n自由软件，GPL-3.0-or-later 许可证：可以自由使用、修改与再分发，修改后分发须同样开源。官方渠道免费。";
 
 /// 随包数据的来源与许可证。改数据来源时同步改这里和 `apps/macos/scripts/bundle.sh` 里 `pack` 的署名。
 pub const ATTRIBUTIONS: &[(&str, &str)] = &[
@@ -29,7 +29,7 @@ pub const ATTRIBUTIONS: &[(&str, &str)] = &[
         "语言模型",
         "中文维基百科（CC BY-SA 4.0）与 LCCC（清华大学 CoAI，MIT）语料统计。",
     ),
-    ("释义表", "由大语言模型（DeepSeek）生成，青简自建。"),
+    ("释义表", "由大语言模型（DeepSeek）生成，素笺自建。"),
     ("emoji", "Unicode CLDR annotations（Unicode License v3）。"),
     (
         "英文词表",
@@ -41,7 +41,7 @@ pub const ATTRIBUTIONS: &[(&str, &str)] = &[
     ),
     (
         "五笔码表",
-        "86 五笔极点码表（sxjudya/rime-wubi86-jidian，Apache-2.0）；编码来自上游，词频由青简词库按词面回填。",
+        "86 五笔极点码表（sxjudya/rime-wubi86-jidian，Apache-2.0）；编码来自上游，词频由素笺词库按词面回填。",
     ),
 ];
 
@@ -49,10 +49,10 @@ pub const ATTRIBUTIONS: &[(&str, &str)] = &[
 pub const WEBSITE_URL: &str = "https://qingjian.app";
 
 /// 源码与问题反馈。
-pub const REPOSITORY_URL: &str = "https://github.com/qingjian-team";
+pub const REPOSITORY_URL: &str = "https://github.com/dayuer/qingjian";
 
 /// 隐私说明。
-pub const PRIVACY_NOTE: &str = "青简不上传任何数据。开着「自动检查更新」时每天向 pinyin.synon.ai 读一次版本列表，请求不带任何标识，上面可以关。开着云联想或翻译时，光标附近的文字与拼音会发给你在「云服务」页填的 AI 服务商（缺省 DeepSeek）的服务器，不经过作者。「高级」页的输入日志只写在这台电脑的数据目录里，可以关掉或清空。";
+pub const PRIVACY_NOTE: &str = "素笺不上传任何数据。开着「自动检查更新」时每天向 pinyin.synon.ai 读一次版本列表，请求不带任何标识，上面可以关。开着云联想或翻译时，光标附近的文字与拼音会发给你在「云服务」页填的 AI 服务商（缺省 DeepSeek）的服务器，不经过作者。「高级」页的输入日志只写在这台电脑的数据目录里，可以关掉或清空。";
 
 /// 反馈方式。
 pub const FEEDBACK_NOTE: &str = "遇到问题点「打包日志到桌面」，把生成的 zip 发给作者即可（含日志与配置文件，不含密钥），再附上「复制诊断信息」的内容。缺省日志不含你敲的内容；排查排序问题时作者可能请你在「高级」页临时打开详细日志。";
@@ -125,7 +125,7 @@ pub fn build(
     version: &str,
     build: &str,
 ) -> AboutPage {
-    let title = NSTextField::labelWithString(&NSString::from_str(&format!("青简 {version}")), mtm);
+    let title = NSTextField::labelWithString(&NSString::from_str(&format!("素笺 {version}")), mtm);
     title.setFont(Some(&NSFont::boldSystemFontOfSize(15.0)));
     layout.place(&title, PAGE_PADDING, layout.inner_width(), ROW_HEIGHT);
     layout.next_row(ROW_HEIGHT);
