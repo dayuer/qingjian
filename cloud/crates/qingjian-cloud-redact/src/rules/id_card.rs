@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::replace::{replace_where, touches_digit};
+use super::replace::replace_where;
 
 const PLACEHOLDER: &str = "〔证件号〕";
 
@@ -16,8 +16,8 @@ const WEIGHTS: [u32; 17] = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
 const CHECK_CODES: &[u8; 11] = b"10X98765432";
 
 pub fn apply(text: &str) -> (String, u32) {
-    replace_where(text, &ID_CARD, PLACEHOLDER, |found, before, after| {
-        !touches_digit(before, after) && is_id_card(found)
+    replace_where(text, &ID_CARD, PLACEHOLDER, |hit| {
+        !hit.touches_digit() && is_id_card(hit.found)
     })
 }
 

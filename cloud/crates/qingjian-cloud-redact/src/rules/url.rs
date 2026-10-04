@@ -14,5 +14,5 @@ static URL: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub fn apply(text: &str) -> (String, u32) {
-    replace_where(text, &URL, PLACEHOLDER, |_, _, _| true)
+    replace_where(text, &URL, PLACEHOLDER, |_| true)
 }

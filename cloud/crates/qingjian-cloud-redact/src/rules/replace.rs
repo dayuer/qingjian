@@ -2,26 +2,26 @@
 
 use regex::Regex;
 
-/// 候选前后紧挨的字符，都按「是不是 ASCII 数字」判断「是更长数字串的一部分」。
-pub fn touches_digit(before: Option<char>, after: Option<char>) -> bool {
-    before.is_some_and(|c| c.is_ascii_digit()) || after.is_some_and(|c| c.is_ascii_digit())
-}
+use super::hit::Hit;
 
-/// 把 `re` 的每个候选交给 `accept(候选, 前一个字符, 后一个字符)`，通过的换成 `placeholder`，返回新文字与替换数。
+/// 把 `re` 的每个候选交给 `accept`，通过的换成 `placeholder`，返回新文字与替换数。
 pub fn replace_where(
     text: &str,
     re: &Regex,
     placeholder: &str,
-    accept: impl Fn(&str, Option<char>, Option<char>) -> bool,
+    accept: impl Fn(&Hit) -> bool,
 ) -> (String, u32) {
     let mut output = String::with_capacity(text.len());
     let mut copied = 0;
     let mut position = 0;
     let mut count = 0;
     while let Some(found) = re.find_at(text, position) {
-        let before = text[..found.start()].chars().next_back();
-        let after = text[found.end()..].chars().next();
-        if accept(found.as_str(), before, after) {
+        let hit = Hit {
+            found: found.as_str(),
+            prefix: &text[..found.start()],
+            suffix: &text[found.end()..],
+        };
+        if accept(&hit) {
             output.push_str(&text[copied..found.start()]);
             output.push_str(placeholder);
             copied = found.end();

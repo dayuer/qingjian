@@ -3,6 +3,7 @@
 pub mod address;
 pub mod bank_card;
 pub mod email;
+mod hit;
 pub mod id_card;
 pub mod landline;
 pub mod phone;
