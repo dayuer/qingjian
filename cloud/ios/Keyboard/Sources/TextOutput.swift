@@ -10,6 +10,9 @@ protocol TextOutput: AnyObject {
 
     func deleteBackward()
 
+    /// 把宿主的光标左右挪 `offset` 个字符（负数往左）。
+    func moveCursor(by offset: Int)
+
     /// 宿主光标前的文字（可能含我们写的 marked text），拿不到时是空串。
     var contextBefore: String { get }
 

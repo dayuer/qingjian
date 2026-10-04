@@ -36,6 +36,9 @@ final class KeyboardModel {
     /// 按住 ⌫ 连删的任务，按格子记。
     @ObservationIgnored private var repeats: [Int: Task<Void, Never>] = [:]
 
+    /// 按住空格拖动挪光标：哪一格进了这个模式、已经挪了几步。抬起时不出空格。
+    @ObservationIgnored private var cursorDrag: (slot: Int, steps: Int)?
+
 
     /// 引擎打不开（数据缺失）时为 nil，字母直接输出。
     @ObservationIgnored private var engine: Engine?
@@ -98,8 +101,36 @@ final class KeyboardModel {
     func release(slot: Int, key: Key, cancelled: Bool) {
         guard pressedSlots.remove(slot) != nil else { return }
         repeats.removeValue(forKey: slot)?.cancel()
+        if cursorDrag?.slot == slot {
+            cursorDrag = nil
+            return
+        }
         if key != .backspace { tap(key) }
     }
+
+    /// 按住空格横向拖：挪过 [`Self.cursorDragStart`] 进挪光标模式，之后每 [`Self.cursorStep`] 挪一个字，每步轻震一下。
+    /// 组字中不挪（光标在拼音里没意义），照常当空格。
+    func drag(slot: Int, key: Key, dx: CGFloat) {
+        guard key == .space, pressedSlots.contains(slot), !composing else { return }
+        if cursorDrag == nil {
+            guard abs(dx) >= Self.cursorDragStart else { return }
+            cursorDrag = (slot, 0)
+        }
+        guard var drag = cursorDrag, drag.slot == slot else { return }
+        let travelled = dx - (dx > 0 ? Self.cursorDragStart : -Self.cursorDragStart)
+        let steps = Int(travelled / Self.cursorStep)
+        guard steps != drag.steps else { return }
+        output?.moveCursor(by: steps - drag.steps)
+        onKeyDown?()
+        drag.steps = steps
+        cursorDrag = drag
+    }
+
+    /// 横向挪多远才算拖（pt），免得点空格时手指一抖就挪了光标。
+    private static let cursorDragStart: CGFloat = 12
+
+    /// 拖多远挪一个字（pt）。
+    private static let cursorStep: CGFloat = 9
 
     func selectCandidate(_ index: Int) {
         guard let engine, let text = engine.commit(index) else { return }

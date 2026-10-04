@@ -124,6 +124,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         textDocumentProxy.deleteBackward()
     }
 
+    func moveCursor(by offset: Int) {
+        textDocumentProxy.adjustTextPosition(byCharacterOffset: offset)
+    }
+
     /// 同一次弹出里焦点也会换输入框（填完用户名跳到验证码），每次都重判。
     override func textDidChange(_ textInput: (any UITextInput)?) {
         super.textDidChange(textInput)
@@ -192,6 +196,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             model.release(slot: index, key: touchView.slots[index].key, cancelled: cancelled)
         }
         touchView.onChevron = { model.toggleCandidatePanel() }
+        touchView.onDrag = { [touchView] index, dx in
+            guard index < touchView.slots.count else { return }
+            model.drag(slot: index, key: touchView.slots[index].key, dx: dx)
+        }
         // 面板在触摸层下面：展开时触摸层不认键区的触摸，面板自己收
         panelView.onSelect = { model.selectCandidate($0) }
         view.addSubview(panelView)

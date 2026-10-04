@@ -22,6 +22,12 @@ final class KeyTouchView: UIView {
 
     var onRelease: ((Int, _ cancelled: Bool) -> Void)?
 
+    /// 按着的手指横向挪了多少（相对按下处，pt）；按住空格拖动挪光标用。
+    var onDrag: ((Int, CGFloat) -> Void)?
+
+    /// 每根手指按下的位置。
+    private var origins: [ObjectIdentifier: CGPoint] = [:]
+
     /// 每根手指按在哪一格。
     private var touched: [ObjectIdentifier: Int] = [:]
 
@@ -56,13 +62,23 @@ final class KeyTouchView: UIView {
             guard let index = nearestSlot(CGPoint(x: point.x - keyArea.minX, y: point.y - keyArea.minY)) else {
                 continue
             }
-            // 快打时上一个键常常还没抬起：先把它放掉（出字），字母顺序才对
-            for (id, held) in touched where held != index {
+            // 快打时上一个键常常还没抬起：先把它放掉（出字），字母顺序才对；同一个键连按两下也一样，不然第二下被当成「还按着」吞掉
+            for (id, held) in touched {
                 touched.removeValue(forKey: id)
+                origins.removeValue(forKey: id)
                 onRelease?(held, false)
             }
             touched[ObjectIdentifier(touch)] = index
+            origins[ObjectIdentifier(touch)] = point
             onPress?(index)
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        for touch in touches {
+            let id = ObjectIdentifier(touch)
+            guard let index = touched[id], let origin = origins[id] else { continue }
+            onDrag?(index, touch.location(in: self).x - origin.x)
         }
     }
 
@@ -80,10 +96,12 @@ final class KeyTouchView: UIView {
             onRelease?(index, true)
         }
         touched.removeAll()
+        origins.removeAll()
     }
 
     private func release(_ touches: Set<UITouch>, cancelled: Bool) {
         for touch in touches {
+            origins.removeValue(forKey: ObjectIdentifier(touch))
             if let index = touched.removeValue(forKey: ObjectIdentifier(touch)) {
                 onRelease?(index, cancelled)
             }
