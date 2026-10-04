@@ -5703,7 +5703,7 @@ App 侧 qj_memory_read / write 整份读写，写回冲突返回 conflict；新�
 6. 选择面板加了「收起」：大纲没写怎么回到键区。选了对象、换到日常 / 工作时自动收起。
 7. 「记一笔」还要求选了对象（确认条要写「记到 {对象}」），并且不在私密输入框里。
 8. **审计修订（重要 4、6，建议「没开完全访问时禁止切换场景」）：**
-   - **提示行恋爱场景选了对象时一直保留**（没有提示时是空行），日常、工作与「恋爱 · 不指定」没有这一行；键盘高度与 0.2 秒动画只在进出「恋爱 · 某人」时发生（`KeyboardModel.hasHintRow`），提示出现消失不再让宿主界面跳 34pt。差异 1 里「跟着 `model.hint` 改高度」作废，改为跟着 `hasHintRow`。
+   - **（2026-10-04 真机后改定，以此为准：提示行只在「恋爱 · 某人」且有提示或记一笔条时出现，没提示不占行，照设计稿；用户把常驻的空行当成 bug，宿主界面跳 34pt 的代价可以接受。下面这条作废。）** **提示行恋爱场景选了对象时一直保留**（没有提示时是空行），日常、工作与「恋爱 · 不指定」没有这一行；键盘高度与 0.2 秒动画只在进出「恋爱 · 某人」时发生（`KeyboardModel.hasHintRow`），提示出现消失不再让宿主界面跳 34pt。差异 1 里「跟着 `model.hint` 改高度」作废，改为跟着 `hasHintRow`。
    - **换输入框清最近上屏的字：** 控制器在 `textDidChange` 里比较 `textDocumentProxy.documentIdentifier`，变了就调 `model.hostChanged()` → `Engine.resetContext()` → 桥的 `qj_reset_context`；键盘收起时 `model.dismiss()` 里的 `flush` 由桥清。
    - **没开完全访问时不让切场景：** 桥不知道有没有完全访问，这道门在 Swift 侧：`ScopePicker` 在 `fullAccess` 为假时只显示「开启完全访问后才能使用记忆」与「收起」，没有场景分段。
    - `MemoryContact` 带 `hintOn` / `remindOn`（缺省开，旧文件兼容）；`MemoryScope` 只有场景与对象；`MemorySnapshot` 带 `revs`；`MemoryFailure` 多 `conflict`；`MemoryCard.daysAway` 日子按年重复、`reminderText` 按种类分模板（与桥一致）；`MemoryDate.nextAnniversary`。
@@ -9467,7 +9467,7 @@ apps/cli 的回放装不进 ScopedLearner（它在 cloud 的独立 workspace，C
 | **重要 3：切场景覆盖 App 改的** | Task 2 `update_scope`（锁里重读 `state.json` 与名单，只改场景与对象）；Task 1 `ScopeState` 只剩 `scene`、`contact_id`；Task 4 `set_scope` | 848–874、2199–2670、4213–4440 |
 | **重要 4：最近 24 字只在换对象时清** | Task 4 `Session::flush` 末尾清、新 C 函数 `qj_reset_context`（头文件与导出核对同步）；Task 5 Step 7 (h) `textDidChange` 比较 `documentIdentifier` 调 `hostChanged()`；FFI 测试 `flush_and_new_field_clear_recent_text` | 4213–4440、4441–4699、4700–4921、6307–6330、3646–4074 |
 | **重要 5：重建丢节流与「知道了」** | Task 3 `HintIndex::rebuild` / `dismissed` / `set_dismissed`；Task 4 `rebuild_hints` 用它；测试 `rebuild_keeps_throttle_and_dismissals` | 3203–3375、4213–4440、2758–3072 |
-| **重要 6：提示行让宿主界面跳** | Task 5 `KeyboardModel.hasHintRow`、`HintRow` 接受空提示、`KeyboardView` 与控制器 `syncHintRow`/`syncTouchView`/`hintInset` 改看 `hasHintRow`；截图验收 1、2、4、8 改写 | 5615–5818、5821–5901、6067–6216、6217–6330、6341–6377 |
+| **重要 6：提示行让宿主界面跳**（2026-10-04 真机后作废，改为没提示不占行，见 Task 5 差异） | Task 5 `KeyboardModel.hasHintRow`、`HintRow` 接受空提示、`KeyboardView` 与控制器 `syncHintRow`/`syncTouchView`/`hintInset` 改看 `hasHintRow`；截图验收 1、2、4、8 改写 | 5615–5818、5821–5901、6067–6216、6217–6330、6341–6377 |
 | **决定 1：删词连叠加层** | Task 1 Step 5 `forget`/`forget_english`；测试 `forget_clears_the_open_overlay_layers` | 668–874、232–466 |
 | **决定 2：日子按年重复** | Task 2 `LocalDate::next_anniversary` 与测试 `anniversaries_repeat_every_year`；Task 3 `days_away`、`today`、`panel_cards` 与测试（闰年、跨年）；Task 5 `MemoryCard.daysAway`、`MemoryDate.nextAnniversary`；Task 6 `ContactEditor`「生日」与测试 | 1990–2161、1083–1164、3376–3475、5093–5190、7208–7293、6435–6624 |
 | **决定 3：提示开关按人** | Task 2 `Contact.hint_on/remind_on`；Task 4 `memory_hint`/`update_hint`；Task 5 `MemoryContact`；Task 6 `ContactSettingsView`；FFI 测试 `hint_switch_is_per_contact` | 1824–1862、4213–4440、5033–5092、7294–7390 |

@@ -274,8 +274,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         panelView.candidates = candidates
     }
 
-    /// 进出「恋爱 · 某人」时提示行这一行加上 / 去掉：键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在
-    /// viewDidLayoutSubviews / syncTouchView 里跟着下移。提示本身出现消失不改高度（行一直在，空着而已）。
+    /// 提示行出现与收起时（hasHintRow）键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在
+    /// viewDidLayoutSubviews / syncTouchView 里跟着下移。
     private func syncHintRow() {
         let visible = withObservationTracking {
             model.hasHintRow

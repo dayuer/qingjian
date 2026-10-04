@@ -1,9 +1,10 @@
 // 键盘上与记忆有关的显示判断，提成纯函数方便单测：提示行在不在、牌子写什么、选择面板能不能用、「记一笔」出不出。
 
 enum ScopeDisplay {
-    /// 恋爱场景选了对象时提示行一直在（没有提示时是空行）；日常、工作与「恋爱 · 不指定」没有这一行。
-    static func hasHintRow(scene: String, hasContact: Bool) -> Bool {
-        scene == MemoryScope.dating && hasContact
+    /// 提示行只在「恋爱 · 某人」且这一行有东西（提示、记一笔条）时出现，没东西就不占行（设计稿）；
+    /// 代价是提示出现与消失时键盘高度变 34pt、宿主界面跟着动，用户把常驻的空行当成了 bug，2026-10-04 改定。
+    static func hasHintRow(scene: String, hasContact: Bool, hasContent: Bool) -> Bool {
+        scene == MemoryScope.dating && hasContact && hasContent
     }
 
     /// 牌子上的字：恋爱选了对象是「小美 · 恋爱」，其余只是场景名。
