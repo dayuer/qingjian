@@ -20,6 +20,7 @@ enum ColorUsage: CaseIterable {
     case allMemoryButton
     case cardNotice
     case noteIgnore
+    case noteCancel
     case addContactButton
     case addCardButton
     case editorSave
@@ -32,7 +33,7 @@ enum ColorUsage: CaseIterable {
         case .chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderDay: .accent
         case .reminderCard: .accentSoft
         case .appToggle, .addContactDone: .accentFill
-        case .hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore, .addContactButton, .addCardButton,
+        case .hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore, .noteCancel, .addContactButton, .addCardButton,
              .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner: .ink
         case .cardNotice: .ink2
         }

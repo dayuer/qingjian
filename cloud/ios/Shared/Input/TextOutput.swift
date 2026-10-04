@@ -1,4 +1,5 @@
 // 键盘与宿主应用、系统剪贴板之间的出入口；控制器用 textDocumentProxy 与 UIPasteboard 实现。
+// 放在 Shared 是为了让单测能拿假的实现去驱动 OutputRouter（键盘扩展的源码不在测试 target 里）。
 
 @MainActor
 protocol TextOutput: AnyObject {
