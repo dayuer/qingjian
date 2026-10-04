@@ -6,6 +6,7 @@ members = [
     "crates/qingjian-cloud-client",
     "crates/qingjian-cloud-bridge",
     "crates/qingjian-cloud-mac",
+    "crates/qingjian-cloud-redact",
 ]
 
 [workspace.package]
