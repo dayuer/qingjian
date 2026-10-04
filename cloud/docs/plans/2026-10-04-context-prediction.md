@@ -12,14 +12,25 @@
 
 **Spec:** [`cloud/docs/specs/2026-10-04-context-prediction-design.md`](../specs/2026-10-04-context-prediction-design.md)。
 
+**审计（2026-10-04，adc825f）定下的事**，本版已照改：整句不参与词级重排；评测用产品配置（通变 + 知微）跑、只用通变作对照；
+CLI 报按键同步部分 p50 / p99；后台线程打分与续写各留最新一条；热切 `tongbian` 真卸知微；私密输入不读前文；
+β 以 `--replay` 不降为准；e2e 先预置前文；续写 p90 > 150 ms 停下报告；Tab 行为变化写 `cloud/docs/design.md`；
+续写上屏记 `InputSource::LocalContinuation`、首选照常记 choice。
+
 ---
 
-## 与大纲的两处出入（审计请确认）
+## 与大纲的两处出入（审计已同意）
 
-1. **评测集放 `cloud/data/eval/context-pairs.tsv`，不放 `data/eval/`。** 根 `.gitignore` 第 7 行是 `/data`，整个目录不入库，
-   放那里评测集提交不上去；现有 `data/eval/*.tsv` 也只在本机。素笺自己的数据放 `cloud/` 下，与上游隔离。
-2. **`--eval-continuation` 挪到 Task 6 的第一步。** 它量的是 `continue_text` 的续写，这个函数 Task 6 才有；Task 1 跑不出它的「基线」
-   （现状没有本地续写，基线就是空）。Task 1 只做评测集、`--eval-context` 与三项基线。
+1. **评测集放 `cloud/data/eval/context-pairs.tsv`，不放 `data/eval/`。** 根 `.gitignore` 第 7 行是 `/data`，整个目录不入库。
+2. **`--eval-continuation` 在 Task 6 第一步。** 它量的是 `continue_text`，Task 6 才有。
+
+## 代码约定（每个任务都照办）
+
+- 新文件都有 `//!` 文件头；新文件不用 `use super::*`（文件内的 `#[cfg(test)] mod tests` 除外），写精确路径。
+- 测试先写、先跑一次确认它失败，再实现。
+- 依赖随包模型的测试：模型不在就 `eprintln!("没有知微模型，跳过")` 并 `return`，在本文件「评测记录」备注里写明哪些测试因此跳过了。
+- 提交信息按 Conventional Commits，**不加 AI 署名**；**不跳过** `.githooks/pre-commit`（文档提交也走钩子）。
+- 每处上游文件改动，同一提交里记 `cloud/docs/fork-patch.md`。
 
 ## 工作环境
 
@@ -27,25 +38,28 @@
 产品数据与模型在 `qingjian-mainline/data/`（gitignore），链进来：
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && ln -s /Users/liyuqing/sproot/qingjian-mainline/data data && ls data/generated data/models/hanzhang-zhiwei
+cd /Users/liyuqing/sproot/qingjian-context-prediction && ln -s /Users/liyuqing/sproot/qingjian-mainline/data data && ls data/generated data/models/hanzhang-zhiwei data/models/hanzhang-tongbian
 ```
 
-三项评测的命令（每个任务收尾都跑，数字填进下面「评测记录」）：
+### 评测命令
+
+两套配置都跑：**产品配置**（素笺缺省 `scorers = "both"`：通变排整句 + 知微排词；Task 4 之前还没有 `--word-model`，就只带通变）
+与**对照**（只用通变 = 上游行为）。门槛按产品配置的数字算，对照一起报。
+
+产品配置（Task 4 起加 `--word-model data/models/hanzhang-zhiwei`，之前去掉这一段）：
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo run --release -p qingjian-cli -- --eval-context cloud/data/eval/context-pairs.tsv
+cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian --word-model data/models/hanzhang-zhiwei" && cargo run --release -p qingjian-cli -- $M --eval-context cloud/data/eval/context-pairs.tsv && cargo run --release -p qingjian-cli -- $M --eval-text data/eval/sentences.tsv --misses 0 && cargo run --release -p qingjian-cli -- $M --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0
 ```
+
+对照（只用通变）：
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo run --release -p qingjian-cli -- --eval-text data/eval/sentences.tsv --misses 0
+cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian" && cargo run --release -p qingjian-cli -- $M --eval-context cloud/data/eval/context-pairs.tsv && cargo run --release -p qingjian-cli -- $M --eval-text data/eval/sentences.tsv --misses 0 && cargo run --release -p qingjian-cli -- $M --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0
 ```
 
-```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo run --release -p qingjian-cli -- --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0
-```
-
-门槛：`--eval-context` 有前文首选比基线 **≥ +15 个百分点**；`--eval-text` 首选、`--replay` 「词」首选比基线**下降不超过 0.5 个百分点**。
-任何一项越线：停下，把数字发给审计会话「素笺输入法」，不往下做。
+门槛（产品配置）：`--eval-context` 有前文首选比基线 **≥ +15 个百分点**；`--eval-text` 首选、`--replay` 「词」首选比基线**下降不超过 0.5 个百分点**；
+`--replay` 与 `--eval-context` 报的**按键同步部分 p99** 不超过基线 +1 ms。任何一项越线：停下，把数字发给审计会话「素笺输入法」，不往下做。
 
 每个任务完成的检查：
 
@@ -55,25 +69,30 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && carg
 
 ## 评测记录
 
-| 任务 | `--eval-context` 有前文 / 无前文 | `--eval-text` 首选 / 字准确率 | `--replay` 词 / 整句 首选 | 备注 |
-|---|---|---|---|---|
-| 基线（Task 1 跑完填） | | | | |
-| Task 2 前文进词级排序 | | | | |
-| Task 3 choice 改加分 β= | | | | |
-| Task 4 知微词级重排 λ_w= | | | | |
-| Task 5 `scorers = "tongbian"` | 与基线逐字相同 | | | 内存：加载前 / 后 MB |
-| Task 7 真机 | TextEdit 显示 / 接受 __ / 10；聊天应用 __ / 10 | | | |
+每格写「产品配置 / 对照」两个数。
+
+| 任务 | `--eval-context` 有前文 / 无前文 | `--eval-text` 首选 / 字准确率 | `--replay` 词 / 整句 首选 | 同步 p50 / p99 ms（replay） | 备注 |
+|---|---|---|---|---|---|
+| 基线（Task 1） | | | | | |
+| Task 2 前文进词级排序 | | | | | |
+| Task 3 choice 改加分 β= | | | | | |
+| Task 4 知微词级重排 λ_w= | | | | | |
+| Task 5 `tongbian` 对照 | 与对照列逐字相同 | | | | 内存：both / tongbian MB（真人量） |
+| Task 6 续写 τ= | 显示率 / 代理精度 / p50 / p90 | | | | |
+| Task 7 真机 | TextEdit 显示 / 接受 __ / 10；聊天应用 __ / 10（真人） | | | | |
 
 ---
 
-## Task 1：评测集与 `--eval-context`
+## Task 1：评测集、`--eval-context`、按键同步 p50 / p99
 
 **Files:**
 - Create: `cloud/data/eval/context-pairs.tsv`
+- Create: `apps/cli/src/latency.rs`（分位数）
 - Create: `apps/cli/src/eval/context.rs`
+- Modify: `apps/cli/src/main.rs:6-15`（`mod latency;`）、`:93`（分派）
 - Modify: `apps/cli/src/eval/mod.rs:9-15`（`pub mod context;`）
 - Modify: `apps/cli/src/args.rs`（两个参数）
-- Modify: `apps/cli/src/main.rs:93`（分派）
+- Modify: `apps/cli/src/replay/mod.rs:137-144`、`apps/cli/src/replay/report.rs`（记每次查询的同步耗时，报 p50 / p99）
 - Modify: `cloud/docs/fork-patch.md`（新小节）
 
 - [ ] **Step 1：写评测集**
@@ -122,12 +141,74 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && awk -F'\t' '!/^#/ && NF
 
 Expected: `≥300 对`，没有「只有一条前文」的行。
 
-- [ ] **Step 3：写 `apps/cli/src/eval/context.rs`**
+- [ ] **Step 3：写 `apps/cli/src/latency.rs`**
+
+```rust
+//! 耗时分位数：回放与评测报告「按键同步部分」的 p50 / p99 用。
+
+use std::time::Duration;
+
+/// 一组耗时，攒着算分位数。
+#[derive(Debug, Default, Clone)]
+pub struct Latencies(Vec<Duration>);
+
+impl Latencies {
+    pub fn push(&mut self, elapsed: Duration) {
+        self.0.push(elapsed);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// `quantile` 在 0 到 1 之间；空集返回 0。最近秩法：排好序取第 ⌈q·n⌉ 个。
+    pub fn quantile(&self, quantile: f64) -> Duration {
+        if self.0.is_empty() {
+            return Duration::ZERO;
+        }
+        let mut sorted = self.0.clone();
+        sorted.sort();
+        let rank = ((quantile * sorted.len() as f64).ceil() as usize).clamp(1, sorted.len());
+        sorted[rank - 1]
+    }
+
+    /// 报告里的一句：`p50 0.8 ms / p99 3.1 ms`。
+    pub fn summary(&self) -> String {
+        format!(
+            "p50 {:.1} ms / p99 {:.1} ms",
+            self.quantile(0.5).as_secs_f64() * 1000.0,
+            self.quantile(0.99).as_secs_f64() * 1000.0,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quantiles_use_nearest_rank() {
+        let mut latencies = Latencies::default();
+        for ms in [5, 1, 3, 2, 4] {
+            latencies.push(Duration::from_millis(ms));
+        }
+        assert_eq!(latencies.quantile(0.5), Duration::from_millis(3));
+        assert_eq!(latencies.quantile(0.99), Duration::from_millis(5));
+        assert_eq!(latencies.quantile(0.0), Duration::from_millis(1));
+        assert_eq!(Latencies::default().quantile(0.5), Duration::ZERO);
+    }
+}
+```
+
+`main.rs` 的 `mod eval;` 后加 `mod latency;`。
+
+- [ ] **Step 4：写 `apps/cli/src/eval/context.rs`**
 
 ```rust
 //! 同拼音不同上文的词级评测：`拼音\t前文\t期望` 三列，逐行冷启动、写入前文、查拼音，看首选是不是期望的词；
 //! 同一份数据再跑一遍不给前文，两个数字的差就是上文带来的提升。前文走 `Engine::history_mut()`，
 //! 与 `--eval-text` 一样（引擎没有壳给的前文时就用本会话历史，见 `Engine::rescoring_context`）。
+//! 另报按键同步部分（第一次 `query()`，不含等后台模型）的 p50 / p99。
 
 use std::fmt;
 use std::io::{BufWriter, Write};
@@ -136,7 +217,8 @@ use std::time::{Duration, Instant};
 
 use qingjian_core::Engine;
 
-use super::EvalError;
+use crate::eval::EvalError;
+use crate::latency::Latencies;
 
 /// 一条评测对。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -180,7 +262,11 @@ struct Outcome {
 
     top: Vec<String>,
 
-    elapsed: Duration,
+    /// 第一次 `query()` 的耗时：按键回调里同步做的那部分。
+    sync: Duration,
+
+    /// 含等后台模型、再查一次的总耗时。
+    total: Duration,
 }
 
 /// 评测报告。
@@ -200,9 +286,9 @@ pub struct ContextReport {
     /// 有前文时期望根本不在候选里：多半是评测集的拼音或期望写错了。
     pub missing: usize,
 
-    /// 有前文那一遍的查询耗时。
-    pub query_time: Duration,
-    pub slowest_query: Duration,
+    /// 有前文那一遍的同步耗时与总耗时。
+    pub sync: Latencies,
+    pub total_time: Duration,
 
     /// 有前文仍没命中首选的例子。
     pub misses: Vec<String>,
@@ -238,9 +324,9 @@ impl fmt::Display for ContextReport {
         if evaluated > 0 {
             writeln!(
                 f,
-                "查询平均 {:.1} ms，最慢 {:.1} ms",
-                self.query_time.as_secs_f64() * 1000.0 / evaluated as f64,
-                self.slowest_query.as_secs_f64() * 1000.0,
+                "按键同步部分 {}，含等模型的平均 {:.1} ms",
+                self.sync.summary(),
+                self.total_time.as_secs_f64() * 1000.0 / evaluated as f64,
             )?;
         }
         if self.unparsable > 0 {
@@ -295,8 +381,8 @@ pub fn run(
             report.unparsable += 1;
             continue;
         }
-        report.query_time += with.elapsed;
-        report.slowest_query = report.slowest_query.max(with.elapsed);
+        report.sync.push(with.sync);
+        report.total_time += with.total;
         report.with_context += usize::from(with.position == Some(0));
         report.without_context += usize::from(without.position == Some(0));
         report.missing += usize::from(with.position.is_none());
@@ -316,7 +402,8 @@ pub fn run(
                 "pinyin": pair.pinyin, "before": pair.before, "expected": pair.expected,
                 "position_with_context": with.position, "top_with_context": with.top,
                 "position_without_context": without.position, "top_without_context": without.top,
-                "query_ms": with.elapsed.as_secs_f64() * 1000.0,
+                "sync_ms": with.sync.as_secs_f64() * 1000.0,
+                "total_ms": with.total.as_secs_f64() * 1000.0,
             });
             writeln!(writer, "{row}").map_err(|source| EvalError::Write {
                 path: details.expect("writer has path").to_owned(),
@@ -350,18 +437,20 @@ fn evaluate(engine: &mut Engine, pair: &ContextPair, before: Option<&str>) -> Ou
             ..Outcome::default()
         };
     };
+    let sync = started.elapsed();
     let query = if crate::rescoring::settle(engine) {
         engine.query().unwrap_or(query)
     } else {
         query
     };
-    let elapsed = started.elapsed();
+    let total = started.elapsed();
     let items = &query.candidates.items;
     let outcome = Outcome {
         position: items.iter().position(|c| c.text == pair.expected),
         unparsable: false,
         top: items.iter().take(3).map(|c| c.text.clone()).collect(),
-        elapsed,
+        sync,
+        total,
     };
     engine.clear();
     outcome
@@ -390,7 +479,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 4：挂进 `eval/mod.rs`、`args.rs`、`main.rs`**
+- [ ] **Step 5：挂进 `eval/mod.rs`、`args.rs`、`main.rs`**
 
 `apps/cli/src/eval/mod.rs` 第 9 行后加：
 
@@ -402,7 +491,7 @@ pub mod context;
 
 ```rust
     /// 同拼音不同上文评测：读 `拼音\t前文\t期望` 三列（cloud/data/eval/context-pairs.tsv），
-    /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率
+    /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率与按键同步部分的 p50 / p99
     #[arg(long)]
     pub eval_context: Option<PathBuf>,
 
@@ -426,45 +515,70 @@ pub mod context;
     }
 ```
 
-- [ ] **Step 5：编译、跑单测**
+- [ ] **Step 6：`--replay` 报同步 p50 / p99**
 
-```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-cli context
+`apps/cli/src/replay/report.rs`：`use crate::latency::Latencies;`，`Report` 加字段：
+
+```rust
+    /// 每次上屏重查时 `query()` 的耗时（按键回调里同步做的那部分，不含等后台模型）。
+    pub sync: Latencies,
 ```
 
-Expected: `parses_three_columns_and_skips_comments ... ok`。
+`Display` 里 `write_tally` 调用之后（第一个 `writeln!` 前后都行）加：
 
-- [ ] **Step 6：跑基线三项，连跑两次 `--eval-context` 确认数字一致**
+```rust
+        if !self.sync.is_empty() {
+            writeln!(f, "按键同步部分 {}", self.sync.summary())?;
+        }
+```
 
-上面「工作环境」里的三条命令各跑一次，`--eval-context` 跑两次。看报告里的「期望不在候选」：
-逐条检查这些对（`--eval-context-details /tmp/ctx.jsonl` 看 `top_with_context`），是评测集写错的改评测集，重跑。
-三项数字填进「评测记录」的基线行。
+`apps/cli/src/replay/mod.rs` 的 `replay_commit` 里，`let query = match engine.query() {` 改成：
 
-- [ ] **Step 7：记 fork-patch、提交**
+```rust
+    let started = std::time::Instant::now();
+    let queried = engine.query();
+    report.sync.push(started.elapsed());
+    let query = match queried {
+```
+
+- [ ] **Step 7：编译、跑单测**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-cli
+```
+
+Expected: 全绿，含 `parses_three_columns_and_skips_comments`、`quantiles_use_nearest_rank`。
+
+- [ ] **Step 8：跑基线，连跑两次 `--eval-context` 确认数字一致**
+
+「评测命令」里**对照**那条（此时产品配置也只有通变）跑一次，`--eval-context` 再跑一次看是否一致。看报告里的「期望不在候选」：
+逐条检查（`--eval-context-details /tmp/ctx.jsonl` 看 `top_with_context`），是评测集写错的改评测集，重跑。数字填进「评测记录」基线行。
+
+- [ ] **Step 9：记 fork-patch、提交**
 
 `cloud/docs/fork-patch.md` 在「合并上游时」小节之前加：
 
 ```markdown
 ### 上下文预测（素笺，设计见 cloud/docs/specs/2026-10-04-context-prediction-design.md）
 
-评测集 `cloud/data/eval/context-pairs.tsv`（同拼音不同上文），命令 `qingjian-cli --eval-context`。
+评测集 `cloud/data/eval/context-pairs.tsv`（同拼音不同上文），命令 `qingjian-cli --eval-context`；计划与评测记录在 `cloud/docs/plans/2026-10-04-context-prediction.md`。
 
 | 文件 | 改动 | 说明 |
 |---|---|---|
+| `apps/cli/src/latency.rs` | 新文件 | 耗时分位数 |
 | `apps/cli/src/eval/context.rs` | 新文件 | `--eval-context` 的实现与报告 |
 | `apps/cli/src/eval/mod.rs` | 加 1 行 | `pub mod context;` |
 | `apps/cli/src/args.rs` | 加 2 个参数 | `--eval-context`、`--eval-context-details` |
-| `apps/cli/src/main.rs` | 加 1 个分支 | 分派 |
+| `apps/cli/src/main.rs` | 加 1 行 mod、1 个分支 | 分派 |
+| `apps/cli/src/replay/mod.rs`、`report.rs` | 加 3 行、1 个字段 | 回放报按键同步 p50 / p99 |
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add cloud/data/eval/context-pairs.tsv apps/cli/src/eval/context.rs apps/cli/src/eval/mod.rs apps/cli/src/args.rs apps/cli/src/main.rs cloud/docs/fork-patch.md cloud/docs/plans/2026-10-04-context-prediction.md && git commit -m "feat(cli): 同拼音不同上文的词级评测 --eval-context 与评测集
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add cloud/data/eval/context-pairs.tsv apps/cli cloud/docs/fork-patch.md cloud/docs/plans/2026-10-04-context-prediction.md && git commit -m "feat(cli): 同拼音不同上文的词级评测 --eval-context，回放报按键同步 p99
 
 - 300+ 对人工整理的 拼音/前文/期望，同一拼音至少两种前文
 - 每对有前文、无前文各查一次，差值就是上文带来的提升
-- 评测集放 cloud/data/eval/（根 .gitignore 不收 data/）
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- 评测集放 cloud/data/eval/（根 .gitignore 不收 data/）"
 ```
 
 ---
@@ -479,23 +593,26 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Modify: `crates/qingjian-core/src/engine/query/converting.rs:205-215`
 - Modify: `crates/qingjian-core/src/sentence/viterbi.rs:52-125`（`convert_paths` 加 `start` 参数）、`:348-374`（`best_predecessor`）
 - Modify: `crates/qingjian-core/src/engine/tests/mod.rs:3-17`（`mod context_fork;`）
-- Modify: `apps/macos/src/imk/controller/display.rs:11-16`（第一键总是读前文）
+- Modify: `apps/macos/src/imk/controller/display.rs:11-25`（第一键总是读前文，私密不读）
 - Modify: `cloud/docs/fork-patch.md`
 
 现状：词级排序只认 `self.chain.context()`（本会话上一个上屏的词），整句 Viterbi 第一个词固定 `Context::START`；
 壳给的光标前文（`Engine::rescoring_context()`：壳给了就是应用里的文字，没给就是本会话历史，截 64 字）只给神经重排看。
-已有 `sentence::segment_text` 能按静态模型把汉字切成词，直接拿来切前文末尾。
+已有 `sentence::segment_text` 能按静态模型把汉字切成词，直接拿来切前文末尾。私密输入（`Engine::is_private`）时不看前文。
 
 - [ ] **Step 1：写失败的单测 `crates/qingjian-core/src/engine/tests/context_fork.rs`**
 
 ```rust
 //! 宿主前文进词级排序与整句首词（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md）。
 
-use super::*;
-use crate::engine::query::left_context::{LeftContext, left_context_of};
-use crate::sentence::{Context, LanguageModel};
+use qingjian_dictionary::Dictionary;
 
-/// 汽车 → 油箱、发送 → 邮箱；句首 邮箱 比 油箱 常见。
+use crate::candidate::CandidateKind;
+use crate::engine::Engine;
+use crate::engine::query::left_context::{LeftContext, left_context_of};
+use crate::sentence::{Context, LanguageModel, NoLanguageModel};
+
+/// 汽车 → 油箱、发送 → 邮箱；句首 邮箱 比 油箱 略常见。
 struct ContextModel;
 
 impl LanguageModel for ContextModel {
@@ -547,10 +664,7 @@ fn left_context_takes_the_last_two_words_of_a_han_tail() {
         Context::after_two("今天", "汽车")
     );
     // 模型一个词都不认识：句首
-    assert_eq!(
-        left_context_of("汽车", &crate::sentence::NoLanguageModel),
-        LeftContext::default()
-    );
+    assert_eq!(left_context_of("汽车", &NoLanguageModel), LeftContext::default());
 }
 
 #[test]
@@ -571,6 +685,17 @@ fn punctuation_at_the_end_of_the_context_means_sentence_start() {
     let mut engine = context_engine();
     engine.history_mut().record("汽车，");
     assert_eq!(first(&mut engine, "youxiang"), "邮箱");
+}
+
+#[test]
+fn private_input_ignores_the_context() {
+    let mut engine = context_engine();
+    engine.history_mut().record("汽车");
+    engine.set_private(true);
+    assert_eq!(first(&mut engine, "youxiang"), "邮箱");
+    engine.set_private(false);
+    engine.history_mut().record("汽车");
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
 }
 
 #[test]
@@ -623,7 +748,7 @@ fn the_first_word_of_a_sentence_sees_the_context() {
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core context_fork 2>&1 | head -20
 ```
 
-Expected: `error[E0432]: unresolved import` 之类。
+Expected: `error[E0432]: unresolved import`。
 
 - [ ] **Step 3：写 `crates/qingjian-core/src/engine/query/left_context.rs`**
 
@@ -631,7 +756,7 @@ Expected: `error[E0432]: unresolved import` 之类。
 //! 词级排序与整句首词的上文：会话链上没有词（句首）时，从宿主光标前的文字末尾切出最后一两个词。
 //!
 //! 只看末尾 [`LEFT_CONTEXT_CHARS`] 个连续汉字，用静态语言模型最大匹配切词（[`sentence::segment_text`]）；
-//! 末尾不是汉字（标点、空格、字母）就当句首，与上屏时标点打断链的规则一致。
+//! 末尾不是汉字（标点、空格、字母）就当句首，与上屏时标点打断链的规则一致。私密输入时不看前文。
 //! 素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md。
 
 use crate::engine::Engine;
@@ -685,7 +810,7 @@ pub(in crate::engine) fn left_context_of(text: &str, model: &dyn LanguageModel) 
 
 impl Engine {
     /// 下一个词的上文：链上有词就用链（本会话刚上屏的词最可信），否则从宿主前文末尾切
-    /// （壳没给前文时 [`Self::rescoring_context`] 退回本会话历史）。
+    /// （壳没给前文时 [`Self::rescoring_context`] 退回本会话历史）。私密输入时只认链，不看前文。
     pub(in crate::engine) fn word_context(&self) -> LeftContext {
         let chain = self.chain.context();
         if let Some(previous) = chain.previous {
@@ -693,6 +818,9 @@ impl Engine {
                 previous: Some(previous.to_owned()),
                 earlier: chain.earlier.map(str::to_owned),
             };
+        }
+        if self.is_private() {
+            return LeftContext::default();
         }
         left_context_of(&self.rescoring_context(), &*self.language_model)
     }
@@ -732,7 +860,7 @@ impl Engine {
 
 - [ ] **Step 5：`viterbi.rs` 首词带上文**
 
-`convert_paths` 签名在 `k: usize,` 后加一个参数，并把 `convert_with` 里的调用补上 `Context::START`：
+`convert_paths` 签名在 `k: usize,` 后加一个参数，函数体第一行把它改名（循环变量也叫 `start`）：
 
 ```rust
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
@@ -753,22 +881,7 @@ pub fn convert_paths(
     let first = start;
 ```
 
-`convert_with` 里：
-
-```rust
-    convert_paths(
-        dictionaries,
-        positions,
-        keep_partial,
-        1,
-        Context::START,
-        model,
-        personal,
-        weight,
-        cost,
-        cache,
-    )
-```
+`convert_with` 里的调用在 `1,` 后补 `Context::START,`。
 
 循环里两处（原 `best_predecessor(&nodes, start, &hit.text, model, personal, fallback)` 与 `static_step`）改成：
 
@@ -787,21 +900,7 @@ pub fn convert_paths(
                     .unwrap_or(fallback);
 ```
 
-占位音节那一处同样传 `first`：
-
-```rust
-            let (score, back) = best_predecessor(
-                &nodes,
-                start,
-                text,
-                first,
-                &NoModel,
-                Personal::NONE,
-                UNKNOWN_LOG_PROB,
-            );
-```
-
-`best_predecessor` 加参数并在 `start == 0` 时用它：
+占位音节那一处同样在 `text,` 后传 `first,`。`best_predecessor` 加参数并在 `start == 0` 时用它：
 
 ```rust
 /// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
@@ -837,7 +936,7 @@ fn best_predecessor(
 }
 ```
 
-`converting.rs` 的 `sentence_paths` 调用补上：
+`converting.rs` 的 `sentence_paths` 调用：
 
 ```rust
         let context = self.word_context();
@@ -863,53 +962,58 @@ fn best_predecessor(
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core
 ```
 
-Expected: 全绿，含 `context_fork` 5 个。上游 `viterbi` 的测试走 `convert` / `convert_whole`，不受影响。
+Expected: 全绿，含 `context_fork` 6 个。上游 `viterbi` 的测试走 `convert` / `convert_whole`，不受影响。
 
-- [ ] **Step 7：macOS 第一键总是读前文**
+- [ ] **Step 7：macOS 第一键总是读前文，私密不读**
 
-`apps/macos/src/imk/controller/display.rs:11-16` 现在只在接了模型时读。改成不看模型：
+`apps/macos/src/imk/controller/display.rs:11-25` 改成：
 
 ```rust
         // 前文现在也给词级排序与整句首词（素笺分叉，Core 的 query/left_context.rs），有没有模型都读；
-        // 一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换）
+        // 一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换）。
+        // Secure Input 与引擎的私密输入都不读
         let wants_context = host::with(|h| {
             h.attach_loaded_model();
-            h.engine.composition().text().chars().count() == 1
+            h.engine.composition().text().chars().count() == 1 && !h.engine.is_private()
         })
         .unwrap_or(false);
+        let before = if wants_context && !secure_input::enabled() {
+            Some(
+                client
+                    .surrounding_text(RESCORE_LOOKBACK, 0)
+                    .map(|text| text.before),
+            )
+        } else {
+            None
+        };
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo check -p qingjian-macos
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo clippy -p qingjian-macos --all-targets -- -D warnings
 ```
 
-- [ ] **Step 8：三项评测**
+- [ ] **Step 8：评测（产品配置 = 对照 = 只有通变）**
 
-跑「工作环境」里三条命令，填「评测记录」Task 2 行。看 `--eval-context` 的「期望不在候选」和没命中例子，
-是评测集问题就改评测集（单独一个 `test(cli)` 提交）。门槛越线就停下报告。
+跑「评测命令」里对照那条，填 Task 2 行。看「期望不在候选」与没命中例子，是评测集问题就改评测集（单独一个 `test(cli)` 提交）。门槛越线就停下报告。
 
 - [ ] **Step 9：记 fork-patch、提交**
 
-fork-patch「上下文预测」表加：
-
 ```markdown
-| `crates/qingjian-core/src/engine/query/left_context.rs` | 新文件 | 前文末尾 8 字 → `Context`；`Engine::word_context`（链优先） |
+| `crates/qingjian-core/src/engine/query/left_context.rs` | 新文件 | 前文末尾 8 字 → `Context`；`Engine::word_context`（链优先，私密不看） |
 | `crates/qingjian-core/src/engine/query/mod.rs` | 加 1 行 | `mod left_context;` |
 | `crates/qingjian-core/src/engine/query/phonetic.rs` | 改 2 行 | 词级排序的上下文改用 `word_context()` |
 | `crates/qingjian-core/src/engine/query/converting.rs` | 加 2 行 | `convert_paths` 传首词上文 |
 | `crates/qingjian-core/src/sentence/viterbi.rs` | 加 1 个参数 | `convert_paths` / `best_predecessor` 的 `start` / `first`：首词上文 |
 | `crates/qingjian-core/src/engine/tests/context_fork.rs`、`tests/mod.rs` | 新文件、加 1 行 | 测试 |
-| `apps/macos/src/imk/controller/display.rs` | 改 3 行 | 第一键总是读应用前文，不再只在有模型时读 |
+| `apps/macos/src/imk/controller/display.rs` | 改 4 行 | 第一键总是读应用前文（私密不读），不再只在有模型时读 |
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-core apps/macos/src/imk/controller/display.rs cloud/docs && git commit -m "feat(core): 宿主前文进词级排序与整句首词
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-core apps/macos/src/imk/controller/display.rs cloud/docs && git commit -m "feat(core): 宿主前文进词级排序与整句首词
 
-- 链空着（句首）时用静态模型切前文末尾 8 字，取最后一两个词当 Context
+- 链空着（句首）时用静态模型切前文末尾 8 字，取最后一两个词当 Context；私密输入不看
 - Viterbi 首词也用它，不再固定 START；标点结尾视为句首
-- macOS 第一键总是读应用前文；评测见 cloud/docs/plans/2026-10-04-context-prediction.md
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- macOS 第一键总是读应用前文；评测见 cloud/docs/plans/2026-10-04-context-prediction.md"
 ```
 
 ---
@@ -922,16 +1026,59 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Modify: `crates/qingjian-core/src/ranking/scored.rs:37-48, 75-88`
 - Modify: `crates/qingjian-core/src/engine/mod.rs`（字段）、`setup.rs`（setter）、`query/phonetic.rs`、`query/code.rs`
 - Modify: `apps/cli/src/tuning.rs`（`choice` 键）
-- Modify: `crates/qingjian-core/src/engine/tests/context_fork.rs`（两条测试）
+- Modify: `crates/qingjian-core/src/engine/tests/context_fork.rs`（三条测试）
+- 可能 Modify: `crates/qingjian-core/src/engine/tests/learning.rs`（见 Step 6，改前先报审计）
 
 现状：`SortKey` 第五项 `Reverse(choice)` 排在上下文得分前面，同一输入串下选过一次就永远第一。改成分数里加 `β · ln(1 + choice)`。
 
-- [ ] **Step 1：写 `ranking/choice_bonus.rs`**
+- [ ] **Step 1：先写 Engine 级测试，确认失败**
+
+`tests/context_fork.rs` 顶部加 `use std::collections::HashMap;` 与 `use super::CountingLearner;`，末尾加：
+
+```rust
+fn learning_engine() -> Engine {
+    context_engine().with_learner(Box::new(CountingLearner(HashMap::new())))
+}
+
+#[test]
+fn a_single_past_choice_yields_to_strong_context() {
+    let mut engine = learning_engine();
+    engine.learner_mut().record_choice("youxiang", "邮箱");
+    engine.history_mut().record("汽车");
+    // 选过一次 邮箱，但 汽车 后面 油箱 领先 7 nat
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
+}
+
+#[test]
+fn a_single_past_choice_still_wins_under_weak_context() {
+    let mut engine = learning_engine();
+    engine.learner_mut().record_choice("youxiang", "油箱");
+    // 句首 邮箱 只领先 0.4 nat，小于 β·ln2：选过一次的 油箱 第一
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
+}
+
+#[test]
+fn many_past_choices_still_beat_weak_context() {
+    let mut engine = learning_engine();
+    for _ in 0..5 {
+        engine.learner_mut().record_choice("youxiang", "油箱");
+    }
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
+}
+```
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core context_fork
+```
+
+Expected: `a_single_past_choice_yields_to_strong_context` 失败（现状 choice 压过上下文，首选是 邮箱），另两条通过。
+
+- [ ] **Step 2：写 `ranking/choice_bonus.rs`**
 
 ```rust
 //! 「同一输入串下选过」的加分。原来是排序键里压在上下文得分之前的一级，选过一次「邮箱」上文怎么写都是它第一；
 //! 改成对数加分，强上文翻得过只选过一两次的词，选过很多次的仍压得住弱上文。
-//! β 按 `qingjian-cli --replay` 与 `--eval-context` 扫出，见 cloud/docs/plans/2026-10-04-context-prediction.md。
+//! β 按 `qingjian-cli --replay` 不降、`--eval-context` 最好取，见 cloud/docs/plans/2026-10-04-context-prediction.md。
 
 /// 加分系数 β：加分 = β · ln(1 + 次数)。
 pub const CHOICE_BONUS: f64 = 2.0;
@@ -954,7 +1101,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2：`ranking/mod.rs`：导出、`rank` 的闭包只返回分数**
+- [ ] **Step 3：`ranking/mod.rs`：导出、`rank` 的闭包只返回分数**
 
 `mod scored;` 后加 `mod choice_bonus;`，`pub use scored::…` 后加 `pub use choice_bonus::{CHOICE_BONUS, choice_bonus};`。
 模块文档第 5 条改成：
@@ -967,7 +1114,7 @@ mod tests {
 //! 6. 敲的原音节优先，词长短者优先，最后按字符串稳定排序保证结果可复现
 ```
 
-`rank` 改成：
+`rank`：
 
 ```rust
 /// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条。
@@ -1045,15 +1192,15 @@ pub type SortKey<'a> = (
             (if s.hit.text == "吧" { -1.0 } else { -6.0 }) + choice_bonus(choice, CHOICE_BONUS)
         });
         assert_eq!(items[0].hit.text, "吧");
-        // 选过五次：翻得过 0.5 nat 的弱上文
+        // 选过一次：翻得过 0.5 nat 的弱上文（β·ln2 ≥ 0.5 对所有候选 β 成立）
         rank(&mut items, usize::MAX, |s| {
-            let choice = 5 * u32::from(s.hit.text == "把");
+            let choice = u32::from(s.hit.text == "把");
             (if s.hit.text == "吧" { -1.0 } else { -1.5 }) + choice_bonus(choice, CHOICE_BONUS)
         });
         assert_eq!(items[0].hit.text, "把");
 ```
 
-- [ ] **Step 3：Engine 字段、setter、两处调用、`--tune choice`**
+- [ ] **Step 4：Engine 字段、setter、两处调用、`--tune choice`**
 
 `engine/mod.rs` 在 `neural_context: usize,` 字段后加：
 
@@ -1081,7 +1228,7 @@ pub type SortKey<'a> = (
 `code.rs:45-58` 同样把 `(choice, log_prob)` 改成 `log_prob + ranking::choice_bonus(choice, self.choice_bonus)`，
 两处注释里「同一输入串下选过的优先」改成「同一输入串下选过的加分」。
 
-`apps/cli/src/tuning.rs`：`KEYS` 改成 `[&str; 12]` 加 `"choice"`；`apply` 里加变量与分支：
+`apps/cli/src/tuning.rs`：`KEYS` 改成 `[&str; 12]` 加 `"choice"`；`apply` 里：
 
 ```rust
     let mut choice: Option<f64> = None;
@@ -1097,47 +1244,26 @@ pub type SortKey<'a> = (
 
 文档注释加 `choice（同输入串下选过的加分系数 β）`。
 
-- [ ] **Step 4：Engine 级测试加进 `tests/context_fork.rs`**
-
-```rust
-#[test]
-fn a_single_past_choice_yields_to_strong_context() {
-    let mut engine = context_engine().with_learner(Box::new(CountingLearner(HashMap::new())));
-    engine.learner_mut().record_choice("youxiang", "邮箱");
-    engine.history_mut().record("汽车");
-    // 选过一次 邮箱，但 汽车 后面 油箱 领先 7 nat
-    assert_eq!(first(&mut engine, "youxiang"), "油箱");
-}
-
-#[test]
-fn many_past_choices_still_beat_weak_context() {
-    let mut engine = context_engine().with_learner(Box::new(CountingLearner(HashMap::new())));
-    for _ in 0..5 {
-        engine.learner_mut().record_choice("youxiang", "油箱");
-    }
-    // 句首 邮箱 只领先 0.4 nat：选过五次的 油箱 翻上来
-    assert_eq!(first(&mut engine, "youxiang"), "油箱");
-}
-```
-
-（`CountingLearner`、`HashMap` 来自 `tests/mod.rs` 的 `use super::*`。）
-
 - [ ] **Step 5：跑测试**
 
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core && cargo test -p qingjian-cli
 ```
 
-Expected: 全绿。上游 `engine/tests/learning.rs` 里断言「选过就第一」的用例若因此变红，看它用的分差：
-分差小于 `choice_bonus(1, 2.0) ≈ 1.39` 的保持原断言；大于的那条是本任务有意改变的行为，把断言改成本任务的规则并在提交正文写明。
+Expected: 全绿。
 
-- [ ] **Step 6：扫 β**
+- [ ] **Step 6：上游 `engine/tests/learning.rs` 变红的处理**
+
+有用例因「选过就第一」变红时：**先不改**。把每条红掉的用例名、它断言的分差、本任务的规则会怎么排，整理成一段发审计会话「素笺输入法」，
+得到确认后再改断言；改了就在提交正文逐条写明，并在 fork-patch 表加一行 `crates/qingjian-core/src/engine/tests/learning.rs`。
+
+- [ ] **Step 7：扫 β（`--replay` 必须不降）**
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && for b in 0.5 1 2 4; do echo "== choice=$b"; cargo run --release -p qingjian-cli -- --tune choice=$b --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0 | grep '^词'; cargo run --release -p qingjian-cli -- --tune choice=$b --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
+cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian" && for b in 0.5 1 2 4; do echo "== choice=$b"; cargo run --release -p qingjian-cli -- $M --tune choice=$b --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0 | grep '^词'; cargo run --release -p qingjian-cli -- $M --tune choice=$b --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
 ```
 
-取 `--replay` 词首选不低于基线 −0.5 个百分点里 `--eval-context` 最好的 β，写进 `CHOICE_BONUS`；四组数字记在本文件下面：
+只在 `--replay` 词首选 **≥ 基线**的 β 里挑 `--eval-context` 最好的，写进 `CHOICE_BONUS`；一个都不满足就停下，把四组数字发审计。
 
 | β | `--replay` 词首选 | `--eval-context` 有前文 |
 |---|---|---|
@@ -1146,7 +1272,7 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && for b in 0.5 1 2 4; do 
 | 2 | | |
 | 4 | | |
 
-- [ ] **Step 7：三项评测、fork-patch、提交**
+- [ ] **Step 8：评测（对照配置）、fork-patch、提交**
 
 ```markdown
 | `crates/qingjian-core/src/ranking/choice_bonus.rs` | 新文件 | β 与 `choice_bonus` |
@@ -1157,12 +1283,10 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && for b in 0.5 1 2 4; do 
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(core): 同输入串下选过的词改为加分，不再压过上下文
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(core): 同输入串下选过的词改为加分，不再压过上下文
 
 - 排序键去掉 choice 那一级，分数里加 β·ln(1+次数)
-- β 用 --replay 与 --eval-context 扫出（数字见计划文件），--tune choice= 可改
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- β 以 --replay 不降为准、--eval-context 最好取（数字见计划文件），--tune choice= 可改"
 ```
 
 ---
@@ -1170,24 +1294,21 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ## Task 4：知微给第一页词级候选按前文打分
 
 **Files:**
-- Create: `crates/qingjian-core/src/engine/rescoring/word_rescore.rs`
-- Create: `crates/qingjian-core/src/engine/rescoring/word_rescore_tests.rs`
-- Modify: `crates/qingjian-core/src/engine/rescoring/mod.rs`（`mod` 两行 + `rescoring_pending` / `request_rescoring` / `poll_rescoring` 各加几行）
-- Modify: `crates/qingjian-core/src/engine/mod.rs`（5 个字段）
+- Create: `crates/qingjian-core/src/engine/rescoring/word_rescore/mod.rs`
+- Create: `crates/qingjian-core/src/engine/rescoring/word_rescore/tests.rs`
+- Modify: `crates/qingjian-core/src/engine/rescoring/mod.rs`（`mod` 1 行 + 导出 + `rescoring_pending` / `request_rescoring` / `poll_rescoring` 各加几行）
+- Modify: `crates/qingjian-core/src/engine/mod.rs`（4 个字段）
 - Modify: `crates/qingjian-core/src/ranking/mod.rs`（`rank` 返回分数）
-- Modify: `crates/qingjian-core/src/engine/query/phonetic.rs`（取同档前几条、调重排）、`converting.rs`（记整句首选的分）
+- Modify: `crates/qingjian-core/src/engine/query/phonetic.rs`（2 行挂钩）、`query/code.rs`（`let _ =`）
 - Modify: `apps/cli/src/args.rs`、`main.rs`（`--word-model`、`--word-weight`）
-- Modify: `crates/qingjian-core/src/engine/query/code.rs`（`rank` 返回值 `let _ =`）
 
-设计：第一页里与首选**同一结构档**（`exact` / `coverage` / `abbreviated` / `full_last` 四项相同）的前 6 个词级候选，加上整句首选，
-每条问知微 `log P(候选 | 前文)`，按 `静态分 + λ_w·(神经分 − 静态分)` 在它们原来占的那几格之间换位；别的格子（英文、快捷、emoji、
-不同档的前缀词）不动。静态分就是排序用的上下文得分（含用户加分、选择加分、扣分），整句用 `Conversion::score`。
-缓存与后台线程照搬整句重排那一套：同步打分器（CLI 评测）当场补分；异步的先 `want`，壳停顿后 `request_rescoring` 一起送，
-`poll_rescoring` 到了再查一次。
+设计（审计定）：**只排词，不排整句。** 第一页里与首选**同一结构档**（`exact` / `coverage` / `abbreviated` / `full_last` 四项相同）的前 6 个
+词级候选，每条问知微 `log P(候选 | 前文)`，按 `静态分 + λ_w·(神经分 − 静态分)` 在它们原来占的那几格之间换位；
+整句候选、英文、快捷、emoji、别档的前缀词全都不动（整句路径分是按词累加的，与单个词的分不在一个尺度）。
+静态分就是排序用的上下文得分（含用户加分、选择加分、扣分）。缓存与后台线程照搬整句重排那一套：
+同步打分器（CLI 评测）当场补分；异步的先 `want`，壳停顿后 `request_rescoring` 一起送，`poll_rescoring` 到了再查一次。
 
 - [ ] **Step 1：`ranking::rank` 返回每条的最终分**
-
-`ranking/mod.rs` 的 `rank` 返回 `Vec<f64>`（与排好的 `items` 一一对应）：
 
 ```rust
 /// 排序并按词文本去重（同一个词可能被多种切分命中，保留得分最高的一条），最多留 `limit` 条。
@@ -1223,15 +1344,20 @@ pub fn rank(
 }
 ```
 
-`code.rs` 的调用前加 `let _ =`（形码不重排）。`ranking/mod.rs` 测试里的 `rank(...)` 调用照旧（返回值丢弃不报警）。
+`code.rs` 的调用前加 `let _ =`（形码不重排）。`ranking/mod.rs` 测试里的 `rank(...)` 调用照旧。
 
-- [ ] **Step 2：写失败的测试 `rescoring/word_rescore_tests.rs`**
+- [ ] **Step 2：写失败的测试 `rescoring/word_rescore/tests.rs`**
 
 ```rust
+//! 知微词级重排的测试：假打分器，不依赖模型文件。
+
 use std::time::{Duration, Instant};
 
-use super::*;
+use qingjian_dictionary::Dictionary;
+
 use crate::candidate::CandidateKind;
+use crate::engine::Engine;
+use crate::sentence::{LanguageModel, SentenceScorer};
 
 /// 假知微：偏爱某个文本。
 struct Prefers(&'static str);
@@ -1254,21 +1380,43 @@ impl SentenceScorer for Broken {
     }
 }
 
-const WORDS: &str = "邮箱\tyou xiang\t9000\n油箱\tyou xiang\t3000\n有\tyou\t90000\n开发\tkai fa\t9000\n开\tkai\t20000\n";
+/// 句首强烈偏向 又 + 想：`youxiang` 的整句首选是 又想。
+struct LikesYouXiang;
+
+impl LanguageModel for LikesYouXiang {
+    fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
+        Some(match (previous, word) {
+            (None, "又") => -1.0,
+            (Some("又"), "想") => -1.0,
+            (_, "邮箱") | (_, "油箱") => -8.0,
+            (_, "邮") | (_, "又") | (_, "想") => -6.0,
+            _ => return None,
+        })
+    }
+}
+
+const WORDS: &str = "邮箱\tyou xiang\t9000\n油箱\tyou xiang\t3000\n邮\tyou\t900\n又\tyou\t800\n想\txiang\t900\n开发\tkai fa\t9000\n开\tkai\t20000\n";
 
 fn engine() -> Engine {
     Engine::new(Dictionary::parse(WORDS).unwrap())
 }
 
-fn texts(engine: &Engine) -> Vec<String> {
+fn all(engine: &Engine) -> Vec<(CandidateKind, String)> {
     engine
         .query()
         .unwrap()
         .candidates
         .items
-        .iter()
-        .filter(|c| c.kind == CandidateKind::Chinese)
-        .map(|c| c.text.clone())
+        .into_iter()
+        .map(|c| (c.kind, c.text))
+        .collect()
+}
+
+fn words(engine: &Engine) -> Vec<String> {
+    all(engine)
+        .into_iter()
+        .filter(|(kind, _)| *kind == CandidateKind::Chinese)
+        .map(|(_, text)| text)
         .collect()
 }
 
@@ -1276,7 +1424,7 @@ fn texts(engine: &Engine) -> Vec<String> {
 fn sync_word_scorer_reorders_the_top_tier() {
     let mut engine = engine().with_word_scorer(Box::new(Prefers("油箱")), Some(1.0));
     engine.set_input("youxiang");
-    assert_eq!(texts(&engine)[..2], ["油箱", "邮箱"]);
+    assert_eq!(words(&engine)[..2], ["油箱", "邮箱"]);
     assert!(!engine.rescoring_pending());
 }
 
@@ -1285,21 +1433,34 @@ fn only_candidates_in_the_first_tier_move() {
     // 开 是前缀词（coverage 小），不与 开发 同档：打分器再偏爱它也翻不上来
     let mut engine = engine().with_word_scorer(Box::new(Prefers("开")), Some(1.0));
     engine.set_input("kaifa");
-    assert_eq!(texts(&engine)[0], "开发");
+    assert_eq!(words(&engine)[0], "开发");
+}
+
+#[test]
+fn the_sentence_candidate_is_never_moved() {
+    // 「我现在 + youxiang」：整句 又想 排第一；打分器偏爱前缀词 邮，整句与 邮箱 都不该被压到 邮 下面
+    let mut engine = engine()
+        .with_language_model(Box::new(LikesYouXiang))
+        .with_word_scorer(Box::new(Prefers("邮")), Some(1.0));
+    engine.set_input("youxiang");
+    let items = all(&engine);
+    assert_eq!(items[0], (CandidateKind::Sentence, "又想".to_owned()));
+    let position = |text: &str| items.iter().position(|(_, t)| t == text).unwrap();
+    assert!(position("邮箱") < position("邮"));
 }
 
 #[test]
 fn a_failing_scorer_keeps_the_static_order() {
     let mut engine = engine().with_word_scorer(Box::new(Broken), Some(1.0));
     engine.set_input("youxiang");
-    assert_eq!(texts(&engine)[..2], ["邮箱", "油箱"]);
+    assert_eq!(words(&engine)[..2], ["邮箱", "油箱"]);
 }
 
 #[test]
 fn async_word_scorer_waits_for_request_and_poll() {
     let mut engine = engine().with_async_word_scorer(Box::new(Prefers("油箱")), Some(1.0));
     engine.set_input("youxiang");
-    assert_eq!(texts(&engine)[..2], ["邮箱", "油箱"]);
+    assert_eq!(words(&engine)[..2], ["邮箱", "油箱"]);
     assert!(engine.rescoring_pending());
     assert!(engine.request_rescoring());
     let started = Instant::now();
@@ -1307,7 +1468,7 @@ fn async_word_scorer_waits_for_request_and_poll() {
         assert!(started.elapsed() < Duration::from_secs(5), "后台没回结果");
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert_eq!(texts(&engine)[..2], ["油箱", "邮箱"]);
+    assert_eq!(words(&engine)[..2], ["油箱", "邮箱"]);
     assert!(!engine.rescoring_pending());
 }
 
@@ -1315,19 +1476,12 @@ fn async_word_scorer_waits_for_request_and_poll() {
 fn without_a_word_scorer_nothing_changes() {
     let mut engine = engine();
     engine.set_input("youxiang");
-    assert_eq!(texts(&engine)[..2], ["邮箱", "油箱"]);
+    assert_eq!(words(&engine)[..2], ["邮箱", "油箱"]);
     assert!(!engine.has_word_scorer());
 }
 ```
 
-`rescoring/mod.rs` 的 `#[cfg(test)] mod tests;` 后加：
-
-```rust
-mod word_rescore;
-
-#[cfg(test)]
-mod word_rescore_tests;
-```
+`rescoring/mod.rs` 的 `mod worker;` 后加 `mod word_rescore;`。先建 `word_rescore/mod.rs` 只含文件头与 `#[cfg(test)] mod tests;`：
 
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core word_rescore 2>&1 | head
@@ -1340,7 +1494,7 @@ Expected: 编译错误（`with_word_scorer` 不存在）。
 `engine/mod.rs` 在 `neural_context: usize,` 后加：
 
 ```rust
-    /// 知微：给第一页词级候选按前文打分的同步打分器（CLI 评测用）。素笺分叉，见 rescoring/word_rescore.rs。
+    /// 知微：给第一页词级候选按前文打分的同步打分器（CLI 评测用）。素笺分叉，见 rescoring/word_rescore。
     word_scorer: Option<Box<dyn SentenceScorer>>,
 
     /// 异步的知微（壳里用）；与整句重排的线程分开，模型不同。
@@ -1351,9 +1505,6 @@ Expected: 编译错误（`with_word_scorer` 不存在）。
 
     /// 词级重排里神经分的权重 λ_w。
     word_weight: f64,
-
-    /// 本次查询整句首选的文本与路径分（`plain_sentence` 记），词级重排把它与词一起排。
-    sentence_score: std::cell::RefCell<Option<(String, f64)>>,
 ```
 
 `Engine::new` 加：
@@ -1363,25 +1514,28 @@ Expected: 编译错误（`with_word_scorer` 不存在）。
             word_rescorer: None,
             word_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             word_weight: rescoring::WORD_NEURAL_WEIGHT,
-            sentence_score: std::cell::RefCell::new(None),
 ```
 
 `rescoring/mod.rs` 的 `pub(crate) use worker::RescoreWorker;` 后加 `pub use word_rescore::{WORD_NEURAL_WEIGHT, WORD_RESCORE_CANDIDATES};`。
 
-- [ ] **Step 4：写 `rescoring/word_rescore.rs`**
+- [ ] **Step 4：写 `rescoring/word_rescore/mod.rs`**
 
 ```rust
 //! 知微给词级候选按前文打分：第一页里与首选同一结构档（精确 / 覆盖 / 简拼数 / 末音节完整都相同）的前几个词，
-//! 加上整句首选，按「静态分 + λ_w·(神经分 − 静态分)」重排，只在这几格之间换位，英文 / 快捷 / emoji 与别档的词不动。
-//! 打分走与整句重排同样的「缓存 + 后台线程 + 停顿后请求 + 结果到了再查一次」（见 mod.rs），按键回调不等模型。
-//! 素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md。
+//! 按「静态分 + λ_w·(神经分 − 静态分)」重排，只在这几格之间换位；整句（路径分按词累加，与词不在一个尺度）、
+//! 英文 / 快捷 / emoji 与别档的词都不动。打分走与整句重排同样的「缓存 + 后台线程 + 停顿后请求 + 结果到了再查一次」
+//! （见 ../mod.rs），按键回调不等模型。素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md。
+
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashMap;
 
 use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::Engine;
+use crate::engine::rescoring::{NeuralCache, RescoreWorker};
+use crate::ranking::Scored;
 use crate::sentence::SentenceScorer;
-
-use super::{Engine, NeuralCache, RescoreWorker};
 
 /// 词级重排里神经分的缺省权重 λ_w，按 `--eval-context` 扫 {0.3, 0.5, 0.8} 取（见计划文件）。
 pub const WORD_NEURAL_WEIGHT: f64 = 0.5;
@@ -1424,24 +1578,34 @@ impl Engine {
         self.word_weight = weight.clamp(0.0, 1.0);
     }
 
-    /// 把第一页里的同档词与整句首选按知微重排。`tier` 是与首选同档的词级候选及其静态分（最多 [`WORD_RESCORE_CANDIDATES`] 条）。
-    /// 异步时缺分就记下等壳来取、这次不动；任何一条没分也不动（半截重排比不重排还糟）。
+    /// 排好序的词级命中里要给知微打分的那一档：与第一条同结构档的前几条，带静态分。没接知微返回空。
+    pub(in crate::engine) fn word_tier(&self, scored: &[Scored<'_>], scores: &[f64]) -> Vec<(String, f64)> {
+        let (true, Some(head)) = (self.has_word_scorer(), scored.first()) else {
+            return Vec::new();
+        };
+        let same = |s: &Scored<'_>| {
+            (s.hit.exact, s.coverage, s.abbreviated, s.full_last)
+                == (head.hit.exact, head.coverage, head.abbreviated, head.full_last)
+        };
+        scored
+            .iter()
+            .zip(scores)
+            .take(WORD_RESCORE_CANDIDATES)
+            .take_while(|(s, _)| same(s))
+            .map(|(s, score)| (s.hit.text.to_owned(), *score))
+            .collect()
+    }
+
+    /// 把第一页里的同档词按知微重排。异步时缺分就记下等壳来取、这次不动；任何一条没分也不动（半截重排比不重排还糟）。
     pub(in crate::engine) fn rescore_first_page(&self, items: &mut [Candidate], tier: &[(String, f64)]) {
-        if !self.has_word_scorer() || tier.is_empty() {
+        if !self.has_word_scorer() || tier.len() < 2 {
             return;
         }
-        let sentence = self.sentence_score.borrow().clone();
-        let mut statics: HashMap<&str, f64> = tier.iter().map(|(t, s)| (t.as_str(), *s)).collect();
-        if let Some((text, score)) = &sentence {
-            statics.insert(text.as_str(), *score);
-        }
+        let statics: HashMap<&str, f64> = tier.iter().map(|(t, s)| (t.as_str(), *s)).collect();
         let slots: Vec<usize> = items
             .iter()
             .enumerate()
-            .filter(|(_, c)| {
-                matches!(c.kind, CandidateKind::Chinese | CandidateKind::Sentence)
-                    && statics.contains_key(c.text.as_str())
-            })
+            .filter(|(_, c)| c.kind == CandidateKind::Chinese && statics.contains_key(c.text.as_str()))
             .map(|(index, _)| index)
             .collect();
         if slots.len() < 2 {
@@ -1542,6 +1706,8 @@ impl Engine {
 }
 ```
 
+（`Scored` 要从 `crate::ranking` 公开：它已经 `pub use scored::Scored`。）
+
 - [ ] **Step 5：`rescoring/mod.rs` 三个入口带上知微**
 
 `rescoring_pending`：
@@ -1556,7 +1722,7 @@ impl Engine {
     }
 ```
 
-`request_rescoring` 开头与两处 `return false` 改成：
+`request_rescoring` 开头与两处 `return false`：
 
 ```rust
     pub fn request_rescoring(&mut self) -> bool {
@@ -1584,48 +1750,21 @@ impl Engine {
 
 （原来的 `let mut updated = false;` 删掉。）
 
-- [ ] **Step 6：`phonetic.rs` 取同档前几条、`converting.rs` 记整句分**
+- [ ] **Step 6：`phonetic.rs` 两行挂钩**
 
-`phonetic.rs` 的 `ranking::rank(...)` 改成接返回值，并在后面算 `tier`：
+`ranking::rank(...)` 改成接返回值并取档：
 
 ```rust
         let scores = ranking::rank(&mut scored, MAX_CANDIDATES, |item| { … });
-        // 知微重排的对象：与首选同一结构档的前几个词（素笺分叉，见 rescoring/word_rescore.rs）
-        let tier: Vec<(String, f64)> = match (self.has_word_scorer(), scored.first()) {
-            (true, Some(head)) => {
-                let same = |s: &Scored<'_>| {
-                    (s.hit.exact, s.coverage, s.abbreviated, s.full_last)
-                        == (head.hit.exact, head.coverage, head.abbreviated, head.full_last)
-                };
-                scored
-                    .iter()
-                    .zip(&scores)
-                    .take(rescoring::WORD_RESCORE_CANDIDATES)
-                    .take_while(|(s, _)| same(s))
-                    .map(|(s, score)| (s.hit.text.to_owned(), *score))
-                    .collect()
-            }
-            _ => Vec::new(),
-        };
-        *self.sentence_score.borrow_mut() = None;
+        // 知微重排的对象（素笺分叉，见 rescoring/word_rescore）
+        let tier = self.word_tier(&scored, &scores);
 ```
 
-在 `let rank = start.elapsed();` 之前（`insert_emoji` 之后、`if aux_code.is_none() { … }` 的大括号之后）加：
+在 `let rank = start.elapsed();` 之前（`if aux_code.is_none() { … }` 的大括号之后）加：
 
 ```rust
         self.rescore_first_page(&mut items, &tier);
 ```
-
-`converting.rs` 的 `plain_sentence` 里，`out.push(Candidate { … })` 之前加：
-
-```rust
-            if first && kind == CandidateKind::Sentence {
-                *self.sentence_score.borrow_mut() =
-                    Some((conversion.text.clone(), conversion.score));
-            }
-```
-
-（`kind` 与 `conversion` 都在作用域里；`conversion.text` 随后被移动进 `Candidate`，所以这里要先 `clone`。）
 
 - [ ] **Step 7：跑测试**
 
@@ -1633,7 +1772,7 @@ impl Engine {
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core
 ```
 
-Expected: 全绿，含 `word_rescore_tests` 5 个。
+Expected: 全绿，含 `word_rescore` 6 个。
 
 - [ ] **Step 8：CLI 接知微**
 
@@ -1676,13 +1815,13 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo run --release -p 
 
 Expected: 打出候选，日志有「知微词级重排已启用」。
 
-- [ ] **Step 9：扫 λ_w，按键耗时对比**
+- [ ] **Step 9：扫 λ_w**
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; do echo "== word-weight=$w"; cargo run --release -p qingjian-cli -- --word-model data/models/hanzhang-zhiwei --word-weight $w --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
+cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; do echo "== word-weight=$w"; cargo run --release -p qingjian-cli -- --neural data/models/hanzhang-tongbian --word-model data/models/hanzhang-zhiwei --word-weight $w --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
 ```
 
-取最好的写进 `WORD_NEURAL_WEIGHT`；三组数字记在下面。
+取最好的写进 `WORD_NEURAL_WEIGHT`：
 
 | λ_w | `--eval-context` 有前文 / 无前文 |
 |---|---|
@@ -1690,36 +1829,27 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; d
 | 0.5 | |
 | 0.8 | |
 
-同步部分耗时（异步接法下查询不等模型，`rank` 阶段应与 Task 3 一致）：
+- [ ] **Step 10：评测（产品配置从这里起带 `--word-model`；对照一起跑）、按键 p99、fork-patch、提交**
 
-```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo run --release -p qingjian-cli -- --typing womenmingtianqukaihui zhegewentihenfuza && cargo run --release -p qingjian-cli -- --neural-async --word-model data/models/hanzhang-zhiwei --typing womenmingtianqukaihui zhegewentihenfuza
-```
-
-两次 `rank` 列的最大值相差不超过 1 ms；超过就查 `tier` 的构造与 `rescore_first_page` 的早退路径。
-
-- [ ] **Step 10：三项评测（`--eval-context` 带 `--word-model`）、fork-patch、提交**
+两条评测命令都跑，填 Task 4 行；`--replay` 与 `--eval-context` 报的同步 p99 比基线不超过 +1 ms（异步接法下查询不等模型，差的只是取档与查缓存）。
+超了就停下报告。
 
 ```markdown
-| `crates/qingjian-core/src/engine/rescoring/word_rescore.rs` | 新文件 | 知微词级重排、请求与收结果 |
-| `crates/qingjian-core/src/engine/rescoring/word_rescore_tests.rs` | 新文件 | 测试 |
-| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 2 行 mod、改 3 个入口各几行 | `rescoring_pending` / `request_rescoring` / `poll_rescoring` 带上知微 |
-| `crates/qingjian-core/src/engine/mod.rs` | 加 5 个字段 | `word_scorer` / `word_rescorer` / `word_cache` / `word_weight` / `sentence_score` |
+| `crates/qingjian-core/src/engine/rescoring/word_rescore/mod.rs`、`tests.rs` | 新文件 | 知微词级重排、取档、请求与收结果；测试 |
+| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 1 行 mod、1 行导出，改 3 个入口各几行 | `rescoring_pending` / `request_rescoring` / `poll_rescoring` 带上知微 |
+| `crates/qingjian-core/src/engine/mod.rs` | 加 4 个字段 | `word_scorer` / `word_rescorer` / `word_cache` / `word_weight` |
 | `crates/qingjian-core/src/ranking/mod.rs` | 改返回值 | `rank` 返回每条的最终分 |
-| `crates/qingjian-core/src/engine/query/phonetic.rs` | 加约 20 行 | 取同档前几条、调 `rescore_first_page` |
-| `crates/qingjian-core/src/engine/query/converting.rs` | 加 4 行 | 记整句首选的路径分 |
+| `crates/qingjian-core/src/engine/query/phonetic.rs` | 加 2 行 | 取档、调 `rescore_first_page` |
 | `crates/qingjian-core/src/engine/query/code.rs` | 改 1 行 | `let _ = ranking::rank(…)` |
 | `apps/cli/src/args.rs`、`main.rs` | 加 2 个参数与加载 | `--word-model`、`--word-weight` |
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(core): 知微给第一页词级候选按前文打分重排
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(core): 知微给第一页词级候选按前文打分重排
 
-- 与首选同档的前 6 个词加整句首选，静态分 + λ_w·(神经分 − 静态分)，只在这几格间换位
+- 与首选同档的前 6 个词按 静态分 + λ_w·(神经分 − 静态分) 换位；整句与别档的词不动
 - 走与整句重排同样的缓存 / 后台线程 / 停顿后请求，按键不等模型
-- CLI --word-model / --word-weight；λ_w 扫出见计划文件
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- CLI --word-model / --word-weight；λ_w 扫出见计划文件"
 ```
 
 ---
@@ -1738,9 +1868,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 `crates/qingjian-platform/src/config/scorer_set.rs`：
 
 ```rust
+//! `[model] scorers`：加载哪几个本地模型（素笺分叉）。
+
 use serde::{Deserialize, Serialize};
 
-/// `[model] scorers`：加载哪几个本地模型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ScorerSet {
@@ -1808,9 +1939,9 @@ scorers = "both"
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-platform
 ```
 
-Expected: 全绿（`template_parses_to_defaults` 也过，说明模板那两行对）。
+Expected: 全绿（`template_parses_to_defaults` 也过）。
 
-- [ ] **Step 2：macOS 加载知微**
+- [ ] **Step 2：macOS 加载知微；切到 `tongbian` 真卸掉**
 
 `apps/macos/src/host/mod.rs` 在 `model_loader` 字段后加：
 
@@ -1828,8 +1959,8 @@ Expected: 全绿（`template_parses_to_defaults` 也过，说明模板那两行�
 新文件 `apps/macos/src/host/model/word_model.rs`：
 
 ```rust
-//! 知微（含章·知微）在壳里的加载：`[model] scorers = "both"` 时与通变一起在后台加载，接到 Engine 的词级重排上。
-//! 素笺分叉，见 cloud/docs/fork-patch.md。
+//! 知微（含章·知微）在壳里的加载：`[model] scorers = "both"` 时与通变一起在后台加载，接到 Engine 的词级重排上；
+//! 配置切回 `tongbian` 时真卸掉（内存与日志对比要准）。素笺分叉，见 cloud/docs/fork-patch.md。
 
 use std::sync::mpsc::{TryRecvError, channel};
 
@@ -1837,15 +1968,17 @@ use qingjian_core::sentence::SentenceScorer;
 use qingjian_neural::{CharScorer, NeuralError};
 use qingjian_platform::ScorerSet;
 
-use super::*;
+use crate::app::paths;
+use crate::host::Host;
 
 impl Host {
-    /// 后台加载知微并预热；配置不要、没有文件或已经接上就什么都不做。
+    /// 后台加载知微并预热。配置不要就卸掉已有的；没有文件或已经在加载 / 已接上就什么都不做。
     pub(super) fn load_word_model(&mut self) {
-        if self.settings.config().model.scorers != ScorerSet::Both
-            || self.word_loader.is_some()
-            || self.engine.has_word_scorer()
-        {
+        if self.settings.config().model.scorers != ScorerSet::Both {
+            self.unload_word_model();
+            return;
+        }
+        if self.word_loader.is_some() || self.engine.has_word_scorer() {
             return;
         }
         let Some(path) = paths::model_path() else {
@@ -1903,8 +2036,11 @@ impl Host {
         }
     }
 
+    /// 卸掉知微（配置切回 tongbian 或关掉本地模型）。
     pub(super) fn unload_word_model(&mut self) {
-        self.word_loader = None;
+        if self.word_loader.take().is_some() || self.engine.has_word_scorer() {
+            tracing::info!("知微已卸载");
+        }
         self.engine.set_async_word_scorer(None);
     }
 }
@@ -1914,6 +2050,7 @@ impl Host {
 
 1. `mod rescore_monitor;` 后加 `mod word_model;`。
 2. `load_local_model` 第一行（`if self.model_loader.is_some() || …` 之前）加 `self.load_word_model();`。
+   `[model]` 变了（`host/config/mod.rs:98`）会再进这里：知微那边自己有「在加载 / 已接上就不再加载」与「不要就卸」的判断，不会加载两次。
 3. `attach_loaded_model` 开头改成：
 
 ```rust
@@ -1935,35 +2072,35 @@ impl Host {
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo clippy -p qingjian-macos --all-targets -- -D warnings
 ```
 
-- [ ] **Step 3：装到本机，量内存**
+- [ ] **Step 3：装到本机，量内存（真人）**
 
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && apps/macos/scripts/bundle.sh --install
 ```
 
-切到青简打几个字（让模型加载完），然后：
+给审计 / 用户的步骤：
 
-```bash
-sleep 5; ps -o rss=,comm= -p "$(pgrep -f 'Qingjian.app/Contents/MacOS' | head -1)"
-```
+1. 切到青简，在任意文本框打几个字，等 5 秒（模型加载完）。
+2. 终端跑 `ps -o rss=,comm= -p "$(pgrep -f 'Qingjian.app/Contents/MacOS' | head -1)"`，记下 RSS（KB）。
+3. 在 `~/Library/Application Support/Qingjian/config.toml` 的 `[model]` 下加一行 `scorers = "tongbian"`，保存（输入法热加载）；再打几个字，等 5 秒，再跑第 2 步。
+4. 把两个数和 `~/Library/Logs/Qingjian/` 里最新日志中「知微已加载并预热 total_ms=」「知微已卸载」两行一起报回；把配置改回 `both`。
 
-再把 `~/Library/Application Support/Qingjian/config.toml` 的 `[model]` 下加 `scorers = "tongbian"`（输入法热加载配置），打几个字，再量一次。
-两个数（MB）与日志里「知微已加载并预热」的 `total_ms` 填进「评测记录」Task 5 行；日志在 `~/Library/Logs/Qingjian/`（看 `apps/macos/src/app/logging`）。
+两个数（换算成 MB）与 total_ms 填进 Task 5 行。
 
-- [ ] **Step 4：`tongbian` 与现状逐字一致**
+- [ ] **Step 4：`tongbian` 与现状一致**
 
-CLI 没有 `[model]`，不给 `--word-model` 就是 tongbian；Task 4 收尾那次 `--eval-text`（不带 `--word-model`）与 Task 3 的数字相同即是证据，写进 Task 5 行。
-macOS 上 `scorers = "tongbian"` 时日志不出现「知微」，恢复 `both` 后出现。
+CLI 没有 `[model]`，不给 `--word-model` 就是 tongbian；Task 4 收尾的**对照**列与 Task 3 的数字相同即是证据，写进 Task 5 行。
+macOS 上 `scorers = "tongbian"` 时日志有「知微已卸载」、之后不再出现「知微已加载」；恢复 `both` 后出现。
 
 - [ ] **Step 5：文档、提交**
 
-`cloud/docs/design.md` 第 3 节末尾加一小节：
+`cloud/docs/design.md` 第 3 节末尾加一小节（Task 7 还会往这里补 Tab 的说明）：
 
 ```markdown
-### 3.x 本地模型：按前文排词与续写（2026-10-04）
+### 3.x 上下文预测：按前文排词与本地续写（2026-10-04）
 
 `[model] scorers = "both"`（素笺缺省）同时加载两个随包小模型：含章·通变照旧按按键给整句路径重排与生成；
-含章·知微按光标前文给第一页词级候选打分重排，并在停顿后续写几个字挂在拼音右侧、Tab 接受。常驻内存多约 56 MB（实测见计划文件）。
+含章·知微按光标前文给第一页词级候选打分重排，并在停顿后续写几个字挂在拼音右侧。常驻内存多约 56 MB（实测见计划文件）。
 `"tongbian"` 即上游行为。设计与评测：`specs/2026-10-04-context-prediction-design.md`、`plans/2026-10-04-context-prediction.md`。
 ```
 
@@ -1978,12 +2115,10 @@ fork-patch 加：
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-platform apps/macos cloud/docs && git commit -m "feat(macos): [model] scorers = both，同时加载通变与知微
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-platform apps/macos cloud/docs && git commit -m "feat(macos): [model] scorers = both，同时加载通变与知微
 
-- 通变照旧排整句；知微接到 Engine 的词级重排上
-- tongbian 即上游行为；内存实测见计划文件
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- 通变照旧排整句；知微接到 Engine 的词级重排上，切回 tongbian 真卸掉
+- 内存实测见计划文件"
 ```
 
 ---
@@ -1998,9 +2133,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `apps/cli/src/eval/continuation.rs`
 - Modify: `apps/cli/src/eval/mod.rs`、`args.rs`、`main.rs`
 
-- [ ] **Step 1：写失败的测试（随包模型存在才跑）**
+- [ ] **Step 1：写失败的测试（随包模型存在才跑，不在就打印跳过）**
 
-`crates/qingjian-neural/src/continuation.rs` 先只写测试壳：
+`crates/qingjian-neural/src/continuation.rs` 先只写文件头与测试：
 
 ```rust
 //! 本地续写：知微贪心解码，接着前文往下写几个字，给 Tab 接受用。
@@ -2027,17 +2162,18 @@ mod tests {
             .continue_text("今天下午我们开会讨论输入法的", 8)
             .unwrap()
             .expect("有续写");
+        eprintln!("续写：{text}（{average:.2}）");
         assert!(!text.is_empty() && text.chars().count() <= 8, "{text}");
         assert!(text.chars().all(|c| !super::STOPS.contains(&c)), "{text}");
         assert!(average <= 0.0 && average > -20.0, "{average}");
-        // 长度上限生效
-        let (one, _) = scorer.continue_text("今天下午我们开会讨论输入法的", 1).unwrap().unwrap();
+        let (one, _) = scorer
+            .continue_text("今天下午我们开会讨论输入法的", 1)
+            .unwrap()
+            .unwrap();
         assert_eq!(one.chars().count(), 1);
-        // 空前文、0 字不续
         assert_eq!(scorer.continue_text("", 8).unwrap(), None);
         assert_eq!(scorer.continue_text("   ", 8).unwrap(), None);
         assert_eq!(scorer.continue_text("今天", 0).unwrap(), None);
-        // 超长前文从左截，不报错
         let long = "很长的前文。".repeat(40);
         assert!(scorer.continue_text(&long, 4).is_ok());
     }
@@ -2121,13 +2257,11 @@ impl CharScorer {
 }
 ```
 
-（`<unk>` 解码成 `<unk>` 字面，`starts_with('<')` 一起拦住。）
-
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-neural continuation -- --nocapture
 ```
 
-Expected: 通过；顺手把测试里的 `text` 打出来看看像不像中文。
+Expected: 通过，打出来的续写像中文。
 
 - [ ] **Step 3：Core 的 trait 加缺省方法，`CharScorer` 实现**
 
@@ -2169,7 +2303,8 @@ use std::time::{Duration, Instant};
 
 use qingjian_neural::CharScorer;
 
-use super::EvalError;
+use crate::eval::EvalError;
+use crate::latency::Latencies;
 
 /// 每隔多少字取一个位置。
 pub const STRIDE: usize = 20;
@@ -2200,7 +2335,6 @@ pub struct Outcome {
     pub average: f64,
     pub length: usize,
     pub correct: bool,
-    pub elapsed: Duration,
 }
 
 /// 从文本里取位置：每行独立；位置前要是汉字，真值是紧接着的汉字（遇非汉字停，最多 [`MAX_CHARS`] 个）且至少 [`MIN_TRUTH`] 个。
@@ -2249,6 +2383,9 @@ pub struct ContinuationReport {
     pub produced: usize,
 
     pub outcomes: Vec<Outcome>,
+
+    /// 每个位置一次 `continue_text` 的耗时（写没写出来都算）。
+    pub latency: Latencies,
 }
 
 impl ContinuationReport {
@@ -2263,14 +2400,8 @@ impl ContinuationReport {
         (shown.len(), correct)
     }
 
-    fn latency(&self, quantile: f64) -> Duration {
-        let mut all: Vec<Duration> = self.outcomes.iter().map(|o| o.elapsed).collect();
-        if all.is_empty() {
-            return Duration::ZERO;
-        }
-        all.sort();
-        let index = ((all.len() - 1) as f64 * quantile).round() as usize;
-        all[index]
+    pub fn p90(&self) -> Duration {
+        self.latency.quantile(0.9)
     }
 }
 
@@ -2287,8 +2418,8 @@ impl fmt::Display for ContinuationReport {
             "位置 {}  写出 {}  平均长度 {mean_length:.1} 字  时延 p50 {:.0} ms / p90 {:.0} ms",
             self.samples,
             self.produced,
-            self.latency(0.5).as_secs_f64() * 1000.0,
-            self.latency(0.9).as_secs_f64() * 1000.0,
+            self.latency.quantile(0.5).as_secs_f64() * 1000.0,
+            self.p90().as_secs_f64() * 1000.0,
         )?;
         writeln!(f, "{:>8}  {:>8}  {:>8}  {:>8}", "τ", "显示率", "代理精度", "条数")?;
         for threshold in THRESHOLDS {
@@ -2325,7 +2456,7 @@ pub fn run(scorer: &CharScorer, paths: &[PathBuf]) -> Result<ContinuationReport,
             report.samples += 1;
             let started = Instant::now();
             let result = scorer.continue_text(&sample.before, MAX_CHARS)?;
-            let elapsed = started.elapsed();
+            report.latency.push(started.elapsed());
             let Some((continued, average)) = result else {
                 continue;
             };
@@ -2334,7 +2465,6 @@ pub fn run(scorer: &CharScorer, paths: &[PathBuf]) -> Result<ContinuationReport,
                 average,
                 length: continued.chars().count(),
                 correct: matches(&continued, &sample.truth),
-                elapsed,
             });
         }
     }
@@ -2352,7 +2482,6 @@ mod tests {
         assert_eq!(samples.len(), 1);
         assert_eq!(samples[0].truth, "输入法的候选排序");
         assert!(samples[0].before.ends_with('我'));
-        // 位置后面不是汉字：跳过
         assert!(samples(&format!("{}abc 输入法", "我".repeat(STRIDE))).is_empty());
     }
 
@@ -2393,9 +2522,7 @@ mod tests {
     }
 ```
 
-（`--neural` 给了也会让 `build_engine` 装一次打分器；评测不用引擎，多装一次只是慢几百毫秒，不改 `build_engine`。）
-
-- [ ] **Step 5：跑评测，选 τ**
+- [ ] **Step 5：跑评测，选 τ；p90 > 150 ms 停下报告**
 
 留出文本用用户文档的正文（模型训练语料是公开网页语料，不含它们）：
 
@@ -2403,7 +2530,8 @@ mod tests {
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-cli continuation && cargo run --release -p qingjian-cli -- --neural data/models/hanzhang-zhiwei --eval-continuation $(find docs/user -name '*.md' | sort)
 ```
 
-挑**代理精度 ≥ 60% 里显示率最高**的 τ，记在下面；p90 时延超过 150 ms 的话记下来，Task 7 的时限按实测取。
+挑**代理精度 ≥ 60% 里显示率最高**的 τ，记在下面，Task 7 的 `CONTINUATION_THRESHOLD` 用它。
+**p90 时延超过 150 ms 就停下**，把整张表发审计，不自行放宽时限。
 
 | τ | 显示率 | 代理精度 | p50 / p90 ms |
 |---|---|---|---|
@@ -2421,12 +2549,10 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-neural crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(neural): 知微贪心续写 continue_text 与 --eval-continuation
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-neural crates/qingjian-core apps/cli cloud/docs && git commit -m "feat(neural): 知微贪心续写 continue_text 与 --eval-continuation
 
 - 遇句读标点 / <eos> / 长度上限停，返回文本与每字平均 log 概率
-- 评测在留出文本上报告各门槛下的显示率、代理精度与时延；τ 见计划文件
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- 评测在留出文本上报告各门槛下的显示率、代理精度与时延；τ 见计划文件"
 ```
 
 ---
@@ -2434,57 +2560,189 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ## Task 7：macOS 显示与 Tab 接受
 
 **Files:**
-- Create: `crates/qingjian-core/src/engine/prediction/local_continuation.rs`
-- Modify: `crates/qingjian-core/src/engine/prediction/mod.rs`（`mod` 1 行）、`engine/mod.rs`（2 个字段）、`composing.rs`（`clear` 里 1 行）
-- Modify: `crates/qingjian-core/src/engine/rescoring/worker.rs`（Job / Scored 各加 1 个字段、线程里一段、`submit_continuation`）
-- Modify: `crates/qingjian-core/src/engine/rescoring/mod.rs`（1 个常数）、`word_rescore.rs`（`poll_word_rescoring` 收续写）
+- Modify: `crates/qingjian-core/src/engine/input_log/source.rs`（`LocalContinuation` 变体）、`engine/learning/mod.rs:84-85`（计词数）
+- Modify: `apps/cli/src/replay/report.rs:65-69`（新变体归不评的来源）
+- Modify: `crates/qingjian-core/src/engine/rescoring/worker.rs`（Job / Scored 各加 1 个字段、两类任务各留最新一条、`submit_continuation`）
+- Modify: `crates/qingjian-core/src/engine/rescoring/mod.rs`（1 个常数）、`word_rescore/mod.rs`（收续写）
+- Create: `crates/qingjian-core/src/engine/rescoring/worker_tests.rs`
+- Create: `crates/qingjian-core/src/engine/prediction/local_continuation/mod.rs`、`tests.rs`
+- Modify: `crates/qingjian-core/src/engine/prediction/mod.rs`（`mod` + 导出）、`engine/mod.rs`（3 个字段）、`composing.rs`（`clear` 里 1 行）
 - Create: `apps/macos/src/host/model/continuation.rs`
-- Modify: `apps/macos/src/host/model/mod.rs`（`schedule_rescoring` / `start_rescoring` / `poll_rescoring`）、`host/cloud/mod.rs:138`、`imk/controller/display.rs`（refresh 清旧续写）
+- Modify: `apps/macos/src/host/mod.rs`、`init.rs`（`sentence_local` 字段）、`host/model/mod.rs`（3 处）、`host/cloud/mod.rs:138`、
+  `imk/controller/display.rs`（refresh 清旧续写；`accept_sentence` 分本地 / 云端）
 - Create: `cloud/scripts/tab-continuation-e2e.sh`
+- Modify: `cloud/docs/design.md`（Tab 行为）、`fork-patch.md`
 
-接受的形状：云端整句补全是「替换整段拼音的句子」，Tab 走 `Engine::accept_prediction(text)`（上屏、切词记个人 n-gram）。
-本地续写装成同一形状：`首选文本 + 续写`。所以只在首选**盖住整段拼音**时才续写（`consumed_by(first).0 == scope.len()`），
-否则接受后拼音对不上。输入日志里的来源仍记 `CloudSentence`（不改上游的日志枚举；回放本来就不评这一类）。
+接受的形状：显示上与云端整句补全一样（`首选 + 续写` 挂在拼音右侧，Tab 接受），**上屏与记账分开走**：首选照常 `commit`
+（词频、同输入串 choice、转移都记，日志来源 `Word`），续写文本紧接着上屏、切词记个人 n-gram，日志另记一条来源
+`LocalContinuation`（键为空），回放就能分别统计本地续写与云端补全的接受率。只在首选**盖住整段拼音**时才续写。
 
-- [ ] **Step 1：后台线程会续写**
+- [ ] **Step 1：日志来源 `LocalContinuation`**
 
-`rescoring/worker.rs`：
-
-`Job` 加字段：
-
-```rust
-    /// 要续写的前文与长度上限（素笺本地续写）；`None` 就不续。
-    continue_from: Option<(String, usize)>,
-```
-
-`Scored` 加字段：
+`crates/qingjian-core/src/engine/input_log/source.rs` 的 `CloudSentence,` 后加：
 
 ```rust
-    /// 续写用的前文与结果（超时或写不出来是 `None`），对应任务里的 `continue_from`。
-    pub continued: Option<(String, Option<(String, f64)>)>,
+    /// Tab 接受的本地续写里续写的那部分（首选本身另记一条 `Word`）。素笺分叉。
+    LocalContinuation,
 ```
 
-线程里 `let generated = …;` 之后加：
+`engine/learning/mod.rs:85` 的 `InputSource::Sentence | InputSource::CloudSentence => {` 改成
+`InputSource::Sentence | InputSource::CloudSentence | InputSource::LocalContinuation => {`。
+`apps/cli/src/replay/report.rs:65-69` 的 `None` 分支加 `| InputSource::LocalContinuation`（不评、计入「不评的来源」表，接受率从那里看）。
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo check --workspace --all-targets
+```
+
+- [ ] **Step 2：后台线程：两类任务各留最新一条，会续写。先写测试**
+
+`rescoring/worker_tests.rs`：
 
 ```rust
-                    let continued = job.continue_from.map(|(before, max_chars)| {
-                        let started = std::time::Instant::now();
-                        let result = scorer.continue_text(&before, max_chars);
-                        let elapsed = started.elapsed();
-                        tracing::debug!(
-                            before_chars = before.chars().count(),
-                            got = result.as_ref().map(|(t, _)| t.chars().count()),
-                            ms = elapsed.as_millis(),
-                            "本地续写完成"
-                        );
-                        // 太慢的这次不用：用户早就敲下一个键了
-                        let result = (elapsed <= CONTINUATION_TIME_LIMIT).then_some(result).flatten();
-                        (before, result)
-                    });
+//! 后台线程的排队规则：打分与续写各留最新一条，互不顶掉。
+
+use std::time::{Duration, Instant};
+
+use crate::engine::rescoring::RescoreWorker;
+use crate::sentence::SentenceScorer;
+
+/// 慢打分器：每次打分睡 30 ms，让后面的任务排起队。
+struct Slow;
+
+impl SentenceScorer for Slow {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
+        std::thread::sleep(Duration::from_millis(30));
+        texts.iter().map(|_| -1.0).collect()
+    }
+
+    fn continue_text(&self, before: &str, _max_chars: usize) -> Option<(String, f64)> {
+        Some((format!("{before}续"), -0.5))
+    }
+}
+
+#[test]
+fn a_queued_continuation_is_not_dropped_by_a_newer_scoring_job() {
+    let worker = RescoreWorker::spawn(Box::new(Slow));
+    worker.submit("前文".into(), "a".into(), vec!["甲".into()], None);
+    // 线程在算第一条时这两条排着队：旧规则只留最新一条（打分 b），续写就丢了
+    worker.submit_continuation("前文甲".into(), 4);
+    worker.submit("前文".into(), "b".into(), vec!["乙".into()], None);
+    let started = Instant::now();
+    let mut keys = Vec::new();
+    let mut continued = None;
+    while (keys.len() < 2 || continued.is_none()) && started.elapsed() < Duration::from_secs(5) {
+        if let Some(scored) = worker.poll() {
+            if let Some(result) = scored.continued {
+                continued = Some(result);
+            } else {
+                keys.push(scored.keys);
+            }
+        } else {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    assert_eq!(
+        continued,
+        Some(("前文甲".to_owned(), Some(("前文甲续".to_owned(), -0.5))))
+    );
+    // 最新的打分一定在；a 可能已经开算了也在，但不会多于两条
+    assert!(keys.contains(&"b".to_owned()) && keys.len() <= 2, "{keys:?}");
+}
 ```
 
-`Scored { … generated, continued }`。`submit` 里 `Job { …, generate, continue_from: None }`。文件顶部 `use super::{GENERATE_BEAM, GENERATE_MAX_CHARS};`
-改成 `use super::{CONTINUATION_TIME_LIMIT, GENERATE_BEAM, GENERATE_MAX_CHARS};`，并加方法：
+`rescoring/mod.rs` 的 `#[cfg(test)] mod tests;` 旁加 `#[cfg(test)] mod worker_tests;`。
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core worker_tests 2>&1 | head
+```
+
+Expected: 编译错误（`submit_continuation` / `continued` 不存在）。
+
+- [ ] **Step 3：实现 worker**
+
+`rescoring/worker.rs`：`Job` 加字段 `continue_from: Option<(String, usize)>`（续写的前文与长度上限；`None` 不续），
+`Scored` 加字段 `pub continued: Option<(String, Option<(String, f64)>)>`（续写用的前文与结果，超时或写不出来是 `None`）。
+`use super::{GENERATE_BEAM, GENERATE_MAX_CHARS};` 改成 `use super::{CONTINUATION_TIME_LIMIT, GENERATE_BEAM, GENERATE_MAX_CHARS};`。
+
+线程循环改成「两类各留最新一条」，原来的循环体搬进 `run_job`：
+
+```rust
+            .spawn(move || {
+                while let Ok(job) = job_rx.recv() {
+                    // 攒了好几条：打分与续写各留最新一条，两类任务不互相顶掉（续写是打分完成后才发的）
+                    let mut scoring: Option<Job> = None;
+                    let mut continuation: Option<Job> = None;
+                    for pending in std::iter::once(job).chain(std::iter::from_fn(|| job_rx.try_recv().ok())) {
+                        if pending.continue_from.is_some() {
+                            continuation = Some(pending);
+                        } else {
+                            scoring = Some(pending);
+                        }
+                    }
+                    for job in scoring.into_iter().chain(continuation) {
+                        if result_tx.send(run_job(&*scorer, job)).is_err() {
+                            return;
+                        }
+                    }
+                }
+            })
+```
+
+```rust
+/// 跑一条任务：打分、可选的生成、可选的续写。
+fn run_job(scorer: &dyn SentenceScorer, job: Job) -> Scored {
+    let texts: Vec<&str> = job.texts.iter().map(String::as_str).collect();
+    let scores = if texts.is_empty() {
+        Vec::new()
+    } else {
+        let started = std::time::Instant::now();
+        let scores = scorer.score(&job.context, &job.keys, &texts);
+        tracing::debug!(
+            texts = texts.len(),
+            context_chars = job.context.chars().count(),
+            keys = job.keys.len(),
+            ms = started.elapsed().as_millis(),
+            "神经重打分完成"
+        );
+        scores
+    };
+    let generated = job.generate.map(|keys| {
+        let started = std::time::Instant::now();
+        let texts = scorer.generate(&keys, GENERATE_BEAM, GENERATE_MAX_CHARS);
+        tracing::debug!(
+            keys = keys.len(),
+            got = texts.len(),
+            ms = started.elapsed().as_millis(),
+            "整句生成完成"
+        );
+        (keys, texts)
+    });
+    let continued = job.continue_from.map(|(before, max_chars)| {
+        let started = std::time::Instant::now();
+        let result = scorer.continue_text(&before, max_chars);
+        let elapsed = started.elapsed();
+        tracing::debug!(
+            before_chars = before.chars().count(),
+            got = result.as_ref().map(|(t, _)| t.chars().count()),
+            ms = elapsed.as_millis(),
+            "本地续写完成"
+        );
+        // 太慢的这次不用：用户早就敲下一个键了
+        let result = (elapsed <= CONTINUATION_TIME_LIMIT).then_some(result).flatten();
+        (before, result)
+    });
+    Scored {
+        context: job.context,
+        keys: job.keys,
+        texts: job.texts,
+        scores,
+        generated,
+        continued,
+    }
+}
+```
+
+`submit` 里 `Job { …, generate, continue_from: None }`；加方法：
 
 ```rust
     /// 只要续写：空的打分任务带一段前文。
@@ -2508,20 +2766,208 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 `rescoring/mod.rs` 常数区加：
 
 ```rust
-/// 单次本地续写最多等多久，超过就放弃这次（见 prediction/local_continuation.rs）。
+/// 单次本地续写最多等多久，超过就放弃这次（见 prediction/local_continuation）。
 pub(super) const CONTINUATION_TIME_LIMIT: std::time::Duration = std::time::Duration::from_millis(150);
 ```
 
-- [ ] **Step 2：Core 的续写入口 `prediction/local_continuation.rs`**
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core rescoring
+```
+
+Expected: 全绿（含上游 `rescoring::tests` 与新 `worker_tests`）。
+
+- [ ] **Step 4：Core 的续写入口。先写测试 `prediction/local_continuation/tests.rs`**
 
 ```rust
-//! 本地续写：知微把第一页排完之后，以「前文 + 当前首选」为条件往下写几个字，装成与云端整句补全同一形状
-//! （替换整段拼音的句子 = 首选 + 续写）交给壳：挂在拼音右侧、Tab 接受（`Engine::accept_prediction`）。
+//! 本地续写的 Engine 级测试：假知微，不依赖模型文件。
+
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use qingjian_dictionary::Dictionary;
+
+use crate::candidate::{Candidate, CandidateKind};
+use crate::engine::{Engine, InputLogEntry, InputLogger, InputSource, Learner};
+use crate::sentence::SentenceScorer;
+
+/// 假知微：续写固定文本，平均分可调。
+struct Writes(&'static str, f64);
+
+impl SentenceScorer for Writes {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
+        texts.iter().map(|_| -1.0).collect()
+    }
+
+    fn continue_text(&self, _before: &str, _max_chars: usize) -> Option<(String, f64)> {
+        Some((self.0.to_owned(), self.1))
+    }
+}
+
+/// 只数 choice。
+struct Choices(HashMap<String, u32>);
+
+impl Learner for Choices {
+    fn record(&mut self, _candidate: &Candidate) {}
+
+    fn weight(&self, _text: &str) -> u32 {
+        0
+    }
+
+    fn record_choice(&mut self, input: &str, text: &str) {
+        *self.0.entry(format!("{input}\t{text}")).or_default() += 1;
+    }
+
+    fn choice_weight(&self, input: &str, text: &str) -> u32 {
+        self.0.get(&format!("{input}\t{text}")).copied().unwrap_or(0)
+    }
+}
+
+/// 把日志条目攒在内存里。
+struct Memory(std::sync::Arc<std::sync::Mutex<Vec<InputLogEntry>>>);
+
+impl InputLogger for Memory {
+    fn record(&mut self, entry: InputLogEntry) {
+        self.0.lock().unwrap().push(entry);
+    }
+}
+
+fn engine(scorer: Writes) -> Engine {
+    Engine::new(Dictionary::parse("邮箱\tyou xiang\t9000\n邮\tyou\t900\n").unwrap())
+        .with_async_word_scorer(Box::new(scorer), None)
+}
+
+fn wait(engine: &mut Engine) {
+    let started = Instant::now();
+    while !engine.poll_rescoring() {
+        assert!(started.elapsed() < Duration::from_secs(5), "后台没回结果");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+fn first(engine: &Engine) -> Candidate {
+    engine.query().unwrap().candidates.items[0].clone()
+}
+
+#[test]
+fn continuation_is_first_candidate_plus_text() {
+    let mut engine = engine(Writes("地址", -0.5));
+    engine.set_input("youxiang");
+    let first = first(&engine);
+    assert_eq!(first.text, "邮箱");
+    assert!(engine.request_continuation(&first));
+    // 同一条件不重复发
+    assert!(!engine.request_continuation(&first));
+    wait(&mut engine);
+    assert_eq!(engine.take_continuation().as_deref(), Some("邮箱地址"));
+    assert_eq!(engine.take_continuation(), None);
+}
+
+#[test]
+fn low_confidence_continuation_is_dropped() {
+    let mut engine = engine(Writes("地址", -5.0));
+    engine.set_input("youxiang");
+    let first = first(&engine);
+    assert!(engine.request_continuation(&first));
+    wait(&mut engine);
+    assert_eq!(engine.take_continuation(), None);
+}
+
+#[test]
+fn a_first_candidate_that_leaves_pinyin_behind_is_not_continued() {
+    let mut engine = engine(Writes("地址", -0.5));
+    engine.set_input("youxiangd");
+    let candidate = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "邮箱" && c.kind == CandidateKind::Chinese)
+        .expect("有 邮箱");
+    assert!(!engine.request_continuation(&candidate));
+}
+
+#[test]
+fn a_new_key_discards_the_old_continuation() {
+    let mut engine = engine(Writes("地址", -0.5));
+    engine.set_input("youxiang");
+    let first = first(&engine);
+    assert!(engine.request_continuation(&first));
+    engine.cancel_continuation();
+    wait(&mut engine);
+    assert_eq!(engine.take_continuation(), None);
+}
+
+#[test]
+fn private_input_never_continues() {
+    let mut engine = engine(Writes("地址", -0.5));
+    engine.set_private(true);
+    engine.set_input("youxiang");
+    let first = first(&engine);
+    assert!(!engine.request_continuation(&first));
+}
+
+#[test]
+fn accepting_commits_the_word_normally_and_logs_the_tail_separately() {
+    let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut engine = engine(Writes("地址", -0.5))
+        .with_learner(Box::new(Choices(HashMap::new())))
+        .with_input_logger(Box::new(Memory(log.clone())));
+    engine.set_input("youxiang");
+    let first = first(&engine);
+    assert!(engine.request_continuation(&first));
+    wait(&mut engine);
+    assert_eq!(engine.take_continuation().as_deref(), Some("邮箱地址"));
+    assert_eq!(engine.accept_continuation().as_deref(), Some("邮箱地址"));
+    assert!(engine.composition().is_empty());
+    // 首选照常记 choice
+    assert_eq!(engine.learner().choice_weight("youxiang", "邮箱"), 1);
+    // 日志：一条 Word（邮箱）加一条 LocalContinuation（地址）
+    let sources: Vec<(InputSource, String)> = log
+        .lock()
+        .unwrap()
+        .iter()
+        .filter_map(|entry| match entry {
+            InputLogEntry::Commit(commit) => Some((commit.source, commit.text.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        sources,
+        [
+            (InputSource::Word, "邮箱".to_owned()),
+            (InputSource::LocalContinuation, "地址".to_owned()),
+        ]
+    );
+    // 没有显示中的续写时接受什么都不做
+    assert_eq!(engine.accept_continuation(), None);
+}
+```
+
+`prediction/mod.rs` 的 `mod kind;` 后加 `mod local_continuation;`，`pub use` 一行 `pub use local_continuation::{CONTINUATION_MAX_CHARS, CONTINUATION_THRESHOLD};`。
+先建 `local_continuation/mod.rs` 只含文件头与 `#[cfg(test)] mod tests;`：
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core local_continuation 2>&1 | head
+```
+
+Expected: 编译错误（`request_continuation` 不存在）。`InputLogger` trait 若不在 `crate::engine` 导出里，按 `lib.rs` 的 `pub use engine::{…InputLogger…}` 找到它实际的路径改 `use`。
+
+- [ ] **Step 5：实现 `prediction/local_continuation/mod.rs`**
+
+```rust
+//! 本地续写：知微把第一页排完之后，以「前文 + 当前首选」为条件往下写几个字，交给壳挂在拼音右侧、Tab 接受。
+//! 显示上与云端整句补全同一形状（首选 + 续写）；接受时首选照常 `commit`（词频、choice、转移），
+//! 续写文本紧接着上屏、切词记个人 n-gram、日志另记一条 `InputSource::LocalContinuation`。
 //! 请求与结果走知微那条后台线程（`rescoring::word_rescore`），按键回调不等它。
 //! 素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md。
 
+#[cfg(test)]
+mod tests;
+
 use crate::candidate::Candidate;
-use crate::engine::Engine;
+use crate::engine::{Engine, InputSource};
+use crate::sentence;
 
 /// 一次最多续写几个字。
 pub const CONTINUATION_MAX_CHARS: usize = 8;
@@ -2536,7 +2982,7 @@ impl Engine {
         let Some(worker) = &self.word_rescorer else {
             return false;
         };
-        if self.private || self.composition.is_empty() {
+        if self.is_private() || self.composition.is_empty() {
             return false;
         }
         let (consumed, _) = self.consumed_by(first);
@@ -2547,21 +2993,56 @@ impl Engine {
         if self.continuation_from.as_ref().is_some_and(|(b, _)| *b == before) {
             return false;
         }
-        self.continuation_from = Some((before.clone(), first.text.clone()));
+        self.continuation_from = Some((before.clone(), first.clone()));
         self.continuation = None;
+        self.shown_continuation = None;
         worker.submit_continuation(before, CONTINUATION_MAX_CHARS);
         true
     }
 
-    /// 到了的续写（首选 + 续写，替换整段拼音）；取走就没了。
+    /// 到了的续写：返回要显示的文本（首选 + 续写，替换整段拼音），并记住它正在显示；取走就没了。
     pub fn take_continuation(&mut self) -> Option<String> {
-        self.continuation.take()
+        let (first, tail) = self.continuation.take()?;
+        let text = format!("{}{tail}", first.text);
+        self.shown_continuation = Some((first, tail));
+        Some(text)
     }
 
-    /// 作废进行中的续写（换了一键、清空）。
+    /// 作废进行中与显示中的续写（换了一键、清空）。
     pub fn cancel_continuation(&mut self) {
         self.continuation_from = None;
         self.continuation = None;
+        self.shown_continuation = None;
+    }
+
+    /// 用户按 Tab 接受了显示中的续写：首选照常上屏，续写紧接着上屏并记进个人 n-gram；返回要插进应用的文本。
+    /// 没有显示中的续写返回 `None`。
+    pub fn accept_continuation(&mut self) -> Option<String> {
+        let (first, tail) = self.shown_continuation.take()?;
+        self.continuation_from = None;
+        self.continuation = None;
+        let mut text = self.commit(&first);
+        self.log_commit("", &tail, InputSource::LocalContinuation);
+        self.meter_commit(&tail, InputSource::LocalContinuation, false);
+        self.history.record(&tail);
+        match sentence::segment_text(&tail, &*self.language_model) {
+            Some(clauses) => {
+                for (index, words) in clauses.iter().enumerate() {
+                    if index > 0 {
+                        self.chain.reset();
+                    }
+                    for word in words {
+                        self.record_word(word, &[], 1, false, false);
+                    }
+                }
+                if tail.chars().last().is_some_and(|c| !c.is_alphanumeric()) {
+                    self.chain.reset();
+                }
+            }
+            None => self.chain.reset(),
+        }
+        text.push_str(&tail);
+        Some(text)
     }
 
     /// 后台回了续写：条件还是当前这段才收；低于门槛的不要。
@@ -2574,119 +3055,28 @@ impl Engine {
         }
         self.continuation = result
             .filter(|(_, average)| *average >= CONTINUATION_THRESHOLD)
-            .map(|(text, _)| format!("{first}{text}"));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::{Duration, Instant};
-
-    use qingjian_dictionary::Dictionary;
-
-    use crate::candidate::{Candidate, CandidateKind};
-    use crate::engine::Engine;
-    use crate::sentence::SentenceScorer;
-
-    /// 假知微：续写固定文本，平均分可调。
-    struct Writes(&'static str, f64);
-
-    impl SentenceScorer for Writes {
-        fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
-            texts.iter().map(|_| -1.0).collect()
-        }
-
-        fn continue_text(&self, _before: &str, _max_chars: usize) -> Option<(String, f64)> {
-            Some((self.0.to_owned(), self.1))
-        }
-    }
-
-    fn engine(scorer: Writes) -> Engine {
-        Engine::new(Dictionary::parse("邮箱\tyou xiang\t9000\n邮\tyou\t900\n").unwrap())
-            .with_async_word_scorer(Box::new(scorer), None)
-    }
-
-    fn wait(engine: &mut Engine) {
-        let started = Instant::now();
-        while !engine.poll_rescoring() {
-            assert!(started.elapsed() < Duration::from_secs(5), "后台没回结果");
-            std::thread::sleep(Duration::from_millis(5));
-        }
-    }
-
-    fn first(engine: &Engine) -> Candidate {
-        engine.query().unwrap().candidates.items[0].clone()
-    }
-
-    #[test]
-    fn continuation_is_first_candidate_plus_text() {
-        let mut engine = engine(Writes("地址", -0.5));
-        engine.set_input("youxiang");
-        let first = first(&engine);
-        assert_eq!(first.text, "邮箱");
-        assert!(engine.request_continuation(&first));
-        // 同一条件不重复发
-        assert!(!engine.request_continuation(&first));
-        wait(&mut engine);
-        assert_eq!(engine.take_continuation().as_deref(), Some("邮箱地址"));
-        assert_eq!(engine.take_continuation(), None);
-    }
-
-    #[test]
-    fn low_confidence_continuation_is_dropped() {
-        let mut engine = engine(Writes("地址", -5.0));
-        engine.set_input("youxiang");
-        let first = first(&engine);
-        assert!(engine.request_continuation(&first));
-        wait(&mut engine);
-        assert_eq!(engine.take_continuation(), None);
-    }
-
-    #[test]
-    fn a_first_candidate_that_leaves_pinyin_behind_is_not_continued() {
-        let mut engine = engine(Writes("地址", -0.5));
-        engine.set_input("youxiangd");
-        // 邮箱 只盖住 youxiang，剩下 d：不续
-        let candidate = engine
-            .query()
-            .unwrap()
-            .candidates
-            .items
-            .into_iter()
-            .find(|c| c.text == "邮箱" && c.kind == CandidateKind::Chinese)
-            .expect("有 邮箱");
-        assert!(!engine.request_continuation(&candidate));
-    }
-
-    #[test]
-    fn a_new_key_discards_the_old_continuation() {
-        let mut engine = engine(Writes("地址", -0.5));
-        engine.set_input("youxiang");
-        let first = first(&engine);
-        assert!(engine.request_continuation(&first));
-        engine.cancel_continuation();
-        wait(&mut engine);
-        assert_eq!(engine.take_continuation(), None);
+            .map(|(tail, _)| (first.clone(), tail));
     }
 }
 ```
 
-`prediction/mod.rs` 的 `mod kind;` 后加 `mod local_continuation;`，`pub use` 一行：
-`pub use local_continuation::{CONTINUATION_MAX_CHARS, CONTINUATION_THRESHOLD};`。
-
-`engine/mod.rs` 在 `sentence_score` 字段后加：
+`engine/mod.rs` 在 `word_weight` 字段后加：
 
 ```rust
-    /// 进行中的本地续写：(条件前文, 当时的首选文本)。见 prediction/local_continuation.rs。
-    continuation_from: Option<(String, String)>,
+    /// 进行中的本地续写：(条件前文, 当时的首选)。见 prediction/local_continuation。
+    continuation_from: Option<(String, Candidate)>,
 
-    /// 到了、等壳来取的续写（首选 + 续写）。
-    continuation: Option<String>,
+    /// 到了、等壳来取的续写：(首选, 续写文本)。
+    continuation: Option<(Candidate, String)>,
+
+    /// 正显示着、等 Tab 的续写。
+    shown_continuation: Option<(Candidate, String)>,
 ```
 
-`Engine::new` 加 `continuation_from: None, continuation: None,`。`composing.rs` 的 `clear()` 里 `self.rescoring_before = None;` 后加 `self.cancel_continuation();`。
+`Engine::new` 加 `continuation_from: None, continuation: None, shown_continuation: None,`。
+`composing.rs` 的 `clear()` 里 `self.rescoring_before = None;` 后加 `self.cancel_continuation();`。
 
-`word_rescore.rs` 的 `poll_word_rescoring` 循环体开头加：
+`word_rescore/mod.rs` 的 `poll_word_rescoring` 循环体开头加：
 
 ```rust
             if let Some((before, result)) = scored.continued {
@@ -2696,24 +3086,31 @@ mod tests {
             }
 ```
 
-（续写任务的 `context` / `keys` 是空串，不走下面的缓存校验。）
-
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo test -p qingjian-core local_continuation
 ```
 
-Expected: 4 个通过。
+Expected: 6 个通过。繁体模式下首选经 `commit` 会转繁、续写文本不转，这是已知局限，记进 design.md。
 
-- [ ] **Step 3：macOS 壳**
+- [ ] **Step 6：macOS 壳**
+
+`apps/macos/src/host/mod.rs` 的 `pub sentence: Option<String>,` 后加：
+
+```rust
+    /// `sentence` 是本地续写（Tab 走 `accept_continuation`）还是云端整句补全（走 `accept_prediction`）。
+    pub sentence_local: bool,
+```
+
+`host/init.rs` 的 `sentence: None,` 旁加 `sentence_local: false,`。
 
 新文件 `apps/macos/src/host/model/continuation.rs`：
 
 ```rust
 //! 本地续写在壳里的接法：知微把第一页排完（或没什么要排）就以当前首选请求续写，结果到了挂到 preedit 右侧——
-//! 与云端整句补全同一个位置、同一个 Tab（`accept_sentence`）。本地先到先显示，云端只在本地没有时显示。
+//! 与云端整句补全同一个位置、同一个 Tab。本地先到先显示，云端只在本地没有时显示。
 //! 素笺分叉，见 cloud/docs/fork-patch.md。
 
-use super::*;
+use crate::host::Host;
 
 impl Host {
     /// 第一页重排完、重画之后：以当前首选请求续写，开始轮询。用户翻过页、动过高亮、在翻译时不打扰。
@@ -2739,6 +3136,7 @@ impl Host {
         }
         tracing::debug!(%text, "本地续写已显示");
         self.sentence = Some(text);
+        self.sentence_local = true;
         self.render();
         true
     }
@@ -2748,16 +3146,7 @@ impl Host {
 `host/model/mod.rs`：
 
 1. `mod rescore_monitor;` 旁加 `mod continuation;`。
-2. `schedule_rescoring`：
-
-```rust
-    pub fn schedule_rescoring(&mut self) {
-        if self.engine.rescoring_pending() || self.engine.has_word_scorer() {
-            self.rescore.schedule();
-        }
-    }
-```
-
+2. `schedule_rescoring`：条件改成 `if self.engine.rescoring_pending() || self.engine.has_word_scorer()`。
 3. `start_rescoring`：
 
 ```rust
@@ -2785,40 +3174,74 @@ impl Host {
         // 本地续写先到先显示，云端整句只在本地没有时显示（素笺）
         if self.sentence.is_none() {
             self.sentence = prediction.sentence;
+            self.sentence_local = false;
         }
 ```
 
-`imk/controller/display.rs` 的 `refresh` 里 `h.engine.set_rescoring_context(before);` 那个 `if` 之后加：
+`imk/controller/display.rs`：
+
+`refresh` 里 `h.engine.set_rescoring_context(before);` 那个 `if` 之后加：
 
 ```rust
             // 上一键的续写对这一键无效（云联想关着时没人清它）
             h.sentence = None;
+            h.sentence_local = false;
             h.engine.cancel_continuation();
+```
+
+`accept_sentence` 改成：
+
+```rust
+    /// 接受拼音右侧的整句：本地续写走 `accept_continuation`（首选照常记账），云端补全走 `accept_prediction`。没有就返回 false。
+    pub(super) fn accept_sentence(&self, client: TextClient<'_>) -> bool {
+        let Some((text, local)) = host::with(|h| {
+            let local = std::mem::take(&mut h.sentence_local);
+            h.sentence.take().map(|text| (text, local))
+        })
+        .flatten() else {
+            return false;
+        };
+        let committed = host::with(|h| {
+            if local {
+                h.engine.accept_continuation()
+            } else {
+                Some(h.engine.accept_prediction(&text))
+            }
+        })
+        .flatten()
+        .unwrap_or(text);
+        tracing::debug!(%committed, local, "接受整句补全");
+        client.insert_text(&committed);
+        self.refresh(client);
+        true
+    }
 ```
 
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo clippy -p qingjian-macos --all-targets -- -D warnings && apps/macos/scripts/bundle.sh --install
 ```
 
-- [ ] **Step 4：端到端脚本 `cloud/scripts/tab-continuation-e2e.sh`**
+- [ ] **Step 7：端到端脚本 `cloud/scripts/tab-continuation-e2e.sh`（先预置前文）**
 
 ```bash
 #!/usr/bin/env bash
-# 本地续写的端到端：往 TextEdit 发「前文 + 拼音」，停 0.6 秒等续写出现，按 Tab 接受，读回文档内容。
-# 用法：cloud/scripts/tab-continuation-e2e.sh "qiche" "youxiang"   （前文拼音、要续写的拼音）
-# 前提：青简是当前输入法、中文模式；TextEdit 已打开一个空文档。
+# 本地续写的端到端：往 TextEdit 预置一段前文、光标放到末尾，再敲拼音，停 0.6 秒等续写出现，按 Tab 接受，读回文档内容。
+# 测的是宿主前文（应用里已有的文字），不是会话链。
+# 用法：cloud/scripts/tab-continuation-e2e.sh "汽车" "youxiang"   （预置的前文、要续写的拼音）
+# 前提：青简是当前输入法、中文模式；TextEdit 已打开一个文档（内容会被覆盖）。
 set -euo pipefail
-head_pinyin="${1:?前文拼音}"
-tail_pinyin="${2:?拼音}"
+before="${1:?前文}"
+pinyin="${2:?拼音}"
 osascript <<EOF
-tell application "TextEdit" to activate
+tell application "TextEdit"
+  activate
+  set text of document 1 to "$before"
+end tell
 delay 0.3
 tell application "System Events"
-  keystroke "$head_pinyin"
+  key code 125 using command down
   delay 0.2
-  keystroke " "
-  delay 0.3
-  keystroke "$tail_pinyin"
+  keystroke "$pinyin"
   delay 0.6
   key code 48
   delay 0.3
@@ -2830,47 +3253,67 @@ EOF
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && chmod +x cloud/scripts/tab-continuation-e2e.sh && open -a TextEdit && cloud/scripts/tab-continuation-e2e.sh qiche youxiang
+cd /Users/liyuqing/sproot/qingjian-context-prediction && chmod +x cloud/scripts/tab-continuation-e2e.sh && open -a TextEdit && cloud/scripts/tab-continuation-e2e.sh 汽车 youxiang
 ```
 
-Expected: 输出里有「汽车油箱…」且 油箱 后面带了续写（没带就是没显示：看 `~/Library/Logs/Qingjian/` 里有没有「本地续写已显示」、「本地续写完成」的 ms）。
+Expected: 输出以「汽车油箱」开头且 油箱 后面带了续写（没带就看 `~/Library/Logs/Qingjian/` 里有没有「本地续写已显示」「本地续写完成 ms=」）。
 
-- [ ] **Step 5：真机验收，记录**
+- [ ] **Step 8：真机验收，记录**
 
-TextEdit：用上面的脚本跑 10 对（从 `cloud/data/eval/context-pairs.tsv` 里挑 10 条前文长一点的），记显示次数与接受后文本是否通顺。
-聊天应用（微信 / 飞书任一）：**需要真人**手敲 10 句——实施会话没有图形桌面，这 10 句请用户做并把显示 / 接受数报回；
-两组数字填进「评测记录」Task 7 行与下表。
+TextEdit：用脚本跑 10 对（从 `cloud/data/eval/context-pairs.tsv` 挑前文长一点的 10 条），记显示次数与接受后是否通顺，填表。
+聊天应用（微信 / 飞书任一）：**需要真人**。给审计 / 用户的步骤：
+
+1. 打开聊天输入框（不要发出去），切到青简。
+2. 先打一句上下文并让它留在输入框里（例如「今天下午我们开会讨论」），接着打 10 个拼音，每个打完停一秒：
+   `youxiang`、`gongshi`、`shiyan`、`jiaoshi`、`yanjiu`、`xingshi`、`tongzhi`、`zhiliao`、`shiji`、`haode`。
+3. 每个记两件事：拼音右侧有没有出灰字续写（显示）；按 Tab 后上屏的文字通不通顺（接受后通顺）。
+4. 把 10 行「拼音 / 是否显示 / 是否通顺」报回。
 
 | 应用 | 显示 / 10 | 接受后通顺 / 显示 | 备注（哪句不通顺） |
 |---|---|---|---|
 | TextEdit | | | |
 | 聊天应用（名字） | | | |
 
-- [ ] **Step 6：fork-patch、提交**
+- [ ] **Step 9：文档（Tab 行为）、fork-patch、提交**
+
+`cloud/docs/design.md` Task 5 那一小节末尾加：
 
 ```markdown
-| `crates/qingjian-core/src/engine/prediction/local_continuation.rs` | 新文件 | 请求 / 取 / 作废续写，门槛 τ |
+**Tab 的行为变了。** 本地续写缺省打开、显示得比云端补全频繁，中文组句时拼音右侧多半有灰字，这时 Tab 是「接受续写」
+（首选 + 续写一起上屏），没有灰字时 Tab 仍是翻页；英文模式 Tab 不变。这是用户要的类似 Cursor Tab 的体验，是产品决定。
+按分叉约定不改上游用户文档 `docs/user/getting-started/keys.md`，素笺的说明在这里。
+已知局限：繁体模式下首选转繁、续写文本不转；接受续写后退格删光重打，只退回首选那部分的学习，续写记进个人 n-gram 的转移不退。
+```
+
+fork-patch 加：
+
+```markdown
+| `crates/qingjian-core/src/engine/input_log/source.rs` | 加 1 个变体 | `InputSource::LocalContinuation` |
+| `crates/qingjian-core/src/engine/learning/mod.rs` | 改 1 行 | 续写按整句计词数 |
+| `apps/cli/src/replay/report.rs` | 改 1 行 | 新来源归「不评」 |
+| `crates/qingjian-core/src/engine/prediction/local_continuation/mod.rs`、`tests.rs` | 新文件 | 请求 / 取 / 作废 / 接受续写，门槛 τ；测试 |
 | `crates/qingjian-core/src/engine/prediction/mod.rs` | 加 2 行 | mod 与导出 |
-| `crates/qingjian-core/src/engine/mod.rs` | 加 2 个字段 | `continuation_from` / `continuation` |
+| `crates/qingjian-core/src/engine/mod.rs` | 加 3 个字段 | `continuation_from` / `continuation` / `shown_continuation` |
 | `crates/qingjian-core/src/engine/composing.rs` | 加 1 行 | `clear()` 作废续写 |
-| `crates/qingjian-core/src/engine/rescoring/worker.rs` | 加 2 个字段、1 个方法、线程里一段 | 后台线程会续写，超 150 ms 丢 |
-| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 1 个常数 | `CONTINUATION_TIME_LIMIT` |
-| `crates/qingjian-core/src/engine/rescoring/word_rescore.rs` | 加 5 行 | 收续写 |
+| `crates/qingjian-core/src/engine/rescoring/worker.rs` | 加 2 个字段、1 个方法，循环体搬进 `run_job` | 两类任务各留最新一条；会续写，超 150 ms 丢 |
+| `crates/qingjian-core/src/engine/rescoring/worker_tests.rs` | 新文件 | 排队规则测试 |
+| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 1 个常数、1 行 mod | `CONTINUATION_TIME_LIMIT` |
+| `crates/qingjian-core/src/engine/rescoring/word_rescore/mod.rs` | 加 5 行 | 收续写 |
 | `apps/macos/src/host/model/continuation.rs` | 新文件 | 请求与显示 |
 | `apps/macos/src/host/model/mod.rs` | 加 1 行 mod、改 3 处 | 停顿后无事可打也续写；结果到了挂上 |
-| `apps/macos/src/host/cloud/mod.rs` | 改 1 行 | 云端整句只在本地没有时显示 |
-| `apps/macos/src/imk/controller/display.rs` | 加 2 行 | 每键清旧续写 |
+| `apps/macos/src/host/mod.rs`、`init.rs` | 加 1 个字段 | `sentence_local` |
+| `apps/macos/src/host/cloud/mod.rs` | 改 3 行 | 云端整句只在本地没有时显示 |
+| `apps/macos/src/imk/controller/display.rs` | 加 3 行、改 `accept_sentence` | 每键清旧续写；Tab 分本地 / 云端 |
 | `cloud/scripts/tab-continuation-e2e.sh` | 新文件 | TextEdit 端到端 |
 ```
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && git add -A crates/qingjian-core apps/macos cloud && git commit -m "feat(macos): 本地续写挂到拼音右侧，Tab 接受
+cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git add -A crates/qingjian-core apps/macos apps/cli cloud && git commit -m "feat(macos): 本地续写挂到拼音右侧，Tab 接受
 
 - 知微排完第一页后以 前文+首选 续写，首选盖住整段拼音才续；低于 τ 不显示，超 150 ms 丢
-- 复用云端整句补全的显示与接受通道；本地先到先显示，云端只在本地没有时显示
-- 真机：TextEdit 与聊天应用各 10 句，结果见计划文件
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+- 接受时首选照常 commit（词频 / choice / 转移），续写另记 InputSource::LocalContinuation
+- 后台线程打分与续写各留最新一条；本地先到先显示，云端只在本地没有时显示
+- 真机：TextEdit 与聊天应用各 10 句，结果见计划文件"
 ```
 
 ---
@@ -2878,11 +3321,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ## Task 8：iOS 桥接前文
 
 **Files:**
-- Modify: `cloud/crates/qingjian-cloud-bridge/src/session/mod.rs`（`refresh` 里 1 行）
-- Modify: `cloud/crates/qingjian-cloud-bridge/tests/session.rs`（1 条测试）
+- Modify: `cloud/crates/qingjian-cloud-bridge/src/session/mod.rs`（`refresh` 里几行）
+- Modify: `cloud/crates/qingjian-cloud-bridge/tests/session.rs`（2 条测试）
 
 桥已经从宿主收 `set_context(before, after)` 存成 `SurroundingText`，只喂给云联想；每键 `refresh()` 之前把 `before` 也给 Engine 的前文入口。
-`Engine::clear()` 会清掉前文，所以每次 `refresh` 都设一次。桥在 `cloud/` 下，不记 fork-patch。
+`Engine::clear()` 会清掉前文，所以每次 `refresh` 都设一次；私密输入时不设。桥在 `cloud/` 下，不记 fork-patch。
 
 - [ ] **Step 1：写失败的测试**
 
@@ -2893,6 +3336,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 #[test]
 fn host_context_reorders_candidates() {
     let Some(data) = data_dir() else {
+        eprintln!("没有 QINGJIAN_DATA，跳过");
         return;
     };
     let mut session = Session::open(&data, None, None, None).unwrap();
@@ -2909,22 +3353,41 @@ fn host_context_reorders_candidates() {
     assert_eq!(session.entries()[0].text(), "邮箱");
     session.clear();
 }
+
+/// 私密输入框里不看宿主前文。
+#[test]
+fn private_input_ignores_host_context() {
+    let Some(data) = data_dir() else {
+        eprintln!("没有 QINGJIAN_DATA，跳过");
+        return;
+    };
+    let mut session = Session::open(&data, None, None, None).unwrap();
+    session.set_private(true);
+    session.set_context("汽车", "");
+    for c in "youxiang".chars() {
+        session.push(c);
+    }
+    assert_eq!(session.entries()[0].text(), "邮箱");
+    session.clear();
+}
 ```
 
 ```bash
 cd /Users/liyuqing/sproot/qingjian-context-prediction/cloud && QINGJIAN_DATA=../data/generated cargo test -p qingjian-cloud-bridge --test session host_context
 ```
 
-Expected: 失败（两次都是 邮箱 或 油箱）。
+Expected: `host_context_reorders_candidates` 失败（两次首选一样）。
 
 - [ ] **Step 2：实现**
 
 `session/mod.rs` 的 `refresh` 里 `match self.engine.query() {` 之前加：
 
 ```rust
-        // 宿主前文给词级排序与整句首词（Core 的 query/left_context.rs）；`clear()` 会清掉，每键设一次
-        self.engine
-            .set_rescoring_context(self.context.as_ref().map(|c| c.before.clone()));
+        // 宿主前文给词级排序与整句首词（Core 的 query/left_context.rs）；`clear()` 会清掉，每键设一次；私密输入不给
+        let before = (!self.engine.is_private())
+            .then(|| self.context.as_ref().map(|c| c.before.clone()))
+            .flatten();
+        self.engine.set_rescoring_context(before);
 ```
 
 ```bash
@@ -2936,9 +3399,7 @@ Expected: 全绿。
 - [ ] **Step 3：提交**
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && git add cloud/crates/qingjian-cloud-bridge && git commit -m "feat(cloud): iOS 桥把宿主前文喂给 Engine 的词级排序
-
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+cd /Users/liyuqing/sproot/qingjian-context-prediction && git add cloud/crates/qingjian-cloud-bridge && git commit -m "feat(cloud): iOS 桥把宿主前文喂给 Engine 的词级排序，私密输入不给"
 ```
 
 ---
@@ -2946,6 +3407,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ## 收尾
 
 - [ ] 全量检查：`cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`，`cd cloud && cargo test`。
-- [ ] 「评测记录」表填满，每行数字与门槛对照；越线的任务在表里标出并已报告。
-- [ ] 把每个任务的提交哈希与三项数字发审计会话「素笺输入法」（每个任务完成时就发，不等收尾）。
+- [ ] 「评测记录」表填满（产品配置 / 对照两列），每行数字与门槛对照；越线的任务在表里标出并已报告。
+- [ ] 每个任务完成时把提交哈希与评测数字发审计会话「素笺输入法」；需要真人的两件事（Task 5 内存、Task 7 聊天应用）按步骤发给它转给用户。
 - [ ] 不提交上游 qingjian；不动 `qingjian-mainline` 工作区。
