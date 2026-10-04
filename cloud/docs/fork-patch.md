@@ -104,9 +104,9 @@ Cloud 的大部分代码在 `cloud/` 下，与上游隔离。只有学习数据�
 版本号是 `<上游版本去掉 -dev>-local.<提交数>`，`-dev` 本地包照旧不查更新。发布：`cloud/scripts/publish-mac.sh`，见 `deploy/README.md`。
 合并上游时上游改了更新检查，以上游为准重新挂这几处；上游的 `releases.json` 本来就带 `file` / `url` / `sha256`，格式不用动。
 
-### 青简 Cloud 链进输入法进程（只在 macOS 生效）
+### 素笺云链进输入法进程（只在 macOS 生效）
 
-青简 Cloud 的 Mac 端是库 `cloud/crates/qingjian-cloud-mac`，输入法按路径依赖它，不另起常驻程序。它自带 0.5 秒的
+素笺云 的 Mac 端是库 `cloud/crates/qingjian-cloud-mac`，输入法按路径依赖它，不另起常驻程序。它自带 0.5 秒的
 NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都包 `catch_unwind`，出错只停同步；每 2 秒看当前输入法，
 连续 30 秒不是青简就停掉同步线程，切回来恢复。输入法只调三个函数：`start(mtm)`、`menu_lines()` / `menu_revision()`、`perform(tag)`。
 
@@ -116,14 +116,14 @@ NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都�
 | `Cargo.lock` | 新增条目 | ureq、native-tls 证书等；`uuid` 1.26.1 → 1.27.0（cloud 要求）；2026-10-04 账号登录新增 objc2-authentication-services（block2、base64、getrandom、percent-encoding、toml_edit 等根 Cargo.lock 里本来就有，只是多了依赖边） |
 | `apps/macos/Cargo.toml` | 加 2 行 | 依赖 `qingjian-cloud-mac` |
 | `apps/macos/src/main.rs` | 加 2 行 | IMKServer 建好后 `qingjian_cloud_mac::start(mtm)` |
-| `apps/macos/src/menubar/cloud_agent.rs` | 新文件 | 照菜单行画「青简 Cloud ›」子菜单 |
+| `apps/macos/src/menubar/cloud_agent.rs` | 新文件 | 照菜单行画「素笺云 ›」子菜单 |
 | `apps/macos/src/menubar/action.rs` | 加 1 个变体 | `MenuAction::CloudAgent(tag)`，tag 1000..1200 |
 | `apps/macos/src/menubar/menu.rs` | 加字段与 `sync_cloud_agent` | 父项紧挨「模糊音」（见下面 IMK 的坑） |
 | `apps/macos/src/menubar/mod.rs` | 加 1 行 | `mod cloud_agent` |
 | `apps/macos/src/host/config/mod.rs` | 加 3 行 | `tick()` 里刷新子菜单 |
 | `apps/macos/src/host/settings.rs` | 加几行 | 子菜单动作转给 `qingjian_cloud_mac::perform`，之后重套配置（重新加载了 Cloud 配置的话云联想要换端点）；`[predict] provider` 的保存 |
 | `apps/macos/src/host/config/predict.rs` | 新文件 | 云联想生效的配置：`provider = qingjian` 时地址与令牌来自 `qingjian_cloud_mac::llm_endpoint()` |
-| `apps/macos/src/preferences/pages/cloud.rs` | 改 | 「服务」弹出菜单：青简 Cloud / 自定义接口，后者才显示地址、模型、密钥 |
+| `apps/macos/src/preferences/pages/cloud.rs` | 改 | 「服务」弹出菜单：素笺云 / 自定义接口，后者才显示地址、模型、密钥 |
 | `apps/macos/src/host/config/mod.rs` | 加 4 行 | `tick()` 里问 `qingjian_cloud_mac::take_input_log_reset()`，换账号清了输入日志后丢掉写入端缓冲里旧账号的输入并重开 |
 | `apps/macos/src/host/diagnostics.rs` | 重构 + 加 7 行 | 「清空输入日志」拆出 `truncate_and_reopen_input_log`，新增 `reset_input_log_after_account_switch` 复用它 |
 | `apps/macos/src/host/config/predict.rs`、`apps/macos/src/preferences/pages/cloud.rs` | 各改 1 段文案 | 提示改成「登录并打开「大模型（云联想）」」，不再说填服务器地址与设备令牌（只改字符串） |
@@ -134,6 +134,22 @@ NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都�
 `cloud/scripts/imk-menu-repro.swift` 不装输入法就能复现，改菜单结构前先跑它：`ok` / `separators` / `dynamic` 要 exit 0，`after-hidden` exit 133。
 
 Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；以后要接入时各加一个同样的 `inbox` 挂钩。
+
+### 品牌改名与图标（2026-10-04，只改资源与用户可见字符串，标识符、路径、bundle id 一律不动）
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `apps/macos/Info.plist` | 改 6 行 | 显示名、英文名 `Sujian`、四处菜单图标键改指 `qingjian-menu.tiff` |
+| `apps/macos/resources/{en,zh-Hans}.lproj/InfoPlist.strings` | 改 3 行 | 输入源名：素笺 / Sujian |
+| `apps/macos/scripts/bundle.sh` | 改 4 行 | icns 源换成 `cloud/brand/icon/macos-1024.png`，菜单图标拷 `macos-menu.tiff` |
+| `apps/macos/scripts/uninstall.sh` | 改 2 行 | 打印给用户的话 |
+| `apps/macos/README.md` | 改 1 行 | 装机说明 |
+| `apps/macos/pkg/distribution.xml` | 改 1 行 | 安装器标题 |
+| `apps/macos/pkg/resources/{welcome,conclusion}.html` | 各改 1～2 行 | 欢迎页与结束页 |
+| `apps/macos/pkg/scripts/postinstall` | 改 3 行 | 输出文字 |
+| `apps/macos/src/preferences/pages/about.rs` | 改文案 | 品牌词；许可说明开头加「基于开源的青简输入法（GPL-3.0）」与源码链接；`REPOSITORY_URL` 指向 `github.com/dayuer/qingjian` |
+| `apps/macos/src/{main.rs,menubar/menu.rs,host/diagnostics.rs}`、`preferences/{window.rs,file_dialog.rs,pages/{candidates,dictionaries,usage}.rs}` | 各改字符串 | 菜单「素笺 版本」、偏好设置标题、各页提示、诊断信息首行 |
+| `apps/macos/tests/info_plist.rs` | 改 2 处断言文案 | 图标说明与失败信息 |
 
 ## 合并上游时
 
