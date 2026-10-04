@@ -57,6 +57,10 @@ final class KeyboardModel {
         self.engine?.flush()
         self.engine = engine
         if privateField { engine?.setPrivate(true) }
+        let shown = EngineDisplay.afterReplace(hasEngine: engine != nil, preedit: preedit, candidates: candidates)
+        if shown.preedit != preedit { output?.setMarked(shown.preedit) }
+        preedit = shown.preedit
+        candidates = shown.candidates
         refresh()
     }
 

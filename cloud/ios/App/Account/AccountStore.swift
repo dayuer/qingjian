@@ -35,8 +35,27 @@ final class AccountStore {
 
     private static let noGroup = "这个安装包没有开通 App Group，账号用不了"
 
+    /// 页面出现时重取一遍；已有操作在跑（它自己会重取）就不再并发，免得后写覆盖先写。
     func refresh() async {
-        guard let file = SharedStore.cloudFile else {
+        guard Self.mayEnter(busy: busy) else { return }
+        busy = true
+        defer { busy = false }
+        await reload()
+    }
+
+    /// 是否允许开始一次新的桥调用：busy 时不允许，连点只提交一次。
+    nonisolated static func mayEnter(busy: Bool) -> Bool { !busy }
+
+    /// 邮箱先去掉首尾空白再校验、再发给桥。
+    nonisolated static func normalized(email: String) -> String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 账号文件位置；测试里换成临时目录。
+    @ObservationIgnored var fileProvider: () -> URL? = { SharedStore.cloudFile }
+
+    private func reload() async {
+        guard let file = fileProvider() else {
             message = Self.noGroup
             return
         }
@@ -76,6 +95,7 @@ final class AccountStore {
         case .success(let value):
             authorization = value
         case .failure(let error):
+            appleNonce = nil
             if (error as? ASAuthorizationError)?.code != .canceled {
                 message = "Apple 登录没有完成：\(error.localizedDescription)"
             }
@@ -86,6 +106,7 @@ final class AccountStore {
               let code = credential.authorizationCode.flatMap({ String(data: $0, encoding: .utf8) }),
               let nonce = appleNonce
         else {
+            appleNonce = nil
             message = "Apple 没有给出登录凭据，请重试"
             return
         }
@@ -100,7 +121,8 @@ final class AccountStore {
     }
 
     /// 发验证码；成功返回 true。
-    func emailStart(_ email: String) async -> Bool {
+    func emailStart(_ rawEmail: String) async -> Bool {
+        let email = Self.normalized(email: rawEmail)
         let sent = await perform({ AccountBridge.emailStart($0, email: email) }, refreshAfter: false)
         if sent {
             loginStep = .code
@@ -110,7 +132,8 @@ final class AccountStore {
     }
 
     /// 用验证码登录；成功返回 true。
-    func emailVerify(_ email: String, code: String) async -> Bool {
+    func emailVerify(_ rawEmail: String, code: String) async -> Bool {
+        let email = Self.normalized(email: rawEmail)
         let device = UIDevice.current.name
         let signedIn = await perform({
             AccountBridge.emailVerify($0, email: email, code: code, device: device)
@@ -152,22 +175,23 @@ final class AccountStore {
 
     /// 在后台跑一次桥的操作；失败时按 code 处理并显示 message。成功后默认整页重取。
     @discardableResult
-    private func perform(
+    func perform(
         _ work: @escaping @Sendable (URL) -> AccountFailure?, refreshAfter: Bool = true
     ) async -> Bool {
-        guard let file = SharedStore.cloudFile else {
+        guard Self.mayEnter(busy: busy) else { return false }
+        guard let file = fileProvider() else {
             message = Self.noGroup
             return false
         }
         busy = true
+        defer { busy = false }
         let failure = await Task.detached(priority: .userInitiated) { work(file) }.value
-        busy = false
         message = failure?.message
         if let failure {
             await apply(Self.reaction(for: failure, step: loginStep))
             return false
         }
-        if refreshAfter { await refresh() }
+        if refreshAfter { await reload() }
         return true
     }
 
@@ -184,7 +208,7 @@ final class AccountStore {
             emailLocked = true
         case .signOutLocally:
             let keep = message
-            await refresh()
+            await reload()
             message = keep
         }
     }
