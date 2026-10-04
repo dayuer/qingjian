@@ -16,14 +16,18 @@ pub enum Feature {
 
     /// 大模型代理（云联想、润色）。
     Llm,
+
+    /// 素材上传（2B）与记忆卡下发。
+    Memory,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 4] = [
+    pub const ALL: [Feature; 5] = [
         Feature::Clipboard,
         Feature::Sync,
         Feature::InputLog,
         Feature::Llm,
+        Feature::Memory,
     ];
 
     /// 路径与 JSON 里的名字（`PUT /v1/consents/{feature}`）。
@@ -33,6 +37,7 @@ impl Feature {
             Self::Sync => "sync",
             Self::InputLog => "input_log",
             Self::Llm => "llm",
+            Self::Memory => "memory",
         }
     }
 

@@ -33,6 +33,9 @@ pub struct CloudConfig {
     /// 用服务器的大模型：润色，以及 `config.toml` 里 `[predict]` 开着时的云联想（服务器上的 `llm`）。
     pub llm: bool,
 
+    /// 素材上传（服务器上的 `memory`）。
+    pub memory: bool,
+
     /// 记输入日志并上传（服务器上的 `input_log`）。
     pub logs: bool,
 
@@ -80,6 +83,7 @@ impl CloudConfig {
             sync: self.sync,
             input_log: self.logs,
             llm: self.llm,
+            memory: self.memory,
         }
     }
 
@@ -88,6 +92,7 @@ impl CloudConfig {
         self.sync = consents.sync;
         self.logs = consents.input_log;
         self.llm = consents.llm;
+        self.memory = consents.memory;
     }
 
     /// 登录成功：写入地址、令牌与服务器上的开关。

@@ -61,6 +61,9 @@ pub struct AgentConfig {
     /// 云联想走服务器的大模型（服务器上的 `llm`）。
     pub llm: bool,
 
+    /// 素材上传（服务器上的 `memory`）。Mac 暂不用，只记着，免得与服务器的开关反复对不上。
+    pub memory: bool,
+
     /// 开了 `logs` 时下载别的设备的输入日志；只在本机，不经服务器。
     pub download_logs: bool,
 
@@ -77,6 +80,7 @@ impl Default for AgentConfig {
             sync: false,
             logs: false,
             llm: false,
+            memory: false,
             download_logs: true,
             user_id: None,
         }
@@ -119,6 +123,7 @@ impl AgentConfig {
             sync: self.sync,
             input_log: self.logs,
             llm: self.llm,
+            memory: self.memory,
         }
     }
 
@@ -155,6 +160,7 @@ fn set_consents(document: &mut DocumentMut, consents: Consents) {
     document["sync"] = value(consents.sync);
     document["logs"] = value(consents.input_log);
     document["llm"] = value(consents.llm);
+    document["memory"] = value(consents.memory);
 }
 
 /// 读出文件（没有就从模板开始）、改、写回，注释与别的键原样保留。
