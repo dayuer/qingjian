@@ -1,11 +1,11 @@
-// 每次保存记一条系统日志（subsystem app.qingjian.cloud，category memory），给真机上查并发冲突用：
+// 每次保存记一条系统日志（subsystem sujian.synon.ai，category memory），给真机上查并发冲突用：
 // 序号、写入前后这个人的修订号、写之前锁是不是被别人占着、写入总耗时（含等锁）、冲突合并了几轮、成败。不记名字与卡片正文。
 // 桥不报告等锁时长，所以「等了多久」用 qj_memory_write 调用的总耗时近似。
 
 import os
 
 struct MemorySaveLog {
-    private static let logger = Logger(subsystem: "app.qingjian.cloud", category: "memory")
+    private static let logger = Logger(subsystem: "sujian.synon.ai", category: "memory")
 
     var seq: Int
 

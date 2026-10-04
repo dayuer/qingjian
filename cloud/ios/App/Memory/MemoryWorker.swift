@@ -6,7 +6,7 @@ import Dispatch
 import Foundation
 
 actor MemoryWorker {
-    private let queue = DispatchSerialQueue(label: "app.qingjian.cloud.memory")
+    private let queue = DispatchSerialQueue(label: "sujian.synon.ai.memory")
 
     private let backend: MemoryBackend
 

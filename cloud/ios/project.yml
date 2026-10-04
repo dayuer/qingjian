@@ -1,9 +1,9 @@
 # iOS 主 App + 键盘扩展的 xcodegen 工程描述；生成：`xcodegen generate`（.xcodeproj 不进仓库）。
-# 主 App 与键盘靠 App Group（group.app.qingjian.cloud）共享设置，要自动签名：Xcode 登录团队 L9YRXEKYN2 的账号，
+# 主 App 与键盘靠 App Group（group.sujian.synon.ai）共享设置，要自动签名：Xcode 登录团队 L9YRXEKYN2 的账号，
 # 换团队改下面的 DEVELOPMENT_TEAM 或在 Xcode 里选。
 name: QingjianCloud
 options:
-  bundleIdPrefix: app.qingjian.cloud
+  bundleIdPrefix: sujian.synon.ai
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -28,8 +28,8 @@ targets:
     entitlements:
       path: App/App.entitlements
       properties:
-        com.apple.security.application-groups: [group.app.qingjian.cloud]
-        # 账号页的「通过 Apple 登录」；服务端核对 identity_token 的 aud = app.qingjian.cloud
+        com.apple.security.application-groups: [group.sujian.synon.ai]
+        # 账号页的「通过 Apple 登录」；服务端核对 identity_token 的 aud = sujian.synon.ai
         com.apple.developer.applesignin: [Default]
     info:
       path: App/Info.plist
@@ -39,7 +39,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud
+        PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   Keyboard:
     type: app-extension
@@ -56,7 +56,7 @@ targets:
     entitlements:
       path: Keyboard/Keyboard.entitlements
       properties:
-        com.apple.security.application-groups: [group.app.qingjian.cloud]
+        com.apple.security.application-groups: [group.sujian.synon.ai]
     preBuildScripts:
       - name: 编译 Rust 桥与拷产品数据
         script: '"${PROJECT_DIR}/scripts/build-bridge.sh"'
@@ -76,7 +76,7 @@ targets:
             RequestsOpenAccess: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai.keyboard
         # 构建脚本要往源码目录写 xcframework 与数据
         ENABLE_USER_SCRIPT_SANDBOXING: NO
   QingjianCloudTests:
@@ -91,4 +91,4 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.tests
+        PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai.tests

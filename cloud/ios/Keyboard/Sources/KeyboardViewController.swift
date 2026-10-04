@@ -161,7 +161,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     /// 宿主输入框的标识。`textDocumentProxy.documentIdentifier` 声明为非可选 UUID，但键盘刚弹出、连上宿主之前系统返回 nil，
     /// 直接读会在 UUID 桥接处 EXC_BREAKPOINT 崩溃，所以走 KVC 取成可选值，别「简化」回去。
-    private static let log = Logger(subsystem: "app.qingjian.cloud.keyboard", category: "host")
+    private static let log = Logger(subsystem: "sujian.synon.ai.keyboard", category: "host")
 
     private static func short(_ id: UUID?) -> String { id.map { String($0.uuidString.prefix(8)) } ?? "nil" }
 
