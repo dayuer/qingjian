@@ -6,7 +6,16 @@
 import UIKit
 
 final class KeyTouchView: UIView {
+    /// 键区里的格子，坐标以 `keyArea.origin` 为原点；展开面板时为空（面板自己收触摸）。
     var slots: [KeySlot] = []
+
+    /// 键区在本视图里的位置（候选栏下面）。
+    var keyArea = CGRect.zero
+
+    /// 候选栏右端 ⌄ 的范围（没在组字时为 nil）：也走这里，SwiftUI 的手势在这个位置常把短点击吞掉。
+    var chevron: CGRect?
+
+    var onChevron: (() -> Void)?
 
     /// 第几格按下（带触摸事件的时间戳，开机时长）/ 抬起 / 被系统取消。
     var onPress: ((Int) -> Void)?
@@ -26,14 +35,27 @@ final class KeyTouchView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    /// 键区里的触摸全归这里，不下钻（下面的 SwiftUI 只画键）。
+    /// 键区与 ⌄ 的触摸归这里，不下钻（下面的 SwiftUI 只画键）；候选栏其余部分、展开的面板仍由 SwiftUI 收。
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        isHidden || !bounds.contains(point) ? nil : self
+        if isHidden || !bounds.contains(point) {
+            return nil
+        }
+        if chevron?.contains(point) == true {
+            return self
+        }
+        return !slots.isEmpty && keyArea.contains(point) ? self : nil
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
-            guard let index = nearestSlot(touch.location(in: self)) else { continue }
+            let point = touch.location(in: self)
+            if chevron?.contains(point) == true {
+                onChevron?()
+                continue
+            }
+            guard let index = nearestSlot(CGPoint(x: point.x - keyArea.minX, y: point.y - keyArea.minY)) else {
+                continue
+            }
             // 快打时上一个键常常还没抬起：先把它放掉（出字），字母顺序才对
             for (id, held) in touched where held != index {
                 touched.removeValue(forKey: id)

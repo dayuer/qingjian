@@ -3,7 +3,9 @@
 
 use std::time::SystemTime;
 
+use qingjian_core::NoPredictor;
 use qingjian_platform::{Config, Scheme};
+use qingjian_predict::{CloudPredictor, PredictConfig, PredictProvider};
 
 use super::Session;
 
@@ -57,6 +59,42 @@ impl Session {
                 None,
                 &config.dictionaries,
             ));
+        self.apply_prediction(&config.predict);
         self.refresh();
+    }
+
+    /// 云联想与 Mac 用同一份 `[predict]`：选青简 Cloud 时地址与令牌来自这台设备的 `cloud.toml`（`llm` 关着就不联想），
+    /// 自定义接口照配置用。结果插在首选之后（见 `cloud.rs`）。
+    fn apply_prediction(&mut self, predict: &PredictConfig) {
+        let effective = match (predict.enabled, predict.provider, &self.cloud) {
+            (false, _, _) => None,
+            // 手机候选栏窄，只要云端词，不要整句补全
+            (true, PredictProvider::Qingjian, Some(cloud)) if cloud.llm => Some(PredictConfig {
+                base_url: cloud.llm_base_url(),
+                api_key: Some(cloud.token.clone()),
+                api_key_env: String::new(),
+                sentence: false,
+                ..predict.clone()
+            }),
+            (true, PredictProvider::Custom, _) => Some(PredictConfig {
+                sentence: false,
+                ..predict.clone()
+            }),
+            (true, PredictProvider::Qingjian, _) => {
+                tracing::info!("云联想要青简 Cloud，这台设备没配置或关了大模型");
+                None
+            }
+        };
+        let predictor = effective.and_then(|config| match CloudPredictor::new(&config) {
+            Ok(predictor) => Some(predictor),
+            Err(error) => {
+                tracing::warn!(%error, "云联想启动失败");
+                None
+            }
+        });
+        match predictor {
+            Some(predictor) => self.engine.set_predictor(Box::new(predictor)),
+            None => self.engine.set_predictor(Box::new(NoPredictor)),
+        }
     }
 }

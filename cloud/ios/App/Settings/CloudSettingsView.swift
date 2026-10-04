@@ -18,9 +18,7 @@ struct CloudSettingsView: View {
                     Toggle("同步学习数据与设置", isOn: field(\.sync))
                     Toggle("上传输入日志（服务器据此纠错调频）", isOn: field(\.logs))
                     Toggle("跨设备剪贴板", isOn: field(\.clipboard))
-                    Toggle("大模型润色", isOn: field(\.llm))
-                    Toggle("组字时大模型补候选", isOn: field(\.candidates))
-                        .disabled(!(store.cloud?.llm ?? false))
+                    Toggle("大模型（润色、云联想）", isOn: field(\.llm))
                 } footer: {
                     Text("这些功能都需要在系统设置里给青简打开「允许完全访问」。")
                 }

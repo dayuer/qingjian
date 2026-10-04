@@ -16,6 +16,9 @@ struct KeyboardSettings: Codable, Equatable {
 
     var learning: Bool
 
+    /// 云联想（经青简 Cloud 补候选），与 Mac 同一个开关。
+    var cloudPrediction: Bool
+
     var domains: [DomainOption]
 
     var phrases: [Phrase]

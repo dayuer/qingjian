@@ -41,8 +41,9 @@ struct KeyboardSettingsView: View {
             Toggle("繁体输出", isOn: binding(\.traditional))
             Toggle("中文标点用全角", isOn: binding(\.fullWidthPunctuation))
             Toggle("学习输入习惯", isOn: binding(\.learning))
+            Toggle("云联想", isOn: binding(\.cloudPrediction))
         } footer: {
-            Text("关掉学习后不再记新词与词频，已学到的保留。")
+            Text("关掉学习后不再记新词与词频，已学到的保留。云联想经青简 Cloud 让大模型补候选与整句，和 Mac 是同一个开关。")
         }
         if !settings.domains.isEmpty {
             Section("领域词库") {

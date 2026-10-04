@@ -10,8 +10,6 @@ struct CloudSettings: Codable, Equatable {
 
     var llm: Bool
 
-    var candidates: Bool
-
     var logs: Bool
 
     var sync: Bool
@@ -20,6 +18,6 @@ struct CloudSettings: Codable, Equatable {
 
     /// 写回时只带开关（桥按 `CloudSwitches` 解析，地址与令牌不动）。
     var switches: [String: Bool] {
-        ["llm": llm, "candidates": candidates, "logs": logs, "sync": sync, "clipboard": clipboard]
+        ["llm": llm, "logs": logs, "sync": sync, "clipboard": clipboard]
     }
 }
