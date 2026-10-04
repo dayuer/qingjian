@@ -8,7 +8,7 @@ struct AccountFailure: Equatable {
     let message: String
 
     /// 与桥的 `failure.rs` 一一对应；认不得的值按 other 处理。
-    enum Code: String, Codable, Equatable {
+    enum Code: String, Codable, Equatable, CaseIterable {
         case authFailed = "auth_failed"
         case lockedToday = "locked_today"
         case unauthorized
@@ -18,6 +18,7 @@ struct AccountFailure: Equatable {
         case unreachable
         case invalidArgument = "invalid_argument"
         case notSignedIn = "not_signed_in"
+        case consentRequired = "consent_required"
         case other
 
         init(from decoder: any Decoder) throws {

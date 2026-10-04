@@ -24,6 +24,9 @@ final class AccountStore {
 
     var code = ""
 
+    /// 用户是否勾选了「同意把数据存到境外服务器」。不持久化：每次进登录页、退出登录后都要重新勾。
+    var crossBorderConsent = false
+
     /// 当天验证失败太多次被锁：邮箱区域禁用，只能用 Apple 登录。
     private(set) var emailLocked = false
 
@@ -45,6 +48,14 @@ final class AccountStore {
 
     /// 是否允许开始一次新的桥调用：busy 时不允许，连点只提交一次。
     nonisolated static func mayEnter(busy: Bool) -> Bool { !busy }
+
+    /// 能否发起 Apple 登录：要勾了同意，且没有别的操作在跑。
+    nonisolated static func canSignIn(consent: Bool, busy: Bool) -> Bool { consent && !busy }
+
+    /// 能否发起邮箱登录：同上，并且当天没被锁。
+    nonisolated static func canSignInWithEmail(consent: Bool, busy: Bool, locked: Bool) -> Bool {
+        canSignIn(consent: consent, busy: busy) && !locked
+    }
 
     /// 邮箱先去掉首尾空白再校验、再发给桥。
     nonisolated static func normalized(email: String) -> String {
@@ -76,7 +87,8 @@ final class AccountStore {
         case .authFailed: step == .code ? .retryCode : .showMessage
         case .lockedToday: .lockEmail
         case .unauthorized: .signOutLocally
-        case .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .other:
+        case .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn,
+             .consentRequired, .other:
             .showMessage
         }
     }
@@ -112,9 +124,11 @@ final class AccountStore {
         }
         appleNonce = nil
         let device = UIDevice.current.name
+        let consented = crossBorderConsent
         if await perform({
             AccountBridge.signInApple(
-                $0, identityToken: token, authorizationCode: code, nonce: nonce, device: device)
+                $0, identityToken: token, authorizationCode: code, nonce: nonce, device: device,
+                crossBorderConsented: consented)
         }) {
             message = "已登录"
         }
@@ -123,7 +137,9 @@ final class AccountStore {
     /// 发验证码；成功返回 true。
     func emailStart(_ rawEmail: String) async -> Bool {
         let email = Self.normalized(email: rawEmail)
-        let sent = await perform({ AccountBridge.emailStart($0, email: email) }, refreshAfter: false)
+        let consented = crossBorderConsent
+        let sent = await perform(
+            { AccountBridge.emailStart($0, email: email, crossBorderConsented: consented) }, refreshAfter: false)
         if sent {
             loginStep = .code
             message = "验证码已发出，10 分钟内有效"
@@ -134,9 +150,11 @@ final class AccountStore {
     /// 用验证码登录；成功返回 true。
     func emailVerify(_ rawEmail: String, code: String) async -> Bool {
         let email = Self.normalized(email: rawEmail)
+        let consented = crossBorderConsent
         let device = UIDevice.current.name
         let signedIn = await perform({
-            AccountBridge.emailVerify($0, email: email, code: code, device: device)
+            AccountBridge.emailVerify(
+                $0, email: email, code: code, device: device, crossBorderConsented: consented)
         })
         if signedIn {
             loginStep = .email
@@ -164,7 +182,10 @@ final class AccountStore {
     }
 
     func signOut() async {
-        if await perform({ AccountBridge.signOut($0) }) { message = "已退出登录" }
+        if await perform({ AccountBridge.signOut($0) }) {
+            crossBorderConsent = false
+            message = "已退出登录"
+        }
     }
 
     func deleteAccount() async {
@@ -207,6 +228,7 @@ final class AccountStore {
             loginStep = .email
             emailLocked = true
         case .signOutLocally:
+            crossBorderConsent = false
             let keep = message
             await reload()
             message = keep

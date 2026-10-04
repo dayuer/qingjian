@@ -10,7 +10,25 @@ struct SignInSections: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var canApple: Bool {
+        AccountStore.canSignIn(consent: store.crossBorderConsent, busy: store.busy)
+    }
+
+    private var canEmail: Bool {
+        AccountStore.canSignInWithEmail(
+            consent: store.crossBorderConsent, busy: store.busy, locked: store.emailLocked)
+    }
+
     var body: some View {
+        Section {
+            Toggle(isOn: $store.crossBorderConsent) {
+                Text("同意将我的账号信息和我开启的云功能数据，存储在位于新加坡的服务器（腾讯云）并在那里处理，用于登录、同步与整理记忆。可随时在本页关闭功能或删除账号。")
+                    .font(.footnote)
+            }
+            .toggleStyle(CheckboxToggleStyle())
+            Link("了解更多", destination: PrivacyLinks.dataLocation)
+                .font(.footnote)
+        }
         Section {
             SignInWithAppleButton(.signIn) { request in
                 store.prepare(request)
@@ -19,6 +37,8 @@ struct SignInSections: View {
             }
             .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             .frame(height: 44)
+            .disabled(!canApple)
+            .opacity(canApple ? 1 : 0.35)
         } header: {
             Text("登录")
         } footer: {
@@ -33,7 +53,7 @@ struct SignInSections: View {
                 Button("登录") {
                     Task { await store.emailVerify(store.email, code: store.code) }
                 }
-                .disabled(store.code.count != 6)
+                .disabled(store.code.count != 6 || !canEmail)
                 Button("换一个邮箱") {
                     store.code = ""
                     store.loginStep = .email
@@ -47,7 +67,7 @@ struct SignInSections: View {
                 Button("发送验证码") {
                     Task { await store.emailStart(store.email) }
                 }
-                .disabled(!AccountStore.normalized(email: store.email).contains("@"))
+                .disabled(!AccountStore.normalized(email: store.email).contains("@") || !canEmail)
             }
         } header: {
             Text("用邮箱登录")
