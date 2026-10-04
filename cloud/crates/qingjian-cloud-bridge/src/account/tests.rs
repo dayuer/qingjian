@@ -6,10 +6,12 @@ use qingjian_cloud_client::ClientError;
 
 use qingjian_cloud_proto::{Consents, Feature};
 
-use super::{
-    LOCKED_TODAY, apple_message, apply_server_consents, email_start_message, email_verify_message,
-    message, reset_after_sync_toggle, should_reset, sync_toggled,
+use super::failure::{
+    Failure, LOCKED_TODAY, apple_message, code_of, email_start_message, email_verify_message,
+    message,
 };
+use super::reset::{reset_account_data, reset_after_sync_toggle, should_reset, sync_toggled};
+use super::{apply_server_consents, forget_account, store_login};
 use crate::cloud_config::CloudConfig;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -32,15 +34,113 @@ fn messages_distinguish_login_failure_from_expired_session() {
 }
 
 #[test]
-fn forbidden_shows_server_text_when_present() {
+fn forbidden_never_shows_server_text() {
     assert_eq!(
-        message(&ClientError::Forbidden("账号已停用".into())),
-        "账号已停用"
+        message(&ClientError::Forbidden("feature not enabled: sync".into())),
+        "这项功能还没打开"
     );
     assert_eq!(
         message(&ClientError::Forbidden(String::new())),
-        "服务器不允许这个操作"
+        "这项功能还没打开"
     );
+}
+
+#[test]
+fn client_errors_map_to_codes() {
+    let cases = [
+        (ClientError::AuthFailed("x".into()), "auth_failed"),
+        (ClientError::LockedToday("x".into()), "locked_today"),
+        (ClientError::Unauthorized, "unauthorized"),
+        (ClientError::NotConfigured("x".into()), "not_configured"),
+        (ClientError::RateLimited, "rate_limited"),
+        (ClientError::Forbidden("x".into()), "forbidden"),
+        (ClientError::Unreachable("x".into()), "unreachable"),
+        (ClientError::Io(std::io::Error::other("x")), "unreachable"),
+        (
+            ClientError::Rejected {
+                status: 400,
+                message: String::new(),
+            },
+            "other",
+        ),
+        (ClientError::BadResponse("x".into()), "other"),
+    ];
+    for (error, code) in cases {
+        assert_eq!(code_of(&error), code, "{error}");
+    }
+}
+
+#[test]
+fn failure_json_has_code_and_message() {
+    let json = Failure::new("locked_today", LOCKED_TODAY.to_owned()).to_json();
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(value["code"], "locked_today");
+    assert_eq!(value["message"], LOCKED_TODAY);
+    assert_eq!(Failure::invalid_argument().code, "invalid_argument");
+    assert_eq!(Failure::not_signed_in().code, "not_signed_in");
+    assert_eq!(Failure::other("x").code, "other");
+}
+
+fn seed_account_a(name: &str) -> (PathBuf, PathBuf) {
+    let dir = temp_dir(name);
+    let path = dir.join("cloud.toml");
+    CloudConfig::store_session(&path, "https://x", "sjt_a", 1, Consents::default()).unwrap();
+    std::fs::write(dir.join("input-log.jsonl"), "A 的明文").unwrap();
+    std::fs::write(dir.join("input-log.jsonl.1"), "A 的轮转").unwrap();
+    std::fs::write(dir.join("cloud/input-log-state.json"), "{}").unwrap();
+    std::fs::write(dir.join("cloud/outbox.jsonl"), "A 的离线事件").unwrap();
+    std::fs::write(dir.join("user.tsv"), "学习数据").unwrap();
+    (dir, path)
+}
+
+fn account_data_left(dir: &std::path::Path) -> bool {
+    [
+        "input-log.jsonl",
+        "input-log.jsonl.1",
+        "cloud/input-log-state.json",
+        "cloud/outbox.jsonl",
+    ]
+    .iter()
+    .any(|name| dir.join(name).exists())
+}
+
+#[test]
+fn switching_account_deletes_input_log_and_progress() {
+    let (dir, path) = seed_account_a("switch");
+    store_login(&path, "https://x", "sjt_b", 2, Consents::default()).unwrap();
+    assert!(!account_data_left(&dir));
+    assert!(dir.join("user.tsv").exists(), "本机学习数据不是账号数据");
+    assert_eq!(CloudConfig::read(&path).unwrap().user_id, Some(2));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn same_account_relogin_keeps_input_log_and_progress() {
+    let (dir, path) = seed_account_a("relogin");
+    CloudConfig::clear_session(&path).unwrap();
+    store_login(&path, "https://x", "sjt_a2", 1, Consents::default()).unwrap();
+    assert!(dir.join("input-log.jsonl").exists());
+    assert!(dir.join("cloud/input-log-state.json").exists());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn deleting_account_removes_input_log_and_progress() {
+    let (dir, path) = seed_account_a("delete");
+    forget_account(&path).unwrap();
+    assert!(!account_data_left(&dir));
+    let config = CloudConfig::read(&path).unwrap();
+    assert!(config.token.is_empty());
+    assert_eq!(config.user_id, None);
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn reset_account_data_tolerates_missing_files() {
+    let dir = temp_dir("missing");
+    reset_account_data(&dir.join("cloud.toml"));
+    reset_account_data(&dir.join("nope/cloud.toml"));
+    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

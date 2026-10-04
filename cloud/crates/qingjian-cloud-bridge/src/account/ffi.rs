@@ -1,5 +1,5 @@
 //! 账号的 C 接口（主 App 用），与 `include/qingjian_bridge.h` 一一对应。都是阻塞的网络请求，Swift 在后台调。
-//! `path` 是 App Group 里的 `cloud.toml`。返回值：状态返回 JSON（参数无效时为空）；操作成功返回空，失败返回给用户看的原因。
+//! `path` 是 App Group 里的 `cloud.toml`。返回值：状态返回 JSON（参数无效时为空）；操作成功返回空，失败返回 JSON `{"code":"…","message":"…"}`（code 见 `Failure`，message 是给用户看的中文）。
 //! 都用 `qj_string_free` 释放。
 
 use std::ffi::c_char;
@@ -10,6 +10,7 @@ use std::ptr;
 use qingjian_cloud_proto::Feature;
 
 use super::AccountStatus;
+use super::failure::Failure;
 use crate::{owned, path_arg};
 
 /// 账号页的 JSON（[`AccountStatus`]）。没登录时不联网。
@@ -47,7 +48,7 @@ pub unsafe extern "C" fn qj_account_sign_in_apple(
         unsafe { path_arg(authorization_code) },
         unsafe { path_arg(nonce) },
     ) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     let device = unsafe { path_arg(device) }.unwrap_or_default();
     outcome(|| {
@@ -71,7 +72,7 @@ pub unsafe extern "C" fn qj_account_email_start(
     email: *const c_char,
 ) -> *mut c_char {
     let (Some(path), Some(email)) = (unsafe { path_arg(path) }, unsafe { path_arg(email) }) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     outcome(|| super::email_start(Path::new(path), email))
 }
@@ -92,7 +93,7 @@ pub unsafe extern "C" fn qj_account_email_verify(
         unsafe { path_arg(email) },
         unsafe { path_arg(code) },
     ) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     let device = unsafe { path_arg(device) }.unwrap_or_default();
     outcome(|| super::email_verify(Path::new(path), email, code, device))
@@ -111,7 +112,7 @@ pub unsafe extern "C" fn qj_account_set_consent(
     let (Some(path), Some(feature)) = (unsafe { path_arg(path) }, unsafe {
         path_arg(feature).and_then(Feature::parse)
     }) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     outcome(|| super::set_consent(Path::new(path), feature, enabled))
 }
@@ -126,7 +127,7 @@ pub unsafe extern "C" fn qj_account_revoke_session(
     session_id: i64,
 ) -> *mut c_char {
     let Some(path) = (unsafe { path_arg(path) }) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     outcome(|| super::revoke_session(Path::new(path), session_id))
 }
@@ -138,7 +139,7 @@ pub unsafe extern "C" fn qj_account_revoke_session(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_account_sign_out(path: *const c_char) -> *mut c_char {
     let Some(path) = (unsafe { path_arg(path) }) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     outcome(|| super::sign_out(Path::new(path)))
 }
@@ -150,16 +151,16 @@ pub unsafe extern "C" fn qj_account_sign_out(path: *const c_char) -> *mut c_char
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_account_delete(path: *const c_char) -> *mut c_char {
     let Some(path) = (unsafe { path_arg(path) }) else {
-        return owned("参数无效");
+        return owned(&Failure::invalid_argument().to_json());
     };
     outcome(|| super::delete_account(Path::new(path)))
 }
 
-/// 成功返回空，失败返回原因；panic 折成一句通用的话（穿过 `extern "C"` 会直接 abort）。
-fn outcome(f: impl FnOnce() -> Result<(), String>) -> *mut c_char {
+/// 成功返回空，失败返回 [`Failure`] 的 JSON；panic 折成一句通用的话（穿过 `extern "C"` 会直接 abort）。
+fn outcome(f: impl FnOnce() -> Result<(), Failure>) -> *mut c_char {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(Ok(())) => ptr::null_mut(),
-        Ok(Err(reason)) => owned(&reason),
-        Err(_) => owned("出错了，请重试"),
+        Ok(Err(failure)) => owned(&failure.to_json()),
+        Err(_) => owned(&Failure::other("出错了，请重试").to_json()),
     }
 }

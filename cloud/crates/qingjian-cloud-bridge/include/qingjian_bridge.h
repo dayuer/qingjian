@@ -63,7 +63,10 @@ void qj_clip_push(QjSession *session, const char *text);
 char *qj_settings_read(const char *config_path, const char *dicts_dir);
 char *qj_settings_write(const char *config_path, const char *json);
 // 账号（主 App 用）：path 是 App Group 里的 cloud.toml；都是阻塞的网络请求，在后台线程调。令牌只在 cloud.toml 与桥之间流转。
-// status 返回 JSON（参数无效时为 NULL，没登录时不联网）；其余成功返回 NULL，失败返回给用户看的原因。键盘下次弹出时按新的 cloud.toml 重连。
+// status 返回 JSON（参数无效时为 NULL，没登录时不联网；取不到账号时带 error 文案与 error_code，没有错误时两者都省略）。
+// 其余成功返回 NULL，失败返回 JSON {"code":"…","message":"…"}：message 是给用户看的中文，code 取值
+// auth_failed / locked_today / unauthorized / not_configured / rate_limited / forbidden / unreachable /
+// invalid_argument / not_signed_in / other；status 的 error_code 取值相同。键盘下次弹出时按新的 cloud.toml 重连。
 char *qj_account_status(const char *path);
 // nonce 是原始值（交给 Apple 的是它的 SHA-256 十六进制）；device 是设备名，可为 NULL。
 char *qj_account_sign_in_apple(const char *path, const char *identity_token,

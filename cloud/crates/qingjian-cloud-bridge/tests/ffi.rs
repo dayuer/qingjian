@@ -41,7 +41,9 @@ fn set_consent_with_unknown_feature_reports_invalid_argument() {
     let path = temp_toml("bogus", "server = \"http://127.0.0.1:1\"\n");
     let feature = CString::new("bogus").unwrap();
     let reason = take(unsafe { qj_account_set_consent(path.as_ptr(), feature.as_ptr(), true) });
-    assert_eq!(reason.as_deref(), Some("参数无效"));
+    let value: serde_json::Value = serde_json::from_str(&reason.unwrap()).unwrap();
+    assert_eq!(value["code"], "invalid_argument");
+    assert!(!value["message"].as_str().unwrap().is_empty());
 }
 
 #[test]
@@ -62,6 +64,7 @@ fn email_start_with_empty_email_does_not_crash() {
     let path = temp_toml("email", "server = \"http://127.0.0.1:1\"\n");
     let email = CString::new("").unwrap();
     let reason = take(unsafe { qj_account_email_start(path.as_ptr(), email.as_ptr()) });
-    assert!(reason.is_some_and(|text| !text.is_empty()));
+    let value: serde_json::Value = serde_json::from_str(&reason.unwrap()).unwrap();
+    assert_eq!(value["code"], "unreachable");
     assert!(take(unsafe { qj_account_email_start(path.as_ptr(), ptr::null()) }).is_some());
 }
