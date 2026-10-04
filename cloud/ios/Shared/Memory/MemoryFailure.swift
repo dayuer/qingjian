@@ -12,6 +12,7 @@ struct MemoryFailure: Equatable, Sendable {
         case contactLimit = "contact_limit"
         case invalid
         case conflict
+        case lockTimeout = "lock_timeout"
         case io
         case other
 
@@ -21,8 +22,14 @@ struct MemoryFailure: Equatable, Sendable {
         }
     }
 
-    /// 给用户看的话：人数上限用固定文案，其余照桥给的。
-    var userMessage: String { code == .contactLimit ? "恋爱场景最多 8 个人" : message }
+    /// 给用户看的话：人数上限与锁超时用固定文案，其余照桥给的。
+    var userMessage: String {
+        switch code {
+        case .contactLimit: "恋爱场景最多 8 个人"
+        case .lockTimeout: "键盘正在写记忆，请稍后再试"
+        default: message
+        }
+    }
 
     /// nil 表示成功；解析不了时整段当 message、code 为 other。
     static func decode(_ json: String?) -> MemoryFailure? {

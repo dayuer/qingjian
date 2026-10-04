@@ -75,10 +75,22 @@ struct MemoryCard: Codable, Identifiable, Hashable, Sendable {
         }
     }
 
+    /// 下一次是哪天：日子按年重复取最近的一次，约定就是写的那天；别的种类、日期写错为 nil。
+    func nextDate(now: Date = Date()) -> Date? {
+        guard kind.hasDate, let when, let date = MemoryDate.parse(when) else { return nil }
+        return kind == .date ? MemoryDate.nextAnniversary(of: date, from: now) : date
+    }
+
+    /// App 对象详情左列的 `M.dd`（下一次的那天）。
+    func monthDay(now: Date = Date()) -> String? {
+        guard let target = nextDate(now: now) else { return nil }
+        let parts = MemoryDate.calendar.dateComponents([.month, .day], from: target)
+        return String(format: "%d.%02d", parts.month ?? 0, parts.day ?? 0)
+    }
+
     /// 对象卡左列：日子 / 约定 3 天内写相对（今天、明天、周几），更远的写 `M.dd`；别的种类没有日期，为 nil。
     func dateLabel(now: Date = Date()) -> String? {
-        guard let days = daysAway(now: now), let when, let date = MemoryDate.parse(when) else { return nil }
-        let target = kind == .date ? MemoryDate.nextAnniversary(of: date, from: now) : date
+        guard let days = daysAway(now: now), let target = nextDate(now: now) else { return nil }
         switch days {
         case 0: return "今天"
         case 1: return "明天"
@@ -86,8 +98,7 @@ struct MemoryCard: Codable, Identifiable, Hashable, Sendable {
             let names = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
             return names[MemoryDate.calendar.component(.weekday, from: target) - 1]
         default:
-            let parts = MemoryDate.calendar.dateComponents([.month, .day], from: target)
-            return String(format: "%d.%02d", parts.month ?? 0, parts.day ?? 0)
+            return monthDay(now: now)
         }
     }
 
