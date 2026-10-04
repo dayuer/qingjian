@@ -4,6 +4,10 @@ import SwiftUI
 
 @main
 struct QingjianApp: App {
+    init() {
+        TabBarStyle.apply()
+    }
+
     var body: some Scene {
         WindowGroup {
             SetupView()

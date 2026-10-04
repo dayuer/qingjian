@@ -130,9 +130,9 @@ struct ContactEditor: View {
                 }
             }
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(ColorRole.accent.color)
             .frame(maxWidth: .infinity, minHeight: 50)
-            .background(ColorUsage.editorSave.role.color, in: Capsule())
+            .background(ColorUsage.addContactDone.role.color, in: Capsule())
         }
         .disabled(trimmed(name).isEmpty || store.saving)
         .opacity(trimmed(name).isEmpty ? 0.35 : 1)
