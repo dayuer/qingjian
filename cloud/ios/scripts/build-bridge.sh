@@ -59,7 +59,7 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
-# 青简 Cloud 只在构建时定服务器地址；令牌由主 App 的账号页登录后写进 App Group 的 cloud.toml，不进安装包。
+# 素笺云 只在构建时定服务器地址；令牌由主 App 的账号页登录后写进 App Group 的 cloud.toml，不进安装包。
 # 随包的这份只作种子：主 App 第一次打开时拷进 App Group
 server="${QJ_SERVER:-https://pinyin.synon.ai}"
 seed="$ios_dir/Keyboard/Data/cloud.toml"

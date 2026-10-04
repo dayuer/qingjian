@@ -65,7 +65,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // 完全访问用来震动与连青简 Cloud；用户随时可能去设置里开关，每次出现时重读
+        // 完全访问用来震动与连素笺云；用户随时可能去设置里开关，每次出现时重读
         feedback.hapticsEnabled = hasFullAccess
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
         if currentSignature != engineSignature {

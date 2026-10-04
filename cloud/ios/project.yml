@@ -34,7 +34,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: 青简
+        CFBundleDisplayName: 素笺
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
@@ -63,7 +63,7 @@ targets:
     info:
       path: Keyboard/Info.plist
       properties:
-        CFBundleDisplayName: 青简
+        CFBundleDisplayName: 素笺
         NSExtension:
           NSExtensionPointIdentifier: com.apple.keyboard-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
@@ -71,7 +71,7 @@ targets:
             IsASCIICapable: false
             PrefersRightToLeft: false
             PrimaryLanguage: zh-Hans
-            # 完全访问用于按键震动（iOS 规定第三方键盘没有它不能震）、写 App Group 里的学习数据与连青简 Cloud
+            # 完全访问用于按键震动（iOS 规定第三方键盘没有它不能震）、写 App Group 里的学习数据与连素笺云
             RequestsOpenAccess: true
     settings:
       base:
