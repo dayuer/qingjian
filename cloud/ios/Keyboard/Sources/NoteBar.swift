@@ -39,7 +39,7 @@ struct NoteBar: View {
                 .padding(.horizontal, 10)
                 .frame(height: 28)
                 .onKeyboardPress { model.cancelNote() }
-            Text("记到\(model.currentContact?.name ?? "")")
+            Text("记到\(model.currentContact?.chipName ?? "")")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 14)

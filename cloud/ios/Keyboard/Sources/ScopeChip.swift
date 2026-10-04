@@ -46,7 +46,7 @@ struct ScopeChip: View {
             Circle()
                 .fill(love ? Theme.accent.color : Theme.ink3)
                 .frame(width: 6, height: 6)
-            Text(ScopeDisplay.chipPerson(model.currentContact?.name))
+            Text(ScopeDisplay.chipPerson(model.currentContact?.chipName))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(love ? ColorUsage.chipPerson.role.color : Theme.ink)
                 .lineLimit(1)
@@ -57,7 +57,7 @@ struct ScopeChip: View {
         .background(split ? KeyStyle.keyFill : Color.clear)
         .onKeyboardPress { if interactive && split { model.toggleQuickPicks() } }
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("对象：\(ScopeDisplay.chipPerson(model.currentContact?.name))")
+        .accessibilityLabel("对象：\(ScopeDisplay.chipPerson(model.currentContact?.chipName))")
     }
 
     private var love: Bool { ScopeDisplay.chipUsesAccent(scene: model.scope.scene, fullAccess: model.fullAccess) }

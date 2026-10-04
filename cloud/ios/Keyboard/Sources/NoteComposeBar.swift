@@ -38,7 +38,7 @@ struct NoteComposeBar: View {
         }
     }
 
-    private var name: String { model.currentContact?.name ?? "" }
+    private var name: String { model.currentContact?.chipName ?? "" }
 
     /// 草稿太长时截掉开头，末尾与光标始终看得见。
     @ViewBuilder
@@ -51,7 +51,7 @@ struct NoteComposeBar: View {
         } else if composer.text.isEmpty, model.preedit.isEmpty {
             HStack(spacing: 2) {
                 cursor
-                Text(model.namingContact ? ContactAdd.placeholder : NoteComposer.placeholder(name: model.currentContact?.name))
+                Text(model.namingContact ? ContactAdd.placeholder : NoteComposer.placeholder(name: model.currentContact?.chipName))
                     .font(.system(size: 14))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

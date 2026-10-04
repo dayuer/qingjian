@@ -67,7 +67,7 @@ struct IdleBar: View {
             ScopeChip(model: model)
             HStack(spacing: 6) {
                 ForEach(model.quickPicks, id: \.self) { id in
-                    let name = id.flatMap { id in model.contacts.first { $0.id == id }?.name }
+                    let name = id.flatMap { id in model.contacts.first { $0.id == id }?.chipName }
                     Text(name ?? ScopeDisplay.noScopeTitle)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Theme.ink)

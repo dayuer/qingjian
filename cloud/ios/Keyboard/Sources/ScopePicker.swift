@@ -57,7 +57,7 @@ struct ScopePicker: View {
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(model.people) { contact in
                     cell(
-                        avatar: contact.name, title: contact.name,
+                        avatar: contact.chipName, title: contact.chipName,
                         subtitle: ScopeDisplay.lastUsed(at: model.scope.used[contact.id]),
                         selected: model.scope.contactId == contact.id
                     ) { model.chooseContact(contact.id) }

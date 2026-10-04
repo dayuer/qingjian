@@ -12,9 +12,9 @@ struct ContactCardPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             if let contact = model.currentContact {
                 HStack(spacing: 12) {
-                    MemoryAvatar(name: contact.name, size: 56, scene: contact.scene, serif: true)
+                    MemoryAvatar(name: contact.chipName, size: 56, scene: contact.scene, serif: true)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(contact.name).font(.system(size: 18, weight: .semibold, design: .serif))
+                        Text(contact.chipName).font(.system(size: 18, weight: .semibold, design: .serif))
                         Text(ScopeDisplay.contactSubtitle(knownDays: contact.knownDays()))
                             .font(.system(size: 12))
                             .foregroundStyle(Theme.ink3)
