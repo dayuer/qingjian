@@ -190,7 +190,8 @@ fn account_round_trips_with_null_fields() {
             platform: Platform::Ios,
             created_at: 1,
             last_seen: None,
-            current: true
+            current: true,
+            joined_via: None
         }
     );
     assert!(account.consents.clipboard && account.consents.llm);
