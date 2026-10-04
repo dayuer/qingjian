@@ -170,20 +170,26 @@ final class MemoryModelTests: XCTestCase {
 
     // MARK: 提示行、牌子、面板
 
-    func testHintRowOnlyForDatingWithContact() {
-        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasContent: true))
+    func testHintRowForDatingAndDailyButNotWork() {
+        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasHint: true, hasNoteBar: false))
+        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true, hasHint: true, hasNoteBar: false))
         XCTAssertFalse(
-            ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasContent: false), "没有提示就不占行，不留空行")
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "dating", hasContact: false, hasContent: true), "恋爱不指定没有提示行")
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true, hasContent: true))
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasContent: true))
+            ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasHint: false, hasNoteBar: false),
+            "没有提示就不占行，不留空行")
+        XCTAssertFalse(
+            ScopeDisplay.hasHintRow(scene: "dating", hasContact: false, hasHint: true, hasNoteBar: false), "不指定没有提示行")
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasHint: true, hasNoteBar: false), "工作不出提示")
+        XCTAssertTrue(
+            ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasHint: false, hasNoteBar: true), "记一笔三个场景都能用")
+        XCTAssertTrue(
+            ScopeDisplay.hasHintRow(scene: "work", hasContact: false, hasHint: false, hasNoteBar: true), "工作里也能起名字")
     }
 
-    func testChipTitle() {
-        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "dating", contactName: "小美"), "小美 · 恋爱")
-        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "dating", contactName: nil), "恋爱")
-        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "work", contactName: "小美"), "工作")
-        XCTAssertEqual(ScopeDisplay.chipTitle(scene: "daily", contactName: nil), "日常")
+    func testChipHalves() {
+        XCTAssertEqual(ScopeDisplay.chipScene("dating"), "恋爱")
+        XCTAssertEqual(ScopeDisplay.chipScene("work"), "工作")
+        XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
+        XCTAssertEqual(ScopeDisplay.chipPerson(nil), "不指定")
     }
 
     func testPickerNeedsFullAccess() {

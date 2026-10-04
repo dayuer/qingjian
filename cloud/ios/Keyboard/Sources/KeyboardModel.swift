@@ -3,6 +3,7 @@
 // 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
 // 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
 // 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
+// 每个场景各有一组人；切场景时桥回到这个场景上次选的人（ScopePick.last），工作场景不出提示。
 // 所有输出都经 OutputRouter：手写记一笔时它把上屏、退格改道到草稿，宿主一个字都不碰（不持有宿主，就绕不过去）。
 
 import Foundation
@@ -29,14 +30,17 @@ final class KeyboardModel {
     /// 焦点在验证码、密码、信用卡号这类输入框。
     private(set) var privateField = false
 
-    /// 记忆的提示行：恋爱场景、选了对象、碰上卡片里的词或日子快到时有。
+    /// 记忆的提示行：恋爱或日常、选了对象、碰上卡片里的词或日子快到时有。
     private(set) var hint: MemoryHint?
 
     /// 当前场景与对象（只能用户自己切）。
     private(set) var scope = MemoryScope()
 
-    /// App 里建的恋爱场景的人；开了完全访问才读得到 App Group。
+    /// 三个场景的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
     private(set) var contacts: [MemoryContact] = []
+
+    /// 点了牌子右半：工具栏里横着列本场景的其他人与「不指定」（ScopeDisplay.quickPicks）。
+    private(set) var quickOpen = false
 
     /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
     private(set) var noteDraft: String?
@@ -47,7 +51,7 @@ final class KeyboardModel {
     /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
     private(set) var notice: String?
 
-    /// 当前对象之外的所有恋爱对象的卡片，按卡片 id 查（提示行加粗关键词、来源标签用）。
+    /// 所有人的卡片，按卡片 id 查（提示行加粗关键词、来源标签用）。
     @ObservationIgnored private var cardIndex: [String: MemoryCard] = [:]
 
     /// 对象卡面板里的卡片。
@@ -199,9 +203,15 @@ final class KeyboardModel {
         sink.commit(emoji)
     }
 
+    /// 工具栏右端的向下箭头：收起键盘（之后系统会走 viewWillDisappear → dismiss）。
+    func dismissKeyboard() {
+        sink.dismissKeyboard()
+    }
+
     /// 键盘收起：没上屏的拼音丢掉，学习数据落盘并催一轮同步。
     func dismiss() {
         endComposedNote()
+        quickOpen = false
         dismissRewrite()
         noteDraft = nil
         noteDone = false
@@ -289,7 +299,7 @@ final class KeyboardModel {
     func poll() {
         guard let engine else { return }
         refreshHint()
-        // App 删了当前对象时桥会退回「恋爱 · 不指定」
+        // App 删了当前对象时桥会退回这个场景的不指定
         if let next = engine.scope, next != scope {
             scope = next
             reloadContacts()
@@ -337,11 +347,17 @@ final class KeyboardModel {
         rewrite = .idle
     }
 
-    /// 提示行这一行在不在：「恋爱 · 某人」且有提示或记一笔条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
+    /// 提示行这一行在不在：恋爱或日常选了人且有提示，或有记一笔 / 起名字的输入条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
+    /// 对象卡打开时这一行不画（设计稿 1b），高度让给对象卡，键盘总高不变。
     var hasHintRow: Bool {
         ScopeDisplay.hasHintRow(
-            scene: scope.scene, hasContact: currentContact != nil || namingContact,
-            hasContent: hint != nil || noteDraft != nil || noteDone || sink.isComposingNote)
+            scene: scope.scene, hasContact: currentContact != nil, hasHint: hint != nil,
+            hasNoteBar: noteDraft != nil || noteDone || sink.isComposingNote)
+    }
+
+    /// 首选候选用强调色（ScopeDisplay.accentFirstCandidate）。
+    var accentFirstCandidate: Bool {
+        ScopeDisplay.accentFirstCandidate(scene: scope.scene, hasContact: currentContact != nil)
     }
 
     /// 宿主换了输入框（控制器按 documentIdentifier 判断）：丢掉没上屏的拼音，清掉最近上屏的字与提示。
@@ -352,8 +368,15 @@ final class KeyboardModel {
         engine?.clear()
         engine?.resetContext()
         panel = .keys
+        quickOpen = false
         refresh()
     }
+
+    /// 当前场景的人。
+    var people: [MemoryContact] { SceneGroup.people(in: scope.scene, from: contacts) }
+
+    /// 牌子右半展开时列的人（nil 是「不指定」）。
+    var quickPicks: [String?] { ScopeDisplay.quickPicks(people: people, current: scope.contactId) }
 
     /// 当前对象（名单里找得到的）。
     var currentContact: MemoryContact? {
@@ -368,22 +391,45 @@ final class KeyboardModel {
 
     func openScopePicker() {
         reloadContacts()
+        quickOpen = false
         panel = .scope
     }
 
-    /// 选场景与对象。选了对象或换到日常 / 工作就收起面板；换到恋爱还没选对象时留着接着选。
-    func chooseScope(scene: String, contactId: String?) {
+    /// 点牌子右半：列出 / 收起本场景的其他人。没开完全访问时进面板看说明。
+    func toggleQuickPicks() {
+        guard fullAccess else {
+            openScopePicker()
+            return
+        }
+        if !quickOpen { reloadContacts() }
+        quickOpen.toggle()
+    }
+
+    /// 面板里切场景：回到这个场景上次选的人，面板留着接着选人。
+    func chooseScene(_ scene: String) {
+        guard scene != scope.scene else { return }
+        applyScope(scene: scene, pick: .last)
+    }
+
+    /// 在当前场景里选人（nil 是不指定）：面板与工具栏里的人都收起。
+    func chooseContact(_ contactId: String?) {
+        applyScope(scene: scope.scene, pick: contactId.map(ScopePick.contact) ?? .nobody)
+        quickOpen = false
+        panel = .keys
+    }
+
+    private func applyScope(scene: String, pick: ScopePick) {
         guard let engine else { return }
+        engine.setScope(scene: scene, pick: pick)
+        let next = engine.scope ?? scope
         // 手写的草稿是记给原来那个人的，换了人就丢掉
-        if scene != scope.scene || contactId != scope.contactId { endComposedNote() }
-        engine.setScope(scene: scene, pick: contactId.map(ScopePick.contact) ?? .nobody)
-        scope = engine.scope ?? scope
+        if next.scene != scope.scene || next.contactId != scope.contactId { endComposedNote() }
+        scope = next
         refresh()
-        if scene != MemoryScope.dating || contactId != nil { panel = .keys }
     }
 
     func openContactCard() {
-        guard let id = scope.contactId else { return }
+        guard let id = scope.contactId, MemoryScope.reminds(scope.scene) else { return }
         panelCards = engine?.memoryCards(id) ?? []
         panel = .contactCard
     }
@@ -440,26 +486,25 @@ final class KeyboardModel {
         saveNote(composer.text)
     }
 
-    /// 选择面板里点「新对象」：在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
+    /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
     func startNamingContact() {
         guard fullAccess, !sink.isComposingNote else { return }
-        guard contacts.count < ScopeDisplay.maxContacts else {
-            showNotice(MemoryFailure(code: .contactLimit, message: "").userMessage)
+        guard people.count < ScopeDisplay.maxContacts else {
+            showNotice(MemoryFailure.contactLimit(scene: scope.scene).userMessage)
             return
         }
         namingContact = true
         namingError = nil
-        if scope.scene != MemoryScope.dating { chooseScope(scene: MemoryScope.dating, contactId: nil) }
         beginComposedNote()
     }
 
     private func confirmNewContact(_ draft: String) {
         guard let name = ContactAdd.name(draft), let engine else { return }
-        switch engine.addContact(name: name, scene: MemoryScope.dating) {
+        switch engine.addContact(name: name, scene: scope.scene) {
         case .success(let id):
             endComposedNote()
             reloadContacts()
-            chooseScope(scene: MemoryScope.dating, contactId: id)
+            chooseContact(id)
         case .failure(let failure):
             // 通用文案「键盘正在写记忆」是给 App 看的；这里占锁的是 App
             namingError = failure.code == .lockTimeout ? "素笺 App 正在保存，请再点一次「好了」" : failure.userMessage
@@ -576,7 +621,7 @@ final class KeyboardModel {
             cardIndex = [:]
             return
         }
-        contacts = snapshot.contacts.filter { $0.scene == MemoryScope.dating }
+        contacts = snapshot.contacts
         cardIndex = Dictionary(
             snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
@@ -667,6 +712,7 @@ final class KeyboardModel {
         preedit = next
         candidates = engine.candidates
         if !composing, panel == .candidates { panel = .keys }
+        if composing { quickOpen = false }
         refreshHint()
     }
 }

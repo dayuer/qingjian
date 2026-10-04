@@ -31,6 +31,10 @@ private final class FakeOutput: TextOutput {
 
     func switchToNextKeyboard() {}
 
+    var dismissCalls = 0
+
+    func dismissKeyboard() { dismissCalls += 1 }
+
     var pasteboardChangeCount = 7
 
     var pasteboardHasText = true
@@ -71,6 +75,13 @@ final class NoteComposeTests: XCTestCase {
         XCTAssertEqual(host.deleteCalls, 0)
         XCTAssertEqual(host.moveCalls, [])
         XCTAssertEqual(router.composer?.text, "你")
+    }
+
+    func testDismissKeyboardReachesHost() {
+        let (router, host) = router()
+        router.dismissKeyboard()
+        XCTAssertEqual(host.dismissCalls, 1, "工具栏的向下箭头收起键盘")
+        XCTAssertEqual(host.writes, 0)
     }
 
     func testComposingContextComesFromDraftNotHost() {

@@ -1,5 +1,6 @@
-// 整个键盘：提示行（「恋爱 · 某人」有提示、记一笔条或手写条时才有）+ 候选栏 + 键区（或展开的候选 / 表情 / 场景选择 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
+// 整个键盘：提示行（恋爱、日常选了人有提示，或记一笔条、手写条时才有）+ 候选栏 + 键区（或展开的候选 / 表情 / 场景选择 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
 // 提示行出现与收起时键盘高度加减一行，高度约束在控制器里改（KeyboardViewController.syncHintRow）。
+// 对象卡打开时不画提示行（设计稿 1b：顶上是工具栏），那一行的高度给对象卡，键盘总高不变、宿主不跳。
 
 import SwiftUI
 
@@ -14,7 +15,7 @@ struct KeyboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.hasHintRow {
+            if model.hasHintRow && !cardOpen {
                 Group {
                     if let composer = model.composedNote {
                         NoteComposeBar(model: model, composer: composer)
@@ -37,11 +38,13 @@ struct KeyboardView: View {
                 case .contactCard: ContactCardPanel(model: model)
                 }
             }
-            .frame(height: Self.keyAreaHeight)
+            .frame(height: Self.keyAreaHeight + (cardOpen && model.hasHintRow ? KeyStyle.hintRowHeight : 0))
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .animation(.easeOut(duration: 0.2), value: model.hasHintRow)
     }
+
+    private var cardOpen: Bool { model.panel == .contactCard }
 
     private var keys: some View {
         GeometryReader { geometry in

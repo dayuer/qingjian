@@ -1,5 +1,6 @@
 // 手写记一笔、给新对象起名字共用的输入条：占提示行的位置。左边是草稿、灰色的正在组的拼音与末尾的光标，空草稿显示占位文字；
-// 右边「取消」（中性色描边）与「记到 {对象}」（灰绿底，草稿为空时置灰）。拼音不进宿主的 marked text，只画在这里。
+// 右边「取消」（.btn.ghost，ink-2）与「记到 {对象}」/「好了」（.btn.acc：灰绿实底、ink 字，草稿为空时置灰）。拼音不进宿主的 marked text，只画在这里。
+// 工作场景不用强调色：底换成白、按钮换成中性浅底。
 
 import SwiftUI
 
@@ -14,24 +15,27 @@ struct NoteComposeBar: View {
                 .padding(.leading, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("取消")
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(ColorUsage.noteCancel.role.color)
                 .padding(.horizontal, 10)
-                .frame(height: 26)
-                .overlay(RoundedRectangle(cornerRadius: 13).stroke(ColorUsage.noteCancel.role.color.opacity(0.4), lineWidth: 1))
+                .frame(height: 28)
                 .onKeyboardPress { model.cancelComposedNote() }
-            Text(model.namingContact ? "好了" : "记到 \(name)")
+            Text(model.namingContact ? "好了" : "记到\(name)")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(ColorUsage.noteConfirm.role.color)
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(Capsule().fill(Theme.accent.color))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 14)
+                .frame(height: 28)
+                .background(Capsule().fill(ColorUsage.noteConfirm.role(in: model.scope.scene).color))
                 .opacity(composer.canSave ? 1 : 0.4)
                 .padding(.trailing, 12)
                 .onKeyboardPress { model.confirmComposedNote() }
         }
         .frame(height: KeyStyle.hintRowHeight)
-        .background(Theme.accentSoft.color)
+        .background(MemoryScope.usesAccent(model.scope.scene) ? Theme.accentSoft.color : KeyStyle.keyFill)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(MemoryScope.usesAccent(model.scope.scene) ? Theme.hintLine.color : Color.primary.opacity(0.08))
+                .frame(height: 1)
+        }
     }
 
     private var name: String { model.currentContact?.name ?? "" }
