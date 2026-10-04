@@ -108,6 +108,7 @@ fn open_jobs(config: &DataSyncConfig) -> Result<Jobs, ClientError> {
         learning: config.sync_learning.then_some(learning),
         settings: config.sync_config.then_some(settings),
         logs,
+        disabled: Vec::new(),
     })
 }
 
@@ -117,6 +118,7 @@ fn run(shared: &Shared, mut jobs: Jobs) {
         let result = jobs.cycle();
         let delay = {
             let mut status = lock(&shared.status);
+            status.disabled.clone_from(&jobs.disabled);
             match result {
                 Ok((outcome, config)) => {
                     if outcome.pushed > 0
@@ -128,6 +130,7 @@ fn run(shared: &Shared, mut jobs: Jobs) {
                     status.last_ok_ms = Some(now_ms());
                     status.waiting_for_ime = outcome.waiting;
                     status.error = None;
+                    status.unauthorized = false;
                     status.config_conflict |= config == ConfigOutcome::Conflict;
                     retry = Duration::from_secs(1);
                     if outcome.waiting {
@@ -138,14 +141,23 @@ fn run(shared: &Shared, mut jobs: Jobs) {
                 }
                 Err(error) => {
                     tracing::warn!(%error, "学习数据同步失败");
+                    status.unauthorized = matches!(error, ClientError::Unauthorized);
                     status.error = Some(error.to_string());
-                    let delay = retry;
-                    retry = (retry * 2).min(MAX_RETRY);
+                    let (delay, next) = after_error(&error, retry);
+                    retry = next;
                     delay
                 }
             }
         };
         wait(shared, delay);
+    }
+}
+
+/// 出错后等多久、下一次退避多久。401 要用户重新登录，退避没有意义，按最长间隔等；其余翻倍退避。
+fn after_error(error: &ClientError, retry: Duration) -> (Duration, Duration) {
+    match error {
+        ClientError::Unauthorized => (MAX_RETRY, retry),
+        _ => (retry, (retry * 2).min(MAX_RETRY)),
     }
 }
 
@@ -172,4 +184,34 @@ fn now_ms() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::{MAX_RETRY, after_error};
+    use crate::ClientError;
+
+    #[test]
+    fn unauthorized_waits_the_longest_without_growing_backoff() {
+        let retry = Duration::from_secs(4);
+        assert_eq!(
+            after_error(&ClientError::Unauthorized, retry),
+            (MAX_RETRY, retry)
+        );
+    }
+
+    #[test]
+    fn other_errors_double_the_backoff_up_to_the_cap() {
+        let error = ClientError::Unreachable("x".to_owned());
+        assert_eq!(
+            after_error(&error, Duration::from_secs(1)),
+            (Duration::from_secs(1), Duration::from_secs(2))
+        );
+        assert_eq!(
+            after_error(&error, Duration::from_secs(200)),
+            (Duration::from_secs(200), MAX_RETRY)
+        );
+    }
 }

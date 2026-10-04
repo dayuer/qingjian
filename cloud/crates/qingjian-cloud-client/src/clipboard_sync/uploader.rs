@@ -10,7 +10,7 @@ use crate::supervise::{Exit, supervise};
 /// 队列空时多久醒一次检查是否该退出。
 const IDLE: Duration = Duration::from_secs(30);
 
-/// 令牌被拒后多久再试（用户可能在服务端重新登记了同名设备）。
+/// 令牌被拒或服务器上没开剪贴板后多久再试；队列留着，不丢。
 const UNAUTHORIZED_RETRY: Duration = Duration::from_secs(300);
 
 pub fn spawn(shared: Arc<Shared>) {
@@ -62,7 +62,7 @@ fn run(shared: &Shared) {
             Err(error) => {
                 shared.set_error(&error);
                 delay = match error {
-                    ClientError::Unauthorized => UNAUTHORIZED_RETRY,
+                    ClientError::Unauthorized | ClientError::Forbidden(_) => UNAUTHORIZED_RETRY,
                     _ => backoff.next_delay(),
                 };
             }
