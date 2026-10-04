@@ -13,6 +13,8 @@
 
 
 **状态（2026-10-04 收尾）：** Task 1（proto）、Task 2（`qingjian-cloud-redact`，向量 `tests/vectors.jsonl` 与服务端共用）已在 `sujian` 完成；Task 3–7 **未开始**。接着做时从 Task 3 `MemorySync` 起，先展开、发审计会话审；Task 3 之前先补本文件 Task 3 下记的「防复活」前置检查。
+
+**场景（2026-10-04 定，见 2A 计划 Task 9）：** 不是只做恋爱。上传按用户开了记录的场景走（设计稿 05 的 2f：恋爱缺省开，日常、工作要用户自己开），素材带 scene；工作场景记待办与约好的时间。
 ---
 
 ## Task 1：proto 的 2B 类型
