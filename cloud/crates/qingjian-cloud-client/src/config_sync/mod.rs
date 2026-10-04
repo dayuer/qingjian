@@ -18,7 +18,7 @@ const CONFIG_FILE: &str = "config.toml";
 /// 冲突时输掉的那份放在输入法数据目录的这个子目录里。
 const CONFLICT_DIR: &str = "sync/config-conflicts";
 
-const STATE_FILE: &str = "config-state.json";
+pub(crate) const STATE_FILE: &str = "config-state.json";
 
 /// 一轮做了什么。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

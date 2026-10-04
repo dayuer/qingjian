@@ -12,6 +12,7 @@ mod table;
 
 pub use count_entry::CountEntry;
 pub use learning_state::LearningState;
+pub(crate) use learning_sync::{BASE_FILE, STATE_FILE};
 pub use learning_sync::{LearningOutcome, LearningSync};
 pub use snapshot::Snapshot;
 pub use table::Table;
