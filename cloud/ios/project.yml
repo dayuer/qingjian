@@ -81,7 +81,10 @@ targets:
   QingjianCloudTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [Tests]
+    sources:
+      - Tests
+      - Keyboard/Sources/EngineDisplay.swift
+      - Keyboard/Sources/CandidateItem.swift
     dependencies:
       - target: QingjianCloud
     settings:

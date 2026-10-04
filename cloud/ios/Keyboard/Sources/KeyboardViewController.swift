@@ -62,7 +62,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
         if currentSignature != engineSignature {
             engineSignature = currentSignature
-            // 先释放旧引擎再建新的：旧 DataSync 线程可能还在一轮 HTTP 里，与新线程重叠会把进度文件写回旧状态
+            // 先释放旧引擎再建新的，只是缩小新旧 DataSync 线程重叠的窗口（旧线程空闲或在等待时，会在新线程起来前收到停止信号），
+            // 并没有消除：DataSync 的 Drop 只置 stop 不 join，旧线程若正好在一轮 HTTP 里，结束时仍可能把进度文件写回。
+            // 根治要 Rust 侧落盘前检查 stop（已知限制）
             model.replaceEngine(nil)
             model.replaceEngine(Self.openEngine(fullAccess: hasFullAccess))
         }

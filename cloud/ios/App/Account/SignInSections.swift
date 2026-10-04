@@ -47,7 +47,7 @@ struct SignInSections: View {
                 Button("发送验证码") {
                     Task { await store.emailStart(store.email) }
                 }
-                .disabled(!store.email.contains("@"))
+                .disabled(!AccountStore.normalized(email: store.email).contains("@"))
             }
         } header: {
             Text("用邮箱登录")
