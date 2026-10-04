@@ -17,7 +17,6 @@ struct ContactSettingsView: View {
     @State private var pending: MemoryContact?
 
     /// 确认框里点了「忘掉」，等它收起后执行。
-    @State private var forgetConfirmed = false
 
     var body: some View {
         Form {
@@ -30,21 +29,13 @@ struct ContactSettingsView: View {
             }
         }
         .alert("忘掉\(store.contact(contactId)?.name ?? "")？", isPresented: $confirmingForget) {
-            Button("忘掉", role: .destructive) { forgetConfirmed = true }
+            // 在按钮的 action 里起写入：alert 此时已决定收起，写入是异步的，失败提示等写完才置，不靠猜动画时长
+            Button("忘掉", role: .destructive) { Task { await store.forget(contactId) } }
             Button("再想想", role: .cancel) {}
         } message: {
             Text("\(store.contact(contactId)?.name ?? "")的所有记忆会从这台手机上删除，无法恢复")
         }
         // 成功后首页看到名单变了，会把这个人的详情与设置页一起退掉（MemoryHomeView）
-        .onChange(of: confirmingForget) { _, shown in
-            guard !shown, forgetConfirmed else { return }
-            forgetConfirmed = false
-            Task {
-                // 等确认框的收起动画走完，失败提示才弹得出来
-                try? await Task.sleep(for: .milliseconds(400))
-                await store.forget(contactId)
-            }
-        }
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { name = store.contact(contactId)?.name ?? "" }

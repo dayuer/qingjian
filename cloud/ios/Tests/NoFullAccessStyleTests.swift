@@ -1,5 +1,6 @@
 // 没开完全访问那一屏与对象无关：颜色全是中性色，不引用 accent；灰绿只给代表某个人的元素。
 
+import UIKit
 import XCTest
 @testable import QingjianCloud
 
@@ -20,7 +21,7 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(
             accent,
             [.chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
-             .appToggle])
+             .appToggle, .addContactDone])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
@@ -42,7 +43,14 @@ final class NoFullAccessStyleTests: XCTestCase {
     /// App 的开关照设计稿 .toggle 用灰绿实底（浅 #C0E7C6、深 #34563B），是「控件中性色」的例外，那条只管键盘面板。
     func testAppTogglesUseAccentFill() {
         XCTAssertEqual(ColorUsage.appToggle.role, .accentFill)
+        XCTAssertEqual(ColorUsage.addContactDone.role, .accentFill, "「好了」照设计稿 btn.acc 用灰绿底")
         XCTAssertEqual(Theme.accent.light.hex, 0xC0E7C6)
         XCTAssertEqual(Theme.accent.dark.hex, 0x34563B)
+    }
+
+    /// 标签栏照设计稿 .tab：选中 ink、未选中 ink-3，不用系统蓝。
+    func testTabBarUsesInkNotSystemBlue() {
+        XCTAssertEqual(TabBarStyle.selected, UIColor.label)
+        XCTAssertEqual(TabBarStyle.normal, UIColor.tertiaryLabel)
     }
 }
