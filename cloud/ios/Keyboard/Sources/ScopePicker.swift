@@ -22,21 +22,22 @@ struct ScopePicker: View {
     }
 
     private var noAccess: some View {
-        VStack(spacing: 10) {
+        let style = NoFullAccessStyle.standard
+        return VStack(spacing: 10) {
             Spacer(minLength: 0)
             Text(ScopeDisplay.needsFullAccessText)
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
             Text("去开启")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Theme.accentInk.color)
+                .foregroundStyle(style.buttonText.color)
                 .padding(.horizontal, 14)
                 .frame(height: 32)
-                .background(Capsule().fill(Theme.accentSoft.color))
+                .overlay(Capsule().stroke(style.buttonStroke.color, lineWidth: 1))
                 .onKeyboardPress { model.showNotice(ScopeDisplay.enableFullAccessNotice) }
             Text(model.notice ?? " ")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.accentInk.color)
+                .foregroundStyle(style.notice.color)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
