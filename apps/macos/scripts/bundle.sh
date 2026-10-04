@@ -15,7 +15,7 @@
 #   QINGJIAN_INSTALLER_IDENTITY  "Developer ID Installer: …"     给 .pkg 签名
 #   QINGJIAN_NOTARY_PROFILE      notarytool store-credentials 存的 keychain profile 名，设了就公证并钉票据
 #
-# 首次 --install 后要在「系统设置 → 键盘 → 输入法」里添加「青简」；输入法列表不刷新就注销再登录。
+# 首次 --install 后要在「系统设置 → 键盘 → 输入法」里添加「素笺」；输入法列表不刷新就注销再登录。
 # pkg 装的不用：postinstall 会以登录用户身份跑 `qingjian-macos --register` 注册并启用。
 set -euo pipefail
 
@@ -65,7 +65,7 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
   -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
 # 卸载脚本随包，装了 pkg 的用户从 Resources 里运行
 cp apps/macos/scripts/uninstall.sh "$APP/Contents/Resources/uninstall.sh"
-# 输入源名字按系统语言本地化（中文系统显示「青简」，其他显示 Qingjian）
+# 输入源名字按系统语言本地化（中文系统显示「素笺」，其他显示 Sujian）
 cp -R apps/macos/resources/*.lproj "$APP/Contents/Resources/"
 # 词库与释义表打进 Resources。data/generated/ 里有生成好的产品数据（自建词库 + 语言模型 + LLM 释义表）就用它，
 # 否则用 assets/sample/ 的样例。没有数据管道的机器跑 tools/release/data-fetch.sh 按 tools/release/data.lock 下载。
@@ -142,16 +142,16 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-# 图标：应用图标从 assets/icon/logo.png 生成 .icns；输入法菜单图标直接用 assets/icon/menu.pdf（矢量，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
+# 图标：应用图标从 cloud/brand/icon/macos-1024.png（已按 Big Sur 网格做好圆角与投影）生成 .icns；输入法菜单图标用 cloud/brand/icon/macos-menu.tiff（16 + 32 两档模板图，随 Info.plist 的 TISIconIsTemplate 按深浅色反色）
 ICONSET="$ROOT/target/Qingjian.iconset"
 rm -rf "$ICONSET" && mkdir -p "$ICONSET"
 for size in 16 32 128 256 512; do
-  sips -z $size $size assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z $size $size cloud/brand/icon/macos-1024.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
   double=$((size * 2))
-  sips -z $double $double assets/icon/logo.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+  sips -z $double $double cloud/brand/icon/macos-1024.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Qingjian.icns"
-cp assets/icon/menu.pdf "$APP/Contents/Resources/qingjian-menu.pdf"
+cp cloud/brand/icon/macos-menu.tiff "$APP/Contents/Resources/qingjian-menu.tiff"
 # 仓库放在 iCloud 同步的目录（Documents）时新建的 .app 会带上 Finder 扩展属性，codesign 会拒（detritus not allowed）：签名前清掉
 xattr -cr "$APP"
 # Apple Silicon 上未签名的二进制不会被系统加载。有 Developer ID 证书就正式签（开 hardened runtime，公证要求），
