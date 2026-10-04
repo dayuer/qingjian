@@ -22,13 +22,15 @@ targets:
     sources: [App, Shared]
     dependencies:
       - target: Keyboard
-      # 设置页用桥读写 config.toml / cloud.toml
+      # 设置页与账号页用桥读写 config.toml / cloud.toml
       - framework: Frameworks/QingjianBridge.xcframework
         embed: false
     entitlements:
       path: App/App.entitlements
       properties:
         com.apple.security.application-groups: [group.app.qingjian.cloud]
+        # 账号页的「通过 Apple 登录」；服务端核对 identity_token 的 aud = app.qingjian.cloud
+        com.apple.developer.applesignin: [Default]
     info:
       path: App/Info.plist
       properties:
@@ -76,3 +78,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.keyboard
         # 构建脚本要往源码目录写 xcframework 与数据
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+  QingjianCloudTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: QingjianCloud
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud.tests
