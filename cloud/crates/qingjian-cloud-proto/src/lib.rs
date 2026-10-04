@@ -105,6 +105,12 @@ pub const PATH_MEMORY_CARDS: &str = "/v1/memory/cards";
 /// 一次拉卡片最多返回多少张。
 pub const MAX_CARD_PAGE: usize = 500;
 
+/// 手动卡文字最多多少字（按 `chars().count()`）。
+pub const MAX_CARD_TEXT_CHARS: usize = 200;
+
+/// 一张卡的关键词最多多少个。
+pub const MAX_CARD_KEYWORDS: usize = 8;
+
 /// 一次上传最多多少条素材。
 pub const MAX_MEMORY_ITEMS: usize = 100;
 
