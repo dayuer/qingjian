@@ -2,6 +2,7 @@
 // 空格上屏首选，换行原样上屏字母（打英文就靠它），组字中敲标点先上屏首选。视图只读状态、转发点击。
 // 配了青简 Cloud 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
 // 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
+// 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
 
 import Foundation
 import Observation
@@ -23,6 +24,27 @@ final class KeyboardModel {
 
     /// 焦点在验证码、密码、信用卡号这类输入框。
     private(set) var privateField = false
+
+    /// 记忆的提示行：恋爱场景、选了对象、碰上卡片里的词或日子快到时有。
+    private(set) var hint: MemoryHint?
+
+    /// 当前场景与对象（只能用户自己切）。
+    private(set) var scope = MemoryScope()
+
+    /// App 里建的恋爱场景的人；开了完全访问才读得到 App Group。
+    private(set) var contacts: [MemoryContact] = []
+
+    /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
+    private(set) var noteDraft: String?
+
+    /// 对象卡面板里的卡片。
+    private(set) var panelCards: [MemoryCard] = []
+
+    /// 本机剪贴板里有没有文字（键盘出现时看一次；只看不读，不弹粘贴授权）。
+    private(set) var clipboardHasText = false
+
+    /// 开了完全访问：读 App Group 里的名单、「记一笔」读剪贴板都要它。控制器每次出现时设。
+    var fullAccess = false
 
     private(set) var layer = KeyLayer.letters
 
@@ -62,6 +84,7 @@ final class KeyboardModel {
         preedit = shown.preedit
         candidates = shown.candidates
         refresh()
+        syncScope()
     }
 
     var composing: Bool { !preedit.isEmpty }
@@ -160,6 +183,7 @@ final class KeyboardModel {
     /// 键盘收起：没上屏的拼音丢掉，学习数据落盘并催一轮同步。
     func dismiss() {
         dismissRewrite()
+        noteDraft = nil
         engine?.clear()
         engine?.flush()
         panel = .keys
@@ -171,6 +195,8 @@ final class KeyboardModel {
         engine?.syncNow()
         engine?.refreshClipboard()
         checkPasteboard()
+        clipboardHasText = output?.pasteboardHasText ?? false
+        syncScope()
     }
 
     /// 焦点换到了（不）是验证码 / 密码这类输入框。
@@ -182,9 +208,11 @@ final class KeyboardModel {
             dismissRewrite()
             clipOffer = nil
             pasteboardChanged = false
+            noteDraft = nil
         } else {
             checkPasteboard()
         }
+        refreshHint()
     }
 
     func insertClip() {
@@ -238,6 +266,12 @@ final class KeyboardModel {
     /// 控制器定时调：取大模型候选、合并别的设备的学习数据、看润色有没有回来。
     func poll() {
         guard let engine else { return }
+        refreshHint()
+        // App 删了当前对象时桥会退回「恋爱 · 不指定」
+        if let next = engine.scope, next != scope {
+            scope = next
+            reloadContacts()
+        }
         if engine.poll() { candidates = engine.candidates }
         if !privateField {
             let offer = engine.clipOffer
@@ -279,6 +313,100 @@ final class KeyboardModel {
     func dismissRewrite() {
         engine?.cancelRewrite()
         rewrite = .idle
+    }
+
+    /// 提示行这一行在不在：恋爱场景且选了对象时一直在（没有提示时是空行），日常、工作与「恋爱 · 不指定」没有这一行。
+    /// 键盘高度只在进出这个状态时变，提示出现与消失不再让宿主界面跳。
+    var hasHintRow: Bool { ScopeDisplay.hasHintRow(scene: scope.scene, hasContact: currentContact != nil) }
+
+    /// 宿主换了输入框（控制器按 documentIdentifier 判断）：清掉最近上屏的字与提示。
+    func hostChanged() {
+        engine?.resetContext()
+        refreshHint()
+    }
+
+    /// 当前对象（名单里找得到的）。
+    var currentContact: MemoryContact? {
+        guard let id = scope.contactId else { return nil }
+        return contacts.first { $0.id == id }
+    }
+
+    /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。
+    var canNote: Bool {
+        ScopeDisplay.canNote(
+            fullAccess: fullAccess, clipboardHasText: clipboardHasText, privateField: privateField,
+            hasContact: currentContact != nil)
+    }
+
+    func openScopePicker() {
+        reloadContacts()
+        panel = .scope
+    }
+
+    /// 选场景与对象。选了对象或换到日常 / 工作就收起面板；换到恋爱还没选对象时留着接着选。
+    func chooseScope(scene: String, contactId: String?) {
+        guard let engine else { return }
+        engine.setScope(scene: scene, contactId: contactId)
+        scope = engine.scope ?? scope
+        refresh()
+        if scene != MemoryScope.dating || contactId != nil { panel = .keys }
+    }
+
+    func openContactCard() {
+        guard let id = scope.contactId else { return }
+        panelCards = engine?.memoryCards(id) ?? []
+        panel = .contactCard
+    }
+
+    /// 日子提醒的「知道了」：当天不再出。
+    func acknowledgeHint() {
+        guard let hint else { return }
+        engine?.dismissHint(hint.cardId, today: hint.reason == .today)
+        refreshHint()
+    }
+
+    /// 点「记一笔」：读剪贴板（可能弹系统的粘贴授权），显示确认条。
+    func startNote() {
+        guard canNote,
+              let text = output?.readPasteboard()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty
+        else { return }
+        // 一张卡最多 200 字（桥也会校验），长的剪贴板截掉后面的，确认条里看得到截后的样子
+        noteDraft = MemoryLimits.clampText(text)
+    }
+
+    func confirmNote() {
+        guard let text = noteDraft, let id = scope.contactId else { return }
+        noteDraft = nil
+        // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
+        _ = engine?.memoryNote(id, text: text)
+        refreshHint()
+    }
+
+    func cancelNote() {
+        noteDraft = nil
+    }
+
+    /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
+    private func syncScope() {
+        scope = engine?.scope ?? MemoryScope()
+        reloadContacts()
+        refreshHint()
+    }
+
+    private func reloadContacts() {
+        guard fullAccess, let directory = SharedStore.directory,
+              let snapshot = MemoryFiles.read(userDirectory: directory)
+        else {
+            contacts = []
+            return
+        }
+        contacts = snapshot.contacts.filter { $0.scene == MemoryScope.dating }
+    }
+
+    private func refreshHint() {
+        let next = privateField ? nil : engine?.memoryHint
+        if next != hint { hint = next }
     }
 
     private func typeLetter(_ letter: Character) {
@@ -356,5 +484,6 @@ final class KeyboardModel {
         preedit = next
         candidates = engine.candidates
         if !composing, panel == .candidates { panel = .keys }
+        refreshHint()
     }
 }

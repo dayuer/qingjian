@@ -1,4 +1,5 @@
-// 整个键盘：候选栏 + 键区（或展开的候选 / 表情面板）。键的位置与触摸范围由 KeyboardLayout 算。
+// 整个键盘：提示行（恋爱场景选了对象时一直在）+ 候选栏 + 键区（或展开的候选 / 表情 / 场景选择 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
+// 进出「恋爱 · 某人」时键盘高度加减一行，高度约束在控制器里改（KeyboardViewController.syncHintRow）。
 
 import SwiftUI
 
@@ -13,6 +14,10 @@ struct KeyboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if model.hasHintRow {
+                HintRow(model: model, hint: model.hint)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             CandidateBar(model: model)
             Group {
                 switch model.panel {
@@ -20,11 +25,14 @@ struct KeyboardView: View {
                 // 面板是控制器挂的 UIKit 视图（CandidatePanelView），这里留空占位
                 case .candidates: Color.clear
                 case .emoji: EmojiPanel(model: model)
+                case .scope: ScopePicker(model: model)
+                case .contactCard: ContactCardPanel(model: model)
                 }
             }
             .frame(height: Self.keyAreaHeight)
         }
         .frame(maxHeight: .infinity, alignment: .top)
+        .animation(.easeOut(duration: 0.2), value: model.hasHintRow)
     }
 
     private var keys: some View {

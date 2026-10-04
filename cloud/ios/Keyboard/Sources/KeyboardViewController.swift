@@ -25,6 +25,12 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 打开引擎时的完全访问与 cloud.toml 修改时间；出现时对不上就重开引擎。
     private var engineSignature = ""
 
+    /// 钉在 inputView 上的键盘高度；进出「恋爱 · 某人」时加减一行提示行（见 `syncHintRow`）。
+    private var heightConstraint: NSLayoutConstraint?
+
+    /// 上一次看到的宿主输入框（`textDocumentProxy.documentIdentifier`）。
+    private var lastDocument: UUID?
+
     override func loadView() {
         super.loadView()
         inputView = KeyboardInputView(frame: .zero, inputViewStyle: .keyboard)
@@ -38,13 +44,15 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         model.onKeyDown = { [feedback] in feedback.keyDown() }
         mountKeyboard()
         mountTouchView()
+        syncHintRow()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         let keyArea = CGRect(
-            x: 0, y: KeyStyle.candidateBarHeight, width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+            x: 0, y: hintInset + KeyStyle.candidateBarHeight, width: view.bounds.width,
+            height: KeyboardView.keyAreaHeight)
         touchView.frame = view.bounds
         touchView.keyArea = keyArea
         panelView.frame = keyArea
@@ -69,6 +77,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             model.replaceEngine(Self.openEngine(fullAccess: hasFullAccess))
         }
         updatePrivacy()
+        model.fullAccess = hasFullAccess
         model.appear()
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -132,10 +141,22 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         textDocumentProxy.adjustTextPosition(byCharacterOffset: offset)
     }
 
-    /// 同一次弹出里焦点也会换输入框（填完用户名跳到验证码），每次都重判。
+    /// 同一次弹出里焦点也会换输入框（填完用户名跳到验证码），每次都重判；换了输入框还要清掉最近上屏的字，
+    /// 免得在 A 聊天里打的字在 B 里触发记忆提示。
     override func textDidChange(_ textInput: (any UITextInput)?) {
         super.textDidChange(textInput)
         updatePrivacy()
+        let document = hostDocumentIdentifier
+        if HostDocument.changed(from: lastDocument, to: document) {
+            lastDocument = document
+            model.hostChanged()
+        }
+    }
+
+    /// 宿主输入框的标识。`documentIdentifier` 声明为非可选，但连上宿主之前系统返回 nil，Swift 桥接时直接崩（textDidChange 在这之前就会被调），
+    /// 所以走 KVC 取成可选值。
+    private var hostDocumentIdentifier: UUID? {
+        (textDocumentProxy as? NSObject)?.value(forKey: "documentIdentifier") as? UUID
     }
 
     var contextBefore: String { textDocumentProxy.documentContextBeforeInput ?? "" }
@@ -175,8 +196,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         view.addSubview(hosting.view)
         // 键盘高度由我们定，钉在 inputView 上系统才按这个给（否则沿用上一个键盘的高度，内容被居中撑开、整体下移）；
         // 系统旋转或切换时会临时塞一个冲突的高度约束，留一档优先级让它赢
-        let height = view.heightAnchor.constraint(
-            equalToConstant: KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight)
+        let height = view.heightAnchor.constraint(equalToConstant: baseHeight)
         height.priority = .defaultHigh
         NSLayoutConstraint.activate([
             hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -185,6 +205,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             height,
         ])
+        heightConstraint = height
         hosting.didMove(toParent: self)
         self.hosting = hosting
     }
@@ -214,8 +235,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 展开面板时格子清空（面板自己收触摸），⌄ 照常归触摸层，这样才收得起来。
     private func syncTouchView() {
         let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
-        let (layer, panel, composing) = withObservationTracking {
-            (model.layer, model.panel, model.composing)
+        let (layer, panel, composing, hinted) = withObservationTracking {
+            (model.layer, model.panel, model.composing, model.hasHintRow)
         } onChange: { [weak self] in
             Task { @MainActor in self?.syncTouchView() }
         }
@@ -224,9 +245,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             : []
         if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
         touchView.slots = slots
+        let top = hinted ? KeyStyle.hintRowHeight : 0
         touchView.chevron = composing
             ? CGRect(
-                x: view.bounds.width - CandidateBar.chevronWidth, y: 0,
+                x: view.bounds.width - CandidateBar.chevronWidth, y: top,
                 width: CandidateBar.chevronWidth, height: KeyStyle.candidateBarHeight)
             : nil
     }
@@ -241,6 +263,29 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         panelView.isHidden = panel != .candidates
         panelView.candidates = candidates
     }
+
+    /// 进出「恋爱 · 某人」时提示行这一行加上 / 去掉：键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在
+    /// viewDidLayoutSubviews / syncTouchView 里跟着下移。提示本身出现消失不改高度（行一直在，空着而已）。
+    private func syncHintRow() {
+        let visible = withObservationTracking {
+            model.hasHintRow
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncHintRow() }
+        }
+        let height = baseHeight + (visible ? KeyStyle.hintRowHeight : 0)
+        guard let heightConstraint, heightConstraint.constant != height else { return }
+        heightConstraint.constant = height
+        view.setNeedsLayout()
+        UIView.animate(withDuration: 0.2) { [weak self] in
+            self?.view.layoutIfNeeded()
+        }
+    }
+
+    /// 没有提示行时的键盘高度：候选栏加键区。
+    private var baseHeight: CGFloat { KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight }
+
+    /// 提示行占掉的高度：键区与 ⌄ 往下挪这么多。
+    private var hintInset: CGFloat { model.hasHintRow ? KeyStyle.hintRowHeight : 0 }
 
     private var currentSignature: String {
         let modified = SharedStore.cloudFile.flatMap {
