@@ -5,7 +5,7 @@ use super::*;
 impl QingjianInputController {
     /// 按当前缓冲区重新查候选、更新 marked text，回到第一页并重画候选窗口。
     pub(super) fn refresh(&self, client: TextClient<'_>) {
-        // 前文现在也给词级排序与整句首词（素笺分叉，Core 的 query/left_context.rs），有没有模型都读；
+        // 前文现在也给词级排序（素笺分叉，Core 的 query/left_context.rs；整句首词不用），有没有模型都读；
         // 一段组句只在第一键读一次（组句中它不变；应用偶尔不回话也不至于让前文来回换），
         // 读应用文本要等应用回话，放在借 Host 之外（见 request_prediction）。Secure Input 与引擎的私密输入都不读
         let wants_context = host::with(|h| {
