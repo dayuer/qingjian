@@ -25,7 +25,7 @@ final class NoFullAccessStyleTests: XCTestCase {
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
-        for usage in [ColorUsage.hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore] {
+        for usage in [ColorUsage.hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore, .noteCancel] {
             XCTAssertEqual(usage.role, .ink, "\(usage)")
         }
         XCTAssertEqual(ColorUsage.cardNotice.role, .ink2)

@@ -193,11 +193,11 @@ final class MemoryModelTests: XCTestCase {
     }
 
     func testCanNoteNeedsEverything() {
-        XCTAssertTrue(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: false, hasContact: true))
-        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: false, clipboardHasText: true, privateField: false, hasContact: true))
-        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: false, privateField: false, hasContact: true))
-        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: true, hasContact: true))
-        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, clipboardHasText: true, privateField: false, hasContact: false))
+        // 剪贴板空也出「记一笔」（点了进手写）；密码、验证码这类私密输入框不出，也就进不了手写
+        XCTAssertTrue(ScopeDisplay.canNote(fullAccess: true, privateField: false, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: false, privateField: false, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, privateField: true, hasContact: true))
+        XCTAssertFalse(ScopeDisplay.canNote(fullAccess: true, privateField: false, hasContact: false))
     }
 
     // MARK: 换输入框

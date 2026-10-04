@@ -3,6 +3,7 @@
 // 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
 // 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
 // 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
+// 所有输出都经 OutputRouter：手写记一笔时它把上屏、退格改道到草稿，宿主一个字都不碰（不持有宿主，就绕不过去）。
 
 import Foundation
 import Observation
@@ -52,9 +53,6 @@ final class KeyboardModel {
     /// 对象卡面板里的卡片。
     private(set) var panelCards: [MemoryCard] = []
 
-    /// 本机剪贴板里有没有文字（键盘出现时看一次；只看不读，不弹粘贴授权）。
-    private(set) var clipboardHasText = false
-
     /// 开了完全访问：读 App Group 里的名单、「记一笔」读剪贴板都要它。控制器每次出现时设。
     var fullAccess = false
 
@@ -77,7 +75,16 @@ final class KeyboardModel {
     /// 引擎打不开（数据缺失）时为 nil，字母直接输出。
     @ObservationIgnored private var engine: Engine?
 
-    @ObservationIgnored weak var output: TextOutput?
+    /// 宿主（控制器）。只经 `sink` 用，不直接调。
+    var output: TextOutput? {
+        get { sink.host }
+        set { sink.host = newValue }
+    }
+
+    @ObservationIgnored let sink = OutputRouter()
+
+    /// 确认条里那段剪贴板文字的摘要与变化计数；记下或忽略后存成「处理过的」（NoteEntry）。
+    @ObservationIgnored private var noteSource: (digest: String, changeCount: Int)?
 
     /// 每次按键按下时调（键盘音与震动），由控制器接上。
     @ObservationIgnored var onKeyDown: (() -> Void)?
@@ -92,7 +99,7 @@ final class KeyboardModel {
         self.engine = engine
         if privateField { engine?.setPrivate(true) }
         let shown = EngineDisplay.afterReplace(hasEngine: engine != nil, preedit: preedit, candidates: candidates)
-        if shown.preedit != preedit { output?.setMarked(shown.preedit) }
+        if shown.preedit != preedit { sink.setMarked(shown.preedit) }
         preedit = shown.preedit
         candidates = shown.candidates
         refresh()
@@ -112,7 +119,7 @@ final class KeyboardModel {
         case .shift: shifted.toggle()
         case .backspace: backspace()
         case .layer(let target): layer = target
-        case .globe: output?.switchToNextKeyboard()
+        case .globe: sink.switchToNextKeyboard()
         case .emoji: panel = .emoji
         case .space: space()
         case .returnKey: returnKey()
@@ -148,9 +155,9 @@ final class KeyboardModel {
     }
 
     /// 按住空格横向拖：挪过 [`Self.cursorDragStart`] 进挪光标模式，之后每 [`Self.cursorStep`] 挪一个字，每步轻震一下。
-    /// 组字中不挪（光标在拼音里没意义），照常当空格。
+    /// 组字中不挪（光标在拼音里没意义），照常当空格；手写记一笔时也不挪（草稿的光标只在末尾）。
     func drag(slot: Int, key: Key, dx: CGFloat) {
-        guard key == .space, pressedSlots.contains(slot), !composing else { return }
+        guard key == .space, pressedSlots.contains(slot), !composing, !sink.isComposingNote else { return }
         if cursorDrag == nil {
             guard abs(dx) >= Self.cursorDragStart else { return }
             cursorDrag = (slot, 0)
@@ -159,7 +166,7 @@ final class KeyboardModel {
         let travelled = dx - (dx > 0 ? Self.cursorDragStart : -Self.cursorDragStart)
         let steps = Int(travelled / Self.cursorStep)
         guard steps != drag.steps else { return }
-        output?.moveCursor(by: steps - drag.steps)
+        sink.moveCursor(by: steps - drag.steps)
         onKeyDown?()
         drag.steps = steps
         cursorDrag = drag
@@ -173,7 +180,7 @@ final class KeyboardModel {
 
     func selectCandidate(_ index: Int) {
         guard let engine, let text = engine.commit(index) else { return }
-        output?.commit(text)
+        sink.commit(text)
         refresh()
         // 候选吃完了拼音就收起展开的候选面板；还剩拼音时留着接着选
         if !composing, panel == .candidates { panel = .keys }
@@ -189,11 +196,12 @@ final class KeyboardModel {
 
     func typeEmoji(_ emoji: String) {
         commitFirst()
-        output?.commit(emoji)
+        sink.commit(emoji)
     }
 
     /// 键盘收起：没上屏的拼音丢掉，学习数据落盘并催一轮同步。
     func dismiss() {
+        endComposedNote()
         dismissRewrite()
         noteDraft = nil
         noteDone = false
@@ -209,7 +217,6 @@ final class KeyboardModel {
         engine?.syncNow()
         engine?.refreshClipboard()
         checkPasteboard()
-        clipboardHasText = output?.pasteboardHasText ?? false
         syncScope()
     }
 
@@ -219,6 +226,7 @@ final class KeyboardModel {
         privateField = value
         engine?.setPrivate(value)
         if value {
+            endComposedNote()
             dismissRewrite()
             clipOffer = nil
             pasteboardChanged = false
@@ -230,9 +238,9 @@ final class KeyboardModel {
     }
 
     func insertClip() {
-        guard let offer = clipOffer else { return }
+        guard let offer = clipOffer, !sink.isComposingNote else { return }
         commitFirst()
-        output?.commit(offer.text)
+        sink.commit(offer.text)
         engine?.clipHandled()
         clipOffer = nil
     }
@@ -244,8 +252,8 @@ final class KeyboardModel {
 
     /// 读本机剪贴板（可能弹系统的粘贴授权提示）发给别的设备。
     func pushPasteboard() {
-        guard let engine, let output, !privateField else { return }
-        if let text = output.readPasteboard(), !text.isEmpty {
+        guard let engine, !privateField else { return }
+        if let text = sink.readPasteboard(), !text.isEmpty {
             engine.pushClip(text)
         }
         markPasteboardSeen()
@@ -256,18 +264,18 @@ final class KeyboardModel {
     }
 
     private func checkPasteboard() {
-        guard let engine, engine.clipboardEnabled, let output, !privateField else { return }
-        let count = output.pasteboardChangeCount
+        guard let engine, engine.clipboardEnabled, output != nil, !privateField else { return }
+        let count = sink.pasteboardChangeCount
         // 第一次用：装键盘之前就在剪贴板里的不算新复制的
         guard let seen = Self.seenPasteboardCount else {
             Self.seenPasteboardCount = count
             return
         }
-        pasteboardChanged = count != seen && output.pasteboardHasText
+        pasteboardChanged = count != seen && sink.pasteboardHasText
     }
 
     private func markPasteboardSeen() {
-        if let output { Self.seenPasteboardCount = output.pasteboardChangeCount }
+        if output != nil { Self.seenPasteboardCount = sink.pasteboardChangeCount }
         pasteboardChanged = false
     }
 
@@ -306,8 +314,8 @@ final class KeyboardModel {
 
     /// 润色光标前的一段话（从上一个换行起，最多 300 字）。
     func startRewrite() {
-        guard let engine, !composing, let output else { return }
-        let paragraph = output.contextBefore.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let engine, !composing, !sink.isComposingNote, output != nil else { return }
+        let paragraph = sink.contextBefore.split(separator: "\n", omittingEmptySubsequences: false)
             .last.map(String.init) ?? ""
         let original = String(paragraph.suffix(300))
         guard !original.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -317,11 +325,11 @@ final class KeyboardModel {
 
     /// 用润色结果替换原文。光标前已经不是原文了（用户挪了光标或改了字）就放弃，不乱删。
     func applyRewrite() {
-        guard case .ready(let original, let result) = rewrite, let output else { return }
+        guard case .ready(let original, let result) = rewrite, output != nil else { return }
         rewrite = .idle
-        guard output.contextBefore.hasSuffix(original) else { return }
-        for _ in original { output.deleteBackward() }
-        output.commit(result)
+        guard sink.contextBefore.hasSuffix(original) else { return }
+        for _ in original { sink.deleteBackward() }
+        sink.commit(result)
     }
 
     func dismissRewrite() {
@@ -333,12 +341,13 @@ final class KeyboardModel {
     var hasHintRow: Bool {
         ScopeDisplay.hasHintRow(
             scene: scope.scene, hasContact: currentContact != nil,
-            hasContent: hint != nil || noteDraft != nil || noteDone)
+            hasContent: hint != nil || noteDraft != nil || noteDone || sink.isComposingNote)
     }
 
     /// 宿主换了输入框（控制器按 documentIdentifier 判断）：丢掉没上屏的拼音，清掉最近上屏的字与提示。
     func hostChanged() {
         // 没上屏的拼音也丢掉：留着的话，在新输入框按空格会把旧拼音的首选上屏到这里
+        endComposedNote()
         dismissRewrite()
         engine?.clear()
         engine?.resetContext()
@@ -352,11 +361,9 @@ final class KeyboardModel {
         return contacts.first { $0.id == id }
     }
 
-    /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。
+    /// 「记一笔」按钮：开了完全访问、选了对象、不在私密输入框（ScopeDisplay.canNote）。
     var canNote: Bool {
-        ScopeDisplay.canNote(
-            fullAccess: fullAccess, clipboardHasText: clipboardHasText, privateField: privateField,
-            hasContact: currentContact != nil)
+        ScopeDisplay.canNote(fullAccess: fullAccess, privateField: privateField, hasContact: currentContact != nil)
     }
 
     func openScopePicker() {
@@ -367,6 +374,8 @@ final class KeyboardModel {
     /// 选场景与对象。选了对象或换到日常 / 工作就收起面板；换到恋爱还没选对象时留着接着选。
     func chooseScope(scene: String, contactId: String?) {
         guard let engine else { return }
+        // 手写的草稿是记给原来那个人的，换了人就丢掉
+        if scene != scope.scene || contactId != scope.contactId { endComposedNote() }
         engine.setScope(scene: scene, contactId: contactId)
         scope = engine.scope ?? scope
         refresh()
@@ -386,19 +395,74 @@ final class KeyboardModel {
         refreshHint()
     }
 
-    /// 点「记一笔」：读剪贴板（可能弹系统的粘贴授权），显示确认条。
+    /// 点「记一笔」：剪贴板有没处理过的文字就读出来（可能弹系统的粘贴授权）显示确认条，否则进手写（NoteEntry）。
+    /// 变化计数和上次处理时一样就不读，免得同一段剪贴板反复弹授权。
     func startNote() {
-        guard canNote,
-              let text = output?.readPasteboard()?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !text.isEmpty
-        else { return }
-        // 一张卡最多 200 字（桥也会校验），长的剪贴板截掉后面的，确认条里看得到截后的样子
-        noteDraft = MemoryLimits.clampText(text)
+        guard canNote, noteDraft == nil, !sink.isComposingNote else { return }
+        let changeCount = sink.pasteboardChangeCount
+        let clipboard = sink.pasteboardHasText && changeCount != Self.handledNoteChangeCount
+            ? sink.readPasteboard() : nil
+        switch NoteEntry.decide(clipboard: clipboard, lastHandledDigest: Self.handledNoteDigest) {
+        case .clipboard(let text):
+            // 一张卡最多 200 字（桥也会校验），长的剪贴板截掉后面的，确认条里看得到截后的样子
+            noteDraft = text
+            noteSource = clipboard.map { (NoteEntry.digest($0), changeCount) }
+        case .compose:
+            beginComposedNote()
+        }
     }
 
     func confirmNote() {
-        guard let text = noteDraft, let id = scope.contactId else { return }
+        guard let text = noteDraft else { return }
         noteDraft = nil
+        markNoteSourceHandled()
+        saveNote(text)
+    }
+
+    /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。
+    func cancelNote() {
+        noteDraft = nil
+        markNoteSourceHandled()
+    }
+
+    /// 手写的草稿（只读，视图用）。
+    var composedNote: NoteComposer? { sink.composer }
+
+    /// 「记到」：存成 other 卡（桥的 qj_memory_note），成败都退出手写；没上屏的拼音不算进去，直接丢掉。
+    func confirmComposedNote() {
+        guard let composer = sink.composer, composer.canSave else { return }
+        endComposedNote()
+        saveNote(composer.text)
+    }
+
+    /// 「取消」、换输入框、键盘收起、进私密输入框、换了对象：草稿直接丢掉。
+    func cancelComposedNote() {
+        endComposedNote()
+    }
+
+    private func beginComposedNote() {
+        dismissRewrite()
+        // 入口在没组字时的工具栏，这里不该有拼音；万一有，先在宿主那边清干净再改道
+        if composing {
+            engine?.clear()
+            refresh()
+        }
+        if panel != .keys { panel = .keys }
+        sink.beginNote()
+    }
+
+    /// 先在改道状态下清掉拼音（setMarked 被吞掉），再退出手写；反过来的话清拼音会把 setMarked("") 写进宿主。
+    private func endComposedNote() {
+        guard sink.isComposingNote else { return }
+        if composing {
+            engine?.clear()
+            refresh()
+        }
+        sink.endNote()
+    }
+
+    private func saveNote(_ text: String) {
+        guard let id = scope.contactId else { return }
         // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
         let failure = engine?.memoryNote(id, text: text)
         // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记卡片文字
@@ -417,8 +481,22 @@ final class KeyboardModel {
         refreshHint()
     }
 
-    func cancelNote() {
-        noteDraft = nil
+    private func markNoteSourceHandled() {
+        guard let source = noteSource else { return }
+        noteSource = nil
+        Self.handledNoteDigest = source.digest
+        Self.handledNoteChangeCount = source.changeCount
+    }
+
+    /// 上次记下或忽略的剪贴板（摘要与变化计数），存在扩展自己的 UserDefaults 里（键盘进程随时被杀）。
+    private static var handledNoteDigest: String? {
+        get { UserDefaults.standard.string(forKey: "handledNoteDigest") }
+        set { UserDefaults.standard.set(newValue, forKey: "handledNoteDigest") }
+    }
+
+    private static var handledNoteChangeCount: Int? {
+        get { UserDefaults.standard.object(forKey: "handledNoteChangeCount") as? Int }
+        set { UserDefaults.standard.set(newValue, forKey: "handledNoteChangeCount") }
     }
 
     /// 提示行里要加粗的词。
@@ -475,19 +553,19 @@ final class KeyboardModel {
         let upper = shifted
         shifted = false
         guard let engine else {
-            output?.commit(upper ? letter.uppercased() : String(letter))
+            sink.commit(upper ? letter.uppercased() : String(letter))
             return
         }
         // Shift 字母是临时打英文：组到一半的拼音先原样上屏
         if upper {
-            if composing { output?.commit(engine.takeRaw()) }
-            output?.commit(letter.uppercased())
+            if composing { sink.commit(engine.takeRaw()) }
+            sink.commit(letter.uppercased())
             refresh()
             return
         }
         // 光标前后文只在开始组字时取一次：每次都问宿主是一次跨进程往返，每个键都要等
-        if !composing, let output {
-            engine.setContext(before: output.contextBefore, after: output.contextAfter)
+        if !composing {
+            engine.setContext(before: sink.contextBefore, after: sink.contextAfter)
         }
         engine.push(letter)
         refresh()
@@ -498,7 +576,7 @@ final class KeyboardModel {
 
     private func typeSymbol(_ text: String) {
         commitFirst()
-        output?.commit(text)
+        sink.commit(text)
         if Self.returnsToLetters.contains(text) { layer = .letters }
     }
 
@@ -507,7 +585,7 @@ final class KeyboardModel {
             engine.backspace()
             refresh()
         } else {
-            output?.deleteBackward()
+            sink.deleteBackward()
         }
     }
 
@@ -516,18 +594,21 @@ final class KeyboardModel {
             commitFirst()
         } else {
             engine?.notePassthrough(" ")
-            output?.commit(" ")
+            sink.commit(" ")
         }
         layer = .letters
     }
 
+    /// 手写记一笔时，没在组字的换行等于「记到」（草稿只有一行）；组字中照常把字母原样上屏（进草稿）。
     private func returnKey() {
         if composing, let engine {
-            output?.commit(engine.takeRaw())
+            sink.commit(engine.takeRaw())
             refresh()
+        } else if sink.isComposingNote {
+            confirmComposedNote()
         } else {
             engine?.notePassthrough("\n")
-            output?.commit("\n")
+            sink.commit("\n")
         }
     }
 
@@ -535,14 +616,14 @@ final class KeyboardModel {
     private func commitFirst() {
         guard composing, let engine else { return }
         let text = candidates.isEmpty ? engine.takeRaw() : (engine.commit(0) ?? engine.takeRaw())
-        output?.commit(text)
+        sink.commit(text)
         refresh()
     }
 
     private func refresh() {
         guard let engine else { return }
         let next = engine.preedit
-        if next != preedit { output?.setMarked(next) }
+        if next != preedit { sink.setMarked(next) }
         preedit = next
         candidates = engine.candidates
         if !composing, panel == .candidates { panel = .keys }

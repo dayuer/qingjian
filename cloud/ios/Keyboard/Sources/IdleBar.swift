@@ -1,6 +1,7 @@
 // 没在组字时的候选栏：私密输入框只亮一把锁；场景 / 对象卡面板打开时只留牌子与「完成」/「收起」；有别的设备刚复制的文字就提示它；
 // 否则左边是场景牌子与「✨ 润色」，右边是「记一笔」与「发到其他设备」。润色进行中整栏交给 RewriteBar。
-// 「记一笔」的确认条在提示行的位置（NoteBar），这一行的牌子照常在。
+// 「记一笔」的确认条与手写条在提示行的位置（NoteBar / NoteComposeBar），这一行的牌子照常在；
+// 手写时只留牌子：润色、插入剪贴板、发到其他设备都是对宿主的操作，此时不该出。
 
 import SwiftUI
 
@@ -16,6 +17,11 @@ struct IdleBar: View {
                     .frame(maxWidth: .infinity)
             } else if model.panel == .scope || model.panel == .contactCard {
                 panelBar
+            } else if model.composedNote != nil {
+                HStack(spacing: 0) {
+                    ScopeChip(model: model)
+                    Spacer()
+                }
             } else if let offer = model.clipOffer {
                 ClipOfferBar(model: model, offer: offer)
             } else if model.rewrite != .idle {
@@ -38,7 +44,7 @@ struct IdleBar: View {
                     .onKeyboardTap { model.startRewrite() }
             }
             Spacer()
-            if model.canNote, model.noteDraft == nil, !model.noteDone {
+            if model.canNote, model.noteDraft == nil, !model.noteDone, model.composedNote == nil {
                 Label("记一笔", systemImage: "square.and.pencil")
                     .font(.system(size: 15))
                     .padding(.horizontal, 10)
