@@ -18,4 +18,7 @@ pub struct RuleCounts {
 
     /// 微信号、QQ 号。
     pub account: u32,
+
+    /// 密码、口令、验证码等关键词后面的凭据串。
+    pub credential: u32,
 }

@@ -3,6 +3,7 @@
 pub mod account;
 pub mod address;
 pub mod bank_card;
+pub mod credential;
 pub mod email;
 mod hit;
 pub mod id_card;
