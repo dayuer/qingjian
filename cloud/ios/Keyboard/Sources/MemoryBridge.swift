@@ -7,13 +7,14 @@ extension Engine {
     /// 当前场景与对象；会话没有记忆目录时为 nil。
     var scope: MemoryScope? { MemoryFiles.decode(take(qj_scope_get(session))) }
 
-    func setScope(scene: String, contactId: String?) {
+    /// 切场景与对象：`.last` 回到这个场景上次选的人（桥记在 state.json 的 last 里），`.nobody` 明确不指定。
+    func setScope(scene: String, pick: ScopePick) {
         scene.withCString { s in
-            Self.withOptionalCString(contactId) { qj_scope_set(session, s, $0) }
+            Self.withOptionalCString(pick.argument) { qj_scope_set(session, s, $0) }
         }
     }
 
-    /// 提示行要显示的；私密输入、非恋爱场景、没选对象时为 nil。
+    /// 提示行要显示的；私密输入、工作场景、没选对象时为 nil。
     var memoryHint: MemoryHint? { MemoryFiles.decode(take(qj_memory_hint(session))) }
 
     /// 「知道了」：today 为真当天不再出，为假 10 分钟内不再出。
@@ -37,9 +38,9 @@ extension Engine {
         return MemoryFailure.decode(take(raw))
     }
 
-    /// 键盘里新建一个恋爱场景的对象，称呼先按 TA（App 里能改）；建好返回 id。
-    func addContact(name: String) -> Result<String, MemoryFailure> {
-        let raw = name.withCString { qj_memory_add_contact(session, $0, nil) }
+    /// 键盘里在 `scene` 新建一个对象，称呼先按 TA（App 里能改）；建好返回 id，这个场景满 8 个时失败（文案带场景名）。
+    func addContact(name: String, scene: String) -> Result<String, MemoryFailure> {
+        let raw = name.withCString { n in scene.withCString { qj_memory_add_contact(session, n, nil, $0) } }
         return ContactAdd.parse(take(raw))
     }
 }

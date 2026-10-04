@@ -180,9 +180,9 @@ final class MemoryStore {
         await update(contactId: id) { $0.cards[id]?.removeAll { $0.id == cardId } }
     }
 
-    /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前。
+    /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前；恋爱与日常的人都算，工作的人不提醒（MemoryScope.reminds）。
     func upcoming(within days: Int, now: Date = Date()) -> [MemoryUpcoming] {
-        people.filter(\.remindOn).flatMap { contact in
+        snapshot.contacts.filter { $0.remindOn && MemoryScope.reminds($0.scene) }.flatMap { contact in
             cards(of: contact.id).compactMap { card -> MemoryUpcoming? in
                 guard let away = card.daysAway(now: now), (0...days).contains(away) else { return nil }
                 return MemoryUpcoming(contact: contact, card: card, days: away)

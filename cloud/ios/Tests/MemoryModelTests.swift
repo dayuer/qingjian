@@ -113,7 +113,7 @@ final class MemoryModelTests: XCTestCase {
     func testNoteFailureDecodes() {
         let failure = MemoryFailure.decode(#"{"code":"io","message":"读不了"}"#)
         XCTAssertEqual(failure, MemoryFailure(code: .io, message: "读不了"))
-        XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"x"}"#)?.userMessage, "恋爱场景最多 8 个人")
+        XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"日常最多 8 个人"}"#)?.userMessage, "日常最多 8 个人")
         XCTAssertEqual(MemoryFailure.decode(#"{"code":"zzz","message":"m"}"#)?.code, .other)
         XCTAssertEqual(MemoryFailure.decode("not json")?.message, "not json")
     }

@@ -144,6 +144,19 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertTrue(store.upcoming(within: 6, now: MemoryDate.parse("2026-10-04")!).isEmpty, "日子提醒关了不列")
     }
 
+    func testUpcomingIncludesDailyButNotWork() async {
+        let store = MemoryStore(directory: { nil }, backend: FakeBridge(disk: nil).backend)
+        var snapshot = MemorySnapshot()
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: MemoryScope.daily)
+        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: MemoryScope.work)
+        snapshot.contacts = [mom, boss]
+        snapshot.cards[mom.id] = [MemoryCard.new(kind: .date, text: "生日", when: "1960-10-05", keywords: [])]
+        snapshot.cards[boss.id] = [MemoryCard.new(kind: .promise, text: "交方案", when: "2026-10-05", keywords: [])]
+        store.replace(with: snapshot)
+        let items = store.upcoming(within: 6, now: MemoryDate.parse("2026-10-04")!)
+        XCTAssertEqual(items.map(\.contact.name), ["妈妈"], "日常的人提醒，工作的人不提醒")
+    }
+
     // 三方合并
 
     func testMergeKeepsKeyboardNotesAndAppEdits() async {
@@ -233,14 +246,14 @@ final class MemoryStoreTests: XCTestCase {
     func testBridgeErrorsAreShownWithReason() async {
         let bridge = FakeBridge(disk: sampleSnapshot())
         bridge.writeResults = [
-            MemoryFailure.decode(#"{"code":"contact_limit","message":"x"}"#),
+            MemoryFailure.decode(#"{"code":"contact_limit","message":"恋爱最多 8 个人"}"#),
             MemoryFailure.decode(#"{"code":"io","message":"记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试"}"#),
             MemoryFailure.decode("不是 JSON"),
         ]
         let store = await store(bridge)
         let ok4 = await store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM), cards: [])
         XCTAssertFalse(ok4)
-        XCTAssertEqual(store.message, "没存上：恋爱场景最多 8 个人")
+        XCTAssertEqual(store.message, "没存上：恋爱最多 8 个人")
         let ok5 = await store.forget(contactId)
         XCTAssertFalse(ok5)
         XCTAssertEqual(store.message, "没存上：记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试")
@@ -292,7 +305,7 @@ final class MemoryStoreTests: XCTestCase {
 
     func testFailureCodesIncludeLockTimeout() async {
         XCTAssertEqual(MemoryFailure.decode(#"{"code":"lock_timeout","message":"x"}"#)?.code, .lockTimeout)
-        XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"x"}"#)?.userMessage, "恋爱场景最多 8 个人")
+        XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"恋爱最多 8 个人"}"#)?.userMessage, "恋爱最多 8 个人")
     }
 
     // 后台写与界面状态
