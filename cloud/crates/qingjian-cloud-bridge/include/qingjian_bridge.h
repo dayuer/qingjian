@@ -65,16 +65,18 @@ char *qj_settings_write(const char *config_path, const char *json);
 // 账号（主 App 用）：path 是 App Group 里的 cloud.toml；都是阻塞的网络请求，在后台线程调。令牌只在 cloud.toml 与桥之间流转。
 // status 返回 JSON（参数无效时为 NULL，没登录时不联网；取不到账号时带 error 文案与 error_code，没有错误时两者都省略）。
 // 其余成功返回 NULL，失败返回 JSON {"code":"…","message":"…"}：message 是给用户看的中文，code 取值
-// auth_failed / locked_today / unauthorized / not_configured / rate_limited / forbidden / unreachable /
+// auth_failed / locked_today / consent_required / unauthorized / not_configured / rate_limited / forbidden / unreachable /
 // invalid_argument / not_signed_in / other；status 的 error_code 取值相同。键盘下次弹出时按新的 cloud.toml 重连。
 char *qj_account_status(const char *path);
 // nonce 是原始值（交给 Apple 的是它的 SHA-256 十六进制）；device 是设备名，可为 NULL。
+// 三个登录函数的 cross_border_consented 是用户是否勾选了「同意把数据发到境外服务器」：false 时不联网，
+// 直接返回 code 为 consent_required 的失败；true 时桥在请求里带当前的同意文本版本。
 char *qj_account_sign_in_apple(const char *path, const char *identity_token,
                                const char *authorization_code, const char *nonce,
-                               const char *device);
-char *qj_account_email_start(const char *path, const char *email);
+                               const char *device, bool cross_border_consented);
+char *qj_account_email_start(const char *path, const char *email, bool cross_border_consented);
 char *qj_account_email_verify(const char *path, const char *email, const char *code,
-                              const char *device);
+                              const char *device, bool cross_border_consented);
 // feature：clipboard / sync / input_log / llm；成功后同时写回 cloud.toml 的开关。改 sync 时还会清本机学习数据与配置的同步进度。
 char *qj_account_set_consent(const char *path, const char *feature, bool enabled);
 char *qj_account_revoke_session(const char *path, int64_t session_id);

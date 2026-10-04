@@ -7,11 +7,13 @@ use qingjian_cloud_client::ClientError;
 use qingjian_cloud_proto::{Consents, Feature};
 
 use super::failure::{
-    Failure, LOCKED_TODAY, apple_message, code_of, email_start_message, email_verify_message,
-    message,
+    CONSENT_NEEDED, Failure, LOCKED_TODAY, OUTDATED_CONSENT, apple_message, code_of,
+    email_start_message, email_verify_message, message,
 };
 use super::reset::{reset_account_data, reset_after_sync_toggle, should_reset, sync_toggled};
-use super::{apply_server_consents, forget_account, store_login};
+use super::{
+    apply_server_consents, email_start, email_verify, forget_account, sign_in_apple, store_login,
+};
 use crate::cloud_config::CloudConfig;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -326,4 +328,44 @@ fn apple_auth_failed_message_is_unchanged_and_generic_handles_locked() {
         "Apple 登录没有通过验证，请重试"
     );
     assert_eq!(message(&ClientError::LockedToday("x".into())), LOCKED_TODAY);
+}
+
+#[test]
+fn server_consent_required_means_outdated_app_everywhere() {
+    let error = ClientError::ConsentRequired("x".into());
+    assert_eq!(code_of(&error), "consent_required");
+    assert_eq!(message(&error), OUTDATED_CONSENT);
+    assert_eq!(apple_message(&error), OUTDATED_CONSENT);
+    assert_eq!(email_start_message(&error), OUTDATED_CONSENT);
+    assert_eq!(email_verify_message(&error), OUTDATED_CONSENT);
+    assert!(OUTDATED_CONSENT.contains("更新到最新版本"));
+}
+
+/// 指向一个连不上的地址：没同意时必须在联网之前就返回，不能是 `unreachable`。
+fn offline_toml(name: &str) -> PathBuf {
+    let dir = temp_dir(name);
+    let path = dir.join("cloud.toml");
+    std::fs::write(&path, "server = \"http://127.0.0.1:1\"\n").unwrap();
+    path
+}
+
+#[test]
+fn without_consent_nothing_goes_over_the_network() {
+    let path = offline_toml("no-consent");
+    let expected = Failure::new("consent_required", CONSENT_NEEDED.to_owned());
+    assert_eq!(expected.message, "请先勾选同意，才能继续登录");
+    assert_eq!(email_start(&path, "a@b.c", false).unwrap_err(), expected);
+    assert_eq!(
+        email_verify(&path, "a@b.c", "123456", "iPhone", false).unwrap_err(),
+        expected
+    );
+    assert_eq!(
+        sign_in_apple(&path, "jwt", "code", "nonce", "iPhone", false).unwrap_err(),
+        expected
+    );
+    // 同意了才会去联网（这里连不上）
+    assert_eq!(
+        email_start(&path, "a@b.c", true).unwrap_err().code,
+        "unreachable"
+    );
 }
