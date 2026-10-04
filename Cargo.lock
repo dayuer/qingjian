@@ -2719,7 +2719,6 @@ dependencies = [
  "qingjian-cloud-proto",
  "serde",
  "toml",
- "toml_edit",
  "tracing",
 ]
 
