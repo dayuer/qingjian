@@ -1,4 +1,4 @@
-// 「我」Tab：启用键盘的步骤、键盘设置、账号与关于、试打框。
+// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置、账号与关于、试打框。
 
 import SwiftUI
 import UIKit
@@ -22,6 +22,20 @@ struct MeView: View {
                             UIApplication.shared.open(url)
                         }
                     }
+                }
+                // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
+                Section {
+                    Text(ScopeDisplay.needsFullAccessText)
+                    Text(ScopeDisplay.fullAccessPath)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("去开启") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                } header: {
+                    Text("记忆")
                 }
                 Section {
                     if store.available {
