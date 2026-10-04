@@ -7,6 +7,8 @@
 
 **Spec:** synon-ime `docs/superpowers/specs/2026-10-05-no-account-design.md`。**顺序：** 改名 → 本计划 → 2A Task 6 → 2B → 2C（2B 的同意页挂在本计划的开通流程上）。
 
+
+**状态（2026-10-04 收尾）：** Task 1 只做了 proto 部分（`sujian` 上 42d5e4c、51652de：空间与匹配码类型、两个临时事件、`joined_via`、`bad_code` / `device_limit`、`EventKind::Unknown` 兜底）；Task 1 的 client 方法与 Task 2–6 **未开始**。接着做时先补 `qingjian-cloud-client` 的建空间、出码、加入、列待处理、允许 / 拒绝、取令牌六个方法（对齐服务端 `feat/sujian-1b-no-account` 的实现），再做桥与界面；界面落地时去掉账号 / 登录 / 注册措辞。
 ## Task 1：proto 与 client（先做并推送，服务端依赖）
 proto 加 `CreateSpace`、`PairCode`、`PairJoin`、`PairJoinGrant`、`PairRequest`、`PairDecision`、`PairPoll`、事件 `pair_request` / `device_joined`、错误码 `not_bound` / `identity_taken` / `bad_code` / `device_limit` 与路径常量；client 加对应方法；匹配码规范化函数放 proto（两端共用）。测试：JSON 往返；规范化表驱动。
 

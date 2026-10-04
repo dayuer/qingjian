@@ -9,6 +9,8 @@
 
 **Spec:** synon-ime `docs/superpowers/specs/2026-10-04-memory-2c-design.md`。**前置：** 2A、2B 客户端完成。Task 1 先做并推送（服务端 2C 依赖）。
 
+
+**状态（2026-10-04 收尾）：** Task 1（proto 卡片类型）已在 `sujian` 完成；Task 2–6（含 5b）**未开始**。接着做时从 Task 2 起，先按本大纲用 writing-plans 展开、发审计会话审，再动手；Task 5b 的命中词与 contact last_used 依赖 2A 的 `HintIndex`（`cloud/crates/qingjian-cloud-bridge/src/memory/hint/`）。
 ---
 
 ## Task 1：proto 卡片类型
