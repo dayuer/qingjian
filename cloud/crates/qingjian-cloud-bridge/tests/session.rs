@@ -70,7 +70,7 @@ fn logs_only_when_connected() {
     let online = std::env::temp_dir().join(format!("qj-bridge-online-{}", std::process::id()));
     std::fs::create_dir_all(&online).unwrap();
     let cloud = toml::from_str::<qingjian_cloud_bridge::CloudConfig>(
-        "server = \"http://127.0.0.1:9\"\ntoken = \"t\"\n",
+        "server = \"http://127.0.0.1:9\"\ntoken = \"t\"\nlogs = true\n",
     )
     .unwrap();
     let mut session = Session::open(&data, Some(&online), None, Some(cloud)).unwrap();
