@@ -1,4 +1,4 @@
-//! 宿主前文进词级排序与整句首词（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md）。
+//! 宿主前文进词级排序（整句首词不用）（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md）。
 
 use qingjian_dictionary::Dictionary;
 
