@@ -1,6 +1,8 @@
 //! `PUT /v1/memory/cards/{card_id}` 的请求体：新建手动卡，或修改卡片；返回新卡。
 //! 只序列化设了的字段；PUT 一个不存在的 `card_id` 就是新建手动卡，`source` 由服务端定，
 //! 新建时缺 `kind` 或 `text` 由服务端校验后返回 400。
+//! 409 的响应体带 `code`：`card_deleted`（这张卡已被删，本地跟着删）与 `card_limit`（提示「卡片太多了，先清理一些」）；
+//! 每小时写入超限仍是 429。用户改了云端卡的文字，服务端会隐含把它设为 confirmed，客户端本地也要置 confirmed。
 
 use serde::{Deserialize, Serialize};
 

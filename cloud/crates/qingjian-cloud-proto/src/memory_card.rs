@@ -34,11 +34,11 @@ pub struct MemoryCard {
     #[serde(default)]
     pub faded: bool,
 
-    /// 墓碑：已删除，拉取时带上让各设备跟着删。
+    /// 墓碑：已删除，拉取时带上让各设备跟着删。墓碑永不物理删除，只清空内容，所以离线多久都能拉到删除。
     #[serde(default)]
     pub deleted: bool,
 
-    /// 服务端的全局递增序号，拉取靠它补；缺省 0。
+    /// 本用户记忆卡的变更序号（每个用户单独递增，不是全局）；拉取靠它补；缺省 0。
     #[serde(default)]
     pub seq: i64,
 
