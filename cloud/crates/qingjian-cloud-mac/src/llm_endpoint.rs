@@ -1,4 +1,4 @@
-//! 给输入法云联想用的大模型代理端点：青简 Cloud 服务器的 OpenAI 兼容接口与这台设备的令牌。
+//! 给输入法云联想用的大模型代理端点：素笺云服务器的 OpenAI 兼容接口与这台设备的令牌。
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LlmEndpoint {

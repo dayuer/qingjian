@@ -1,4 +1,4 @@
-//! 「云服务」页：本地整句模型开关；云联想开关、云端词格数、走青简 Cloud 还是自定义接口（后者才有地址 / 模型 / 密钥）、测试连接。
+//! 「云服务」页：本地整句模型开关；云联想开关、云端词格数、走素笺云还是自定义接口（后者才有地址 / 模型 / 密钥）、测试连接。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
@@ -28,10 +28,10 @@ pub struct CloudPage {
     /// 云端词槽位数（0–4）。
     slots: Retained<NSPopUpButton>,
 
-    /// 青简 Cloud / 自定义接口。
+    /// 素笺云/ 自定义接口。
     provider: Retained<NSPopUpButton>,
 
-    /// 自定义接口才有的几行：地址、模型、密钥各自的标题与输入框，加下面的说明；走青简 Cloud 时整段藏起来。
+    /// 自定义接口才有的几行：地址、模型、密钥各自的标题与输入框，加下面的说明；走素笺云时整段藏起来。
     custom: CustomRows,
 
     /// 「测试连接」按钮。
@@ -90,14 +90,14 @@ impl CloudPage {
             layout,
             mtm,
             "服务",
-            &["青简 Cloud".to_owned(), "自定义接口".to_owned()],
+            &["素笺云".to_owned(), "自定义接口".to_owned()],
             Setting::CloudProvider,
             target,
         );
         note(
             layout,
             mtm,
-            "青简 Cloud 用菜单栏「中☁ → 青简 Cloud ›」里的登录账号：先登录并打开「大模型（云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
+            "素笺云服务用菜单栏「中☁ → 素笺云 ›」里的登录账号：先登录并打开「大模型（云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
         );
         let base_url = text_field(mtm, Setting::BaseUrl, target);
         let base_url_caption = row_control(layout, mtm, "接口地址", &base_url);

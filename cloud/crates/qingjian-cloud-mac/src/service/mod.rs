@@ -34,7 +34,7 @@ const TICK: f64 = 0.5;
 /// 每隔这么多拍看一次当前输入法（2 秒）。
 const INPUT_SOURCE_EVERY: u32 = 4;
 
-/// 连续这么久不是青简才暂停同步：密码框里系统会临时切到英文键盘，不能一进密码框就停。
+/// 连续这么久不是素笺才暂停同步：密码框里系统会临时切到英文键盘，不能一进密码框就停。
 const OTHER_INPUT_GRACE: Duration = Duration::from_secs(30);
 
 /// 刚上传过或刚收到的同一段文字，这么久之内不再上传：和苹果通用剪贴板之间的最后一道防回灌。
@@ -83,7 +83,7 @@ pub fn start(mtm: MainThreadMarker) {
     build(FIRST_RESTART);
 }
 
-/// 「青简 Cloud ›」子菜单的内容；没启动或出错停了时为空（输入法据此收起子菜单）。
+/// 「素笺云 ›」子菜单的内容；没启动或出错停了时为空（输入法据此收起子菜单）。
 pub fn menu_lines() -> Vec<Line> {
     with(|service| service.lines.clone()).unwrap_or_default()
 }
@@ -93,7 +93,7 @@ pub fn menu_revision() -> u64 {
     with(|service| service.revision).unwrap_or(0)
 }
 
-/// 云联想选青简 Cloud 时用的大模型代理端点；没登录、没开大模型（或服务没起来）为 `None`。
+/// 云联想选素笺云时用的大模型代理端点；没登录、没开大模型（或服务没起来）为 `None`。
 pub fn llm_endpoint() -> Option<LlmEndpoint> {
     with(|service| service.endpoint.clone()).flatten()
 }
@@ -106,7 +106,7 @@ pub fn perform(tag: isize) {
 pub(crate) fn tick() {
     if let Some((at, waited)) = RESTART.with(Cell::get) {
         if Instant::now() >= at {
-            tracing::info!("青简 Cloud 重启");
+            tracing::info!("素笺云重启");
             build((waited * 2).min(MAX_RESTART));
         }
         return;
@@ -124,7 +124,7 @@ fn build(next_wait: Duration) {
         Ok(service) => {
             SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
             RESTART.with(|cell| cell.set(None));
-            tracing::info!("青简 Cloud 已启动");
+            tracing::info!("素笺云已启动");
         }
         Err(_) => schedule_restart(next_wait),
     }
@@ -133,7 +133,7 @@ fn build(next_wait: Duration) {
 fn schedule_restart(wait: Duration) {
     tracing::error!(
         wait_secs = wait.as_secs(),
-        "青简 Cloud 出错，已停止同步，稍后自动重启（见上面的日志）"
+        "素笺云出错，已停止同步，稍后自动重启（见上面的日志）"
     );
     RESTART.with(|cell| cell.set(Some((Instant::now() + wait, wait))));
 }
@@ -169,7 +169,7 @@ struct Service {
     /// 学习数据、设置与输入日志的同步；没登录、两项都没开或暂停时为 `None`。
     data: Option<DataSync>,
 
-    /// 大模型代理的地址与令牌，输入法的云联想选青简 Cloud 时用；没登录或没开大模型为 `None`。
+    /// 大模型代理的地址与令牌，输入法的云联想选素笺云时用；没登录或没开大模型为 `None`。
     endpoint: Option<LlmEndpoint>,
 
     /// 读到的配置；读不了时为 `None`（原因在 `unconfigured`）。
@@ -181,7 +181,7 @@ struct Service {
     /// 用户在菜单里点了「暂停同步」。
     paused: bool,
 
-    /// 当前输入法不是青简已超过 [`OTHER_INPUT_GRACE`]，同步线程都停了。
+    /// 当前输入法不是素笺已超过 [`OTHER_INPUT_GRACE`]，同步线程都停了。
     suspended: bool,
 
     watcher: ClipboardWatcher,
@@ -203,7 +203,7 @@ struct Service {
     /// 最近一次上传或收到的文字的哈希与时间，防回灌用。
     last_synced: Option<(u64, Instant)>,
 
-    /// 从什么时候起当前输入法不是青简。
+    /// 从什么时候起当前输入法不是素笺。
     other_input_since: Option<Instant>,
 
     /// 开着的网页登录窗口；丢掉即取消登录、关窗。
@@ -266,7 +266,7 @@ impl Service {
         let config = match AgentConfig::load(&config_path) {
             Ok(config) => config,
             Err(reason) => {
-                tracing::info!(%reason, "青简 Cloud 配置读不了");
+                tracing::info!(%reason, "素笺云配置读不了");
                 self.unconfigured = Some(reason);
                 return;
             }
@@ -319,7 +319,7 @@ impl Service {
     /// 上传本机新复制的、写入别的设备刚复制的、刷新菜单行。
     fn tick(&mut self) {
         self.ticks = self.ticks.wrapping_add(1);
-        // 登录窗的回调、换令牌的结果不能等到切回青简
+        // 登录窗的回调、换令牌的结果不能等到切回素笺
         self.apply_account_events();
         if self.ticks.is_multiple_of(INPUT_SOURCE_EVERY) {
             self.follow_input_source();
@@ -372,13 +372,13 @@ impl Service {
         self.refresh_menu(changed);
     }
 
-    /// 只在用青简时同步：切走超过 [`OTHER_INPUT_GRACE`] 就停掉同步线程，切回来按配置重新起。
+    /// 只在用素笺时同步：切走超过 [`OTHER_INPUT_GRACE`] 就停掉同步线程，切回来按配置重新起。
     fn follow_input_source(&mut self) {
         match input_source::qingjian_selected() {
             Some(false) => {
                 let since = *self.other_input_since.get_or_insert_with(Instant::now);
                 if !self.suspended && since.elapsed() >= OTHER_INPUT_GRACE {
-                    tracing::info!("切到了别的输入法，青简 Cloud 暂停同步");
+                    tracing::info!("切到了别的输入法，素笺云暂停同步");
                     self.suspended = true;
                     self.sync = None;
                     self.data = None;
@@ -387,7 +387,7 @@ impl Service {
             Some(true) => {
                 self.other_input_since = None;
                 if self.suspended {
-                    tracing::info!("切回青简，青简 Cloud 恢复同步");
+                    tracing::info!("切回素笺，素笺云恢复同步");
                     self.suspended = false;
                     // 暂停期间的复制不补传：从当前剪贴板重新开始看
                     self.watcher = ClipboardWatcher::new();

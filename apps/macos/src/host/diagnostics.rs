@@ -8,7 +8,7 @@ impl Host {
         use std::fmt::Write as _;
 
         let mut out = String::new();
-        let _ = writeln!(out, "青简 {} ({})", self.version, self.build);
+        let _ = writeln!(out, "素笺 {} ({})", self.version, self.build);
         let os = NSProcessInfo::processInfo().operatingSystemVersionString();
         let _ = writeln!(out, "macOS {os} · {}", std::env::consts::ARCH);
         let _ = writeln!(out, "主词库：{} 条", self.engine.dictionary().len());
@@ -122,7 +122,7 @@ impl Host {
         }
     }
 
-    /// 分叉补丁：青简 Cloud 换账号时已经把日志文件截断了，这里再丢掉写入端缓冲里旧账号的输入并重开。
+    /// 分叉补丁：素笺云换账号时已经把日志文件截断了，这里再丢掉写入端缓冲里旧账号的输入并重开。
     pub(super) fn reset_input_log_after_account_switch(&mut self) {
         if let Err(error) = self.truncate_and_reopen_input_log() {
             tracing::warn!(%error, "换账号后输入日志清空失败");

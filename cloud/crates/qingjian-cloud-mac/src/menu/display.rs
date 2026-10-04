@@ -1,4 +1,4 @@
-//! 「青简 Cloud ›」子菜单第一行显示的状态。
+//! 「素笺云 ›」子菜单第一行显示的状态。
 
 use qingjian_cloud_client::Status;
 

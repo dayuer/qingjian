@@ -1,5 +1,5 @@
 //! 菜单内容：连接状态、账号（登录 / 四个开关 / 退出登录）、学习数据状态、最近的剪贴板（点一条复制到本机）、暂停与几个操作。
-//! 只算出行列表，由输入法画成「中☁ → 青简 Cloud ›」子菜单（输入法只认文字行与可点项，开关画成「名字：开 / 关」）。
+//! 只算出行列表，由输入法画成「中☁ → 素笺云 ›」子菜单（输入法只认文字行与可点项，开关画成「名字：开 / 关」）。
 //! tag 区分动作：非负数是历史条目的下标，负数是固定动作（输入法转发 -100..100 的 tag）。
 
 mod account_menu;
@@ -158,7 +158,7 @@ fn data_line(data: &DataStatus, consents: Consents) -> Option<String> {
     } else if let Some(error) = &data.error {
         format!("学习数据：同步失败，稍后重试（{}）", short(error))
     } else if data.waiting_for_ime {
-        "学习数据：等输入法合并（切到青简打几个字）".to_owned()
+        "学习数据：等输入法合并（切到素笺打几个字）".to_owned()
     } else if let Some(ms) = data.last_ok_ms {
         format!("学习数据：{}同步", ago(ms))
     } else {

@@ -32,7 +32,7 @@ pub enum Setting {
     /// `[general] theme`，弹出菜单。
     Theme,
 
-    /// `[general] renderer`，弹出菜单：青简渲染器 / 系统绘制。
+    /// `[general] renderer`，弹出菜单：素笺渲染器 / 系统绘制。
     Renderer,
 
     /// `[general] font`，字体列表选中的字族名；「系统默认」为系统字体。
@@ -53,7 +53,7 @@ pub enum Setting {
     /// `[predict] enabled`。
     CloudEnabled,
 
-    /// 云联想走青简 Cloud 还是自定义接口。
+    /// 云联想走素笺云还是自定义接口。
     CloudProvider,
 
     /// `[model] enabled`。

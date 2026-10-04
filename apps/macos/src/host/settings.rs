@@ -81,7 +81,7 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => self.open_update(),
-            // 重新加载了 Cloud 配置的话，走青简 Cloud 的云联想要换端点
+            // 重新加载了 Cloud 配置的话，走素笺云的云联想要换端点
             MenuAction::CloudAgent(tag) => {
                 qingjian_cloud_mac::perform(tag);
                 self.apply_config(false);
