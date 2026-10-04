@@ -30,6 +30,7 @@ struct SetupView: View {
                     } else {
                         Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
                     }
+                    NavigationLink("关于") { AboutView() }
                 } header: {
                     Text("设置")
                 } footer: {
