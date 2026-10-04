@@ -932,7 +932,7 @@ impl MemoryStore {
 - JSON 用 serde，字段名与 spec 一致；`id` 由 `getrandom` 生成 16 字节十六进制。
 - 原子写（同目录临时文件 + `rename`，临时名带 pid 与序号，复用 `cloud_config.rs` 的写法与进程内写锁）。
 - 坏文件：解析失败时改名 `<文件>.broken-<unix秒>`，返回空并记 `tracing::warn!`。
-- iOS 数据保护在 Swift 侧给目录设 `.complete`（Task 6），Rust 不管。
+- iOS 数据保护在 Swift 侧给目录设 `.completeUntilFirstUserAuthentication`（Task 6），Rust 不管：桥建的子目录与原子写的临时文件继承所在目录的保护级别。
 
 测试：往返；8 个上限（恋爱第 9 个报 `ContactLimit`，日常不计）；`forget_contact` 后目录不存在；坏 JSON 被改名且返回空；并发 put（两个线程各写 50 次）后文件可解析。
 
@@ -7891,7 +7891,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 - `ContactEditor`（05 的 2g）：名字或代号、称呼四选一（缺省 TA）、可选的已知的事（生日、喜欢 / 不喜欢、再写一条）。
 - `ContactSettingsView`（02 的 1d）：名字、称呼、打字时提示开关、日子提醒开关、导出为文本（分享面板）、忘掉这个人（二次确认，文案「{名字}的所有记忆会从这台手机上删除，无法恢复」）。
 - `WeekView`：7 天内的日子与约定，按日期排。
-- `MemoryStore.swift` 经 `qj_memory_read` / `qj_memory_write` 读写；写失败按 `code` 提示（`contact_limit`→「恋爱场景最多 8 个人」）。目录设 `FileProtectionType.complete`。
+- `MemoryStore.swift` 经 `qj_memory_read` / `qj_memory_write` 读写；写失败按 `code` 提示（`contact_limit`→「恋爱场景最多 8 个人」）。目录设 `FileProtectionType.completeUntilFirstUserAuthentication`（开机后第一次解锁前读不了；用 `complete` 的话锁屏时键盘读不到卡片，锁屏通知里直接回复时提示行会失效）。
 - 品牌：App 显示名「素笺」，图标用 `brand-sujian/icon/ios-1024-*.png`（亮、暗、着色三套进 Asset Catalog）。
 
 测试（`MemoryStoreTests`）：JSON 解码往返；`contact_limit` 映射；称呼文案四种。验收：模拟器截图对照 02 的 1a–1d、05 的 2g、2i。
@@ -7907,7 +7907,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 7. **审计修订（阻断项的 App 一侧、建议）：**
    - **写回冲突：** `MemoryStore.update` 遇到 `conflict` 就重读，用新文件 `App/Memory/MemoryMerge.swift` 三方合并（base = 改之前读的快照，local = 改完的，remote = 重读的）后再写，最多三轮；合并以 id 为键：local 新加的加、local 删掉的删、local 改过的用 local 的，其余照 remote（键盘新记的卡就这样留下）；同一张卡两边都改了 `touchedAt` 新的赢；对象两边都改了用 local；修订号用 remote 的。写成功后重读一遍拿新的修订号。
    - **回到前台重读：** `SetupView` 观察 `scenePhase`，变成 `.active` 时 `memory.reload()`。
-   - **数据保护：** `protect()` 第一次（目录还不是 `.complete`）对整个 `memory/` 递归设一遍，之后新建的文件继承目录属性。
+   - **数据保护：** `protect()` 第一次（目录还不是 `.completeUntilFirstUserAuthentication`）对整个 `memory/` 递归设一遍，之后新建的文件继承目录属性。
    - 截图验收补 02 的 1a（首页）与写回冲突、按人关提示两项。
    - **手写卡上限（卡片契约）：** `CardEditor` 文字超过 200 字截掉、下面显示「137 / 200」；关键词改成一个一个加（每个 2–8 字），满 8 个「添加」不可点、标题显示「关键词 n / 8」；`ContactEditor` 生成的卡也截到 200 字。纯函数在 `MemoryLimits`（Task 5），单测 `testCardLimitsCountUnicodeScalars`；`MemoryCard` 带 `faded` / `seq` / `updatedAt` 往返不丢（`testCardKeepsCloudFieldsOnRoundTrip`）。
 
@@ -8123,7 +8123,7 @@ Create `cloud/ios/App/Memory/MemoryStore.swift`：
 ```swift
 // 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/（qj_memory_read / qj_memory_write），改一处写一次。
 // 校验（恋爱场景最多 8 个人、日期格式）在桥里，写失败按 code 提示；conflict（键盘这期间「记一笔」改过）时重读、
-// 用 MemoryMerge 把这次的改动合并上去再写，最多三轮。App 回到前台时重读（SetupView）。目录设数据保护 complete：锁屏时谁都读不了。
+// 用 MemoryMerge 把这次的改动合并上去再写，最多三轮。App 回到前台时重读（SetupView）。目录设数据保护 completeUntilFirstUserAuthentication：开机后第一次解锁前谁都读不了，锁屏通知里回复时键盘照常能读。
 
 import Foundation
 import Observation
@@ -8285,17 +8285,17 @@ final class MemoryStore {
         return lines.joined(separator: "\n")
     }
 
-    /// 记忆目录：锁屏时谁都读不了（键盘只在解锁时用）。第一次（目录还不是这一档时）把整个目录树递归设一遍，
+    /// 记忆目录：开机后第一次解锁前谁都读不了（不用 complete：锁屏通知里回复时键盘要读卡片）。第一次（目录还不是这一档时）把整个目录树递归设一遍，
     /// 之后新建的文件继承目录的属性，不用每次设。
     private static func protect(_ directory: URL) {
         let manager = FileManager.default
         try? manager.createDirectory(at: directory, withIntermediateDirectories: true)
         let current = (try? manager.attributesOfItem(atPath: directory.path))?[.protectionKey] as? FileProtectionType
-        guard current != .complete else { return }
+        guard current != .completeUntilFirstUserAuthentication else { return }
         let items = manager.enumerator(at: directory, includingPropertiesForKeys: nil)?
             .compactMap { $0 as? URL } ?? []
         for url in [directory] + items {
-            try? manager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
+            try? manager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: url.path)
         }
     }
 }
@@ -9052,7 +9052,7 @@ git commit -m "feat(cloud): iOS App 加「键盘记住的事」，显示名改�
 首页分三个 Tab：记住的（今天的提醒、恋爱场景的人 n / 8、加一个人、云端记忆说明）、本周（7 天内的日子与约定）、我（原来的设置与账号）。
 对象详情按日子 / 约定 / 喜好 / 近况 / 其他分组，卡片与对象的增删改经 qj_memory_write 整份写回，上限与日期由桥校验，失败按 code 提示。
 写回返回 conflict（键盘这期间记过一笔）时重读、以 id 为键三方合并后再写；App 回到前台时重读。提示开关按人设置。
-记忆目录第一次递归设 FileProtectionType.complete；键盘与 App 都叫素笺，图标换成素笺定稿（亮、暗、着色）。
+记忆目录第一次递归设 FileProtectionType.completeUntilFirstUserAuthentication；键盘与 App 都叫素笺，图标换成素笺定稿（亮、暗、着色）。
 
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 ```
@@ -9297,7 +9297,7 @@ Modify `cloud/docs/design.md`：在第 262 行 `## 分期` 之前插入下面这
   对象 id 是 16 字节随机数的十六进制，名字只在 `contacts.json`。
 - **两个进程的读写**：App 与键盘的每个操作（读也算）都在 `memory/.lock` 的 flock 里做（`File::try_lock` 加重试；App 等 2 秒、键盘只等 200 毫秒，键盘拿不到锁就把这次写入放进内存待办、下次 refresh 重试，见 Task 4）；写走同目录临时文件加改名，不建父目录（对象目录只在建对象时创建，忘掉的人不会被写卡片重新建出来）。
   `cards.json` 每写一次修订号加一；App 整份写回时带着读时的修订号，磁盘上更新（键盘这期间记过一笔）就整份不写、返回 `conflict`，App 重读、以 id 为键三方合并后再写；只重写有变化的对象。
-  解析不了的文件改名 `.broken-<秒>` 后按空处理；读不了的（锁屏时数据保护）不改名，读-改-写直接报错，键盘内存里的名单与卡片保留原来的。iOS 上 `memory/` 第一次递归设数据保护 `complete`。
+  解析不了的文件改名 `.broken-<秒>` 后按空处理；读不了的（锁屏时数据保护）不改名，读-改-写直接报错，键盘内存里的名单与卡片保留原来的。iOS 上 `memory/` 第一次递归设数据保护 `completeUntilFirstUserAuthentication`（不用 `complete`：锁屏通知里回复时键盘要读卡片）。
   键盘切场景、「记一笔」都在锁里按磁盘上的 `state` 与名单读-改-写；App 改了按修改时间重载，App 回到前台时也重读。
 - **分区学习（`ScopedLearner`）**：恋爱场景读「全局 + k×场景 + k×对象」、写只进场景与对象层；日常与工作只用全局。用户词、个人 n-gram、英文词表返回引用没法叠加，一律读全局，
   恋爱场景里新造的词、个人英文词会进全局（排序仍由叠加的计数管住）；**恋爱场景不记词序列转移**（个人 n-gram），暧昧的话不会在工作场景的整句里冒出来，代价是恋爱场景的句子不帮整句学习。
@@ -9334,7 +9334,7 @@ Modify `cloud/ios/README.md`：在 `## 已知问题` 之前插入：
 ## 本地记忆
 
 主 App 首页是「键盘记住的事」：恋爱场景最多 8 个人，每个人一组记忆卡（日子 / 约定 / 喜好 / 近况 / 其他），「本周」列出 7 天内的日子与约定，「我」里是原来的键盘设置与账号。
-数据在 App Group 的 `Qingjian/memory/`，经桥的 `qj_memory_read/write` 整份读写，目录设数据保护 `complete`；不登录、不联网。
+数据在 App Group 的 `Qingjian/memory/`，经桥的 `qj_memory_read/write` 整份读写，目录设数据保护 `completeUntilFirstUserAuthentication`；不登录、不联网。
 
 键盘：候选栏左侧的牌子是当前场景（恋爱时是对象名），点开在键区换成场景 / 对象选择——iOS 拿不到宿主应用，**对象只能自己切**。
 恋爱场景选了对象后，候选栏上方一直有一行提示行（键盘因此高一行，提示出现消失时高度不变）：打字碰上卡片里的词、日子或约定快到时显示在这里，「展开」看对象卡，「知道了」当天不再提醒；
