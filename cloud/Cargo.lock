@@ -1461,6 +1461,7 @@ dependencies = [
 name = "qingjian-cloud-bridge"
 version = "0.1.0-dev"
 dependencies = [
+ "getrandom 0.4.3",
  "qingjian-cloud-client",
  "qingjian-cloud-proto",
  "qingjian-core",
