@@ -1,7 +1,10 @@
 //! 宿主前文进词级排序（整句首词不用）（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md）。
 
+use std::collections::HashMap;
+
 use qingjian_dictionary::Dictionary;
 
+use super::CountingLearner;
 use crate::candidate::CandidateKind;
 use crate::engine::Engine;
 use crate::engine::query::left_context::{LeftContext, left_context_of};
@@ -139,4 +142,34 @@ fn the_sentence_first_word_ignores_the_context() {
     assert_eq!(sentence_of(&mut engine), "邮箱发送");
     engine.history_mut().record("汽车");
     assert_eq!(sentence_of(&mut engine), "邮箱发送");
+}
+
+fn learning_engine() -> Engine {
+    context_engine().with_learner(Box::new(CountingLearner(HashMap::new())))
+}
+
+#[test]
+fn a_single_past_choice_yields_to_strong_context() {
+    let mut engine = learning_engine();
+    engine.learner_mut().record_choice("youxiang", "邮箱");
+    engine.history_mut().record("汽车");
+    // 选过一次 邮箱，但 汽车 后面 油箱 领先 7 nat
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
+}
+
+#[test]
+fn a_single_past_choice_still_wins_under_weak_context() {
+    let mut engine = learning_engine();
+    engine.learner_mut().record_choice("youxiang", "油箱");
+    // 句首 邮箱 只领先 0.4 nat，小于 β·ln2：选过一次的 油箱 第一
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
+}
+
+#[test]
+fn many_past_choices_still_beat_weak_context() {
+    let mut engine = learning_engine();
+    for _ in 0..5 {
+        engine.learner_mut().record_choice("youxiang", "油箱");
+    }
+    assert_eq!(first(&mut engine, "youxiang"), "油箱");
 }

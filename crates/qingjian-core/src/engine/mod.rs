@@ -153,6 +153,9 @@ pub struct Engine {
     /// 重打分给模型看的前文长度（本会话最近上屏的字符数），0 为不给前文。
     neural_context: usize,
 
+    /// 同一输入串下选过的加分系数 β（[`crate::ranking::CHOICE_BONUS`]）；只有回放调参会改。
+    choice_bonus: f64,
+
     /// 个人 n-gram 与静态模型插值的参数；只有回放调参会改（`set_interpolation`），壳用缺省值。
     interpolation: Interpolation,
 
@@ -430,6 +433,7 @@ impl Engine {
             interpolation: Interpolation::DEFAULT,
             typo_costs: TypoCosts::DEFAULT,
             neural_context: RESCORE_CONTEXT_CHARS,
+            choice_bonus: crate::ranking::CHOICE_BONUS,
             correction_cache: std::cell::RefCell::new(None),
             span_cache: std::cell::RefCell::new(sentence::SpanCache::default()),
             recent_commits: Vec::new(),

@@ -43,7 +43,7 @@ impl Engine {
         // 同一段编码下选过的词优先，再按上下文得分（上一个上屏的词）；词频只在模型不认识时兜底
         let start = Instant::now();
         let letters = choice_key(keys, keys.len());
-        ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
+        ranking::rank_choice_first(&mut scored, MAX_CANDIDATES, |item| {
             let choice = letters
                 .get(..item.coverage)
                 .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
