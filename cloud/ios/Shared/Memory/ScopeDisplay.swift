@@ -17,6 +17,9 @@ enum ScopeDisplay {
     /// 没开完全访问时素笺就是普通输入法：牌子只剩场景名、整块中性色（点开是说明），不出人名与灰绿。
     static func chipShowsPerson(fullAccess: Bool) -> Bool { fullAccess }
 
+    /// App「我」页的常驻说明：App 读不到键盘拿没拿到完全访问，所以用不分状态的中性写法，开了的人看着也不误会。
+    static let fullAccessExplanation = "记忆要开完全访问：开了也不联网，卡片只在这台手机上。"
+
     static func chipUsesAccent(scene: String, fullAccess: Bool) -> Bool {
         fullAccess && MemoryScope.usesAccent(scene)
     }
