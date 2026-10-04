@@ -64,4 +64,21 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(TabBarStyle.selected, UIColor.label)
         XCTAssertEqual(TabBarStyle.normal, UIColor.tertiaryLabel)
     }
+
+    /// 没开完全访问时牌子只剩场景名、整块中性色；开了照常（恋爱、日常灰绿，工作中性）。
+    func testChipWithoutFullAccessIsSceneOnlyAndNeutral() {
+        XCTAssertFalse(ScopeDisplay.chipShowsPerson(fullAccess: false))
+        XCTAssertTrue(ScopeDisplay.chipShowsPerson(fullAccess: true))
+        for scene in [MemoryScope.dating, MemoryScope.daily, MemoryScope.work] {
+            XCTAssertFalse(ScopeDisplay.chipUsesAccent(scene: scene, fullAccess: false), scene)
+        }
+        XCTAssertTrue(ScopeDisplay.chipUsesAccent(scene: MemoryScope.dating, fullAccess: true))
+        XCTAssertTrue(ScopeDisplay.chipUsesAccent(scene: MemoryScope.daily, fullAccess: true))
+        XCTAssertFalse(ScopeDisplay.chipUsesAccent(scene: MemoryScope.work, fullAccess: true))
+    }
+
+    /// 界面里不出现账号：「我」页的账号入口藏着，T9 换成开通流程。
+    func testAccountEntryIsHidden() {
+        XCTAssertFalse(MeView.showsAccountEntry)
+    }
 }
