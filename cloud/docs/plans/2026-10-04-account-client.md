@@ -21,6 +21,21 @@
 
 ---
 
+## 审查补充（Task 2 代码审查发现，Task 3、5 的执行者必须一并处理）
+
+1. **关掉「同步」后再打开，本机基线要重置。** 服务端关闭 `sync` 会删掉这个用户云端的学习数据与配置；本机的学习数据基线与配置版本号还认为「已经在服务端」，
+   之后重新打开只会推增量，被删掉的部分补不回去，配置还会走 409 冲突。所以**每次 `put_consent(Feature::Sync, …)` 成功之后**（无论开还是关），
+   壳都要清掉本机学习数据与配置的同步进度：先停掉 `DataSync`，再删 `state_dir` 里 `LearningSync` / `ConfigSync` 的状态文件（实现时读
+   `learning/`、`config_sync/` 里它们 `open` 时读写的文件名，不要整目录删，剪贴板进度与输入日志进度不属于这两项）。
+   iOS 在桥的 `set_consent` 里做（Task 3），Mac 在 `AccountEvent::Consents` 与 `Forbidden` 的处理里做（Task 5）。给这个清理函数写单测（临时目录里放假状态文件，调用后消失、别的文件还在）。
+2. **剪贴板在服务器上关了之后不再积压明文。** Task 2 修订让 uploader 收到 403 时清空离线队列，`Status::Disabled` 期间 `copy()` 不入队。
+   Task 3、5 里「403 时本机开关记成关并扔掉剪贴板离线队列」的那段只需沿用，不要再自己实现一遍清队列；Task 5 里 `forget_clipboard_queue_if_off` 若与它重复就删掉。
+3. **Mac 菜单文案**：`Status::Unauthorized` 现在的文案「令牌无效：在服务器上重新登记设备」已过时，Task 5 重写菜单时改成「登录已失效，请重新登录」；
+   `data_line` 要认 `DataStatus.unauthorized`（显示「登录已失效」）与 `DataStatus.disabled`（对应开关显示为关，所有项都停了就不要显示「刚刚同步」）。
+4. **`DataSync` 的 `disabled` 只增不减**：本实例内不会自动恢复，重新打开必须重建 `DataSync`；登录换 token 同样要重建。Mac 与 iOS 的重建时机已在 Task 3、5 的设计里，实现时别漏。
+
+---
+
 ## 文件结构
 
 ```
