@@ -1,0 +1,188 @@
+//! 账号相关的 JSON 形状：服务端（synon-ime）与各客户端按这里的字段名对接。
+
+use qingjian_cloud_proto::{
+    Account, AppleClient, AppleSignIn, Consents, Device, EmailVerify, Feature, HandoffExchange,
+    HandoffGrant, IdentityInfo, Platform, PutConsent, SessionGrant, SessionInfo, TOKEN_PREFIX,
+};
+use serde_json::json;
+
+fn iphone() -> Device {
+    Device {
+        name: "iPhone".to_owned(),
+        platform: Platform::Ios,
+    }
+}
+
+#[test]
+fn feature_is_snake_case_and_parses_back() {
+    assert_eq!(
+        serde_json::to_value(Feature::InputLog).unwrap(),
+        json!("input_log")
+    );
+    assert_eq!(
+        serde_json::to_value(Feature::Clipboard).unwrap(),
+        json!("clipboard")
+    );
+    for feature in Feature::ALL {
+        assert_eq!(Feature::parse(feature.as_str()), Some(feature));
+        assert_eq!(
+            serde_json::to_value(feature).unwrap(),
+            json!(feature.as_str())
+        );
+    }
+    assert_eq!(Feature::parse("inputlog"), None);
+}
+
+#[test]
+fn platform_and_client_are_lowercase() {
+    assert_eq!(
+        serde_json::to_value(Platform::Macos).unwrap(),
+        json!("macos")
+    );
+    assert_eq!(serde_json::to_value(Platform::Web).unwrap(), json!("web"));
+    assert_eq!(
+        serde_json::to_value(AppleClient::Ios).unwrap(),
+        json!("ios")
+    );
+    assert_eq!(
+        serde_json::from_value::<Platform>(json!("ios")).unwrap(),
+        Platform::Ios
+    );
+}
+
+#[test]
+fn apple_sign_in_without_challenge_omits_it() {
+    let request = AppleSignIn {
+        identity_token: "jwt".to_owned(),
+        authorization_code: "code".to_owned(),
+        nonce: "raw".to_owned(),
+        client: AppleClient::Ios,
+        device: iphone(),
+        challenge: None,
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(
+        value,
+        json!({
+            "identity_token": "jwt", "authorization_code": "code", "nonce": "raw",
+            "client": "ios", "device": { "name": "iPhone", "platform": "ios" }
+        })
+    );
+    assert_eq!(
+        serde_json::from_value::<AppleSignIn>(value).unwrap(),
+        request
+    );
+}
+
+#[test]
+fn email_verify_with_challenge_round_trips() {
+    let request = EmailVerify {
+        email: "a@b.c".to_owned(),
+        code: "123456".to_owned(),
+        device: Device {
+            name: "web".to_owned(),
+            platform: Platform::Web,
+        },
+        challenge: Some("S256".to_owned()),
+    };
+    let value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["challenge"], json!("S256"));
+    assert_eq!(
+        serde_json::from_value::<EmailVerify>(value).unwrap(),
+        request
+    );
+    let without: EmailVerify = serde_json::from_value(json!({
+        "email": "a@b.c", "code": "1", "device": { "name": "n", "platform": "macos" }
+    }))
+    .unwrap();
+    assert_eq!(without.challenge, None);
+}
+
+#[test]
+fn grants_and_handoff_round_trip() {
+    let grant = SessionGrant {
+        token: format!("{TOKEN_PREFIX}abc"),
+        user_id: 42,
+        session_id: 7,
+        new_user: true,
+    };
+    let value = serde_json::to_value(&grant).unwrap();
+    assert_eq!(
+        value,
+        json!({ "token": "sjt_abc", "user_id": 42, "session_id": 7, "new_user": true })
+    );
+    assert_eq!(
+        serde_json::from_value::<SessionGrant>(value).unwrap(),
+        grant
+    );
+    assert_eq!(
+        serde_json::to_value(HandoffGrant {
+            handoff: "h".to_owned()
+        })
+        .unwrap(),
+        json!({ "handoff": "h" })
+    );
+    let exchange = HandoffExchange {
+        handoff: "h".to_owned(),
+        verifier: "v".to_owned(),
+        device: iphone(),
+    };
+    let value = serde_json::to_value(&exchange).unwrap();
+    assert_eq!(
+        serde_json::from_value::<HandoffExchange>(value).unwrap(),
+        exchange
+    );
+}
+
+#[test]
+fn consents_default_off_and_follow_feature() {
+    let mut consents = Consents::default();
+    for feature in Feature::ALL {
+        assert!(!consents.get(feature));
+    }
+    consents.set(Feature::InputLog, true);
+    assert!(consents.input_log && consents.get(Feature::InputLog));
+    assert_eq!(
+        serde_json::to_value(consents).unwrap(),
+        json!({ "clipboard": false, "sync": false, "input_log": true, "llm": false })
+    );
+    assert_eq!(
+        serde_json::to_value(PutConsent { enabled: true }).unwrap(),
+        json!({ "enabled": true })
+    );
+}
+
+#[test]
+fn account_round_trips_with_null_fields() {
+    let json = json!({
+        "identities": [{ "provider": "apple", "label": null }, { "provider": "email", "label": "a@b.c" }],
+        "sessions": [{ "id": 7, "name": "iPhone", "platform": "ios", "created_at": 1, "last_seen": null, "current": true }],
+        "consents": { "clipboard": true, "sync": false, "input_log": false, "llm": true }
+    });
+    let account: Account = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(
+        account.identities[0],
+        IdentityInfo {
+            provider: "apple".to_owned(),
+            label: None
+        }
+    );
+    assert_eq!(
+        account.sessions[0],
+        SessionInfo {
+            id: 7,
+            name: "iPhone".to_owned(),
+            platform: Platform::Ios,
+            created_at: 1,
+            last_seen: None,
+            current: true
+        }
+    );
+    assert!(account.consents.clipboard && account.consents.llm);
+    assert_eq!(serde_json::to_value(&account).unwrap(), json);
+}
+
+#[test]
+fn token_prefix_is_sujian() {
+    assert_eq!(TOKEN_PREFIX, "sjt_");
+}
