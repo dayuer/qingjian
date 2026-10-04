@@ -36,7 +36,7 @@ struct PlanStep: View {
         VStack(alignment: .leading, spacing: 14) {
             OnboardingProgressBar(step: .plan).padding(.horizontal, 4).padding(.top, 16)
             Text(Self.title)
-                .font(.system(size: 26, weight: .semibold, design: .serif))
+                .font(SerifFont.font(size: 26, weight: .semibold))
                 .padding(.horizontal, 4)
                 .padding(.top, 18)
             plan(Self.freeTitle, items: Self.freeItems, current: true) {
@@ -66,7 +66,7 @@ struct PlanStep: View {
     private func plan(_ title: String, items: [String], current: Bool, @ViewBuilder trailing: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(title).font(.system(size: 18, weight: .semibold, design: .serif))
+                Text(title).font(SerifFont.font(size: 18, weight: .semibold))
                 Spacer()
                 trailing()
             }

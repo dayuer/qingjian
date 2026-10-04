@@ -18,7 +18,7 @@ struct ForgetContactSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(MemoryDetailText.forgetTitle(name: name))
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .font(SerifFont.font(size: 22, weight: .semibold))
                 .foregroundStyle(Theme.ink)
             Text(MemoryDetailText.forgetBody(knownDays: knownDays, cardCount: cardCount))
                 .font(.system(size: 13.5))

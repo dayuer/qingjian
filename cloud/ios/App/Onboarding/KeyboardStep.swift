@@ -6,6 +6,8 @@ import SwiftUI
 import UIKit
 
 struct KeyboardStep: View {
+    static let comeBack = "添加好后回到这里"
+
     static let title = "先打开键盘"
 
     static let path = "设置 → 通用 → 键盘 → 添加新键盘 → "
@@ -35,18 +37,24 @@ struct KeyboardStep: View {
         VStack(alignment: .leading, spacing: 0) {
             OnboardingProgressBar(step: .keyboard).padding(.top, 16)
             Text(Self.title)
-                .font(.system(size: 26, weight: .semibold, design: .serif))
+                .font(SerifFont.font(size: 26, weight: .semibold))
                 .padding(.top, 32)
             HStack(alignment: .top, spacing: 12) {
-                Text("✓")
+                // 普通编号，不画对勾：App 检测不到键盘加没加，不能假装已完成
+                Text("1")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Color(.systemBackground))
                     .frame(width: 24, height: 24)
-                    .background(ColorUsage.onboardingStepDone.role.color, in: Circle())
-                (Text(Self.path).foregroundStyle(Theme.ink2)
-                    + Text("素笺").fontWeight(.medium).foregroundStyle(Theme.ink))
-                    .font(.system(size: 14.5))
-                    .lineSpacing(4)
+                    .background(ColorUsage.onboardingStepNumber.role.color, in: Circle())
+                VStack(alignment: .leading, spacing: 4) {
+                    (Text(Self.path).foregroundStyle(Theme.ink2)
+                        + Text("素笺").fontWeight(.medium).foregroundStyle(Theme.ink))
+                        .font(.system(size: 14.5))
+                        .lineSpacing(4)
+                    Text(Self.comeBack)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.ink3)
+                }
             }
             .padding(.top, 24)
             VStack(alignment: .leading, spacing: 0) {

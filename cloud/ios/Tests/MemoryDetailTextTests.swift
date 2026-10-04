@@ -39,7 +39,7 @@ final class MemoryDetailTextTests: XCTestCase {
     func testReminderNoteFollowsRealBehavior() {
         XCTAssertEqual(MemoryDetailText.reminderLeadDays, 3, "与桥的 REMINDER_DAYS 一致")
         XCTAssertEqual(MemoryDetailText.reminderNote(kind: .promise, contact: contact()), "提前 3 天提醒")
-        XCTAssertNil(MemoryDetailText.reminderNote(kind: .date, contact: contact()))
+        XCTAssertEqual(MemoryDetailText.reminderNote(kind: .date, contact: contact()), "提前 3 天提醒", "日子也照实写")
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .preference, contact: contact()))
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .promise, contact: contact(remindOn: false)))
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .promise, contact: contact(scene: MemoryScope.work)))

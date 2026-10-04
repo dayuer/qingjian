@@ -20,7 +20,7 @@ struct MemoryAvatar: View {
 
     var body: some View {
         Text(name.first.map(String.init) ?? "?")
-            .font(.system(size: size * (serif ? 0.4 : 0.45), weight: serif ? .medium : .semibold, design: serif ? .serif : .default))
+            .font(serif ? SerifFont.font(size: size * 0.4, weight: .medium) : .system(size: size * 0.45, weight: .semibold))
             .foregroundStyle(plain ? Theme.ink2 : ColorUsage.avatar.role(in: scene).color)
             .frame(width: size, height: size)
             .background(Circle().fill(fill))
