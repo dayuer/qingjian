@@ -10,7 +10,7 @@ struct CheckboxToggleStyle: ToggleStyle {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
                     .font(.title3)
-                    .foregroundStyle(configuration.isOn ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(configuration.isOn ? ColorUsage.appLink.role.color : Color.secondary)
                 configuration.label
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)

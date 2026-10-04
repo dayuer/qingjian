@@ -14,7 +14,9 @@ struct RootView: View {
     var body: some View {
         TabView {
             ForEach(RootTab.allCases, id: \.self) { tab in
+                // 链接与按钮色照设计稿 a{color:var(--accent-ink)}；挂在各页上而不是 TabView 上，免得盖掉 TabBarStyle 的选中色
                 page(tab)
+                    .tint(ColorUsage.appLink.role.color)
                     .tabItem { Label(tab.title, image: tab.icon) }
             }
         }

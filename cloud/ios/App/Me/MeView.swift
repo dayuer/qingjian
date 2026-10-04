@@ -1,4 +1,4 @@
-// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置、关于、试打框（账号入口先藏起来）。
+// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置与关于（账号入口先藏起来，试打框在键盘设置里）。
 
 import SwiftUI
 import UIKit
@@ -6,8 +6,6 @@ import UIKit
 struct MeView: View {
     /// 「账号」入口先藏起来：界面里不出现账号（UI 清单约束 5），AccountView 的代码留着，T9 换成开通云服务的流程。
     static let showsAccountEntry = false
-
-    @State private var draft = ""
 
     @State private var store = SettingsStore()
 
@@ -52,16 +50,6 @@ struct MeView: View {
                     NavigationLink("关于") { AboutView() }
                 } header: {
                     Text("设置")
-                } footer: {
-                    Text("与 Mac 版偏好设置是同一份，登录并打开同步后两边互通。")
-                }
-                Section {
-                    TextField("在这里试打", text: $draft, axis: .vertical)
-                        .lineLimit(3...8)
-                } header: {
-                    Text("试一试")
-                } footer: {
-                    Text("「完全访问」用于按键震动、键盘读你在「记得」里写下的人与事，以及登录后连接服务器（大模型润色、剪贴板与学习数据同步）。不开也能正常打字；没登录时键盘不联网。")
                 }
             }
             .navigationTitle("我")
