@@ -14,6 +14,13 @@ enum ScopeDisplay {
     /// 牌子左半：场景名。
     static func chipScene(_ scene: String) -> String { MemoryScope.title(of: scene) }
 
+    /// 没开完全访问时素笺就是普通输入法：牌子只剩场景名、整块中性色（点开是说明），不出人名与灰绿。
+    static func chipShowsPerson(fullAccess: Bool) -> Bool { fullAccess }
+
+    static func chipUsesAccent(scene: String, fullAccess: Bool) -> Bool {
+        fullAccess && MemoryScope.usesAccent(scene)
+    }
+
     /// 牌子右半：人名，没选人时「不指定」。
     static func chipPerson(_ contactName: String?) -> String { contactName ?? noScopeTitle }
 

@@ -1,9 +1,12 @@
-// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置、账号与关于、试打框。
+// 「我」Tab：启用键盘的步骤、记忆要开完全访问的说明、键盘设置、关于、试打框（账号入口先藏起来）。
 
 import SwiftUI
 import UIKit
 
 struct MeView: View {
+    /// 「账号」入口先藏起来：界面里不出现账号（UI 清单约束 5），AccountView 的代码留着，T9 换成开通云服务的流程。
+    static let showsAccountEntry = false
+
     @State private var draft = ""
 
     @State private var store = SettingsStore()
@@ -40,7 +43,9 @@ struct MeView: View {
                 Section {
                     if store.available {
                         NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
-                        NavigationLink("账号") { AccountView(store: account) }
+                        if Self.showsAccountEntry {
+                            NavigationLink("账号") { AccountView(store: account) }
+                        }
                     } else {
                         Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
                     }

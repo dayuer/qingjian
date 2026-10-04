@@ -2,6 +2,7 @@
 // 恋爱、日常整块用 love 配色（浅灰绿底、灰绿字），右半是白底；工作整块白底、圆点灰色，一点强调色都不出。
 // 点左半进选择面板，点右半在工具栏里横列本场景的其他人（KeyboardModel.toggleQuickPicks）；面板打开时只显示、不响应。
 // 对象卡顶部用不拆开的那种（split 为假）：只有圆点加名字。
+// 没开完全访问时只剩场景名、整块中性色，点了进选择面板看说明（ScopeDisplay.chipShowsPerson / chipUsesAccent）。
 
 import SwiftUI
 
@@ -15,7 +16,7 @@ struct ScopeChip: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if split {
+            if split || !showsPerson {
                 Text(ScopeDisplay.chipScene(model.scope.scene))
                     .font(.system(size: 13))
                     .foregroundStyle(ColorUsage.chipScene.role.color)
@@ -23,13 +24,15 @@ struct ScopeChip: View {
                     .padding(.trailing, 9)
                     .frame(maxHeight: .infinity)
                     .overlay(alignment: .trailing) {
-                        Rectangle().fill(love ? Theme.chipLine.color : Color(.separator)).frame(width: 1)
+                        if showsPerson {
+                            Rectangle().fill(love ? Theme.chipLine.color : Color(.separator)).frame(width: 1)
+                        }
                     }
                     .onKeyboardPress { if interactive { model.openScopePicker() } }
                     .accessibilityAddTraits(.isButton)
                     .accessibilityLabel("场景：\(ScopeDisplay.chipScene(model.scope.scene))")
             }
-            person
+            if showsPerson { person }
         }
         .frame(height: 30)
         .background(love ? Theme.accentSoft.color : KeyStyle.keyFill)
@@ -57,5 +60,7 @@ struct ScopeChip: View {
         .accessibilityLabel("对象：\(ScopeDisplay.chipPerson(model.currentContact?.name))")
     }
 
-    private var love: Bool { MemoryScope.usesAccent(model.scope.scene) }
+    private var love: Bool { ScopeDisplay.chipUsesAccent(scene: model.scope.scene, fullAccess: model.fullAccess) }
+
+    private var showsPerson: Bool { ScopeDisplay.chipShowsPerson(fullAccess: model.fullAccess) }
 }
