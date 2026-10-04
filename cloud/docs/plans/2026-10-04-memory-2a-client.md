@@ -5,6 +5,9 @@
 > **完成状态（2026-10-04 收尾，`sujian` 1927f4a 之后）：** Task 1–6 已完成：`ScopedLearner`（`OVERLAY_WEIGHT = 4`）、`MemoryStore`（flock + 每对象 rev）、`HintIndex`、Session 与 C 接口、iOS 键盘、iOS App「键盘记住的事」（2655129 等，读写在后台 actor，失败一律有中文提示，数据保护 completeUntilFirstUserAuthentication）。
 > Task 7 只做了文档：本计划已按代码修订；**回放 example（`examples/overlay_replay.rs`）没有提交**，下面 Task 7 的数字是展开时在临时副本里跑的，`OVERLAY_WEIGHT` 仍是 4、未按回放复核；`cloud/docs/design.md`「本地记忆」一节与 `cloud/README.md` 功能清单**未写**。
 > 真机：键盘不开完全访问时能否读到 App 写的卡片（决定完全访问方案）、App 与键盘并发写（Debug「连续保存 20 次」）待用户真机结果。接着做时从 Task 7 的回放 example 起。
+> **真机并发验证（待做）：** `QJ_CONFIG=Debug cloud/ios/scripts/install-device.sh` 装 Debug 包；App 里对象详情最底下「调试 · 连续保存 20 次」（只在 `#if DEBUG`）。
+> 步骤：开完全访问 → 复制一段字 → 备忘录里用素笺选「恋爱 · 某人」，出现「记到 某人」先别点 → 回 App 点「连续保存 20 次」→ 立刻回备忘录，每复制一段新字点一次「记到」→ 回 App 等脚注「完成 20 次，失败 N 次」。
+> 核对：`idevicesyslog -m 'save #' -m '记一笔'` 看两边笔数，出现一次 `lockBusy=true` 或 `conflicts>0` 即算碰到并发；`xcrun devicectl device copy from --domain-type appGroupDataContainer --domain-identifier group.app.qingjian.cloud --source "Library/Application Support/Qingjian/memory"` 拷回 cards.json，20 张压测卡与键盘记的笔一张不少、rev 单调递增。验完装回 Release。
 > **展开状态（2026-10-04）：** 7 个任务已展开。每个任务先保留大纲原文（接口、测试清单、验收），其下是「与大纲的差异」（有的话）与逐步的步骤。核实结果在下面「展开前核实」一节，需要审计会话拍板的在文末「需要审计会话决定的点」。
 
 **Goal:** 免费版的本地记忆：场景、对象、手动记忆卡、分区学习、键盘提示行与对象卡、App「键盘记住的事」，不联网、不登录。
