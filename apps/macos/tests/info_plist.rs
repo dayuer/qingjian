@@ -172,7 +172,7 @@ fn localized_strings(locale: &str) -> (String, String) {
     (locale.to_owned(), text)
 }
 
-/// 访达按本地化名显示 App（路径与文件名 `Qingjian.app` 不变）：Info.plist 开 `LSHasLocalizedDisplayName`，
+/// 访达按本地化名显示 App（文件名 `Sujian.app`）：Info.plist 开 `LSHasLocalizedDisplayName`，
 /// 两份 InfoPlist.strings 各自给出 `CFBundleDisplayName`。访达只在 Info.plist 里未本地化的
 /// `CFBundleDisplayName` 与文件名主干一致时才用本地化名，否则照旧显示文件名。
 #[test]
@@ -182,15 +182,15 @@ fn finder_shows_localized_display_name() {
         plist
             .get("CFBundleDisplayName")
             .and_then(|value| value.as_string()),
-        Some("Qingjian"),
-        "Info.plist 的 CFBundleDisplayName 须与文件名 Qingjian.app 的主干一致，访达才换成本地化名"
+        Some("Sujian"),
+        "Info.plist 的 CFBundleDisplayName 须与文件名 Sujian.app 的主干一致，访达才换成本地化名"
     );
     assert_eq!(
         plist
             .get("LSHasLocalizedDisplayName")
             .and_then(|value| value.as_boolean()),
         Some(true),
-        "缺 LSHasLocalizedDisplayName=true，访达里 App 显示文件名 Qingjian"
+        "缺 LSHasLocalizedDisplayName=true，访达里 App 显示文件名 Sujian"
     );
     for (locale, expected) in [("zh-Hans", "素笺"), ("en", "Sujian")] {
         let (_, text) = localized_strings(locale);

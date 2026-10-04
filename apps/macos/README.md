@@ -9,7 +9,7 @@ macOS 输入法壳（InputMethodKit）。按键进 Core 的 `Engine`，候选画
 apps/macos/scripts/bundle.sh --install
 ```
 
-打包到 `target/Qingjian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
+打包到 `target/Sujian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
 首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「素笺」，列表里没有就注销再登录。
 日志在 `~/Library/Logs/Qingjian/`，用户数据与 `config.toml` 在 `~/Library/Application Support/Qingjian/`。
 
@@ -36,10 +36,10 @@ pkg 装到 `/Library/Input Methods/`（需要管理员密码），装完 postins
 ## 卸载
 
 ```bash
-/Library/Input\ Methods/Qingjian.app/Contents/Resources/uninstall.sh          # 保留学习数据与配置
-/Library/Input\ Methods/Qingjian.app/Contents/Resources/uninstall.sh --purge  # 连数据、配置、日志一起删
+/Library/Input\ Methods/Sujian.app/Contents/Resources/uninstall.sh          # 保留学习数据与配置
+/Library/Input\ Methods/Sujian.app/Contents/Resources/uninstall.sh --purge  # 连数据、配置、日志一起删
 ```
 
 仓库里的 `apps/macos/scripts/uninstall.sh` 是同一个文件，两处安装位置都会清。
 
-会删的路径：`/Library/Input Methods/Qingjian.app`、`~/Library/Input Methods/Qingjian.app`；加 `--purge` 还会删 `~/Library/Application Support/Qingjian`（学习数据、配置）与 `~/Library/Logs/Qingjian`。卸载后输入法列表里的「素笺」条目要注销再登录才消失。
+会删的路径：`/Library/Input Methods/Sujian.app`、`~/Library/Input Methods/Sujian.app`（改名前的 `Qingjian.app` 也一并删）；加 `--purge` 还会删 `~/Library/Application Support/Qingjian`（学习数据、配置）与 `~/Library/Logs/Qingjian`。卸载后输入法列表里的「素笺」条目要注销再登录才消失。

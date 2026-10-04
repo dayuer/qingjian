@@ -60,7 +60,7 @@
 - 271 / 273 一打开输入源菜单就崩（IMK 内部 `CFRelease(NULL)`）：带子菜单的父项不能排在隐藏项之后，274 修好。
   规则用 `cloud/scripts/imk-menu-repro.swift` 验过，改菜单结构前先跑它。
 - 输入法连崩几次之后 macOS 会不再拉它的进程、悄悄切回别的输入法，没有任何日志；重启 `imklaunchagent` 也救不回来，
-  **注销重新登录**才恢复。另外构建目录里的 `target/Qingjian.app` 等同 id 副本会被 LaunchServices 登记上，`publish-mac.sh` 现在打完包就注销它们。
+  **注销重新登录**才恢复。另外构建目录里的 `target/Sujian.app` 等同 id 副本会被 LaunchServices 登记上，`publish-mac.sh` 现在打完包就注销它们。
 - 回车上屏开关（`0e15e56`）还没听到用户反馈。
 - **青简 Cloud 链进输入法进程**（用户不要多一个常驻程序）：`cloud/mac-agent` 改成库 `cloud/crates/qingjian-cloud-mac`，
   输入法启动时 `start`，「中☁ → 青简 Cloud ›」照 `menu_lines()` 画；不再有 `QingjianCloud.app`、LaunchAgent、`menu.txt`、`commands/`，
