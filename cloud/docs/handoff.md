@@ -45,11 +45,12 @@
 - 「回车上屏高亮候选」开关（`0e15e56`）：`[general] enter_commits_candidate`，偏好设置「通用」页勾选，只在 macOS 生效。
 - 自动更新改走 `https://pinyin.synon.ai/releases/`（`61a759a`）：只认自己的签名密钥，查到新版后在后台下好 pkg 并校验 sha256，
   点菜单「有新版本」打开安装程序；pkg 里带着青简 Cloud，postinstall 一起装上。清单见 [fork-patch.md](fork-patch.md)。
-- **分支（2026-10-04 起）**：主线是 `mainline`（iOS 会话那条线 + 另一会话的英文抢位修复与发布脚本保护）。
+- **分支（2026-10-04 起）**：主线是 `sujian`（原名 `mainline`，当天在 GitHub 上改名；iOS 会话那条线 + 另一会话的英文抢位修复与发布脚本保护）。
+  素笺的新 iOS 在这条线上做，本机检出是 `../qingjian-mainline`。
   `claude/gallant-brown-c1v3zi` 与 `local` 停用：它们还带着已搬去 synon-ime 的服务端、tuner 与部署，别再往上提交或推送。
   之前两个会话各自从不同的线往同一台服务器发版，版本号（提交数）互相穿插，出现过 288 / 290 / 296 交错。
 - 发布：只在一处发。专用检出 `../qingjian-publish`（`data/` 链到 `../qingjian-local/data`）里
-  `git fetch -q origin mainline && git checkout -q --detach origin/mainline && NOTES="…|…" cloud/scripts/publish-mac.sh`；
+  `git fetch -q origin sujian && git checkout -q --detach origin/sujian && NOTES="…|…" cloud/scripts/publish-mac.sh`；
   版本号是 `<上游版本>-local.<提交数>`，脚本拒绝空说明与重发线上已有的版本号。
   签名私钥 `~/.config/qingjian-cloud/release-signing.key` 只在这台 Mac 上，**丢了就再也发不了更新**。
 - 已在真机验过：`0.1.5-local.268` 已发布并用 pkg 装上（输入法在 `/Library/Input Methods`，青简 Cloud 跟着装上并重启），
