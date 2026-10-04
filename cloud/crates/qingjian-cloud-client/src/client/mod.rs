@@ -1,4 +1,6 @@
-//! 阻塞式 HTTP 客户端，一个方法对应一个接口。
+//! 阻塞式 HTTP 客户端，一个方法对应一个接口。账号相关的（登录、开关、注销、删账号）在 `account.rs`。
+
+mod account;
 
 use std::io::BufReader;
 use std::time::Duration;
