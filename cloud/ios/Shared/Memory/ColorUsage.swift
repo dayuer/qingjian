@@ -26,6 +26,7 @@ enum ColorUsage: CaseIterable {
     case reminderCard
     case reminderDay
     case appToggle
+    case appLink
     case addContactDone
 
     case hintButton
@@ -46,6 +47,7 @@ enum ColorUsage: CaseIterable {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
              .allMemoryButton: .accent
+        case .appLink: .accent
         case .reminderCard, .chipBackground: .accentSoft
         case .appToggle, .addContactDone, .noteConfirm: .accentFill
         case .addContactButton, .addCardButton,

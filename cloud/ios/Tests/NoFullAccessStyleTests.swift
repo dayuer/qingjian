@@ -32,7 +32,7 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(
             accent,
             [.chipBackground, .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
-             .firstCandidate, .allMemoryButton, .appToggle, .addContactDone])
+             .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
@@ -84,7 +84,9 @@ final class NoFullAccessStyleTests: XCTestCase {
 
     /// 「我」页的说明不分状态：不能写「开启后才能用」，开了的人会以为自己没开。
     func testAppExplanationIsStateless() {
-        XCTAssertEqual(ScopeDisplay.fullAccessExplanation, "记忆要开完全访问：开了也不联网，卡片只在这台手机上。")
+        XCTAssertEqual(ScopeDisplay.fullAccessExplanation, "「完全访问」用于按键震动，以及让键盘读到你在「记得」里写下的人与事。开了也不联网，卡片只在这台手机上。")
+        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("登录"), "界面里不出现登录（约束 5）")
+        XCTAssertEqual(ColorUsage.appLink.role, .accent, "App 链接色照设计稿 accent-ink")
         XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("后才能"))
     }
 }

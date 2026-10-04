@@ -1,10 +1,12 @@
-// 键盘设置：拼音方案、模糊音、繁体、全角标点、学习、领域词库、自定义短语。
+// 键盘设置：拼音方案、模糊音、繁体、全角标点、学习、领域词库、自定义短语，最后是试打框。
 // 与 Mac 偏好设置里的同名项写同一个 config.toml，开了素笺云 同步时两边互通。
 
 import SwiftUI
 
 struct KeyboardSettingsView: View {
     let store: SettingsStore
+
+    @State private var draft = ""
 
     var body: some View {
         Form {
@@ -64,6 +66,10 @@ struct KeyboardSettingsView: View {
             } label: {
                 LabeledContent("自定义短语", value: "\(settings.phrases.count)")
             }
+        }
+        Section("试一试") {
+            TextField("在这里试打", text: $draft, axis: .vertical)
+                .lineLimit(3...8)
         }
     }
 

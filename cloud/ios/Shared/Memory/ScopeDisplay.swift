@@ -18,7 +18,7 @@ enum ScopeDisplay {
     static func chipShowsPerson(fullAccess: Bool) -> Bool { fullAccess }
 
     /// App「我」页的常驻说明：App 读不到键盘拿没拿到完全访问，所以用不分状态的中性写法，开了的人看着也不误会。
-    static let fullAccessExplanation = "记忆要开完全访问：开了也不联网，卡片只在这台手机上。"
+    static let fullAccessExplanation = "「完全访问」用于按键震动，以及让键盘读到你在「记得」里写下的人与事。开了也不联网，卡片只在这台手机上。"
 
     static func chipUsesAccent(scene: String, fullAccess: Bool) -> Bool {
         fullAccess && MemoryScope.usesAccent(scene)
