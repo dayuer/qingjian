@@ -23,20 +23,28 @@ pub const TAG_SIGN_IN: isize = -7;
 pub const TAG_SIGN_OUT: isize = -8;
 pub const TAG_CANCEL_SIGN_IN: isize = -9;
 
-/// 四个功能开关的 tag：-10 起按 [`Feature::ALL`] 的顺序往下排（-10..=-13）。
+/// 菜单里显示的功能开关：素材上传（`Memory`）Mac 暂时没有，不在菜单里。
+const MENU_FEATURES: [Feature; 4] = [
+    Feature::Clipboard,
+    Feature::Sync,
+    Feature::InputLog,
+    Feature::Llm,
+];
+
+/// 四个功能开关的 tag：-10 起按 [`MENU_FEATURES`] 的顺序往下排（-10..=-13）。
 const TAG_TOGGLE_FIRST: isize = -10;
 
 pub fn toggle_tag(feature: Feature) -> isize {
-    let index = Feature::ALL
+    let index = MENU_FEATURES
         .iter()
         .position(|&f| f == feature)
-        .unwrap_or_default();
+        .unwrap_or(MENU_FEATURES.len());
     TAG_TOGGLE_FIRST - index as isize
 }
 
 pub fn toggled_feature(tag: isize) -> Option<Feature> {
     let index = usize::try_from(TAG_TOGGLE_FIRST - tag).ok()?;
-    Feature::ALL.get(index).copied()
+    MENU_FEATURES.get(index).copied()
 }
 
 pub fn build_lines(
@@ -56,7 +64,7 @@ pub fn build_lines(
     }
     lines.push(Line::Separator);
     if account.signed_in {
-        for feature in Feature::ALL {
+        for feature in MENU_FEATURES {
             let state = if account.consents.get(feature) {
                 "开"
             } else {
@@ -128,6 +136,7 @@ fn feature_title(feature: Feature) -> &'static str {
         Feature::Sync => "同步学习数据与设置",
         Feature::InputLog => "上传输入日志",
         Feature::Llm => "大模型（云联想）",
+        Feature::Memory => "素材上传",
     }
 }
 
@@ -200,11 +209,13 @@ mod tests {
 
     #[test]
     fn toggle_tags_round_trip_and_stay_in_range() {
-        for feature in Feature::ALL {
+        for feature in MENU_FEATURES {
             let tag = toggle_tag(feature);
             assert!((-100..0).contains(&tag));
             assert_eq!(toggled_feature(tag), Some(feature));
         }
+        // 不在菜单里的功能没有对应的 tag
+        assert_eq!(toggled_feature(toggle_tag(Feature::Memory)), None);
         for tag in [TAG_SIGN_OUT, TAG_CANCEL_SIGN_IN, TAG_PAUSE, 0, 5, -14] {
             assert_eq!(toggled_feature(tag), None);
         }

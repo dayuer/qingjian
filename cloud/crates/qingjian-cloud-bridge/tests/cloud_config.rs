@@ -103,8 +103,10 @@ fn clear_session_drops_token_and_switches_but_keeps_server() {
         sync: true,
         input_log: true,
         llm: true,
+        memory: true,
     };
     CloudConfig::store_session(&path, "https://example.com", "sjt_abc", 7, all).unwrap();
+    assert_eq!(CloudConfig::read(&path).unwrap().consents(), all);
     CloudConfig::clear_session(&path).unwrap();
     let config = CloudConfig::read(&path).unwrap();
     assert!(config.token.is_empty());

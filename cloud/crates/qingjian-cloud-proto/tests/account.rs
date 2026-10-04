@@ -159,7 +159,7 @@ fn consents_default_off_and_follow_feature() {
     assert!(consents.input_log && consents.get(Feature::InputLog));
     assert_eq!(
         serde_json::to_value(consents).unwrap(),
-        json!({ "clipboard": false, "sync": false, "input_log": true, "llm": false })
+        json!({ "clipboard": false, "sync": false, "input_log": true, "llm": false, "memory": false })
     );
     assert_eq!(
         serde_json::to_value(PutConsent { enabled: true }).unwrap(),
@@ -172,7 +172,7 @@ fn account_round_trips_with_null_fields() {
     let json = json!({
         "identities": [{ "provider": "apple", "label": null }, { "provider": "email", "label": "a@b.c" }],
         "sessions": [{ "id": 7, "name": "iPhone", "platform": "ios", "created_at": 1, "last_seen": null, "current": true }],
-        "consents": { "clipboard": true, "sync": false, "input_log": false, "llm": true }
+        "consents": { "clipboard": true, "sync": false, "input_log": false, "llm": true, "memory": false }
     });
     let account: Account = serde_json::from_value(json.clone()).unwrap();
     assert_eq!(
