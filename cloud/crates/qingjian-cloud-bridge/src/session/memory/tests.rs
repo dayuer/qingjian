@@ -1,8 +1,10 @@
-//! 键盘待办队列：「记一笔」按顺序、有上限，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
+//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
 
 use qingjian_cloud_proto::Scene;
 
-use super::pending::{MAX_PENDING_NOTES, PendingNote, PendingWrites};
+use std::path::PathBuf;
+
+use super::pending::{MAX_PENDING_NOTES, PENDING_FILE, PendingNote, PendingWrites};
 
 fn note(n: usize) -> PendingNote {
     PendingNote {
@@ -50,4 +52,70 @@ fn pending_scope_keeps_only_the_latest() {
     pending.set_scope(Scene::Daily, None);
     pending.restore_scope((Scene::Work, None));
     assert_eq!(pending.take_scope(), Some((Scene::Daily, None)));
+}
+
+fn memory_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("qj-pending-{name}-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn pending_notes_survive_a_restart_and_the_file_follows_the_queue() {
+    let dir = memory_dir("restart");
+    let mut pending = PendingWrites::open(&dir);
+    pending.push_note(note(1));
+    pending.push_note(note(2));
+    let reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.note_count(), 2);
+    assert_eq!(reopened.front_note(), Some(&note(1)));
+
+    pending.pop_note();
+    assert_eq!(PendingWrites::open(&dir).front_note(), Some(&note(2)));
+    pending.pop_note();
+    assert!(!dir.join(PENDING_FILE).exists(), "队列空了就删文件");
+}
+
+#[test]
+fn a_corrupt_line_is_skipped_and_the_rest_restored() {
+    let dir = memory_dir("corrupt");
+    let good = |n| serde_json::to_string(&note(n)).unwrap();
+    let text = format!("{}\n{{坏了\n\n{}\n", good(1), good(3));
+    std::fs::write(dir.join(PENDING_FILE), text).unwrap();
+    let mut pending = PendingWrites::open(&dir);
+    assert_eq!(pending.pop_note(), Some(note(1)));
+    assert_eq!(pending.pop_note(), Some(note(3)));
+    assert_eq!(pending.pop_note(), None);
+}
+
+#[test]
+fn the_file_obeys_the_same_cap_as_memory() {
+    let dir = memory_dir("cap");
+    let mut pending = PendingWrites::open(&dir);
+    for n in 0..MAX_PENDING_NOTES + 5 {
+        pending.push_note(note(n));
+    }
+    let lines = std::fs::read_to_string(dir.join(PENDING_FILE)).unwrap();
+    assert_eq!(lines.lines().count(), MAX_PENDING_NOTES);
+    let mut reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.pop_note(), Some(note(5)), "文件里丢的也是最旧的");
+
+    // 手工写了超过上限的文件，读回来也只留最后 32 条
+    let many: String = (0..MAX_PENDING_NOTES + 3)
+        .map(|n| format!("{}\n", serde_json::to_string(&note(n)).unwrap()))
+        .collect();
+    std::fs::write(dir.join(PENDING_FILE), many).unwrap();
+    let reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.note_count(), MAX_PENDING_NOTES);
+    assert_eq!(reopened.front_note(), Some(&note(3)));
+}
+
+#[test]
+fn a_missing_memory_dir_is_neither_created_nor_an_error() {
+    let dir = memory_dir("nodir").join("memory");
+    let mut pending = PendingWrites::open(&dir);
+    pending.push_note(note(1));
+    pending.pop_note();
+    assert!(!dir.exists());
 }

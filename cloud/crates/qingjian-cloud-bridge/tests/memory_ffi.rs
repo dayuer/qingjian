@@ -505,6 +505,78 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
     unsafe { qj_session_free(session) };
 }
 
+/// 键盘扩展被系统杀掉：Session 丢了，待办笔记靠 `pending-keyboard.jsonl` 在下次启动时补写。
+#[test]
+fn pending_note_survives_the_session_being_dropped() {
+    let (data, user) = dirs("note-restart");
+    seed(&user);
+    let pending_file = user.join("memory/pending-keyboard.jsonl");
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("被杀前记的");
+    let lock = hold_lock(&user);
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    assert!(
+        std::fs::read_to_string(&pending_file)
+            .unwrap()
+            .contains("被杀前记的"),
+        "入队时就落盘"
+    );
+    unsafe { qj_session_free(session) };
+    drop(lock);
+
+    let session = open(&data, Some(&user));
+    unsafe { qj_poll(session) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    let texts: Vec<&str> = snapshot["cards"][CONTACT]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|card| card["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(texts, ["想要一个生日蛋糕", "被杀前记的"]);
+    assert!(!pending_file.exists(), "补写成功后文件清掉");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn restored_note_for_a_forgotten_contact_is_dropped() {
+    let (data, user) = dirs("note-forgotten");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("忘掉的人的笔记");
+    let lock = hold_lock(&user);
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    unsafe { qj_session_free(session) };
+    drop(lock);
+
+    let dir = c(user.to_str().unwrap());
+    let empty = c(r#"{"contacts":[],"cards":{}}"#);
+    assert_eq!(
+        take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
+        None
+    );
+    let session = open(&data, Some(&user));
+    unsafe { qj_poll(session) };
+    assert!(
+        !user.join("memory").join(CONTACT).exists(),
+        "对象目录没被复活"
+    );
+    assert!(
+        !user.join("memory/pending-keyboard.jsonl").exists(),
+        "被拒绝的待办丢掉"
+    );
+    unsafe { qj_session_free(session) };
+}
+
 #[test]
 fn header_declares_every_export() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));

@@ -4221,6 +4221,78 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
     unsafe { qj_session_free(session) };
 }
 
+/// 键盘扩展被系统杀掉：Session 丢了，待办笔记靠 `pending-keyboard.jsonl` 在下次启动时补写。
+#[test]
+fn pending_note_survives_the_session_being_dropped() {
+    let (data, user) = dirs("note-restart");
+    seed(&user);
+    let pending_file = user.join("memory/pending-keyboard.jsonl");
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("被杀前记的");
+    let lock = hold_lock(&user);
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    assert!(
+        std::fs::read_to_string(&pending_file)
+            .unwrap()
+            .contains("被杀前记的"),
+        "入队时就落盘"
+    );
+    unsafe { qj_session_free(session) };
+    drop(lock);
+
+    let session = open(&data, Some(&user));
+    unsafe { qj_poll(session) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    let texts: Vec<&str> = snapshot["cards"][CONTACT]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|card| card["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(texts, ["想要一个生日蛋糕", "被杀前记的"]);
+    assert!(!pending_file.exists(), "补写成功后文件清掉");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn restored_note_for_a_forgotten_contact_is_dropped() {
+    let (data, user) = dirs("note-forgotten");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("忘掉的人的笔记");
+    let lock = hold_lock(&user);
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    unsafe { qj_session_free(session) };
+    drop(lock);
+
+    let dir = c(user.to_str().unwrap());
+    let empty = c(r#"{"contacts":[],"cards":{}}"#);
+    assert_eq!(
+        take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
+        None
+    );
+    let session = open(&data, Some(&user));
+    unsafe { qj_poll(session) };
+    assert!(
+        !user.join("memory").join(CONTACT).exists(),
+        "对象目录没被复活"
+    );
+    assert!(
+        !user.join("memory/pending-keyboard.jsonl").exists(),
+        "被拒绝的待办丢掉"
+    );
+    unsafe { qj_session_free(session) };
+}
+
 #[test]
 fn header_declares_every_export() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -4365,6 +4437,7 @@ impl LiveMemory {
         let mut hints = HintIndex::default();
         hints.set_dismissed(store.dismissed(LocalDate::today(), &known));
         let stamp = store.stamp(state.contact_id.as_deref());
+        let root = store.root().to_path_buf();
         let memory = Self {
             store,
             handle,
@@ -4376,7 +4449,7 @@ impl LiveMemory {
             today: None,
             current: None,
             stamp,
-            pending: PendingWrites::default(),
+            pending: PendingWrites::open(&root),
             cards_stale: false,
         };
         (learner, memory)
@@ -4789,12 +4862,16 @@ fn words_of(text: &str, model: &dyn LanguageModel) -> Vec<String> {
 `Session::retry_pending` 在每次 `refresh`（按键）、`poll`（`poll_memory` 开头）、`flush` 与下一次 `memory_note` 开头重试，一轮遇到第一个超时就停（最多再等 200 毫秒）；`switch_layers(deferred)` 在刚超时时不再读盘（卡片先当没有，`cards_stale` 记下，下次补读）；
 `poll_memory` 在还有待办或卡片没补读时不读盘（免得读回旧的 `state.json` 把刚切的切回去）。`qj_memory_note` 在 `lock_timeout` 时返回 NULL（已接受，稍后写入），与成功一致；App 侧（`qj_memory_read` / `qj_memory_write`）仍等 2 秒。
 
+**待办笔记落盘（审计会话建议）：** 键盘扩展随时可能被系统杀掉，内存里的待办会丢，所以笔记队列同时写 `memory/pending-keyboard.jsonl`（一行一条 `PendingNote`）。只有键盘一个写者，不需要 flock；选的写法是**队列一变就整份写临时文件再改名**（复用 `write_atomic(.., create_parent = false)`，读到的不会是半截行；文件始终等于队列，32 条上限自然一致；队列空了删文件），不用追加（追加要另想删行、截断与半行）。`memory/` 不存在时不建目录、不报错。`LiveMemory::open` 时 `PendingWrites::open` 读回来（坏行跳过并 `tracing::warn!`，超过 32 条只留最后 32 条），下次 refresh / poll / flush 补写；对象已被忘掉的在补写时被 `add_note` 拒绝而丢弃，不复活目录。切场景的待办不落盘（丢了只是回到上次的场景）。
+
 Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/pending/note.rs`：
 
 ```rust
-//! 一条等着写的「记一笔」。
+//! 一条等着写的「记一笔」，也是 `pending-keyboard.jsonl` 里的一行。
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(in crate::session) struct PendingNote {
     pub(in crate::session) contact_id: String,
 
@@ -4810,26 +4887,90 @@ Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/pending/mod.rs`：
 ```rust
 //! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」按顺序排队，切场景只留最新一次。
 //! 下次 refresh、poll、flush 或下一次写入时重试；卡片与场景在内存里已经生效，只是磁盘上晚几步。
+//! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切场景不落盘。
+//! 只有键盘这一个进程写这个文件，不需要 flock：每次队列变了就整份写临时文件再改名（读到的不会是半截），
+//! 文件始终等于队列，上限自然一致；队列空了就删文件。`memory/` 不存在时不建、不报错。
 
 mod note;
 
 use std::collections::VecDeque;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
 use qingjian_cloud_proto::Scene;
+
+use crate::cloud_config::write_atomic;
 
 pub(in crate::session) use self::note::PendingNote;
 
 /// 待写的「记一笔」最多几条，超出丢最旧的。
 pub(in crate::session) const MAX_PENDING_NOTES: usize = 32;
 
+/// 落盘文件在 `memory/` 下的名字。
+pub(in crate::session) const PENDING_FILE: &str = "pending-keyboard.jsonl";
+
 #[derive(Debug, Default)]
 pub(in crate::session) struct PendingWrites {
     notes: VecDeque<PendingNote>,
+
+    /// 笔记队列落盘的文件；没有记忆目录时为空（不落盘）。
+    file: Option<PathBuf>,
 
     scope: Option<(Scene, Option<String>)>,
 }
 
 impl PendingWrites {
+    /// 读回上次被杀时留下的笔记（坏行跳过并记日志，只留最后 [`MAX_PENDING_NOTES`] 条）。
+    pub(in crate::session) fn open(memory_dir: &Path) -> Self {
+        let file = memory_dir.join(PENDING_FILE);
+        let mut notes = VecDeque::new();
+        match std::fs::read_to_string(&file) {
+            Ok(text) => {
+                for line in text.lines().filter(|line| !line.trim().is_empty()) {
+                    match serde_json::from_str::<PendingNote>(line) {
+                        Ok(note) => notes.push_back(note),
+                        Err(error) => tracing::warn!(%error, "待写笔记里有一行坏了，跳过"),
+                    }
+                }
+                while notes.len() > MAX_PENDING_NOTES {
+                    notes.pop_front();
+                }
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => tracing::warn!(%error, "待写笔记文件读不了"),
+        }
+        Self {
+            notes,
+            file: Some(file),
+            scope: None,
+        }
+    }
+
+    /// 队列变了就整份落盘；空了删文件。目录不在（`memory/` 还没建）时不写也不报错。
+    fn persist(&self) {
+        let Some(file) = self.file.as_deref() else {
+            return;
+        };
+        let result = if self.notes.is_empty() {
+            std::fs::remove_file(file)
+        } else {
+            let mut text = String::new();
+            for note in &self.notes {
+                if let Ok(line) = serde_json::to_string(note) {
+                    text.push_str(&line);
+                    text.push('\n');
+                }
+            }
+            write_atomic(file, text.as_bytes(), false)
+        };
+        match result {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                tracing::warn!(%error, "待写笔记没落盘");
+            }
+            _ => {}
+        }
+    }
+
     pub(in crate::session) fn is_empty(&self) -> bool {
         self.notes.is_empty() && self.scope.is_none()
     }
@@ -4850,6 +4991,7 @@ impl PendingWrites {
             tracing::warn!("待写的记一笔太多，丢掉最旧的一条");
         }
         self.notes.push_back(note);
+        self.persist();
     }
 
     pub(in crate::session) fn front_note(&self) -> Option<&PendingNote> {
@@ -4857,7 +4999,9 @@ impl PendingWrites {
     }
 
     pub(in crate::session) fn pop_note(&mut self) -> Option<PendingNote> {
-        self.notes.pop_front()
+        let note = self.notes.pop_front();
+        self.persist();
+        note
     }
 
     /// 后一次覆盖前一次。
@@ -4879,11 +5023,13 @@ impl PendingWrites {
 Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/tests.rs`（队列的单元测试；拿不到文件锁的端到端行为在 `tests/memory_ffi.rs` 的 `keyboard_note_is_deferred_while_the_lock_is_held`、`keyboard_note_retries_on_poll_and_flush_too`、`keyboard_scope_switch_is_deferred_and_keeps_only_the_latest`，用 `hold_lock` 占住 `memory/.lock`）：
 
 ```rust
-//! 键盘待办队列：「记一笔」按顺序、有上限，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
+//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
 
 use qingjian_cloud_proto::Scene;
 
-use super::pending::{MAX_PENDING_NOTES, PendingNote, PendingWrites};
+use std::path::PathBuf;
+
+use super::pending::{MAX_PENDING_NOTES, PENDING_FILE, PendingNote, PendingWrites};
 
 fn note(n: usize) -> PendingNote {
     PendingNote {
@@ -4931,6 +5077,72 @@ fn pending_scope_keeps_only_the_latest() {
     pending.set_scope(Scene::Daily, None);
     pending.restore_scope((Scene::Work, None));
     assert_eq!(pending.take_scope(), Some((Scene::Daily, None)));
+}
+
+fn memory_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("qj-pending-{name}-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn pending_notes_survive_a_restart_and_the_file_follows_the_queue() {
+    let dir = memory_dir("restart");
+    let mut pending = PendingWrites::open(&dir);
+    pending.push_note(note(1));
+    pending.push_note(note(2));
+    let reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.note_count(), 2);
+    assert_eq!(reopened.front_note(), Some(&note(1)));
+
+    pending.pop_note();
+    assert_eq!(PendingWrites::open(&dir).front_note(), Some(&note(2)));
+    pending.pop_note();
+    assert!(!dir.join(PENDING_FILE).exists(), "队列空了就删文件");
+}
+
+#[test]
+fn a_corrupt_line_is_skipped_and_the_rest_restored() {
+    let dir = memory_dir("corrupt");
+    let good = |n| serde_json::to_string(&note(n)).unwrap();
+    let text = format!("{}\n{{坏了\n\n{}\n", good(1), good(3));
+    std::fs::write(dir.join(PENDING_FILE), text).unwrap();
+    let mut pending = PendingWrites::open(&dir);
+    assert_eq!(pending.pop_note(), Some(note(1)));
+    assert_eq!(pending.pop_note(), Some(note(3)));
+    assert_eq!(pending.pop_note(), None);
+}
+
+#[test]
+fn the_file_obeys_the_same_cap_as_memory() {
+    let dir = memory_dir("cap");
+    let mut pending = PendingWrites::open(&dir);
+    for n in 0..MAX_PENDING_NOTES + 5 {
+        pending.push_note(note(n));
+    }
+    let lines = std::fs::read_to_string(dir.join(PENDING_FILE)).unwrap();
+    assert_eq!(lines.lines().count(), MAX_PENDING_NOTES);
+    let mut reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.pop_note(), Some(note(5)), "文件里丢的也是最旧的");
+
+    // 手工写了超过上限的文件，读回来也只留最后 32 条
+    let many: String = (0..MAX_PENDING_NOTES + 3)
+        .map(|n| format!("{}\n", serde_json::to_string(&note(n)).unwrap()))
+        .collect();
+    std::fs::write(dir.join(PENDING_FILE), many).unwrap();
+    let reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.note_count(), MAX_PENDING_NOTES);
+    assert_eq!(reopened.front_note(), Some(&note(3)));
+}
+
+#[test]
+fn a_missing_memory_dir_is_neither_created_nor_an_error() {
+    let dir = memory_dir("nodir").join("memory");
+    let mut pending = PendingWrites::open(&dir);
+    pending.push_note(note(1));
+    pending.pop_note();
+    assert!(!dir.exists());
 }
 ```
 

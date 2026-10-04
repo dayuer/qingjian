@@ -1,6 +1,8 @@
-//! 一条等着写的「记一笔」。
+//! 一条等着写的「记一笔」，也是 `pending-keyboard.jsonl` 里的一行。
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(in crate::session) struct PendingNote {
     pub(in crate::session) contact_id: String,
 
