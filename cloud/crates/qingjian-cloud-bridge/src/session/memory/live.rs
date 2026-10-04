@@ -81,6 +81,7 @@ impl LiveMemory {
         let mut hints = HintIndex::default();
         hints.set_dismissed(store.dismissed(LocalDate::today(), &known));
         let stamp = store.stamp(state.contact_id.as_deref());
+        let root = store.root().to_path_buf();
         let memory = Self {
             store,
             handle,
@@ -92,7 +93,7 @@ impl LiveMemory {
             today: None,
             current: None,
             stamp,
-            pending: PendingWrites::default(),
+            pending: PendingWrites::open(&root),
             cards_stale: false,
         };
         (learner, memory)

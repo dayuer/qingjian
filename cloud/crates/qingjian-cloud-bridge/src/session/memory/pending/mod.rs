@@ -1,25 +1,89 @@
 //! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」按顺序排队，切场景只留最新一次。
 //! 下次 refresh、poll、flush 或下一次写入时重试；卡片与场景在内存里已经生效，只是磁盘上晚几步。
+//! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切场景不落盘。
+//! 只有键盘这一个进程写这个文件，不需要 flock：每次队列变了就整份写临时文件再改名（读到的不会是半截），
+//! 文件始终等于队列，上限自然一致；队列空了就删文件。`memory/` 不存在时不建、不报错。
 
 mod note;
 
 use std::collections::VecDeque;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
 use qingjian_cloud_proto::Scene;
+
+use crate::cloud_config::write_atomic;
 
 pub(in crate::session) use self::note::PendingNote;
 
 /// 待写的「记一笔」最多几条，超出丢最旧的。
 pub(in crate::session) const MAX_PENDING_NOTES: usize = 32;
 
+/// 落盘文件在 `memory/` 下的名字。
+pub(in crate::session) const PENDING_FILE: &str = "pending-keyboard.jsonl";
+
 #[derive(Debug, Default)]
 pub(in crate::session) struct PendingWrites {
     notes: VecDeque<PendingNote>,
+
+    /// 笔记队列落盘的文件；没有记忆目录时为空（不落盘）。
+    file: Option<PathBuf>,
 
     scope: Option<(Scene, Option<String>)>,
 }
 
 impl PendingWrites {
+    /// 读回上次被杀时留下的笔记（坏行跳过并记日志，只留最后 [`MAX_PENDING_NOTES`] 条）。
+    pub(in crate::session) fn open(memory_dir: &Path) -> Self {
+        let file = memory_dir.join(PENDING_FILE);
+        let mut notes = VecDeque::new();
+        match std::fs::read_to_string(&file) {
+            Ok(text) => {
+                for line in text.lines().filter(|line| !line.trim().is_empty()) {
+                    match serde_json::from_str::<PendingNote>(line) {
+                        Ok(note) => notes.push_back(note),
+                        Err(error) => tracing::warn!(%error, "待写笔记里有一行坏了，跳过"),
+                    }
+                }
+                while notes.len() > MAX_PENDING_NOTES {
+                    notes.pop_front();
+                }
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => tracing::warn!(%error, "待写笔记文件读不了"),
+        }
+        Self {
+            notes,
+            file: Some(file),
+            scope: None,
+        }
+    }
+
+    /// 队列变了就整份落盘；空了删文件。目录不在（`memory/` 还没建）时不写也不报错。
+    fn persist(&self) {
+        let Some(file) = self.file.as_deref() else {
+            return;
+        };
+        let result = if self.notes.is_empty() {
+            std::fs::remove_file(file)
+        } else {
+            let mut text = String::new();
+            for note in &self.notes {
+                if let Ok(line) = serde_json::to_string(note) {
+                    text.push_str(&line);
+                    text.push('\n');
+                }
+            }
+            write_atomic(file, text.as_bytes(), false)
+        };
+        match result {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                tracing::warn!(%error, "待写笔记没落盘");
+            }
+            _ => {}
+        }
+    }
+
     pub(in crate::session) fn is_empty(&self) -> bool {
         self.notes.is_empty() && self.scope.is_none()
     }
@@ -40,6 +104,7 @@ impl PendingWrites {
             tracing::warn!("待写的记一笔太多，丢掉最旧的一条");
         }
         self.notes.push_back(note);
+        self.persist();
     }
 
     pub(in crate::session) fn front_note(&self) -> Option<&PendingNote> {
@@ -47,7 +112,9 @@ impl PendingWrites {
     }
 
     pub(in crate::session) fn pop_note(&mut self) -> Option<PendingNote> {
-        self.notes.pop_front()
+        let note = self.notes.pop_front();
+        self.persist();
+        note
     }
 
     /// 后一次覆盖前一次。
