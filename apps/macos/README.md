@@ -41,3 +41,5 @@ pkg 装到 `/Library/Input Methods/`（需要管理员密码），装完 postins
 ```
 
 仓库里的 `apps/macos/scripts/uninstall.sh` 是同一个文件，两处安装位置都会清。
+
+会删的路径：`/Library/Input Methods/Qingjian.app`、`~/Library/Input Methods/Qingjian.app`；加 `--purge` 还会删 `~/Library/Application Support/Qingjian`（学习数据、配置）与 `~/Library/Logs/Qingjian`。卸载后输入法列表里的「素笺」条目要注销再登录才消失。
