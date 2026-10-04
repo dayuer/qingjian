@@ -62,6 +62,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
         if currentSignature != engineSignature {
             engineSignature = currentSignature
+            // 先释放旧引擎再建新的：旧 DataSync 线程可能还在一轮 HTTP 里，与新线程重叠会把进度文件写回旧状态
+            model.replaceEngine(nil)
             model.replaceEngine(Self.openEngine(fullAccess: hasFullAccess))
         }
         updatePrivacy()
