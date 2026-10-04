@@ -1,5 +1,5 @@
 // 键盘顶部的候选栏：横向滚动的候选，首选灰底；右端 ⌄ 展开全部候选。拼音不在这里，写在宿主的 marked text 里。
-// 没在组字时换成 IdleBar（润色、跨设备剪贴板、隐私输入的锁）。
+// 首选加粗，恋爱、日常选了人时再用灰绿字（设计稿 .k-cands .first）。没在组字时换成 IdleBar（改写、跨设备剪贴板、隐私输入的锁）。
 
 import SwiftUI
 
@@ -10,7 +10,8 @@ struct CandidateBar: View {
     static let chevronWidth: CGFloat = 48
 
     var body: some View {
-        if model.composing {
+        // 对象卡与选择面板打开时这一行是它们的工具栏（牌子加收起），组字中打开的也一样（设计稿 1b）
+        if model.composing && model.panel != .contactCard && model.panel != .scope {
             candidates
         } else {
             IdleBar(model: model)
@@ -22,7 +23,10 @@ struct CandidateBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 2) {
                     ForEach(Array(model.candidates.enumerated()), id: \.offset) { index, item in
-                        CandidateCell(text: item.text, highlighted: index == 0, cloud: item.cloud) {
+                        CandidateCell(
+                            text: item.text, highlighted: index == 0, cloud: item.cloud,
+                            accent: index == 0 && model.accentFirstCandidate
+                        ) {
                             model.selectCandidate(index)
                         }
                         .id(index)

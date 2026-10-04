@@ -25,4 +25,10 @@ struct SceneGroup: Identifiable, Equatable {
     var countLabel: String { "\(people.count) / \(Self.limit)" }
 
     var isFull: Bool { people.count >= Self.limit }
+
+    /// 满了时组下面的一句，与桥的 contact_limit 文案一致。
+    var fullNote: String { MemoryFailure.contactLimit(scene: scene).message }
+
+    /// 组标题「恋爱 · 2 / 8」。
+    var header: String { "\(title) · \(countLabel)" }
 }

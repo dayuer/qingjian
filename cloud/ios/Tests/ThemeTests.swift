@@ -5,7 +5,7 @@ import XCTest
 
 final class ThemeTests: XCTestCase {
     private var swatches: [ThemeSwatch] {
-        [Theme.accent, Theme.accentInk, Theme.accentSoft].flatMap { [$0.light, $0.dark] }
+        [Theme.accent, Theme.accentInk, Theme.accentSoft, Theme.hintLine, Theme.chipLine].flatMap { [$0.light, $0.dark] }
     }
 
     func testSwatchesMatchOKLCHSources() {

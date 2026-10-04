@@ -21,6 +21,9 @@ protocol TextOutput: AnyObject {
 
     func switchToNextKeyboard()
 
+    /// 收起键盘（工具栏右端的向下箭头）；控制器由 UIInputViewController 自带的同名方法实现。
+    func dismissKeyboard()
+
     /// 系统剪贴板的变化计数；只读计数不会弹系统的粘贴授权提示。
     var pasteboardChangeCount: Int { get }
 

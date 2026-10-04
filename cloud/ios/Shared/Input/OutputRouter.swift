@@ -57,6 +57,8 @@ final class OutputRouter: TextOutput {
 
     func switchToNextKeyboard() { host?.switchToNextKeyboard() }
 
+    func dismissKeyboard() { host?.dismissKeyboard() }
+
     var pasteboardChangeCount: Int { host?.pasteboardChangeCount ?? 0 }
 
     var pasteboardHasText: Bool { host?.pasteboardHasText ?? false }

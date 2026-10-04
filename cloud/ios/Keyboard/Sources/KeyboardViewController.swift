@@ -257,7 +257,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
         touchView.slots = slots
         let top = hinted ? KeyStyle.hintRowHeight : 0
-        touchView.chevron = composing
+        // 对象卡与选择面板打开时候选栏那一行换成它们的工具栏，没有 ⌄（CandidateBar）
+        let showsChevron = composing && panel != .contactCard && panel != .scope
+        touchView.chevron = showsChevron
             ? CGRect(
                 x: view.bounds.width - CandidateBar.chevronWidth, y: top,
                 width: CandidateBar.chevronWidth, height: KeyStyle.candidateBarHeight)

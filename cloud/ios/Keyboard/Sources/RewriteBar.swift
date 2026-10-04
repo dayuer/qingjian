@@ -1,4 +1,4 @@
-// 润色进行中的候选栏（等结果 / 结果出来点一下替换原文 / 失败），✕ 放弃；空闲时的入口在 IdleBar。
+// 改写进行中的候选栏（等结果 / 结果出来点一下替换原文 / 失败），✕ 放弃；空闲时的入口在 IdleBar。
 
 import SwiftUI
 
@@ -12,7 +12,7 @@ struct RewriteBar: View {
                 EmptyView()
             case .pending:
                 ProgressView().padding(.leading, 12)
-                Text("润色中…").font(.system(size: 15)).foregroundStyle(.secondary)
+                Text("改写中…").font(.system(size: 15)).foregroundStyle(.secondary)
                 Spacer()
                 close
             case .ready(_, let result):
@@ -26,7 +26,7 @@ struct RewriteBar: View {
                     .onKeyboardTap { model.applyRewrite() }
                 close
             case .failed:
-                Text("润色没成功，检查网络后再试").font(.system(size: 15)).foregroundStyle(.secondary)
+                Text("改写没成功，检查网络后再试").font(.system(size: 15)).foregroundStyle(.secondary)
                     .padding(.leading, 12)
                 Spacer()
                 close
@@ -40,6 +40,6 @@ struct RewriteBar: View {
             .foregroundStyle(.secondary)
             .frame(width: 44, height: KeyStyle.candidateBarHeight)
             .onKeyboardPress { model.dismissRewrite() }
-            .accessibilityLabel("放弃润色")
+            .accessibilityLabel("放弃改写")
     }
 }

@@ -12,6 +12,9 @@ enum ColorRole: Equatable {
     /// 灰绿的浅底 accentSoft（提示行、提醒卡的底色）。
     case accentSoft
 
+    /// 中性的浅底（工作场景里代替灰绿浅底与实底）。
+    case neutralSoft
+
     /// 系统 label。
     case ink
 
@@ -23,6 +26,7 @@ enum ColorRole: Equatable {
         case .accent: Theme.accentInk.color
         case .accentFill: Theme.accent.color
         case .accentSoft: Theme.accentSoft.color
+        case .neutralSoft: Color.secondary.opacity(0.12)
         case .ink: Theme.ink
         case .ink2: Theme.ink2
         }
@@ -30,4 +34,13 @@ enum ColorRole: Equatable {
 
     /// 灰绿三档之一。
     var isAccent: Bool { self == .accent || self == .accentFill || self == .accentSoft }
+
+    /// 换成中性色：文字档变 ink2，两种底变中性浅底，本来就中性的不变。
+    var neutralized: ColorRole {
+        switch self {
+        case .accent: .ink2
+        case .accentFill, .accentSoft: .neutralSoft
+        default: self
+        }
+    }
 }

@@ -20,13 +20,13 @@ final class NoFullAccessStyleTests: XCTestCase {
         let accent = Set(ColorUsage.allCases.filter { $0.role.isAccent })
         XCTAssertEqual(
             accent,
-            [.chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
-             .appToggle, .addContactDone])
+            [.chipBackground, .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
+             .firstCandidate, .allMemoryButton, .appToggle, .addContactDone])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
-        for usage in [ColorUsage.hintButton, .panelDone, .cardClose, .allMemoryButton, .noteIgnore, .noteCancel] {
-            XCTAssertEqual(usage.role, .ink, "\(usage)")
+        for usage in [ColorUsage.hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel] {
+            XCTAssertEqual(usage.role, .ink2, "\(usage)：键盘的文字按钮是 ink-2（设计稿 .tool / .arw / .btn.ghost）")
         }
         XCTAssertEqual(ColorUsage.cardNotice.role, .ink2)
     }
