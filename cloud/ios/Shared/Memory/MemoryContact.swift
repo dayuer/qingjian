@@ -26,10 +26,10 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
         case remindOn = "remind_on"
     }
 
-    /// 恋爱场景的新对象。
-    static func new(name: String, pronoun: MemoryPronoun) -> MemoryContact {
+    /// `scene` 场景的新对象；建好后不能换场景（桥会拒绝），要换就忘掉再建。
+    static func new(name: String, pronoun: MemoryPronoun, scene: String = MemoryScope.dating) -> MemoryContact {
         MemoryContact(
-            id: MemoryID.make(), name: name, pronoun: pronoun, scene: MemoryScope.dating,
+            id: MemoryID.make(), name: name, pronoun: pronoun, scene: scene,
             createdAt: Int64(Date().timeIntervalSince1970))
     }
 

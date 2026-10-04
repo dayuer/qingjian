@@ -376,7 +376,7 @@ final class KeyboardModel {
         guard let engine else { return }
         // 手写的草稿是记给原来那个人的，换了人就丢掉
         if scene != scope.scene || contactId != scope.contactId { endComposedNote() }
-        engine.setScope(scene: scene, contactId: contactId)
+        engine.setScope(scene: scene, pick: contactId.map(ScopePick.contact) ?? .nobody)
         scope = engine.scope ?? scope
         refresh()
         if scene != MemoryScope.dating || contactId != nil { panel = .keys }
@@ -455,7 +455,7 @@ final class KeyboardModel {
 
     private func confirmNewContact(_ draft: String) {
         guard let name = ContactAdd.name(draft), let engine else { return }
-        switch engine.addContact(name: name) {
+        switch engine.addContact(name: name, scene: MemoryScope.dating) {
         case .success(let id):
             endComposedNote()
             reloadContacts()
