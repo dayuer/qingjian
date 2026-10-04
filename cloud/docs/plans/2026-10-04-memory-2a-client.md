@@ -3579,7 +3579,7 @@ pub use self::local_date::LocalDate;
 pub use self::pronoun::Pronoun;
 pub use self::recent::RecentText;
 pub use self::snapshot::MemorySnapshot;
-pub use self::store::MemoryStore;
+pub use self::store::{DEFAULT_LOCK_TIMEOUT, KEYBOARD_LOCK_TIMEOUT, MemoryStore};
 
 /// 学习数据目录下放记忆的子目录。
 pub const MEMORY_DIR: &str = "memory";
@@ -3629,9 +3629,9 @@ Modify `src/lib.rs`：把 Task 2 加的那行 `pub use self::memory::{…};` 换
 
 ```rust
 pub use self::memory::{
-    Card, Contact, Hint, HintIndex, HintReason, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError,
-    MemorySnapshot, MemoryStore, Pronoun, RECENT_CHARS, RecentText, days_away, has_date, new_id,
-    now_unix, panel_cards, reminder_text,
+    Card, Contact, DEFAULT_LOCK_TIMEOUT, Hint, HintIndex, HintReason, KEYBOARD_LOCK_TIMEOUT,
+    LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError, MemorySnapshot, MemoryStore, Pronoun,
+    RECENT_CHARS, RecentText, days_away, has_date, new_id, now_unix, panel_cards, reminder_text,
 };
 ```
 

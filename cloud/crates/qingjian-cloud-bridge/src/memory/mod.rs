@@ -8,8 +8,10 @@ mod cards_file;
 mod contact;
 mod dismissed_file;
 mod error;
+mod hint;
 mod local_date;
 mod pronoun;
+mod recent;
 mod snapshot;
 mod store;
 
@@ -27,8 +29,10 @@ use crate::scope::ScopeState;
 pub use self::card::Card;
 pub use self::contact::Contact;
 pub use self::error::MemoryError;
+pub use self::hint::{Hint, HintIndex, HintReason, days_away, panel_cards, reminder_text};
 pub use self::local_date::LocalDate;
 pub use self::pronoun::Pronoun;
+pub use self::recent::RecentText;
 pub use self::snapshot::MemorySnapshot;
 pub use self::store::{DEFAULT_LOCK_TIMEOUT, KEYBOARD_LOCK_TIMEOUT, MemoryStore};
 
@@ -37,6 +41,9 @@ pub const MEMORY_DIR: &str = "memory";
 
 /// 恋爱场景最多几个对象。
 pub const MAX_CONTACTS: usize = 8;
+
+/// 提示拿最近上屏的多少个字去匹配。
+pub const RECENT_CHARS: usize = 24;
 
 /// 对象与卡片的 id：16 字节随机数的小写十六进制（32 位，不含名字）。
 pub fn new_id() -> Result<String, MemoryError> {
