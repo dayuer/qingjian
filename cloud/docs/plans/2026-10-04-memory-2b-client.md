@@ -65,6 +65,10 @@ impl MemorySync {
 - 403 → 清空队列、状态 Disabled、之后 `enqueue` 丢弃（与剪贴板一致），300 秒后轮询一次；401 → 保留队列、Unauthorized；429 → 退避（沿用 `retry_delay`）；网络错误 → 指数退避，最长 5 分钟。
 - 测试（假服务）：离线入队、恢复后补传且顺序不变；403 清队列且之后不入队；401 保留；429 退避；重启后从落盘队列续传；入队文字已脱敏（手机号变〔手机号〕）。
 
+- **前置（2A Task 6 审查记下，2026-10-04）：** 桥的 `write_snapshot`（`cloud/crates/qingjian-cloud-bridge/src/memory/store.rs`）只在磁盘 rev 大于快照 rev 时报冲突；
+  对象目录被「忘掉」删除后 rev 回到 0、`contacts.json` 本身也没有 rev，拿着旧快照的写入方（云同步回写、以后 iPad 多窗口）会把已忘掉的人连目录建回来。
+  接云同步之前先补：rev 倒退也算冲突，或给名单加一个 rev；配回归测试「忘掉后用旧快照写回被拒」。
+
 ## Task 4：桥接入「一次发送」与对象登记
 
 **Files:** Create `cloud/crates/qingjian-cloud-bridge/src/memory/sent.rs`；Modify `session/mod.rs`（上屏路径）、`memory/store.rs`（新建 / 删除对象时调 `register_contact` / `delete_contact`，失败排进 `MemorySync` 的待办）、`memory/ffi.rs`、`cloud_config.rs`（`[memory] record_daily / record_dating / record_work`，缺省 false / false / false；`paused_until`）、头文件。
