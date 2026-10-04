@@ -14,4 +14,10 @@ pub trait SentenceScorer: Send {
     fn generate(&self, _keys: &str, _beam: usize, _max_chars: usize) -> Vec<String> {
         Vec::new()
     }
+
+    /// 接着 `before` 往下写最多 `max_chars` 个字：(文本, 每字平均 log 概率)。做不了（P2C 模型、模型出错）返回 `None`。
+    /// 素笺的本地续写用，见 `engine/prediction/local_continuation`。
+    fn continue_text(&self, _before: &str, _max_chars: usize) -> Option<(String, f64)> {
+        None
+    }
 }

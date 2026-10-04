@@ -7,6 +7,7 @@
 //! 每句独立：不上屏、不学习，只把这句在原文里的上文写进输入历史给整句转换用。
 
 pub mod context;
+pub mod continuation;
 pub mod coverage;
 mod extract;
 pub mod generate;

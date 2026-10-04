@@ -175,6 +175,10 @@ pub struct Args {
     #[arg(long, requires = "eval_context")]
     pub eval_context_details: Option<PathBuf>,
 
+    /// 本地续写评测：在这些文本（一行一段）上每 20 字取一个位置，前文给知微续写、下文当真值；--neural 要指向知微
+    #[arg(long, num_args = 1.., requires = "neural")]
+    pub eval_continuation: Vec<PathBuf>,
+
     /// 冷启动字词评测：读取 JSONL，不加载个人配置或个人学习文件
     #[arg(long, requires = "cold_output", conflicts_with_all = ["user_dict", "config", "predict", "replay", "eval_text", "english_mode", "shuangpin", "wubi", "aux_table", "tune", "fuzzy", "inputs", "neural_async"])]
     pub eval_cold: Option<PathBuf>,

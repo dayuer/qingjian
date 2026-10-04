@@ -4,6 +4,16 @@ use crate::{CharScorer, P2c};
 
 /// 字级模型：条件是光标前文，忽略按键。
 impl SentenceScorer for CharScorer {
+    fn continue_text(&self, before: &str, max_chars: usize) -> Option<(String, f64)> {
+        match CharScorer::continue_text(self, before, max_chars) {
+            Ok(result) => result,
+            Err(error) => {
+                tracing::warn!(%error, "本地续写失败，本次不用");
+                None
+            }
+        }
+    }
+
     fn score(&self, context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
         match CharScorer::score(self, context, texts) {
             Ok(scores) => scores,

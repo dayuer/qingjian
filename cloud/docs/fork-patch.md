@@ -200,6 +200,12 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/macos/src/host/model/mod.rs` | 再加 1 行 mod、改 4 处 | `load_local_model` 先管知微；`attach_loaded_model` 兼看知微还在加载；`unload_local_model` 卸知微 |
 | `apps/macos/src/host/mod.rs`、`init.rs` | 加 1 个字段 | `word_loader` |
 | `cloud/docs/design.md` | 加一节 | 上下文预测 |
+| `crates/qingjian-neural/src/continuation.rs` | 新文件 | `CharScorer::continue_text` 贪心续写 |
+| `crates/qingjian-neural/src/lib.rs` | 加 1 行 | `mod continuation;` |
+| `crates/qingjian-neural/src/core_scorer.rs` | 加 1 个方法 | `SentenceScorer::continue_text` 的实现 |
+| `crates/qingjian-core/src/sentence/scorer.rs` | 加 1 个缺省方法 | `continue_text` |
+| `apps/cli/src/eval/continuation.rs` | 新文件 | `--eval-continuation` |
+| `apps/cli/src/eval/mod.rs`、`args.rs`、`main.rs` | 各加几行 | 挂进去 |
 
 ## 合并上游时
 
