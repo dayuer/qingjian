@@ -15,7 +15,8 @@ impl Client {
         Self::new(server, "")
     }
 
-    /// Apple 登录，不带 `Authorization`。带了 `challenge` 的请求服务端回的是一次性码，不走这个方法。
+    /// Apple 登录，不带 `Authorization`。请求里不能带 `challenge`：带了服务端回 `HandoffGrant`，
+    /// 这个方法会报 `BadResponse`。
     pub fn sign_in_apple(&self, request: &AppleSignIn) -> Result<SessionGrant, ClientError> {
         let mut response = self
             .agent
@@ -35,6 +36,7 @@ impl Client {
         Ok(())
     }
 
+    /// 校验邮箱验证码，成功换到会话。
     pub fn email_verify(&self, request: &EmailVerify) -> Result<SessionGrant, ClientError> {
         let mut response = self
             .agent
@@ -52,6 +54,7 @@ impl Client {
         json(response.body_mut().read_json())
     }
 
+    /// 当前令牌对应的账号信息与四项开关。
     pub fn account(&self) -> Result<Account, ClientError> {
         let mut response = self
             .agent

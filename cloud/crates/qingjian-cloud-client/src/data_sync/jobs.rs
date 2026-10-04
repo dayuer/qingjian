@@ -13,7 +13,8 @@ pub struct Jobs {
 
     pub logs: Option<InputLogSync>,
 
-    /// 服务器说没开（403）而停掉的功能。
+    /// 服务器说没开（403）而停掉的功能。只增不减：本实例内不会自动恢复，重新打开后须重建 `DataSync`；
+    /// `Feature::Sync` 同时覆盖学习数据与配置两项；所有项被停掉后 `cycle` 仍返回 `Ok`，`last_ok_ms` 照常刷新。
     pub disabled: Vec<Feature>,
 }
 
@@ -56,5 +57,42 @@ impl Jobs {
         if !self.disabled.contains(&feature) {
             self.disabled.push(feature);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use qingjian_cloud_proto::Feature;
+
+    use super::Jobs;
+    use crate::config_sync::ConfigSync;
+    use crate::test_support::fake_server;
+    use crate::{Client, LearningSync};
+
+    #[test]
+    fn forbidden_stops_the_job_and_is_not_requested_again() {
+        let dir = std::env::temp_dir().join(format!("qjc-jobs-{}", uuid::Uuid::new_v4()));
+        let (ime, state) = (dir.join("ime"), dir.join("state"));
+        std::fs::create_dir_all(&ime).unwrap();
+        std::fs::create_dir_all(&state).unwrap();
+        let (url, rx) = fake_server("403 Forbidden");
+        let client = Client::new(&url, "tok");
+        let mut jobs = Jobs {
+            learning: Some(LearningSync::open(client.clone(), &ime, &state).unwrap()),
+            settings: Some(ConfigSync::open(client, &ime, &state).unwrap()),
+            logs: None,
+            disabled: Vec::new(),
+        };
+
+        assert!(jobs.cycle().is_ok());
+        assert!(jobs.learning.is_none());
+        assert!(jobs.settings.is_none());
+        assert_eq!(jobs.disabled, vec![Feature::Sync]);
+        assert!(rx.try_recv().is_ok(), "第一轮应当发过请求");
+        while rx.try_recv().is_ok() {}
+
+        assert!(jobs.cycle().is_ok());
+        assert!(rx.try_recv().is_err(), "停掉之后不该再发请求");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
