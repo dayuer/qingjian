@@ -2,6 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > 本文件是审计会话给出的**任务大纲**：接口、文件、测试与验收已定死。执行前由客户端会话用 writing-plans 把每个任务展开成逐步的代码与命令（写在本文件各任务下），展开后先发审计会话审一遍再动手。
+> **完成状态（2026-10-04 收尾，`sujian` 1927f4a 之后）：** Task 1–6 已完成：`ScopedLearner`（`OVERLAY_WEIGHT = 4`）、`MemoryStore`（flock + 每对象 rev）、`HintIndex`、Session 与 C 接口、iOS 键盘、iOS App「键盘记住的事」（2655129 等，读写在后台 actor，失败一律有中文提示，数据保护 completeUntilFirstUserAuthentication）。
+> Task 7 只做了文档：本计划已按代码修订；**回放 example（`examples/overlay_replay.rs`）没有提交**，下面 Task 7 的数字是展开时在临时副本里跑的，`OVERLAY_WEIGHT` 仍是 4、未按回放复核；`cloud/docs/design.md`「本地记忆」一节与 `cloud/README.md` 功能清单**未写**。
+> 真机：键盘不开完全访问时能否读到 App 写的卡片（决定完全访问方案）、App 与键盘并发写（Debug「连续保存 20 次」）待用户真机结果。接着做时从 Task 7 的回放 example 起。
 > **展开状态（2026-10-04）：** 7 个任务已展开。每个任务先保留大纲原文（接口、测试清单、验收），其下是「与大纲的差异」（有的话）与逐步的步骤。核实结果在下面「展开前核实」一节，需要审计会话拍板的在文末「需要审计会话决定的点」。
 
 **Goal:** 免费版的本地记忆：场景、对象、手动记忆卡、分区学习、键盘提示行与对象卡、App「键盘记住的事」，不联网、不登录。
