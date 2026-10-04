@@ -13,6 +13,7 @@ mod connection;
 mod error;
 mod gloss;
 mod prompt;
+mod provider;
 mod worker;
 
 pub use cloud_predictor::CloudPredictor;
@@ -20,3 +21,4 @@ pub use config::PredictConfig;
 pub use connection::{ConnectionReport, ConnectionTest};
 pub use error::PredictError;
 pub use gloss::CloudGlossFiller;
+pub use provider::PredictProvider;

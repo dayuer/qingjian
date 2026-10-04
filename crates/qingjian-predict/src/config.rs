@@ -1,12 +1,17 @@
 use qingjian_core::PredictionPolicy;
 use serde::{Deserialize, Serialize};
 
+use crate::PredictProvider;
+
 /// 云联想配置。默认**关闭**，开启后光标附近的文本会发往 `base_url`。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PredictConfig {
     /// 是否启用。
     pub enabled: bool,
+
+    /// 走青简 Cloud（缺省，地址与令牌来自 Cloud 的配置）还是自定义接口。
+    pub provider: PredictProvider,
 
     /// OpenAI 兼容接口地址（不含 `/chat/completions`）。
     pub base_url: String,
@@ -48,6 +53,7 @@ impl Default for PredictConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            provider: PredictProvider::default(),
             base_url: "https://api.deepseek.com".to_owned(),
             model: "deepseek-v4-flash".to_owned(),
             api_key: None,

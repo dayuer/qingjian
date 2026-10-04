@@ -81,7 +81,11 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => self.open_update(),
-            MenuAction::CloudAgent(tag) => qingjian_cloud_mac::perform(tag),
+            // 重新加载了 Cloud 配置的话，走青简 Cloud 的云联想要换端点
+            MenuAction::CloudAgent(tag) => {
+                qingjian_cloud_mac::perform(tag);
+                self.apply_config(false);
+            }
         }
     }
 
@@ -400,6 +404,10 @@ impl Host {
                     .set_value("general", "wubi", if on { "wubi86" } else { "" });
             }
             // 文本框失焦也会发 action：值没变就不写，免得每次切窗口都重写一遍配置
+            (Setting::CloudProvider, SettingValue::Index(index)) => {
+                let provider = if index == 1 { "custom" } else { "qingjian" };
+                self.settings.set_value("predict", "provider", provider);
+            }
             (Setting::BaseUrl, SettingValue::Text(text)) => {
                 let text = text.trim();
                 if !text.is_empty() && text != config.predict.base_url {

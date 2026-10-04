@@ -121,7 +121,9 @@ NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都�
 | `apps/macos/src/menubar/menu.rs` | 加字段与 `sync_cloud_agent` | 父项紧挨「模糊音」（见下面 IMK 的坑） |
 | `apps/macos/src/menubar/mod.rs` | 加 1 行 | `mod cloud_agent` |
 | `apps/macos/src/host/config/mod.rs` | 加 3 行 | `tick()` 里刷新子菜单 |
-| `apps/macos/src/host/settings.rs` | 加 1 行 | 子菜单动作转给 `qingjian_cloud_mac::perform` |
+| `apps/macos/src/host/settings.rs` | 加几行 | 子菜单动作转给 `qingjian_cloud_mac::perform`，之后重套配置（重新加载了 Cloud 配置的话云联想要换端点）；`[predict] provider` 的保存 |
+| `apps/macos/src/host/config/predict.rs` | 新文件 | 云联想生效的配置：`provider = qingjian` 时地址与令牌来自 `qingjian_cloud_mac::llm_endpoint()` |
+| `apps/macos/src/preferences/pages/cloud.rs` | 改 | 「服务」弹出菜单：青简 Cloud / 自定义接口，后者才显示地址、模型、密钥 |
 | `apps/macos/src/app/logging/mod.rs` | 改 1 行 | debug 级别下把 ureq 压到 info |
 | `apps/macos/pkg/scripts/postinstall` | 加 8 行 | 清掉旧版单独装的 `QingjianCloud.app` 与登录项 |
 

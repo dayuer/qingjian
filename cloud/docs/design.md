@@ -20,7 +20,7 @@
 - **只用数据接口和配置接入，不改输入法本身。** 输入法已经提供的接入点：
   - 本机数据目录里的纯文本文件（`input-log.jsonl`、`user-words.tsv` 等），Cloud **只读**；
   - 用户词库目录 `dicts/`，输入法会自动当作附加词库加载，Cloud 在这里放一个 `cloud.qj`；
-  - 配置 `[predict] base_url`，指向 Cloud 服务器，就把现有的云联想接到了 Cloud 的大模型代理上。
+  - `[predict] provider` 缺省就是 `qingjian`：云联想的地址与令牌由输入法在运行时从 Cloud 的配置里拿（`qingjian_cloud_mac::llm_endpoint`），不写进会同步的 config.toml；`custom` 才用填的 `base_url` / `api_key`。
 - **依赖上游 crate 的地方收在一处。** iOS 键盘要直接用 `qingjian-core` 的 `Engine`，服务端要读写 `.qj` 词库。
   所有对上游 Rust API 的调用都集中在 `cloud/crates/qingjian-cloud-bridge` 这一个 crate 里。
   上游改了 API，只改这一个 crate。

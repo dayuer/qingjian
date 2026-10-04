@@ -14,7 +14,13 @@ impl Host {
     /// 清空输入日志文件；开着的话重新打开继续记。
     /// 「测试连接」：用当前配置发一条最小请求，结果回到偏好设置窗口底部的状态行。
     pub(super) fn start_cloud_test(&mut self) {
-        let config = self.settings.config().predict.clone();
+        let config = match self.effective_predict(self.settings.config()) {
+            Ok(config) => config,
+            Err(reason) => {
+                self.preferences.set_status(&reason);
+                return;
+            }
+        };
         match ConnectionTest::start(&config) {
             Ok(test) => {
                 self.cloud_test = Some(test);

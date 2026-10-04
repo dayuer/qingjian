@@ -53,6 +53,9 @@ pub enum Setting {
     /// `[predict] enabled`。
     CloudEnabled,
 
+    /// 云联想走青简 Cloud 还是自定义接口。
+    CloudProvider,
+
     /// `[model] enabled`。
     LocalModelEnabled,
 
@@ -212,6 +215,7 @@ impl Setting {
             Self::QuestionKey => 6,
             Self::QuestionMark => 41,
             Self::CloudEnabled => 7,
+            Self::CloudProvider => 57,
             Self::BaseUrl => 8,
             Self::Model => 9,
             Self::ApiKey => 10,
@@ -280,6 +284,7 @@ impl Setting {
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
             7 => Self::CloudEnabled,
+            57 => Self::CloudProvider,
             8 => Self::BaseUrl,
             9 => Self::Model,
             10 => Self::ApiKey,
@@ -359,6 +364,7 @@ mod tests {
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,
+            Setting::CloudProvider,
             Setting::LocalModelEnabled,
             Setting::UpdateCheck,
             Setting::UpdateChannel,

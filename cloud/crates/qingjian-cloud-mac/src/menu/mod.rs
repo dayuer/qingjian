@@ -16,7 +16,6 @@ pub const TAG_PAUSE: isize = -1;
 pub const TAG_RELOAD: isize = -2;
 pub const TAG_OPEN_CONFIG: isize = -3;
 pub const TAG_SYNC_NOW: isize = -6;
-pub const TAG_USE_LLM: isize = -7;
 
 pub fn build_lines(display: &Display, data: Option<&DataStatus>, history: &History) -> Vec<Line> {
     let mut lines = vec![Line::Text(status_line(display))];
@@ -40,12 +39,6 @@ pub fn build_lines(display: &Display, data: Option<&DataStatus>, history: &Histo
     lines.push(Line::Action(pause.to_owned(), TAG_PAUSE));
     if data.is_some() {
         lines.push(Line::Action("立即同步学习数据".to_owned(), TAG_SYNC_NOW));
-    }
-    if !matches!(display, Display::Unconfigured(_)) {
-        lines.push(Line::Action(
-            "让青简使用 Cloud 的大模型".to_owned(),
-            TAG_USE_LLM,
-        ));
     }
     lines.push(Line::Action("重新加载配置".to_owned(), TAG_RELOAD));
     lines.push(Line::Action("打开配置文件…".to_owned(), TAG_OPEN_CONFIG));
