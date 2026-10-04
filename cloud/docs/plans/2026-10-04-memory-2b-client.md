@@ -11,6 +11,8 @@
 
 **Spec:** `synon-ime` 仓库 `docs/superpowers/specs/2026-10-04-memory-design.md`「2B」（分支 `sujian-memory-docs`）。**前置：** 2A 完成。Task 1、2 先做并推送，服务端 2B 依赖它们编译。
 
+
+**状态（2026-10-04 收尾）：** Task 1（proto）、Task 2（`qingjian-cloud-redact`，向量 `tests/vectors.jsonl` 与服务端共用）已在 `sujian` 完成；Task 3–7 **未开始**。接着做时从 Task 3 `MemorySync` 起，先展开、发审计会话审；Task 3 之前先补本文件 Task 3 下记的「防复活」前置检查。
 ---
 
 ## Task 1：proto 的 2B 类型
