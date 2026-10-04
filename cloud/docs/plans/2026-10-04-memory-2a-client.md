@@ -3701,11 +3701,12 @@ char *qj_memory_write(const char *user_dir, const char *json); // App 用：整�
    - **重建索引带上节流与「知道了」：** `rebuild_hints` 用 `HintIndex::rebuild`；「知道了」（`today = true`）写进 `memory/dismissed.json`，`LiveMemory::open` 时读回（顺带清 30 天前的与已不存在的卡）。
    - **提示开关按人：** `memory_hint` / `update_hint` 看当前对象的 `hint_on`、`remind_on`。
    - `has_contact` 要求当前对象在名单上找得到（名单刷新后被删的人立刻不出提示）。
+9. **键盘写入用 200 毫秒锁超时，拿不到进内存待办（审计会话新加）：** `KEYBOARD_LOCK_TIMEOUT`；`memory_note` / `set_scope` 遇 `LockTimeout` 不报错，进 `LiveMemory.pending`，下次 `refresh` / `poll` / `flush` / 下一次记一笔重试（Step 4 续）；待办上限 32 条；`set_scope` 待办只留最新一次；`memory_note` 按顺序重试、成功才出队；`qj_memory_note` 在 `lock_timeout` 时返回 NULL（与成功一致，头文件与注释写清）；`refresh` 拆成 `refresh`（先重试待办）与 `refresh_candidates`；换对象时先清卡片再读（读不了就记 `cards_stale` 补读，不拿上一个人的卡当这个人的）；`memory_note` 在入队前先校验文字（空、超过 200 字）与对象编号；C 接口错误码补 `lock_timeout`（App 等 2 秒仍拿不到时）。
 
 ### 步骤
 
 **Files:**
-- Create: `cloud/crates/qingjian-cloud-bridge/src/session/memory/{mod,live}.rs`、`src/memory/ffi.rs`、`tests/memory_ffi.rs`
+- Create: `cloud/crates/qingjian-cloud-bridge/src/session/memory/{mod,live,tests}.rs`、`src/session/memory/pending/{mod,note}.rs`、`src/memory/ffi.rs`、`tests/memory_ffi.rs`
 - Modify: `src/session/mod.rs`（整份替换，见 Step 5）、`src/session/cloud.rs:116-120`（`poll` 开头）、`src/memory/mod.rs`（`mod ffi;`）、`src/lib.rs:457`（`with` 改 `pub(crate)`）、`include/qingjian_bridge.h:88`（`qj_string_free` 之前）
 
 - [ ] **Step 1: 写失败的测试**
@@ -3720,10 +3721,11 @@ use std::collections::BTreeSet;
 use std::ffi::{CStr, CString, c_char};
 use std::path::{Path, PathBuf};
 use std::ptr;
+use std::time::{Duration, Instant};
 
 use qingjian_cloud_bridge::{
-    Session, qj_commit, qj_flush, qj_push, qj_session_free, qj_session_open, qj_set_private,
-    qj_string_free,
+    Session, qj_commit, qj_flush, qj_poll, qj_push, qj_session_free, qj_session_open,
+    qj_set_private, qj_string_free,
 };
 use serde_json::{Value, json};
 
@@ -4088,6 +4090,137 @@ fn bad_arguments_do_not_crash() {
     unsafe { qj_session_free(session) };
 }
 
+/// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。
+fn hold_lock(user: &Path) -> std::fs::File {
+    let dir = user.join("memory");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(".lock"))
+        .unwrap();
+    file.lock().unwrap();
+    file
+}
+
+/// 键盘等锁的上限是 200 毫秒；主线程上一次调用最多容忍这么久（加调度与慢机器的余量）。
+const KEYBOARD_BUDGET: Duration = Duration::from_millis(900);
+
+#[test]
+fn keyboard_note_is_deferred_while_the_lock_is_held() {
+    let (data, user) = dirs("note-locked");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let cards_path = user.join("memory").join(CONTACT).join("cards.json");
+
+    let lock = hold_lock(&user);
+    for text in ["周末一起看电影", "她喜欢喝茶"] {
+        let text = c(text);
+        let started = Instant::now();
+        let failure = take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) });
+        let elapsed = started.elapsed();
+        eprintln!("锁被占着时 qj_memory_note 用了 {elapsed:?}");
+        assert_eq!(failure, None, "拿不到锁视同已接受，不报错");
+        assert!(elapsed >= Duration::from_millis(150), "应当等满键盘的超时");
+        assert!(elapsed < KEYBOARD_BUDGET, "主线程不能卡 2 秒：{elapsed:?}");
+    }
+    let on_disk = std::fs::read_to_string(&cards_path).unwrap();
+    assert!(!on_disk.contains("周末一起看电影"), "锁没放，还没写进磁盘");
+
+    drop(lock);
+    unsafe { qj_push(session, 'n' as u32) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    let texts: Vec<&str> = snapshot["cards"][CONTACT]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|card| card["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        texts,
+        ["想要一个生日蛋糕", "周末一起看电影", "她喜欢喝茶"],
+        "下一次按键补写成功，顺序不变"
+    );
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn keyboard_note_retries_on_poll_and_flush_too() {
+    let (data, user) = dirs("note-poll");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("经 poll 补写");
+    let lock = hold_lock(&user);
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    drop(lock);
+    unsafe { qj_poll(session) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    assert_eq!(snapshot["cards"][CONTACT].as_array().unwrap().len(), 2);
+
+    let lock = hold_lock(&user);
+    let text = c("经 flush 补写");
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+    drop(lock);
+    unsafe { qj_flush(session) };
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    assert_eq!(snapshot["cards"][CONTACT].as_array().unwrap().len(), 3);
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
+    let (data, user) = dirs("scope-locked");
+    seed(&user);
+    let session = open(&data, Some(&user));
+
+    let lock = hold_lock(&user);
+    let started = Instant::now();
+    set_scope(session, "work", None);
+    set_scope(session, "dating", Some(CONTACT));
+    let elapsed = started.elapsed();
+    eprintln!("锁被占着时两次 qj_scope_set 用了 {elapsed:?}");
+    assert!(
+        elapsed < KEYBOARD_BUDGET * 2,
+        "每次最多等 200 毫秒：{elapsed:?}"
+    );
+    let scope = json_of(unsafe { qj_scope_get(session) });
+    assert_eq!(scope["scene"], "dating", "内存里照切");
+    assert_eq!(scope["contact_id"], CONTACT);
+    // 磁盘上还没写，轮询也不能把刚切的读回旧的
+    assert!(
+        !user.join("memory/state.json").exists() || {
+            !std::fs::read_to_string(user.join("memory/state.json"))
+                .unwrap()
+                .contains("dating")
+        }
+    );
+    unsafe { qj_poll(session) };
+    assert_eq!(
+        json_of(unsafe { qj_scope_get(session) })["contact_id"],
+        CONTACT
+    );
+
+    drop(lock);
+    unsafe { qj_push(session, 's' as u32) };
+    let state: Value =
+        serde_json::from_str(&std::fs::read_to_string(user.join("memory/state.json")).unwrap())
+            .unwrap();
+    assert_eq!(state["scene"], "dating", "待办只留最后一次，补写成功");
+    assert_eq!(state["contact_id"], CONTACT);
+    unsafe { qj_session_free(session) };
+}
+
 #[test]
 fn header_declares_every_export() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -4151,7 +4284,8 @@ Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/live.rs`：
 ```rust
 //! 会话里的本地记忆状态：当前场景与对象、换层把手、名单、当前对象的卡片与提示索引、最近上屏的字、两条提示。
 //! 键盘只读记忆文件（「记一笔」「知道了」与当前场景除外），App 改了按修改时间重载（见 `Session::poll_memory`）。
-//! 读不了（锁屏时数据保护挡住）就留着内存里原来的，不当成空。
+//! 读不了（锁屏时数据保护挡住）就留着内存里原来的，不当成空；
+//! 写时拿不到文件锁（键盘只等 200 毫秒）的「记一笔」与切场景先放进内存待办，之后重试（见 `pending`）。
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -4159,8 +4293,10 @@ use std::time::SystemTime;
 
 use qingjian_cloud_proto::Scene;
 
+use super::pending::PendingWrites;
 use crate::memory::{
-    Card, Contact, Hint, HintIndex, LocalDate, MemoryStore, RecentText, sanitized_scope,
+    Card, Contact, Hint, HintIndex, KEYBOARD_LOCK_TIMEOUT, LocalDate, MemoryStore, RecentText,
+    sanitized_scope,
 };
 use crate::scope::{ScopeHandle, ScopeState, ScopedLearner};
 
@@ -4188,13 +4324,19 @@ pub(crate) struct LiveMemory {
 
     /// `contacts.json`、`state.json`、当前对象 `cards.json` 上次读时的修改时间。
     pub(super) stamp: [Option<SystemTime>; 3],
+
+    /// 拿不到锁、等着重试的写入。
+    pub(super) pending: PendingWrites,
+
+    /// 换了对象但卡片还没读进来（当时拿不到锁或读不了）：先当没有卡，refresh 时补读。
+    pub(super) cards_stale: bool,
 }
 
 impl LiveMemory {
     /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前场景开分区学习器，读入「知道了」的记录。
     /// 提示索引由会话随后建（要用引擎的语言模型切词）。
     pub(in crate::session) fn open(user_dir: &Path) -> (ScopedLearner, Self) {
-        let store = MemoryStore::open(user_dir);
+        let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);
         let contacts = store.contacts();
         let state = sanitized_scope(store.state(), &contacts);
         let learner = ScopedLearner::open(
@@ -4234,6 +4376,8 @@ impl LiveMemory {
             today: None,
             current: None,
             stamp,
+            pending: PendingWrites::default(),
+            cards_stale: false,
         };
         (learner, memory)
     }
@@ -4256,15 +4400,28 @@ impl LiveMemory {
         }
     }
 
-    /// 重读当前对象的卡片与修改时间（换对象、「记一笔」、App 改了之后）；读不了时留着原来的。
-    pub(super) fn reload_cards(&mut self) {
+    /// 重读当前对象的卡片与修改时间（换对象、「记一笔」、App 改了之后）；读不了时留着原来的，返回是否读成了。
+    pub(super) fn reload_cards(&mut self) -> bool {
         let id = self.state.contact_id.clone();
-        match id.as_deref().map(|id| self.store.try_cards(id)) {
-            None => self.cards.clear(),
-            Some(Ok(cards)) => self.cards = cards,
-            Some(Err(error)) => tracing::warn!(%error, "卡片读不了，先用原来的"),
-        }
+        let loaded = match id.as_deref().map(|id| self.store.try_cards(id)) {
+            None => {
+                self.cards.clear();
+                true
+            }
+            Some(Ok(cards)) => {
+                self.cards = cards;
+                true
+            }
+            Some(Err(error)) => {
+                tracing::warn!(%error, "卡片读不了，先用原来的");
+                false
+            }
+        };
         self.stamp = self.store.stamp(id.as_deref());
+        if loaded {
+            self.cards_stale = false;
+        }
+        loaded
     }
 
     /// 最近上屏的字与正在显示的匹配提示都清掉（键盘收起、换了输入框、换了对象）。
@@ -4282,28 +4439,49 @@ Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/mod.rs`：
 ```rust
 //! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切场景与对象、取提示、对象卡、「记一笔」、「知道了」，
 //! 以及上屏路径喂进来的最近 24 字、换输入框时清空、按修改时间重载。读-改-写都交给 `MemoryStore`（文件锁里读磁盘再写）。
+//! 键盘只等 200 毫秒的锁：拿不到时「记一笔」与切场景进内存待办，下次 refresh / poll / flush 或下一次记一笔时重试，主线程不卡。
 
 mod live;
+mod pending;
 
-use qingjian_cloud_proto::Scene;
+#[cfg(test)]
+mod tests;
+
+use qingjian_cloud_proto::{MAX_CARD_TEXT_CHARS, Scene};
 use qingjian_core::sentence::{LanguageModel, segment_text};
 
 use super::Session;
 use crate::entry::Entry;
 use crate::memory::{Card, Hint, LocalDate, MemoryError, now_unix, panel_cards, sanitized_scope};
-use crate::scope::ScopeState;
+use crate::scope::{ScopeState, is_contact_id};
+
+use self::pending::PendingNote;
 
 pub(super) use self::live::LiveMemory;
 
 impl Session {
     /// 切场景与对象：交给 `MemoryStore::update_scope` 在锁里重读 `state.json` 与名单，只改这两个字段。
-    /// 非恋爱场景、磁盘名单上没有的对象都当不指定。读写失败（锁屏）就不切，记日志。
+    /// 非恋爱场景、磁盘名单上没有的对象都当不指定。读写失败（锁屏）就不切，记日志；
+    /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次）稍后重试。
     pub fn set_scope(&mut self, scene: Scene, contact: Option<&str>) {
         let Some(memory) = self.memory.as_mut() else {
             return;
         };
+        let mut deferred = false;
         let next = match memory.store.update_scope(scene, contact) {
-            Ok(state) => state,
+            Ok(state) => {
+                memory.pending.take_scope();
+                state
+            }
+            Err(MemoryError::LockTimeout) => {
+                deferred = true;
+                memory.pending.set_scope(scene, contact.map(str::to_owned));
+                let wanted = ScopeState {
+                    scene,
+                    contact_id: contact.map(str::to_owned),
+                };
+                sanitized_scope(wanted, &memory.contacts)
+            }
             Err(error) => {
                 tracing::warn!(%error, "切场景没写进 state.json，不切");
                 return;
@@ -4312,7 +4490,7 @@ impl Session {
         let moved = next != memory.state;
         memory.state = next;
         if moved {
-            self.switch_layers();
+            self.switch_layers(deferred);
         }
     }
 
@@ -4379,17 +4557,106 @@ impl Session {
     }
 
     /// 键盘「记一笔」：交给 `MemoryStore::add_note`（锁里按磁盘名单判断这个人还在、读卡片失败就不写）。
+    /// 拿不到锁（`LockTimeout`）时不报错，进内存待办稍后补写（视同成功）；前面还有没写进去的就排在后面，保持顺序。
     pub fn memory_note(&mut self, contact_id: &str, text: &str) -> Result<(), MemoryError> {
-        let memory = self
-            .memory
-            .as_mut()
-            .ok_or(MemoryError::Invalid("这个键盘没有记忆目录"))?;
-        memory.store.add_note(contact_id, text, now_unix())?;
+        if self.memory.is_none() {
+            return Err(MemoryError::Invalid("这个键盘没有记忆目录"));
+        }
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(MemoryError::Invalid("没有要记的文字"));
+        }
+        if text.chars().count() > MAX_CARD_TEXT_CHARS {
+            return Err(MemoryError::Invalid("一张卡最多 200 个字"));
+        }
+        if !is_contact_id(contact_id) {
+            return Err(MemoryError::Invalid("对象编号不对"));
+        }
+        self.retry_pending();
+        let Some(memory) = self.memory.as_mut() else {
+            return Ok(());
+        };
+        let now = now_unix();
+        let later = PendingNote {
+            contact_id: contact_id.to_owned(),
+            text: text.to_owned(),
+            at: now,
+        };
+        if memory.pending.note_count() > 0 {
+            memory.pending.push_note(later);
+            return Ok(());
+        }
+        match memory.store.add_note(contact_id, text, now) {
+            Ok(_) => {}
+            Err(MemoryError::LockTimeout) => {
+                memory.pending.push_note(later);
+                return Ok(());
+            }
+            Err(error) => return Err(error),
+        }
         if memory.state.contact_id.as_deref() == Some(contact_id) {
             memory.reload_cards();
             self.rebuild_hints();
         }
         Ok(())
+    }
+
+    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写（成功才出队，被拒绝的丢掉），再补写最新一次切场景，
+    /// 最后补读换对象时没读成的卡片。仍拿不到锁或读写不了就留着，这一轮到此为止（最多再等一个 200 毫秒）；
+    /// 补写的场景换了叠加层返回 true。
+    pub(super) fn retry_pending(&mut self) -> bool {
+        let Some(memory) = self.memory.as_mut() else {
+            return false;
+        };
+        if memory.pending.is_empty() && !memory.cards_stale {
+            return false;
+        }
+        let mut wrote_note = false;
+        let mut blocked = false;
+        while let Some(note) = memory.pending.front_note() {
+            match memory.store.add_note(&note.contact_id, &note.text, note.at) {
+                Ok(_) => {
+                    wrote_note = true;
+                    memory.pending.pop_note();
+                }
+                Err(error @ (MemoryError::LockTimeout | MemoryError::Io(_))) => {
+                    tracing::warn!(%error, "待写的记一笔先留着");
+                    blocked = true;
+                    break;
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "待写的记一笔被拒绝，丢掉");
+                    memory.pending.pop_note();
+                }
+            }
+        }
+        let mut moved = false;
+        if !blocked && let Some(scope) = memory.pending.take_scope() {
+            match memory.store.update_scope(scope.0, scope.1.as_deref()) {
+                Ok(state) => {
+                    moved = state != memory.state;
+                    memory.state = state;
+                }
+                Err(error @ (MemoryError::LockTimeout | MemoryError::Io(_))) => {
+                    tracing::warn!(%error, "待写的场景先留着");
+                    memory.pending.restore_scope(scope);
+                    blocked = true;
+                }
+                Err(error) => tracing::warn!(%error, "待写的场景被拒绝，丢掉"),
+            }
+        }
+        if moved {
+            self.switch_layers(false);
+            return true;
+        }
+        let Some(memory) = self.memory.as_mut() else {
+            return false;
+        };
+        if wrote_note || (memory.cards_stale && !blocked) {
+            memory.reload_cards();
+            self.rebuild_hints();
+        }
+        false
     }
 
     /// 宿主换了输入框（或键盘收起）：最近上屏的字清掉，免得在 A 聊天里打的字在 B 里触发提示。
@@ -4450,12 +4717,17 @@ impl Session {
     /// `Session::poll` 开头调：`memory/` 下的文件被 App 改了（修改时间变了）就重读，读不了的留着原来的；
     /// 当前对象被删时退回「恋爱 · 不指定」。换了叠加层（候选重排过）返回 true。
     pub(super) fn poll_memory(&mut self) -> bool {
+        let rescoped = self.retry_pending();
         let Some(memory) = self.memory.as_mut() else {
             return false;
         };
         let stamp = memory.store.stamp(memory.state.contact_id.as_deref());
         if stamp == memory.stamp {
-            return false;
+            return rescoped;
+        }
+        // 还有没写进磁盘的（锁一直被占着）：以内存里的为准，别读回旧的把刚切的切回去，也不再多等几个 200 毫秒
+        if !memory.pending.is_empty() || memory.cards_stale {
+            return rescoped;
         }
         memory.reload_contacts();
         let disk = match memory.store.try_state() {
@@ -4469,16 +4741,17 @@ impl Session {
         let moved = next != memory.state;
         memory.state = next;
         if moved {
-            self.switch_layers();
+            self.switch_layers(false);
         } else {
             memory.reload_cards();
             self.rebuild_hints();
         }
-        moved
+        moved || rescoped
     }
 
-    /// 状态里的场景或对象变了：换叠加层、重读名单与卡片、清最近的字，作废格子缓存后重建提示、重排候选。
-    fn switch_layers(&mut self) {
+    /// 状态里的场景或对象变了：换叠加层、清最近的字，作废格子缓存后重读名单与卡片（`deferred` 为真说明刚拿不到锁，
+    /// 不再读盘，卡片先当没有、记下待补读）、重建提示、重排候选。
+    fn switch_layers(&mut self, deferred: bool) {
         let Some(memory) = self.memory.as_mut() else {
             return;
         };
@@ -4486,12 +4759,16 @@ impl Session {
             .handle
             .switch(memory.state.scene, memory.state.contact_id.as_deref());
         memory.forget_context();
-        memory.reload_contacts();
-        memory.reload_cards();
+        memory.cards.clear();
+        memory.cards_stale = deferred;
+        if !deferred {
+            memory.reload_contacts();
+            memory.reload_cards();
+        }
         // 叠加层换了，格子缓存里的排序作废（learner_mut 会清缓存）
         self.engine.learner_mut();
         self.rebuild_hints();
-        self.refresh();
+        self.refresh_candidates();
     }
 }
 
@@ -4502,6 +4779,158 @@ fn words_of(text: &str, model: &dyn LanguageModel) -> Vec<String> {
         .flatten()
         .flatten()
         .collect()
+}
+```
+
+- [ ] **Step 4（续）：键盘待办队列（审计会话新加）**
+
+键盘只等 200 毫秒的锁（`MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT)`，`LiveMemory::open` 里已经这么开）。拿不到（`LockTimeout`）时不报错、不卡主线程，而是把写入放进 `LiveMemory.pending`：
+`memory_note` 按顺序排队、上限 32 条（超出丢最旧的并 `tracing::warn!`）、重试成功才出队、被拒绝（`invalid` 等）的丢掉、`io` 的留着；`set_scope` 内存里照切、写盘只留最新一次。
+`Session::retry_pending` 在每次 `refresh`（按键）、`poll`（`poll_memory` 开头）、`flush` 与下一次 `memory_note` 开头重试，一轮遇到第一个超时就停（最多再等 200 毫秒）；`switch_layers(deferred)` 在刚超时时不再读盘（卡片先当没有，`cards_stale` 记下，下次补读）；
+`poll_memory` 在还有待办或卡片没补读时不读盘（免得读回旧的 `state.json` 把刚切的切回去）。`qj_memory_note` 在 `lock_timeout` 时返回 NULL（已接受，稍后写入），与成功一致；App 侧（`qj_memory_read` / `qj_memory_write`）仍等 2 秒。
+
+Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/pending/note.rs`：
+
+```rust
+//! 一条等着写的「记一笔」。
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::session) struct PendingNote {
+    pub(in crate::session) contact_id: String,
+
+    pub(in crate::session) text: String,
+
+    /// 用户点「记」的时间（Unix 秒），补写时仍按这个时间建卡。
+    pub(in crate::session) at: i64,
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/pending/mod.rs`：
+
+```rust
+//! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」按顺序排队，切场景只留最新一次。
+//! 下次 refresh、poll、flush 或下一次写入时重试；卡片与场景在内存里已经生效，只是磁盘上晚几步。
+
+mod note;
+
+use std::collections::VecDeque;
+
+use qingjian_cloud_proto::Scene;
+
+pub(in crate::session) use self::note::PendingNote;
+
+/// 待写的「记一笔」最多几条，超出丢最旧的。
+pub(in crate::session) const MAX_PENDING_NOTES: usize = 32;
+
+#[derive(Debug, Default)]
+pub(in crate::session) struct PendingWrites {
+    notes: VecDeque<PendingNote>,
+
+    scope: Option<(Scene, Option<String>)>,
+}
+
+impl PendingWrites {
+    pub(in crate::session) fn is_empty(&self) -> bool {
+        self.notes.is_empty() && self.scope.is_none()
+    }
+
+    #[cfg(test)]
+    pub(in crate::session) fn has_scope(&self) -> bool {
+        self.scope.is_some()
+    }
+
+    pub(in crate::session) fn note_count(&self) -> usize {
+        self.notes.len()
+    }
+
+    /// 排到队尾；满了丢最旧的（记日志）。
+    pub(in crate::session) fn push_note(&mut self, note: PendingNote) {
+        if self.notes.len() >= MAX_PENDING_NOTES {
+            self.notes.pop_front();
+            tracing::warn!("待写的记一笔太多，丢掉最旧的一条");
+        }
+        self.notes.push_back(note);
+    }
+
+    pub(in crate::session) fn front_note(&self) -> Option<&PendingNote> {
+        self.notes.front()
+    }
+
+    pub(in crate::session) fn pop_note(&mut self) -> Option<PendingNote> {
+        self.notes.pop_front()
+    }
+
+    /// 后一次覆盖前一次。
+    pub(in crate::session) fn set_scope(&mut self, scene: Scene, contact: Option<String>) {
+        self.scope = Some((scene, contact));
+    }
+
+    pub(in crate::session) fn take_scope(&mut self) -> Option<(Scene, Option<String>)> {
+        self.scope.take()
+    }
+
+    /// 重试没成功时放回去；期间若有更新的一次（重入）就不覆盖它。
+    pub(in crate::session) fn restore_scope(&mut self, scope: (Scene, Option<String>)) {
+        self.scope.get_or_insert(scope);
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/tests.rs`（队列的单元测试；拿不到文件锁的端到端行为在 `tests/memory_ffi.rs` 的 `keyboard_note_is_deferred_while_the_lock_is_held`、`keyboard_note_retries_on_poll_and_flush_too`、`keyboard_scope_switch_is_deferred_and_keeps_only_the_latest`，用 `hold_lock` 占住 `memory/.lock`）：
+
+```rust
+//! 键盘待办队列：「记一笔」按顺序、有上限，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
+
+use qingjian_cloud_proto::Scene;
+
+use super::pending::{MAX_PENDING_NOTES, PendingNote, PendingWrites};
+
+fn note(n: usize) -> PendingNote {
+    PendingNote {
+        contact_id: "0123456789abcdef0123456789abcdef".to_owned(),
+        text: format!("第 {n} 条"),
+        at: i64::try_from(n).unwrap(),
+    }
+}
+
+#[test]
+fn pending_notes_keep_order_and_drop_the_oldest_over_the_cap() {
+    let mut pending = PendingWrites::default();
+    assert!(pending.is_empty());
+    for n in 0..MAX_PENDING_NOTES + 5 {
+        pending.push_note(note(n));
+    }
+    assert_eq!(pending.note_count(), MAX_PENDING_NOTES);
+    assert_eq!(
+        pending.front_note().unwrap().text,
+        "第 5 条",
+        "丢的是最旧的 5 条"
+    );
+    let mut texts = Vec::new();
+    while let Some(next) = pending.pop_note() {
+        texts.push(next.at);
+    }
+    let expected: Vec<i64> = (5..i64::try_from(MAX_PENDING_NOTES).unwrap() + 5).collect();
+    assert_eq!(texts, expected);
+    assert!(pending.is_empty());
+}
+
+#[test]
+fn pending_scope_keeps_only_the_latest() {
+    let mut pending = PendingWrites::default();
+    pending.set_scope(Scene::Work, None);
+    pending.set_scope(Scene::Dating, Some("a".repeat(32)));
+    assert!(pending.has_scope());
+    assert_eq!(
+        pending.take_scope(),
+        Some((Scene::Dating, Some("a".repeat(32))))
+    );
+    assert!(!pending.has_scope());
+
+    // 重试失败放回时，不压过期间新来的一次
+    pending.set_scope(Scene::Daily, None);
+    pending.restore_scope((Scene::Work, None));
+    assert_eq!(pending.take_scope(), Some((Scene::Daily, None)));
 }
 ```
 
@@ -4707,12 +5136,19 @@ impl Session {
 
     /// 键盘收起或进入后台时调，学习数据落盘（键盘扩展随时可能被系统杀掉），清掉最近上屏的字，再催一轮同步。
     pub fn flush(&mut self) {
+        self.retry_pending();
         self.engine.flush_learning();
         self.reset_context();
         self.sync_now();
     }
 
+    /// 每次按键后：先补写拿不到锁时留下的待办，再重查候选。
     fn refresh(&mut self) {
+        self.retry_pending();
+        self.refresh_candidates();
+    }
+
+    fn refresh_candidates(&mut self) {
         self.entries.clear();
         self.preedit.clear();
         if self.composing() {
@@ -4877,6 +5313,7 @@ pub unsafe extern "C" fn qj_memory_cards(
 }
 
 /// 键盘「记一笔」：给对象建一张 `other` 卡。成功返回空指针，失败返回 `{"code","message"}`。
+/// 键盘只等 200 毫秒的锁：拿不到（`lock_timeout`）时也返回空指针，表示已接受、稍后写入（内存待办，下次按键、poll、flush 时补写）。
 ///
 /// # Safety
 /// 同 [`qj_scope_set`]；两个字符串参数为有效 UTF-8 C 字符串。
@@ -4920,7 +5357,7 @@ pub unsafe extern "C" fn qj_memory_read(user_dir: *const c_char) -> *mut c_char 
     .map_or(ptr::null_mut(), |json| owned(&json))
 }
 
-/// App 用：整份写回。成功返回空指针，失败返回 `{"code","message"}`，code 取 `contact_limit` / `invalid` / `conflict` / `io`；
+/// App 用：整份写回。成功返回空指针，失败返回 `{"code","message"}`，code 取 `contact_limit` / `invalid` / `conflict` / `lock_timeout`（等了 2 秒没拿到锁）/ `io`；
 /// `conflict` 表示键盘这期间改过，App 重读、合并后再写。
 ///
 /// # Safety
@@ -4960,6 +5397,7 @@ Modify `cloud/crates/qingjian-cloud-bridge/include/qingjian_bridge.h`：在第 8
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。
 // scene 取 daily / dating / work；contact_id 是 32 位十六进制，可为 NULL（不指定）；非恋爱场景、磁盘名单上没有的对象都当不指定。
 // 切换时在锁里重读 memory/state.json、只改场景与对象再写回；锁屏读不了就不切。候选按新的分区学习重排。
+// 键盘只等 200 毫秒的锁：拿不到时内存里照切，写盘进待办（只留最新一次），下次按键、qj_poll、qj_flush 时补写。
 void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
 // {"scene":"dating","contact_id":"…"|null}
 char *qj_scope_get(QjSession *session);
@@ -4973,23 +5411,24 @@ void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
 // 键盘内对象卡面板：今日相关最多 3 张卡的 JSON 数组。
 char *qj_memory_cards(QjSession *session, const char *contact_id);
 // 「记一笔」：给磁盘名单上的对象建一张 other 卡。成功返回 NULL，失败返回 {"code","message"}
-// （invalid：没有这个人或没有文字；io：卡片读不了，例如锁屏，此时什么都不写）。
+// （invalid：没有这个人、没有文字或超过 200 字；io：卡片读不了，例如锁屏，此时什么都不写）。
+// 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在内存待办里
+// （最多 32 条，满了丢最旧的），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
 char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);
 // App 用，user_dir 是 App Group 里的 Qingjian 目录（记忆在它下面的 memory/）。read 返回
 // {"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}（revs 是各对象卡片的修订号；broken 是卡片文件损坏、
 // 已备份的对象；参数无效或有文件读不了时为 NULL）。
-// write 整份写回：成功返回 NULL，失败返回 {"code","message"}，code 取 contact_limit / invalid / conflict / io。
+// write 整份写回：成功返回 NULL，失败返回 {"code","message"}，code 取 contact_limit / invalid / conflict / lock_timeout / io（lock_timeout：App 等了 2 秒还拿不到锁，稍后再试）。
 // 某个对象磁盘上的修订号比 revs 新（键盘这期间记过一笔）就整份不写、返回 conflict，App 重读合并后再写；
 // 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删。
 char *qj_memory_read(const char *user_dir);
 char *qj_memory_write(const char *user_dir, const char *json);
-
 ```
 
 - [ ] **Step 8: 跑测试看它通过**
 
 Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge --test memory_ffi 2>&1 | tail -12`
-Expected: `test result: ok. 9 passed; 0 failed`（大纲的四类加头文件核对，另有「键盘收起与换输入框清最近的字」「提示开关按人」「忘掉的人不复活」、以及提示测试末尾的「知道了」重开键盘仍记得）。
+Expected: `test result: ok. 12 passed; 0 failed`（大纲的四类加头文件核对，另有键盘待办的三个测试（锁被占着时记一笔 / 切场景进待办、释放后补写）、「键盘收起与换输入框清最近的字」「提示开关按人」「忘掉的人不复活」、以及提示测试末尾的「知道了」重开键盘仍记得）。
 
 - [ ] **Step 9: 用真实产品数据跑一遍会话测试（有数据才跑）**
 

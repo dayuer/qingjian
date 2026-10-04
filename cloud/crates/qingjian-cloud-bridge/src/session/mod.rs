@@ -1,17 +1,20 @@
 //! 一次键盘会话：持有 Engine，每次缓冲变化后重查一遍候选缓存起来，给 C ABI 按下标取。
-//! 配了青简 Cloud 时还挂着大模型联想、润色与学习数据同步（见 `cloud.rs`）。
+//! 配了青简 Cloud 时还挂着大模型联想、润色与学习数据同步（见 `cloud.rs`）；
+//! 有学习数据目录时挂着本地记忆：场景 / 对象分区学习与打字提示（见 `memory/`）。
 
 mod cloud;
 mod config;
+mod memory;
 
 use std::path::{Path, PathBuf};
 
 use qingjian_cloud_client::DataSync;
-use qingjian_core::{Engine, SurroundingText};
+use qingjian_core::{Engine, Learner, SurroundingText};
 use qingjian_dictionary::Dictionary;
 use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
+use self::memory::LiveMemory;
 use crate::clipboard::Clipboard;
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
@@ -52,11 +55,14 @@ pub struct Session {
 
     /// 青简 Cloud 的连接配置；云联想选青简 Cloud 时端点从这里来。离线为 `None`。
     cloud: Option<CloudConfig>,
+
+    /// 本地记忆；没有学习数据目录（只在内存里学）时为 `None`，学习器也就不分区。
+    memory: Option<LiveMemory>,
 }
 
 impl Session {
     /// `data_dir` 里要有 `dict.qj`，`lm.qj` 可选（没有就退回词频整句）；
-    /// `user_dir` 给了就从 `user.tsv` 读学习数据并在 [`Self::flush`] 时写回，没给只在内存里学；
+    /// `user_dir` 给了就从 `user.tsv` 读学习数据并在 [`Self::flush`] 时写回，记忆在它下面的 `memory/`；没给只在内存里学、没有记忆；
     /// `config` 是设置文件 `config.toml`，不给就用 `user_dir` 下的（iOS 上没有完全访问时学习数据在扩展容器、设置在 App Group，两处分开）；
     /// `cloud` 给了就接上大模型与同步，没给完全离线。
     pub fn open(
@@ -66,8 +72,14 @@ impl Session {
         cloud: Option<CloudConfig>,
     ) -> Result<Self, BridgeError> {
         let dictionary = Dictionary::from_path(data_dir.join("dict.qj"))?;
-        let learner = user_dir.map_or_else(FrequencyLearner::default, load_learner);
-        let mut engine = Engine::new(dictionary).with_learner(Box::new(learner));
+        let (learner, memory): (Box<dyn Learner>, Option<LiveMemory>) = match user_dir {
+            Some(dir) => {
+                let (learner, memory) = LiveMemory::open(dir);
+                (Box::new(learner), Some(memory))
+            }
+            None => (Box::new(FrequencyLearner::default()), None),
+        };
+        let mut engine = Engine::new(dictionary).with_learner(learner);
         let lm = data_dir.join("lm.qj");
         if lm.is_file() {
             match BigramModel::from_path(&lm) {
@@ -97,12 +109,14 @@ impl Session {
             config_modified: None,
             dicts_dir: data_dir.join("dicts"),
             cloud: cloud.clone(),
+            memory,
         };
         session.reload_config();
         if let Some(cloud) = cloud {
             session.connect(&cloud);
         }
         session.apply_inbox();
+        session.rebuild_hints();
         Ok(session)
     }
 
@@ -145,6 +159,7 @@ impl Session {
                 self.engine.accept_prediction(&sentence)
             }
         };
+        self.note_committed(&text);
         self.refresh();
         Some(text)
     }
@@ -152,63 +167,69 @@ impl Session {
     /// 敲过的字母原样上屏（回车）。
     pub fn take_raw(&mut self) -> String {
         let text = self.engine.take_raw();
+        self.note_committed(&text);
         self.refresh();
         text
     }
 
     /// 没在组句时的标点：中文模式转全角，不需要转的原样返回并记成直通字符。
     pub fn punctuate(&mut self, c: char) -> String {
-        match self.engine.punctuate(c) {
+        let text = match self.engine.punctuate(c) {
             Some(text) => text.to_owned(),
             None => {
                 self.engine.note_passthrough(c);
                 c.to_string()
             }
-        }
+        };
+        self.note_committed(&text);
+        self.update_hint();
+        text
     }
 
     /// 没在组字时直接输出的字符（空格、回车）告诉引擎，输入日志里的句子边界才对。
     pub fn note_passthrough(&mut self, c: char) {
         self.engine.note_passthrough(c);
+        self.note_committed(c.encode_utf8(&mut [0; 4]));
+        self.update_hint();
     }
 
-    /// 键盘收起或进入后台时调，学习数据落盘（键盘扩展随时可能被系统杀掉），再催一轮同步。
+    /// 键盘收起或进入后台时调，学习数据落盘（键盘扩展随时可能被系统杀掉），清掉最近上屏的字，再催一轮同步。
     pub fn flush(&mut self) {
+        self.retry_pending();
         self.engine.flush_learning();
+        self.reset_context();
         self.sync_now();
     }
 
+    /// 每次按键后：先补写拿不到锁时留下的待办，再重查候选。
     fn refresh(&mut self) {
+        self.retry_pending();
+        self.refresh_candidates();
+    }
+
+    fn refresh_candidates(&mut self) {
         self.entries.clear();
         self.preedit.clear();
-        if !self.composing() {
-            self.engine.cancel_prediction();
-            return;
-        }
-        match self.engine.query() {
-            Ok(query) => {
-                self.preedit = query.marked_text();
-                self.entries.extend(
-                    query
-                        .candidates
-                        .items
-                        .into_iter()
-                        .take(MAX_CANDIDATES)
-                        .map(Entry::Local),
-                );
+        if self.composing() {
+            match self.engine.query() {
+                Ok(query) => {
+                    self.preedit = query.marked_text();
+                    self.entries.extend(
+                        query
+                            .candidates
+                            .items
+                            .into_iter()
+                            .take(MAX_CANDIDATES)
+                            .map(Entry::Local),
+                    );
+                }
+                // 拼不成音节（如 `vvv`）：显示原样输入，没有候选，回车原样上屏。
+                Err(_) => self.preedit = self.engine.composition().text().to_owned(),
             }
-            // 拼不成音节（如 `vvv`）：显示原样输入，没有候选，回车原样上屏。
-            Err(_) => self.preedit = self.engine.composition().text().to_owned(),
+            self.request_prediction();
+        } else {
+            self.engine.cancel_prediction();
         }
-        self.request_prediction();
+        self.update_hint();
     }
-}
-
-/// 读不了就退回只在内存里学，不拿空表覆盖用户文件。
-fn load_learner(dir: &Path) -> FrequencyLearner {
-    let path: PathBuf = dir.join("user.tsv");
-    FrequencyLearner::from_path(&path).unwrap_or_else(|error| {
-        tracing::error!(path = %path.display(), %error, "学习数据读取失败，本次只在内存里学习");
-        FrequencyLearner::default()
-    })
 }

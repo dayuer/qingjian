@@ -466,7 +466,7 @@ pub unsafe extern "C" fn qj_string_free(text: *mut c_char) {
 }
 
 /// 空指针与 panic 都折成 `fallback`：panic 穿过 `extern "C"` 会直接 abort，带着宿主应用的键盘一起没。
-fn with<T>(session: *mut Session, fallback: T, f: impl FnOnce(&mut Session) -> T) -> T {
+pub(crate) fn with<T>(session: *mut Session, fallback: T, f: impl FnOnce(&mut Session) -> T) -> T {
     // SAFETY: 调用方保证指针来自 qj_session_open、未释放、且只在一个线程上用。
     let Some(session) = (unsafe { session.as_mut() }) else {
         return fallback;
