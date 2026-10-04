@@ -1,31 +1,31 @@
-{"input": "我的手机是13812345678，有事找我", "expected": "我的手机是〔手机号〕，有事找我", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "13800138000", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "+86 138 1234 5678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "+8613812345678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "+86-13812345678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "0086 13812345678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "138-1234-5678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "138 1234 5678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "1381234 5678", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "联系 15000000000 或 18800001234", "expected": "联系 〔手机号〕 或 〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "电话：13912345678。", "expected": "电话：〔手机号〕。", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "tel13812345678", "expected": "tel〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "call me at 13812345678 ok", "expected": "call me at 〔手机号〕 ok", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "手机号13812345678已绑定", "expected": "手机号〔手机号〕已绑定", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "13812345678,13912345678", "expected": "〔手机号〕,〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "13812345678-13912345678", "expected": "〔手机号〕-〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "13812345678 13812345678", "expected": "〔手机号〕 〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "a\n13812345678\nb", "expected": "a\n〔手机号〕\nb", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "+8613812340000", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "我的手机是18127127299，有事找我", "expected": "我的手机是〔手机号〕，有事找我", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "18731682543", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "+86 181 2712 7299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "+8618127127299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "+86-18127127299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "0086 18127127299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "181-2712-7299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "181 2712 7299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "1812712 7299", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "联系 13862362958 或 15035584815", "expected": "联系 〔手机号〕 或 〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "电话：18199444580。", "expected": "电话：〔手机号〕。", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "tel18127127299", "expected": "tel〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "call me at 18127127299 ok", "expected": "call me at 〔手机号〕 ok", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "手机号18127127299已绑定", "expected": "手机号〔手机号〕已绑定", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "18127127299,18199444580", "expected": "〔手机号〕,〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "18127127299-18199444580", "expected": "〔手机号〕-〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "18127127299 18127127299", "expected": "〔手机号〕 〔手机号〕", "counts": {"phone": 2, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "a\n18127127299\nb", "expected": "a\n〔手机号〕\nb", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "+8618205336028", "expected": "〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "号码 12345678901", "expected": "号码 12345678901", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "号码 1234567890", "expected": "号码 1234567890", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号码 138123456789", "expected": "号码 138123456789", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号码 181271272999", "expected": "号码 181271272999", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "号码 10086", "expected": "号码 10086", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "号码 12345678", "expected": "号码 12345678", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号码 1380013800", "expected": "号码 1380013800", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号码 2013812345000", "expected": "号码 2013812345000", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号码 13812345678901234", "expected": "号码 13812345678901234", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号码 1381234567890120", "expected": "号码 1381234567890120", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号码 1873168254", "expected": "号码 1873168254", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号码 9181271272991", "expected": "号码 9181271272991", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号码 18127127299401883", "expected": "号码 18127127299401883", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号码 1812712729955229", "expected": "号码 1812712729955229", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "1111111111111111111111111", "expected": "1111111111111111111111111", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "2024-10-04 12:30:45", "expected": "2024-10-04 12:30:45", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "2024年10月4日", "expected": "2024年10月4日", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
@@ -43,33 +43,33 @@
 {"input": "075512345678", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "01012345678", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "0571-88888888", "expected": "〔电话〕", "counts": {"phone": 0, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "拨打 0571-88888888 或 13812345678", "expected": "拨打 〔电话〕 或 〔手机号〕", "counts": {"phone": 1, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "拨打 0571-88888888 或 18127127299", "expected": "拨打 〔电话〕 或 〔手机号〕", "counts": {"phone": 1, "landline": 1, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "电话 0101234567", "expected": "电话 0101234567", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "0123-4567", "expected": "0123-4567", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "身份证号 110101199001010015 请核对", "expected": "身份证号 〔证件号〕 请核对", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 11010119900101004X", "expected": "证件 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 11010119900101004x", "expected": "证件 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "110101199001010015 和 11010119900101004X", "expected": "〔证件号〕 和 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 2, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "旧证 110101900101001", "expected": "旧证 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "身份证 110101199001010250 同时通过 Luhn", "expected": "身份证 〔证件号〕 同时通过 Luhn", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 110101199001010010", "expected": "证件 110101199001010010", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 110101199013010004", "expected": "证件 110101199013010004", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 110101901301001", "expected": "证件 110101901301001", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件 1101011990010100157", "expected": "证件 1101011990010100157", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡号 6222021234567890128", "expected": "卡号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡 4111111111111111", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡 6222 0212 3456 7894", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡 6222-0212-3456-7894", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡 4222222222222", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡 622202123456789012", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "银行卡6222021234567890128，手机13812345678", "expected": "银行卡〔卡号〕，手机〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号 4111111111111112", "expected": "号 4111111111111112", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号 400000000002", "expected": "号 400000000002", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "号 62220212345678901234", "expected": "号 62220212345678901234", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "时间戳 1700000000004", "expected": "时间戳 1700000000004", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证号 220516195907203685 请核对", "expected": "身份证号 〔证件号〕 请核对", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 45140419630312983X", "expected": "证件 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 45140419630312983x", "expected": "证件 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "220516195907203685 和 45140419630312983X", "expected": "〔证件号〕 和 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 2, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "旧证 521307860511896", "expected": "旧证 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证 641919197009233136 同时通过 Luhn", "expected": "身份证 〔证件号〕 同时通过 Luhn", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 220516195907203688", "expected": "证件 220516195907203688", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 621119197513185391", "expected": "证件 621119197513185391", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 641402821302674", "expected": "证件 641402821302674", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件 2205161959072036856", "expected": "证件 2205161959072036856", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡号 6474802299598845567", "expected": "卡号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡 6433476792316313", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡 4083 4030 5204 6727", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡 4083-4030-5204-6727", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡 4449150519986", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡 423924681506646201", "expected": "卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "银行卡6474802299598845567，手机18127127299", "expected": "银行卡〔卡号〕，手机〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号 6433476792316314", "expected": "号 6433476792316314", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号 492161174486", "expected": "号 492161174486", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "号 64943568776561707035", "expected": "号 64943568776561707035", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "时间戳 1779053329973", "expected": "时间戳 1779053329973", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "邮箱 abc@example.com 联系", "expected": "邮箱 〔邮箱〕 联系", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 0, "account": 0}}
 {"input": "a.b+c_d@sub.example.co.uk", "expected": "〔邮箱〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 0, "account": 0}}
-{"input": "13812345678@qq.com", "expected": "〔邮箱〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 0, "account": 0}}
+{"input": "18127127299@qq.com", "expected": "〔邮箱〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 0, "account": 0}}
 {"input": "x@a.com 和 y@b.org", "expected": "〔邮箱〕 和 〔邮箱〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 2, "url": 0, "address": 0, "account": 0}}
 {"input": "user@localhost", "expected": "user@localhost", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "@mention", "expected": "@mention", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
@@ -79,7 +79,7 @@
 {"input": "http://example.com", "expected": "〔链接〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
 {"input": "www.example.com/path", "expected": "〔链接〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
 {"input": "HTTPS://EXAMPLE.COM/A", "expected": "〔链接〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
-{"input": "https://example.com/pay?phone=13812345678", "expected": "〔链接〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
+{"input": "https://example.com/pay?phone=18127127299", "expected": "〔链接〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
 {"input": "(https://a.com/x)", "expected": "(〔链接〕)", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
 {"input": "见 https://a.com/x.", "expected": "见 〔链接〕.", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 0, "account": 0}}
 {"input": "访问 example.com 看看", "expected": "访问 example.com 看看", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
@@ -122,24 +122,24 @@
 {"input": "0755 8888 66667777", "expected": "0755 8888 66667777", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "0755 8888 6666 1230", "expected": "0755 8888 6666 1230", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "023 0755 8888 6666", "expected": "023 0755 8888 6666", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "身份证 110101199001010010", "expected": "身份证 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "身份证号：110101901301001", "expected": "身份证号：〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "身份证号 11010119900101000X", "expected": "身份证号 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件号码是 110101199013010004", "expected": "证件号码是 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件号为:110101199001010010", "expected": "证件号为:〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "证件号 11010119900101001x", "expected": "证件号 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证 220516195907203688", "expected": "身份证 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证号：641402821302674", "expected": "身份证号：〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证号 21021019750517000X", "expected": "身份证号 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件号码是 621119197513185391", "expected": "证件号码是 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件号为:220516195907203688", "expected": "证件号为:〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "证件号 22051619590720368x", "expected": "证件号 〔证件号〕", "counts": {"phone": 0, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "身份证在抽屉里 123456789012345678", "expected": "身份证在抽屉里 123456789012345678", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "订单号 1234567890123456", "expected": "订单号 1234567890123456", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "身份证 111111111111111111111", "expected": "身份证 111111111111111111111", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "卡号 4111111111111110", "expected": "卡号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "银行卡号：6222 0212 3456 7890", "expected": "银行卡号：〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "账号 4222222222220", "expected": "账号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "账户是 6222021234567890120", "expected": "账户是 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "银行卡 6222-0212-3456-7890", "expected": "银行卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "银行卡：4111111111111111", "expected": "银行卡：〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "账号 1700000000000", "expected": "账号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "卡号 6291054695659156", "expected": "卡号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "银行卡号：6077 2598 6965 4998", "expected": "银行卡号：〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "账号 5426764120535", "expected": "账号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "账户是 4867342242710200388", "expected": "账户是 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "银行卡 6077-2598-6965-4998", "expected": "银行卡 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "银行卡：6433476792316313", "expected": "银行卡：〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "账号 1779053329973", "expected": "账号 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 1, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "卡号 123456789012", "expected": "卡号 123456789012", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
-{"input": "账号在这里 4111111111111110", "expected": "账号在这里 4111111111111110", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "账号在这里 6291054695659156", "expected": "账号在这里 6291054695659156", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "微信号：abc_123-xyz", "expected": "微信号：〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
 {"input": "我的微信 wxid_abc123456 加我", "expected": "我的微信 〔账号〕 加我", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
 {"input": "WeChat: Zhang_San99", "expected": "WeChat: 〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
@@ -147,7 +147,7 @@
 {"input": "QQ 12345678", "expected": "QQ 〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
 {"input": "QQ号：123456789，加我", "expected": "QQ号：〔账号〕，加我", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
 {"input": "q号是 10001", "expected": "q号是 〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
-{"input": "我加了QQ13812345678", "expected": "我加了QQ〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
+{"input": "我加了QQ18127127299", "expected": "我加了QQ〔账号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 1}}
 {"input": "qq:123456789012", "expected": "qq:123456789012", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "QQ 1234", "expected": "QQ 1234", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "12345678 QQ", "expected": "12345678 QQ", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
@@ -159,10 +159,10 @@
 {"input": "微信 abcdefghij0123456789x", "expected": "微信 abcdefghij0123456789x", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "qqq 12345", "expected": "qqq 12345", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "wx@example.com", "expected": "〔邮箱〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 0, "account": 0}}
-{"input": "我是张三，手机13812345678，邮箱a@b.com，住北京市海淀区中关村大街1号", "expected": "我是张三，手机〔手机号〕，邮箱〔邮箱〕，住〔地址〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 1, "account": 0}}
-{"input": "联系 a@b.com 或 https://a.com 或 13812345678", "expected": "联系 〔邮箱〕 或 〔链接〕 或 〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 1, "address": 0, "account": 0}}
+{"input": "我是张三，手机18127127299，邮箱a@b.com，住北京市海淀区中关村大街1号", "expected": "我是张三，手机〔手机号〕，邮箱〔邮箱〕，住〔地址〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 0, "address": 1, "account": 0}}
+{"input": "联系 a@b.com 或 https://a.com 或 18127127299", "expected": "联系 〔邮箱〕 或 〔链接〕 或 〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 0, "bank_card": 0, "email": 1, "url": 1, "address": 0, "account": 0}}
 {"input": "https://a.com/北京市朝阳区建国路88号", "expected": "〔链接〕〔地址〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 1, "address": 1, "account": 0}}
-{"input": "身份证 110101199001010015 手机 13812345678", "expected": "身份证 〔证件号〕 手机 〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
+{"input": "身份证 220516195907203685 手机 18127127299", "expected": "身份证 〔证件号〕 手机 〔手机号〕", "counts": {"phone": 1, "landline": 0, "id_card": 1, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "已处理：〔手机号〕 〔卡号〕", "expected": "已处理：〔手机号〕 〔卡号〕", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "〔地址〕88号", "expected": "〔地址〕88号", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
 {"input": "", "expected": "", "counts": {"phone": 0, "landline": 0, "id_card": 0, "bank_card": 0, "email": 0, "url": 0, "address": 0, "account": 0}}
