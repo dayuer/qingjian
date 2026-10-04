@@ -1,7 +1,10 @@
 //! 设置页读写 `config.toml`：改过的项写回后读出来一样，文件里别的内容（Mac 专属设置、注释）保留。
 
+mod support;
+
 use std::path::PathBuf;
 
+use self::support::data_dir;
 use qingjian_cloud_bridge::{CloudConfig, Session, Settings};
 use qingjian_core::CustomPhrase;
 
@@ -81,13 +84,9 @@ fn cloud_config_saves_incomplete_values() {
 /// 用真实产品数据：键盘会话按 `config.toml` 套用繁体，主 App 改了文件后轮询重读。
 #[test]
 fn session_applies_config_changes() {
-    let Some(data) = std::env::var_os("QINGJIAN_DATA").map(PathBuf::from) else {
-        eprintln!("没有 QINGJIAN_DATA，跳过");
+    let Some(data) = data_dir() else {
         return;
     };
-    if !data.join("dict.qj").is_file() {
-        return;
-    }
     let user = temp_dir("session");
     let config = user.join("config.toml");
     let mut session = Session::open(&data, Some(&user), None, None).unwrap();
