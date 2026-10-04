@@ -172,16 +172,20 @@ impl MemoryStore {
     }
 
     /// 键盘切场景与对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象（`Last` 回到这个场景上次选的人）；
-    /// 对象不在磁盘名单上或不是这个场景的人就当不指定。
+    /// 对象不在磁盘名单上或不是这个场景的人就当不指定；切到了某人时把 `now` 记进 `used`。
     pub fn update_scope(
         &self,
         scene: Scene,
         pick: &ContactPick,
+        now: i64,
     ) -> Result<ScopeState, MemoryError> {
         let _lock = self.lock()?;
         let contacts = self.read_contacts()?;
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        let state = scope_with(state, scene, pick, &contacts);
+        let mut state = scope_with(state, scene, pick, &contacts);
+        if let Some(id) = state.contact_id.clone() {
+            state.used.insert(id, now);
+        }
         write_json(&self.state_path(), &state)?;
         Ok(state)
     }

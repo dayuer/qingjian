@@ -93,7 +93,7 @@ char *qj_account_delete(const char *path);
 // 切换时在锁里重读 memory/state.json、只改场景与对象（与各场景上次选的人）再写回；开机后还没解锁过、读不了就不切。候选按新的分区学习重排。
 // 键盘只等 200 毫秒的锁：拿不到时内存里照切，写盘进待办（只留最新一次），下次按键、qj_poll、qj_flush 时补写。
 void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
-// {"scene":"dating","contact_id":"…"|null,"last":{"dating":"…","daily":"…"}}（last：各场景上次选的人）
+// {"scene":"dating","contact_id":"…"|null,"last":{"dating":"…","daily":"…"},"used":{"<id>":1791043200}}（last：各场景上次选的人；used：各人上次被选中的 Unix 秒）
 char *qj_scope_get(QjSession *session);
 // 宿主换了输入框时调：清掉最近上屏的字与正在显示的匹配提示（qj_flush 也会清）。
 void qj_reset_context(QjSession *session);

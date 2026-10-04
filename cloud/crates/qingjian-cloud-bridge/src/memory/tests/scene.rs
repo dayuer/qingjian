@@ -1,4 +1,5 @@
-//! 每个场景各一组人：各自 8 个互不影响、建好后不能换场景、各场景记住上次选的人（含旧 state.json 回填、忘掉的人清掉、场景对不上时退回不指定）。
+//! 每个场景各一组人：各自 8 个互不影响、建好后不能换场景、各场景记住上次选的人（含旧 state.json 回填、忘掉的人清掉、场景对不上时退回不指定）、
+//! 各人上次被选中的时间。
 
 use qingjian_cloud_proto::Scene;
 
@@ -71,16 +72,18 @@ fn switching_scenes_returns_to_the_last_pick() {
     store.put_contact(contact(2, Scene::Daily)).unwrap();
     store.put_contact(contact(3, Scene::Daily)).unwrap();
 
-    store.update_scope(Scene::Dating, &pick(1)).unwrap();
-    store.update_scope(Scene::Daily, &pick(3)).unwrap();
-    let state = store.update_scope(Scene::Work, &ContactPick::Last).unwrap();
+    store.update_scope(Scene::Dating, &pick(1), 0).unwrap();
+    store.update_scope(Scene::Daily, &pick(3), 0).unwrap();
+    let state = store
+        .update_scope(Scene::Work, &ContactPick::Last, 0)
+        .unwrap();
     assert_eq!(state.contact_id, None, "工作还没选过人");
     let state = store
-        .update_scope(Scene::Dating, &ContactPick::Last)
+        .update_scope(Scene::Dating, &ContactPick::Last, 0)
         .unwrap();
     assert_eq!(state.contact_id, Some(id(1)), "回到恋爱上次选的人");
     let state = store
-        .update_scope(Scene::Daily, &ContactPick::Last)
+        .update_scope(Scene::Daily, &ContactPick::Last, 0)
         .unwrap();
     assert_eq!(state.contact_id, Some(id(3)), "回到日常上次选的人");
     assert_eq!(state.last.get(&Scene::Dating), Some(&id(1)));
@@ -89,13 +92,13 @@ fn switching_scenes_returns_to_the_last_pick() {
 
     // 明确不指定也记下来：切走再回来还是不指定，别的场景不受影响
     store
-        .update_scope(Scene::Daily, &ContactPick::Nobody)
+        .update_scope(Scene::Daily, &ContactPick::Nobody, 0)
         .unwrap();
     store
-        .update_scope(Scene::Dating, &ContactPick::Last)
+        .update_scope(Scene::Dating, &ContactPick::Last, 0)
         .unwrap();
     let state = store
-        .update_scope(Scene::Daily, &ContactPick::Last)
+        .update_scope(Scene::Daily, &ContactPick::Last, 0)
         .unwrap();
     assert_eq!(state.contact_id, None);
     assert_eq!(state.last.get(&Scene::Dating), Some(&id(1)));
@@ -120,9 +123,11 @@ fn old_state_file_backfills_the_dating_contact() {
         format!(r#"{{"scene":"dating","contact_id":"{}"}}"#, id(1)),
     )
     .unwrap();
-    store.update_scope(Scene::Work, &ContactPick::Last).unwrap();
+    store
+        .update_scope(Scene::Work, &ContactPick::Last, 0)
+        .unwrap();
     let state = store
-        .update_scope(Scene::Dating, &ContactPick::Last)
+        .update_scope(Scene::Dating, &ContactPick::Last, 0)
         .unwrap();
     assert_eq!(state.contact_id, Some(id(1)));
     std::fs::remove_dir_all(&user).ok();
@@ -134,8 +139,8 @@ fn forgotten_contacts_leave_last() {
     let store = MemoryStore::open(&user);
     store.put_contact(contact(1, Scene::Dating)).unwrap();
     store.put_contact(contact(2, Scene::Daily)).unwrap();
-    store.update_scope(Scene::Dating, &pick(1)).unwrap();
-    store.update_scope(Scene::Daily, &pick(2)).unwrap();
+    store.update_scope(Scene::Dating, &pick(1), 0).unwrap();
+    store.update_scope(Scene::Daily, &pick(2), 0).unwrap();
 
     // App 忘掉恋爱的那个人：整份写回时 state 跟着理顺
     let mut snapshot = store.snapshot().unwrap();
@@ -149,7 +154,7 @@ fn forgotten_contacts_leave_last() {
     // 键盘这边：名单上没了的人，切场景时也不会回到它
     store.forget_contact(&id(2)).unwrap();
     let state = store
-        .update_scope(Scene::Daily, &ContactPick::Last)
+        .update_scope(Scene::Daily, &ContactPick::Last, 0)
         .unwrap();
     assert_eq!(state.contact_id, None);
     assert!(state.last.is_empty());
@@ -163,6 +168,7 @@ fn a_contact_from_another_scene_is_sanitized() {
         scene: Scene::Daily,
         contact_id: Some(id(1)),
         last: [(Scene::Daily, id(2)), (Scene::Work, id(2))].into(),
+        used: [(id(2), 1), (id(9), 2)].into(),
     };
     let state = sanitized_scope(state, &contacts);
     assert_eq!(state.contact_id, None, "恋爱的人不能在日常里选");
@@ -171,12 +177,43 @@ fn a_contact_from_another_scene_is_sanitized() {
         [(Scene::Work, id(2))].into(),
         "last 里场景对不上的也去掉"
     );
+    assert_eq!(state.used, [(id(2), 1)].into(), "used 里不在名单上的去掉");
 
     let user = temp_dir("scene-mismatch");
     let store = MemoryStore::open(&user);
     store.put_contact(contact(1, Scene::Dating)).unwrap();
-    let state = store.update_scope(Scene::Work, &pick(1)).unwrap();
+    let state = store.update_scope(Scene::Work, &pick(1), 0).unwrap();
     assert_eq!(state.contact_id, None);
     assert_eq!(state.scene, Scene::Work);
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn picking_someone_records_when_and_forgetting_clears_it() {
+    let user = temp_dir("scene-used");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    store.put_contact(contact(2, Scene::Daily)).unwrap();
+    store.update_scope(Scene::Dating, &pick(1), 100).unwrap();
+    store.update_scope(Scene::Daily, &pick(2), 200).unwrap();
+    let state = store
+        .update_scope(Scene::Dating, &ContactPick::Last, 300)
+        .unwrap();
+    assert_eq!(state.used.get(&id(1)), Some(&300), "切回上次的人也算选中");
+    assert_eq!(state.used.get(&id(2)), Some(&200));
+    let state = store
+        .update_scope(Scene::Dating, &ContactPick::Nobody, 400)
+        .unwrap();
+    assert_eq!(state.used.get(&id(1)), Some(&300), "不指定不记时间");
+
+    let old: ScopeState = serde_json::from_str(r#"{"scene":"daily"}"#).unwrap();
+    assert!(old.used.is_empty(), "旧文件没有 used");
+
+    store.forget_contact(&id(1)).unwrap();
+    let state = store
+        .update_scope(Scene::Daily, &ContactPick::Last, 500)
+        .unwrap();
+    assert_eq!(state.used.get(&id(1)), None, "忘掉的人一并清掉");
+    assert_eq!(state.used.get(&id(2)), Some(&500));
     std::fs::remove_dir_all(&user).ok();
 }

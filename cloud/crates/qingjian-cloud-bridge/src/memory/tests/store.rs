@@ -33,12 +33,12 @@ fn round_trips_contacts_cards_and_state() {
     assert_eq!(store.cards(&id(1)), cards);
     assert!(store.cards("../x").is_empty());
 
-    let state = store.update_scope(Scene::Dating, &pick(1)).unwrap();
+    let state = store.update_scope(Scene::Dating, &pick(1), 0).unwrap();
     assert_eq!(state.contact_id, Some(id(1)));
     assert_eq!(store.state(), state);
-    let state = store.update_scope(Scene::Work, &pick(1)).unwrap();
+    let state = store.update_scope(Scene::Work, &pick(1), 0).unwrap();
     assert_eq!(state.contact_id, None, "不是这个场景的人当不指定");
-    let state = store.update_scope(Scene::Dating, &pick(9)).unwrap();
+    let state = store.update_scope(Scene::Dating, &pick(9), 0).unwrap();
     assert_eq!(state.contact_id, None, "名单上没有的对象当不指定");
     std::fs::remove_dir_all(&user).ok();
 }
@@ -158,7 +158,7 @@ fn snapshot_write_replaces_all_but_the_current_scene() {
     store
         .put_cards(&id(2), &[card(2, CardKind::Other, "x", &[], None, 1)])
         .unwrap();
-    store.update_scope(Scene::Dating, &pick(2)).unwrap();
+    store.update_scope(Scene::Dating, &pick(2), 0).unwrap();
 
     let mut snapshot = store.snapshot().unwrap();
     snapshot.contacts.retain(|c| c.id == id(1));

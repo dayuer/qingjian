@@ -31,7 +31,7 @@ pub unsafe extern "C" fn qj_scope_set(
     with(session, (), |s| s.set_scope(scene, &pick));
 }
 
-/// `{"scene":"dating","contact_id":"…"|null,"last":{"daily":"…",…}}`；没有记忆的会话返回空指针。
+/// `{"scene":"dating","contact_id":"…"|null,"last":{"daily":"…",…},"used":{"<id>":秒,…}}`；没有记忆的会话返回空指针。
 ///
 /// # Safety
 /// 同 [`qj_scope_set`]。
@@ -43,6 +43,7 @@ pub unsafe extern "C" fn qj_scope_get(session: *mut Session) -> *mut c_char {
                 "scene": scene_name(state.scene),
                 "contact_id": state.contact_id,
                 "last": state.last,
+                "used": state.used,
             });
             owned(&json.to_string())
         })

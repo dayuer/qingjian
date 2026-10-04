@@ -138,7 +138,7 @@ fn unreadable_files_abort_writes() {
         Err(MemoryError::Io(_))
     ));
     assert!(matches!(
-        store.update_scope(Scene::Dating, &pick(1)),
+        store.update_scope(Scene::Dating, &pick(1), 0),
         Err(MemoryError::Io(_))
     ));
     assert!(store.contacts().is_empty(), "只读的接口读不了给空");
