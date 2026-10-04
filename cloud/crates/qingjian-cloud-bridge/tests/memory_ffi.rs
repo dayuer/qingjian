@@ -1,123 +1,21 @@
-//! 本地记忆的 C 接口：按 C 签名直接调。词库用仓库里的样例 `assets/sample/dict.tsv`（按内容认格式，起名 dict.qj 也能读），
-//! 不需要产品数据。最后一个测试核对头文件与导出符号逐个一致。
+//! 本地记忆的 C 接口：按 C 签名直接调，不需要产品数据。最后一个测试核对头文件与导出符号逐个一致。
+//! 每个场景各一组人的部分在 `memory_scene_ffi.rs`。
+
+mod memory_support;
 
 use std::collections::BTreeSet;
-use std::ffi::{CStr, CString, c_char};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::ptr;
 use std::time::{Duration, Instant};
 
-use qingjian_cloud_bridge::{
-    Session, qj_commit, qj_flush, qj_poll, qj_push, qj_session_free, qj_session_open,
-    qj_set_private, qj_string_free,
-};
+use qingjian_cloud_bridge::{qj_flush, qj_poll, qj_push, qj_session_free, qj_set_private};
 use serde_json::{Value, json};
 
-// Session 在 C 侧是不透明指针，这里只传地址
-#[allow(improper_ctypes)]
-unsafe extern "C" {
-    fn qj_scope_set(session: *mut Session, scene: *const c_char, contact_id: *const c_char);
-    fn qj_scope_get(session: *mut Session) -> *mut c_char;
-    fn qj_reset_context(session: *mut Session);
-    fn qj_memory_hint(session: *mut Session) -> *mut c_char;
-    fn qj_memory_dismiss(session: *mut Session, card_id: *const c_char, today: bool);
-    fn qj_memory_cards(session: *mut Session, contact_id: *const c_char) -> *mut c_char;
-    fn qj_memory_note(
-        session: *mut Session,
-        contact_id: *const c_char,
-        text: *const c_char,
-    ) -> *mut c_char;
-    fn qj_memory_add_contact(
-        session: *mut Session,
-        name: *const c_char,
-        pronoun: *const c_char,
-    ) -> *mut c_char;
-    fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
-    fn qj_memory_write(user_dir: *const c_char, json: *const c_char) -> *mut c_char;
-}
-
-const CONTACT: &str = "0123456789abcdef0123456789abcdef";
-
-const CARD: &str = "fedcba9876543210fedcba9876543210";
-
-fn take(raw: *mut c_char) -> Option<String> {
-    if raw.is_null() {
-        return None;
-    }
-    let text = unsafe { CStr::from_ptr(raw) }
-        .to_string_lossy()
-        .into_owned();
-    unsafe { qj_string_free(raw) };
-    Some(text)
-}
-
-fn json_of(raw: *mut c_char) -> Value {
-    serde_json::from_str(&take(raw).expect("应当返回 JSON")).unwrap()
-}
-
-fn c(text: &str) -> CString {
-    CString::new(text).unwrap()
-}
-
-/// 临时的数据目录（只有样例词库）与学习数据目录。
-fn dirs(name: &str) -> (PathBuf, PathBuf) {
-    let root = std::env::temp_dir().join(format!("qj-memory-ffi-{name}-{}", std::process::id()));
-    std::fs::remove_dir_all(&root).ok();
-    let data = root.join("data");
-    let user = root.join("user");
-    std::fs::create_dir_all(&data).unwrap();
-    std::fs::create_dir_all(&user).unwrap();
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/dict.tsv");
-    std::fs::copy(sample, data.join("dict.qj")).unwrap();
-    (data, user)
-}
-
-/// 经 `qj_memory_write` 放一个恋爱场景的对象与一张带关键词「生日」的卡。
-fn seed(user: &Path) {
-    let mut cards = serde_json::Map::new();
-    cards.insert(
-        CONTACT.to_owned(),
-        json!([{
-            "id": CARD, "kind": "other", "text": "想要一个生日蛋糕", "keywords": ["生日"],
-            "when": null, "source": "manual", "confirmed": true,
-            "created_at": 1_791_043_200, "touched_at": 1_791_043_200
-        }]),
-    );
-    let snapshot = json!({
-        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "scene": "dating", "created_at": 1_791_043_200}],
-        "cards": cards,
-        "state": {"scene": "daily", "contact_id": null}
-    });
-    let dir = c(user.to_str().unwrap());
-    let text = c(&snapshot.to_string());
-    assert_eq!(
-        take(unsafe { qj_memory_write(dir.as_ptr(), text.as_ptr()) }),
-        None
-    );
-}
-
-fn open(data: &Path, user: Option<&Path>) -> *mut Session {
-    let data = c(data.to_str().unwrap());
-    let user = user.map(|dir| c(dir.to_str().unwrap()));
-    let user_ptr = user.as_ref().map_or(ptr::null(), |dir| dir.as_ptr());
-    let session = unsafe { qj_session_open(data.as_ptr(), user_ptr, ptr::null(), ptr::null()) };
-    assert!(!session.is_null());
-    session
-}
-
-fn set_scope(session: *mut Session, scene: &str, contact: Option<&str>) {
-    let scene = c(scene);
-    let contact = contact.map(c);
-    let contact_ptr = contact.as_ref().map_or(ptr::null(), |id| id.as_ptr());
-    unsafe { qj_scope_set(session, scene.as_ptr(), contact_ptr) };
-}
-
-fn type_and_commit(session: *mut Session, keys: &str) -> String {
-    for key in keys.chars() {
-        unsafe { qj_push(session, key as u32) };
-    }
-    take(unsafe { qj_commit(session, 0) }).unwrap()
-}
+use memory_support::{
+    CARD, CONTACT, c, dirs, json_of, open, qj_memory_cards, qj_memory_dismiss, qj_memory_hint,
+    qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context, qj_scope_get, qj_scope_set,
+    seed, set_scope, take, type_and_commit,
+};
 
 #[test]
 fn scope_set_round_trips() {
@@ -143,7 +41,7 @@ fn scope_set_round_trips() {
     set_scope(session, "work", Some(CONTACT));
     let scope = json_of(unsafe { qj_scope_get(session) });
     assert_eq!(scope["scene"], "work");
-    assert_eq!(scope["contact_id"], Value::Null, "非恋爱场景不带对象");
+    assert_eq!(scope["contact_id"], Value::Null, "不是这个场景的人当不指定");
     set_scope(session, "party", None);
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["scene"],
@@ -326,59 +224,6 @@ fn note_creates_a_manual_card() {
 }
 
 #[test]
-fn keyboard_adds_a_contact_and_can_switch_to_it() {
-    let (data, user) = dirs("add-contact");
-    seed(&user);
-    let session = open(&data, Some(&user));
-    let name = c("  阿杰 ");
-    let pronoun = c("ta_m");
-    let added = json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), pronoun.as_ptr()) });
-    let id = added["id"].as_str().expect("建好返回 id").to_owned();
-    assert_eq!(id.len(), 32);
-    set_scope(session, "dating", Some(&id));
-    let scope = json_of(unsafe { qj_scope_get(session) });
-    assert_eq!(scope["contact_id"], id.as_str(), "新建的人马上能选");
-    let dir = c(user.to_str().unwrap());
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    let contact = snapshot["contacts"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|c| c["id"] == id.as_str())
-        .expect("名单里有新建的人")
-        .clone();
-    assert_eq!(contact["name"], "阿杰", "名字去掉首尾空白");
-    assert_eq!(contact["pronoun"], "ta_m");
-    assert_eq!(contact["scene"], "dating");
-    assert!(user.join("memory").join(&id).is_dir(), "对象目录建好了");
-
-    let blank = c("   ");
-    let failure = json_of(unsafe { qj_memory_add_contact(session, blank.as_ptr(), ptr::null()) });
-    assert_eq!(failure["code"], "invalid");
-    let failure =
-        json_of(unsafe { qj_memory_add_contact(ptr::null_mut(), name.as_ptr(), ptr::null()) });
-    assert_eq!(failure["code"], "invalid");
-    unsafe { qj_session_free(session) };
-}
-
-#[test]
-fn keyboard_add_contact_respects_the_limit() {
-    let (data, user) = dirs("add-limit");
-    let session = open(&data, Some(&user));
-    let unknown = c("??");
-    for n in 0..8 {
-        let name = c(&format!("人{n}"));
-        let added =
-            json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), unknown.as_ptr()) });
-        assert!(added["id"].is_string(), "第 {n} 个应当建得了：{added}");
-    }
-    let ninth = c("人8");
-    let failure = json_of(unsafe { qj_memory_add_contact(session, ninth.as_ptr(), ptr::null()) });
-    assert_eq!(failure["code"], "contact_limit");
-    unsafe { qj_session_free(session) };
-}
-
-#[test]
 fn ninth_dating_contact_is_rejected() {
     let (_, user) = dirs("limit");
     let people = |count: u32| -> Value {
@@ -391,7 +236,7 @@ fn ninth_dating_contact_is_rejected() {
     let nine = c(&people(9).to_string());
     let failure = json_of(unsafe { qj_memory_write(dir.as_ptr(), nine.as_ptr()) });
     assert_eq!(failure["code"], "contact_limit");
-    assert_eq!(failure["message"], "恋爱场景最多 8 个人");
+    assert_eq!(failure["message"], "恋爱最多 8 个人");
     let eight = c(&people(8).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), eight.as_ptr()) }),

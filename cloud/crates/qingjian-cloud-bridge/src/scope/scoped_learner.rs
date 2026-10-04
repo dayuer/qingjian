@@ -1,6 +1,6 @@
-//! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，恋爱场景再叠场景层与对象层。
-//! 计数类读三层加权求和、写只进叠加层；用户词、个人 n-gram、英文词表要返回引用，没法现场叠加，一律读全局。
-//! 恋爱场景不记词序列转移（个人 n-gram）：暧昧的话不该在工作场景的整句里冒出来。删词连当前打开的叠加层一起删。
+//! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，恋爱场景叠场景层与对象层，日常与工作选了人时叠对象层。
+//! 计数类读各层加权求和；恋爱场景写只进叠加层，日常与工作写全局也写对象层。用户词、个人 n-gram、英文词表要返回引用，
+//! 没法现场叠加，一律读全局。恋爱场景不记词序列转移（个人 n-gram）：暧昧的话不该在工作场景的整句里冒出来。删词连当前打开的叠加层一起删。
 //! 包装层必须逐个转发 `Learner` 的全部方法，漏一个就会被 trait 的缺省实现悄悄吞掉。私密输入由外面的 `MutedLearner` 挡写。
 
 use std::path::{Path, PathBuf};
@@ -58,14 +58,13 @@ impl ScopedLearner {
         read(&self.global).saturating_add(lock(&self.overlay).count(self.weight, &read))
     }
 
-    /// 恋爱场景写进叠加层（不写全局），日常与工作写全局。
+    /// 恋爱场景只写叠加层（不写全局）；日常与工作写全局，选了人时对象层也写。
     fn write(&mut self, mut f: impl FnMut(&mut FrequencyLearner)) {
         let mut overlay = lock(&self.overlay);
-        if overlay.active() {
-            overlay.write(&mut f);
-        } else {
+        if !overlay.exclusive() {
             f(&mut self.global);
         }
+        overlay.write(&mut f);
     }
 }
 
@@ -103,7 +102,7 @@ impl Learner for ScopedLearner {
     }
 
     fn unrecord_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
-        if !lock(&self.overlay).active() {
+        if !lock(&self.overlay).exclusive() {
             self.global.unrecord_transition(context, word, times);
         }
     }
@@ -125,7 +124,7 @@ impl Learner for ScopedLearner {
     }
 
     fn record_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
-        if !lock(&self.overlay).active() {
+        if !lock(&self.overlay).exclusive() {
             self.global.record_transition(context, word, times);
         }
     }

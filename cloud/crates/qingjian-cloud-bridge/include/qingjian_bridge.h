@@ -87,16 +87,18 @@ char *qj_account_delete(const char *path);
 
 // 本地记忆（素笺 2A）：场景、对象、打字提示、对象卡、「记一笔」。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。
-// scene 取 daily / dating / work；contact_id 是 32 位十六进制，可为 NULL（不指定）；非恋爱场景、磁盘名单上没有的对象都当不指定。
-// 切换时在锁里重读 memory/state.json、只改场景与对象再写回；开机后还没解锁过、读不了就不切。候选按新的分区学习重排。
+// 每个场景各有一组人（各自最多 8 个，互不相通），对象建好后不能换场景。
+// scene 取 daily / dating / work；contact_id 是 32 位十六进制；NULL 表示回到这个场景上次选的人，空字符串 "" 表示明确不指定；
+// 不是这个场景的人、磁盘名单上没有的对象都当不指定。
+// 切换时在锁里重读 memory/state.json、只改场景与对象（与各场景上次选的人）再写回；开机后还没解锁过、读不了就不切。候选按新的分区学习重排。
 // 键盘只等 200 毫秒的锁：拿不到时内存里照切，写盘进待办（只留最新一次），下次按键、qj_poll、qj_flush 时补写。
 void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
-// {"scene":"dating","contact_id":"…"|null}
+// {"scene":"dating","contact_id":"…"|null,"last":{"dating":"…","daily":"…"}}（last：各场景上次选的人）
 char *qj_scope_get(QjSession *session);
 // 宿主换了输入框时调：清掉最近上屏的字与正在显示的匹配提示（qj_flush 也会清）。
 void qj_reset_context(QjSession *session);
 // 当前提示 {"card_id","text","reason":"match"|"today","more":bool}（more：除了这张还有别的卡）；
-// 没有、私密输入、非恋爱场景、没选对象或这个人的开关关着时为 NULL。
+// 没有、私密输入、工作场景、没选对象或这个人的开关关着时为 NULL（恋爱与日常出提示，工作不出）。
 char *qj_memory_hint(QjSession *session);
 // 「知道了」：today 为 true 时当天不再出这张卡（记进 memory/dismissed.json），false 时 10 分钟内不再出。
 void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
@@ -107,15 +109,16 @@ char *qj_memory_cards(QjSession *session, const char *contact_id);
 // 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在内存待办里
 // （最多 32 条，满了丢最旧的），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
 char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);
-// 键盘里新建一个恋爱场景的对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（contact_limit：已满 8 个；
-// lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta。
-char *qj_memory_add_contact(QjSession *session, const char *name, const char *pronoun);
+// 键盘里在 scene 新建一个对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（contact_limit：这个场景已满 8 个，
+// message 带场景名，如「日常最多 8 个人」；lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。
+// pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta；scene 为 NULL 或认不得时用会话当前的场景。
+char *qj_memory_add_contact(QjSession *session, const char *name, const char *pronoun, const char *scene);
 // App 用，user_dir 是 App Group 里的 Qingjian 目录（记忆在它下面的 memory/）。read 返回
 // {"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}（revs 是各对象卡片的修订号；broken 是卡片文件损坏、
 // 已备份的对象；参数无效或有文件读不了时为 NULL）。
 // write 整份写回：成功返回 NULL，失败返回 {"code","message"}，code 取 contact_limit / invalid / conflict / lock_timeout / io（lock_timeout：App 等了 2 秒还拿不到锁，稍后再试）。
 // 某个对象磁盘上的修订号比 revs 新（键盘这期间记过一笔）就整份不写、返回 conflict，App 重读合并后再写；
-// 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删。
+// 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删；已有的对象换了场景返回 invalid（换场景需要忘掉后重新加）。
 char *qj_memory_read(const char *user_dir);
 char *qj_memory_write(const char *user_dir, const char *json);
 

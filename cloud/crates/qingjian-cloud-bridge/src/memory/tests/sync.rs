@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use qingjian_cloud_proto::{CardKind, Scene};
 
-use super::{card, contact, id, temp_dir};
+use super::{card, contact, id, pick, temp_dir};
 use crate::memory::{LocalDate, MemoryError, MemorySnapshot, MemoryStore};
 
 /// 测试里的 App：在快照上把第一张卡改成 `text`。
@@ -138,7 +138,7 @@ fn unreadable_files_abort_writes() {
         Err(MemoryError::Io(_))
     ));
     assert!(matches!(
-        store.update_scope(Scene::Dating, Some(&id(1))),
+        store.update_scope(Scene::Dating, &pick(1)),
         Err(MemoryError::Io(_))
     ));
     assert!(store.contacts().is_empty(), "只读的接口读不了给空");

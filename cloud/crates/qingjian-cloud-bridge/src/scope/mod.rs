@@ -1,9 +1,10 @@
-//! 场景与对象的分区学习（spec「2A 本地记忆 · 分区学习」）：[`ScopedLearner`] 包三层 `FrequencyLearner`，
+//! 场景与对象的分区学习（spec「2A 本地记忆 · 分区学习」）：[`ScopedLearner`] 包全局、场景、对象三层 `FrequencyLearner`，
 //! 会话用 [`ScopeHandle`] 换叠加层，当前场景与对象存在 [`ScopeState`]（`memory/state.json`）。
 //! 目录约定：场景层 `memory/scene-<场景>/learning/`，对象层 `memory/<对象 id>/learning/`，文件名与全局层一样是 `user*.tsv`。
 
 mod handle;
 mod overlay;
+mod pick;
 mod scoped_learner;
 mod state;
 
@@ -19,6 +20,7 @@ use qingjian_learning::FrequencyLearner;
 use self::overlay::Overlay;
 
 pub use self::handle::ScopeHandle;
+pub use self::pick::ContactPick;
 pub use self::scoped_learner::ScopedLearner;
 pub use self::state::ScopeState;
 
@@ -28,6 +30,15 @@ pub fn scene_name(scene: Scene) -> &'static str {
         Scene::Daily => "daily",
         Scene::Dating => "dating",
         Scene::Work => "work",
+    }
+}
+
+/// 场景给用户看的名字（错误文案里用）。
+pub fn scene_label(scene: Scene) -> &'static str {
+    match scene {
+        Scene::Daily => "日常",
+        Scene::Dating => "恋爱",
+        Scene::Work => "工作",
     }
 }
 

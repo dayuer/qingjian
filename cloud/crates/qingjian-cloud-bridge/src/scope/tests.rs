@@ -1,5 +1,5 @@
 //! 分区学习：恋爱场景的写不进全局、对象之间互不相通、计数类读三层加权、其余方法读全局、恋爱场景不记转移、
-//! 删词连叠加层一起删、落盘三层都刷、对象目录不在就不开对象层（也不重建）。
+//! 日常与工作选了人时只开对象层、全局与对象层都写，删词连叠加层一起删、落盘三层都刷、对象目录不在就不开对象层（也不重建）。
 
 use std::path::PathBuf;
 
@@ -8,8 +8,8 @@ use qingjian_core::sentence::Context;
 use qingjian_core::{Candidate, CandidateKind, Learner};
 
 use super::{
-    ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
-    scene_learning_dir, scene_name,
+    ContactPick, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
+    scene_label, scene_learning_dir, scene_name,
 };
 
 const A: &str = "0123456789abcdef0123456789abcdef";
@@ -87,6 +87,44 @@ fn daily_and_work_share_global() {
     handle.switch(Scene::Dating, None);
     assert_eq!(learner.weight("开会"), 3, "恋爱场景也读全局，叠加层是空的");
     std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn daily_and_work_contacts_write_global_and_contact_layers() {
+    for scene in [Scene::Daily, Scene::Work] {
+        let (user, memory) = dirs(&format!("contact-{}", scene_name(scene)));
+        let mut learner = ScopedLearner::open(&user, &memory, scene, Some(A));
+        let handle = learner.handle();
+        for _ in 0..3 {
+            learner.record(&candidate("周报"));
+        }
+        // 只开对象层、不开场景层：全局 3 次 + k×对象层 3 次
+        assert_eq!(learner.weight("周报"), 3 + K * 3, "{scene:?}");
+        learner.record_transition(Context::START, "周报", 1);
+        assert!(learner.user_ngram().is_some(), "{scene:?} 记转移");
+        learner.flush();
+        assert!(user.join("user.tsv").is_file(), "{scene:?} 写了全局");
+        assert!(
+            contact_learning_dir(&memory, A).join("user.tsv").is_file(),
+            "{scene:?} 写了对象层"
+        );
+        assert!(
+            !scene_learning_dir(&memory, scene).exists(),
+            "{scene:?} 不开场景层"
+        );
+        handle.switch(scene, Some(B));
+        assert_eq!(learner.weight("周报"), 3, "{scene:?} 换人只剩全局");
+        handle.switch(scene, None);
+        assert_eq!(learner.weight("周报"), 3, "{scene:?} 不指定只读全局");
+        learner.unrecord("周报");
+        handle.switch(scene, Some(A));
+        assert_eq!(
+            learner.weight("周报"),
+            2 + K * 3,
+            "{scene:?} 不指定时只撤全局"
+        );
+        std::fs::remove_dir_all(&user).ok();
+    }
 }
 
 #[test]
@@ -226,5 +264,26 @@ fn scope_state_defaults() {
         serde_json::from_str(r#"{"scene":"dating","contact_id":null,"hints":false}"#).unwrap();
     assert_eq!(state.scene, Scene::Dating, "旧文件里多出的开关字段忽略");
     assert_eq!(state.contact_id, None);
+    assert!(state.last.is_empty(), "旧文件没有 last");
     assert_eq!(ScopeState::default().scene, Scene::Daily);
+
+    let state = ScopeState {
+        scene: Scene::Daily,
+        contact_id: Some(A.to_owned()),
+        last: [(Scene::Daily, A.to_owned()), (Scene::Dating, B.to_owned())].into(),
+    };
+    let json = serde_json::to_value(&state).unwrap();
+    assert_eq!(json["last"]["dating"], B, "last 按场景名存");
+    assert_eq!(serde_json::from_value::<ScopeState>(json).unwrap(), state);
+}
+
+#[test]
+fn contact_pick_follows_the_c_convention() {
+    assert_eq!(ContactPick::from_arg(None), ContactPick::Last);
+    assert_eq!(ContactPick::from_arg(Some("")), ContactPick::Nobody);
+    assert_eq!(
+        ContactPick::from_arg(Some(A)),
+        ContactPick::Contact(A.to_owned())
+    );
+    assert_eq!(scene_label(Scene::Daily), "日常");
 }
