@@ -481,10 +481,6 @@ impl Host {
                 self.open_update();
                 return;
             }
-            (Setting::OpenWebsite, _) => {
-                open_with_system(&[crate::preferences::WEBSITE_URL]);
-                return;
-            }
             (Setting::OpenRepository, _) => {
                 open_with_system(&[crate::preferences::REPOSITORY_URL]);
                 return;

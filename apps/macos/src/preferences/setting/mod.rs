@@ -197,9 +197,6 @@ pub enum Setting {
     /// 「云服务」页「测试连接」按钮。
     TestCloud,
 
-    /// 「关于」页「官网」按钮。
-    OpenWebsite,
-
     /// 「关于」页「GitHub」按钮。
     OpenRepository,
 }
@@ -247,7 +244,6 @@ impl Setting {
             Self::Learning => 45,
             Self::ClearInputLog => 28,
             Self::TestCloud => 29,
-            Self::OpenWebsite => 30,
             Self::OpenRepository => 31,
             Self::LocalModelEnabled => 32,
             Self::UpdateCheck => 53,
@@ -316,7 +312,6 @@ impl Setting {
             45 => Self::Learning,
             28 => Self::ClearInputLog,
             29 => Self::TestCloud,
-            30 => Self::OpenWebsite,
             31 => Self::OpenRepository,
             32 => Self::LocalModelEnabled,
             53 => Self::UpdateCheck,
@@ -400,7 +395,6 @@ mod tests {
             Setting::HorizontalGrid,
             Setting::ClearInputLog,
             Setting::TestCloud,
-            Setting::OpenWebsite,
             Setting::OpenRepository,
             Setting::DictionaryEnabled(0),
             Setting::DictionaryEnabled(MAX_DICTIONARIES - 1),
