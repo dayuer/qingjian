@@ -1,6 +1,7 @@
 //! 剪贴板同步：两个后台线程。上传线程把离线队列逐条发出去，监听线程挂着 SSE 收别的设备的条目。
 //! 壳只做两件事：本机剪贴板变了调 [`ClipboardSync::copy`]，定时用 [`ClipboardSync::try_recv`] 取收到的条目写进本机剪贴板。
-//! 所有网络失败都只改 [`Status`]、按退避重试，不打扰输入。
+//! 网络失败只改 [`Status`]，不打扰输入：连不上按退避重试；401 / 403 要用户操作，固定 5 分钟再试一次。
+//! 403 时清空离线队列、`Disabled` 期间 `copy` 不入队；401 时队列保留。
 
 mod backoff;
 mod incoming;
@@ -64,10 +65,15 @@ impl ClipboardSync {
         Ok(Self { shared, incoming })
     }
 
-    /// 本机复制了一段文本：排进离线队列并叫醒上传线程。空文本与超过上限的直接忽略。
+    /// 本机复制了一段文本：排进离线队列并叫醒上传线程。空文本、超过上限的、
+    /// 以及服务器上没开剪贴板（`Status::Disabled`）时的直接丢弃。
     pub fn copy(&self, text: String) {
         if text.is_empty() || text.len() > MAX_CLIP_BYTES {
             tracing::debug!(bytes = text.len(), "剪贴板为空或过大，不同步");
+            return;
+        }
+        if self.shared.status() == Status::Disabled {
+            tracing::debug!("服务器上没开剪贴板，不入队");
             return;
         }
         match self.shared.outbox().push(text) {

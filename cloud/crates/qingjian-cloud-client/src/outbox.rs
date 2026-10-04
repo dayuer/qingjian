@@ -76,6 +76,15 @@ impl Outbox {
         Ok(())
     }
 
+    /// 清空队列（服务器上关了剪贴板，攒着的明文不再补传）。
+    pub fn clear(&mut self) -> Result<(), ClientError> {
+        if !self.items.is_empty() {
+            self.items.clear();
+            self.rewrite()?;
+        }
+        Ok(())
+    }
+
     /// 整个重写：先写临时文件再改名，崩溃时磁盘上要么是旧队列要么是新队列。
     fn rewrite(&self) -> Result<(), ClientError> {
         let temp = temp_path(&self.path);
@@ -118,6 +127,20 @@ mod tests {
         let reopened = Outbox::open(&path).unwrap();
         assert_eq!(reopened.len(), MAX_ITEMS - 1);
         assert_eq!(reopened.front().unwrap().text, "t3");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn clear_empties_queue_on_disk() {
+        let dir = std::env::temp_dir().join(format!("qjc-outbox-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("outbox.jsonl");
+        let mut outbox = Outbox::open(&path).unwrap();
+        outbox.push("a".to_owned()).unwrap();
+        outbox.push("b".to_owned()).unwrap();
+        outbox.clear().unwrap();
+        assert!(outbox.is_empty());
+        assert!(Outbox::open(&path).unwrap().is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
