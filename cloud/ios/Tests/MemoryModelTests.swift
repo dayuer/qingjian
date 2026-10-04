@@ -171,10 +171,12 @@ final class MemoryModelTests: XCTestCase {
     // MARK: 提示行、牌子、面板
 
     func testHintRowOnlyForDatingWithContact() {
-        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true))
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "dating", hasContact: false), "恋爱不指定没有提示行")
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true))
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true))
+        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasContent: true))
+        XCTAssertFalse(
+            ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasContent: false), "没有提示就不占行，不留空行")
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "dating", hasContact: false, hasContent: true), "恋爱不指定没有提示行")
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true, hasContent: true))
+        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasContent: true))
     }
 
     func testChipTitle() {

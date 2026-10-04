@@ -329,9 +329,12 @@ final class KeyboardModel {
         rewrite = .idle
     }
 
-    /// 提示行这一行在不在：恋爱场景且选了对象时一直在（没有提示时是空行），日常、工作与「恋爱 · 不指定」没有这一行。
-    /// 键盘高度只在进出这个状态时变，提示出现与消失不再让宿主界面跳。
-    var hasHintRow: Bool { ScopeDisplay.hasHintRow(scene: scope.scene, hasContact: currentContact != nil) }
+    /// 提示行这一行在不在：「恋爱 · 某人」且有提示或记一笔条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
+    var hasHintRow: Bool {
+        ScopeDisplay.hasHintRow(
+            scene: scope.scene, hasContact: currentContact != nil,
+            hasContent: hint != nil || noteDraft != nil || noteDone)
+    }
 
     /// 宿主换了输入框（控制器按 documentIdentifier 判断）：丢掉没上屏的拼音，清掉最近上屏的字与提示。
     func hostChanged() {
