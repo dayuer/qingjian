@@ -1,5 +1,6 @@
 //! 配置热加载：config.toml 改了就整份重新套用到 Engine 与窗口；激活期间的定时事务。
 
+mod predict;
 mod text_replacements;
 mod watch;
 
@@ -53,10 +54,19 @@ impl Host {
             self.input_log_enabled = Some(config.general.input_log);
             self.open_input_log(config.general.input_log);
         }
-        if force || config.predict != self.applied_predict {
-            if config.predict.enabled {
+        // 比的是生效的配置：选青简 Cloud 时它随菜单栏里 Cloud 的配置变，config.toml 没动也可能要重建
+        let effective = if config.predict.enabled {
+            self.effective_predict(&config)
+        } else {
+            Ok(config.predict.clone())
+        };
+        let target = effective.clone().unwrap_or_else(|_| config.predict.clone());
+        if force || target != self.applied_predict {
+            if config.predict.enabled
+                && let Ok(predict) = &effective
+            {
                 // 没密钥等失败只记日志、退回不联想：输入优先于一切附加功能
-                match CloudPredictor::new(&config.predict) {
+                match CloudPredictor::new(predict) {
                     Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
                     Err(error) => {
                         tracing::warn!(%error, "云联想未启用");
@@ -64,7 +74,7 @@ impl Host {
                     }
                 }
                 // 释义兜底随云联想一起开：释义表里没有的词上屏后问云端写进个人释义表
-                match CloudGlossFiller::new(&config.predict) {
+                match CloudGlossFiller::new(predict) {
                     Ok(filler) => self.engine.set_gloss_filler(Box::new(filler)),
                     Err(error) => {
                         tracing::warn!(%error, "释义兜底未启用");
@@ -72,12 +82,15 @@ impl Host {
                     }
                 }
             } else {
+                if let Err(reason) = &effective {
+                    tracing::warn!(%reason, "云联想未启用");
+                }
                 self.engine.set_predictor(Box::new(NoPredictor));
                 self.engine.set_gloss_filler(Box::new(NoGlossFiller));
             }
             self.monitor.stop();
             self.sentence = None;
-            self.applied_predict = config.predict.clone();
+            self.applied_predict = target;
         }
         if force || config.dictionaries != self.applied_dictionaries {
             self.reload_dictionaries();

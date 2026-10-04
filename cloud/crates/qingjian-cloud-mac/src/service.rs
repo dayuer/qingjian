@@ -14,13 +14,13 @@ use qingjian_cloud_proto::EventKind;
 
 use crate::config::AgentConfig;
 use crate::history::History;
+use crate::llm_endpoint::LlmEndpoint;
 use crate::menu::{
-    Display, Line, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD, TAG_SYNC_NOW, TAG_USE_LLM, build_lines,
-    status_line,
+    Display, Line, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD, TAG_SYNC_NOW, build_lines, status_line,
 };
 use crate::timer::TimerTarget;
 use crate::watcher::ClipboardWatcher;
-use crate::{ime_config, input_source, pasteboard, paths};
+use crate::{input_source, pasteboard, paths};
 
 /// 主循环间隔（秒）。
 const TICK: f64 = 0.5;
@@ -85,6 +85,11 @@ pub fn menu_lines() -> Vec<Line> {
 /// 菜单行每变一次加一，输入法据此判断要不要重画子菜单。
 pub fn menu_revision() -> u64 {
     with(|service| service.revision).unwrap_or(0)
+}
+
+/// 云联想选青简 Cloud 时用的大模型代理端点；没配置好（或服务没起来）为 `None`。
+pub fn llm_endpoint() -> Option<LlmEndpoint> {
+    with(|service| service.endpoint.clone()).flatten()
 }
 
 /// 子菜单里点了一项。
@@ -158,8 +163,8 @@ struct Service {
     /// 学习数据、设置与输入日志的同步；配置里关掉、没配置或暂停时为 `None`。
     data: Option<DataSync>,
 
-    /// 服务器地址，「使用 Cloud 的大模型」时写进输入法配置。
-    server: Option<String>,
+    /// 大模型代理的地址与令牌，输入法的云联想选青简 Cloud 时用；没配置好为 `None`。
+    endpoint: Option<LlmEndpoint>,
 
     /// 没配置好的原因，菜单里显示。
     unconfigured: Option<String>,
@@ -198,7 +203,7 @@ impl Service {
         let mut service = Self {
             sync: None,
             data: None,
-            server: None,
+            endpoint: None,
             unconfigured: None,
             paused: false,
             suspended: false,
@@ -219,7 +224,7 @@ impl Service {
         // 先停旧的，再按新配置起；进度文件按服务器地址区分，换服务器会从头同步
         self.sync = None;
         self.data = None;
-        self.server = None;
+        self.endpoint = None;
         self.history = History::default();
         let (Some(config_path), Some(state_dir)) = (paths::config_path(), paths::support_dir())
         else {
@@ -234,15 +239,7 @@ impl Service {
                 return;
             }
         };
-        self.server = Some(config.server.clone());
-        if let Some(ime_dir) = paths::ime_dir() {
-            // 本机令牌放进输入法的 .env（不同步），config.toml 里只引用变量名
-            match ime_config::ensure_token(&ime_dir.join(".env"), &config.token) {
-                Ok(true) => tracing::info!("设备令牌已写入输入法的 .env"),
-                Ok(false) => {}
-                Err(error) => tracing::warn!(%error, "设备令牌写入 .env 失败"),
-            }
-        }
+        self.endpoint = Some(LlmEndpoint::new(&config.server, &config.token));
         if (config.learning || config.settings || config.logs)
             && let Some(ime_dir) = paths::ime_dir()
         {
@@ -366,14 +363,6 @@ impl Service {
             TAG_SYNC_NOW => {
                 if let Some(data) = &self.data {
                     data.sync_now();
-                }
-            }
-            TAG_USE_LLM => {
-                if let (Some(server), Some(ime_dir)) = (&self.server, paths::ime_dir()) {
-                    match ime_config::use_cloud_llm(&ime_dir.join("config.toml"), server) {
-                        Ok(()) => tracing::info!("输入法的云联想已指向 Cloud"),
-                        Err(error) => tracing::warn!(%error, "改输入法配置失败"),
-                    }
                 }
             }
             TAG_RELOAD => {

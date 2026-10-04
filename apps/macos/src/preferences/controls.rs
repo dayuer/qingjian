@@ -78,12 +78,27 @@ pub(super) fn note(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
     note_at(layout, mtm, text, CONTROL_X, layout.control_width());
 }
 
+/// 同 [`note`]，交出标签（要按状态隐藏时用）。
+pub(super) fn note_label(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    text: &str,
+) -> Retained<NSTextField> {
+    note_at(layout, mtm, text, CONTROL_X, layout.control_width())
+}
+
 /// 整行宽的说明小字（勾选框、按钮下面用）。
 pub(super) fn note_full(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
     note_at(layout, mtm, text, PAGE_PADDING, layout.inner_width());
 }
 
-fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width: f64) {
+fn note_at(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    text: &str,
+    x: f64,
+    width: f64,
+) -> Retained<NSTextField> {
     let label = small_label(mtm, text);
     label.setUsesSingleLineMode(false);
     if let Some(cell) = label.cell() {
@@ -94,6 +109,7 @@ fn note_at(layout: &mut Layout, mtm: MainThreadMarker, text: &str, x: f64, width
     let height = NOTE_HEIGHT * lines;
     layout.place(&label, x, width, height);
     layout.next_row(height);
+    label
 }
 
 /// 勾选框独占一行，从标题列起始处摆（勾选框自带标题，不用左列标题）。
@@ -109,17 +125,18 @@ pub(super) fn caption(mtm: MainThreadMarker, text: &str) -> Retained<NSTextField
     label
 }
 
-/// 一行「标题 + 控件」，控件占满控件列。
+/// 一行「标题 + 控件」，控件占满控件列；交出标题标签（要按状态隐藏整行时用）。
 pub(super) fn row_control(
     layout: &mut Layout,
     mtm: MainThreadMarker,
     title: &str,
     control: &NSControl,
-) {
+) -> Retained<NSTextField> {
     let label = caption(mtm, title);
     layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
     layout.place(control, CONTROL_X, layout.control_width(), ROW_HEIGHT);
     layout.next_row(ROW_HEIGHT);
+    label
 }
 
 pub(super) fn row_popup(
