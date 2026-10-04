@@ -26,13 +26,24 @@ pub use self::status::AccountStatus;
 /// 设备名为空时报给服务端的名字。
 const FALLBACK_DEVICE: &str = "iPhone";
 
+/// 登录前的出境同意：没勾选就不联网，勾选了发当前的同意文本版本。
+fn consent_version(consented: bool) -> Result<&'static str, Failure> {
+    if consented {
+        Ok(CROSS_BORDER_CONSENT_VERSION)
+    } else {
+        Err(Failure::consent_needed())
+    }
+}
+
 pub fn sign_in_apple(
     path: &Path,
     identity_token: &str,
     authorization_code: &str,
     nonce: &str,
     device_name: &str,
+    cross_border_consented: bool,
 ) -> Result<(), Failure> {
+    let consent = consent_version(cross_border_consented)?;
     let server = server(path);
     let request = AppleSignIn {
         identity_token: identity_token.to_owned(),
@@ -41,8 +52,7 @@ pub fn sign_in_apple(
         client: AppleClient::Ios,
         device: device(device_name),
         challenge: None,
-        // 下一轮改成由 App 传入用户同意的版本
-        cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
+        cross_border_consent: consent.to_owned(),
     };
     let grant = Client::anonymous(&server)
         .sign_in_apple(&request)
@@ -50,10 +60,10 @@ pub fn sign_in_apple(
     finish(path, &server, &grant)
 }
 
-pub fn email_start(path: &Path, email: &str) -> Result<(), Failure> {
+pub fn email_start(path: &Path, email: &str, cross_border_consented: bool) -> Result<(), Failure> {
+    let consent = consent_version(cross_border_consented)?;
     Client::anonymous(&server(path))
-        // 下一轮改成由 App 传入用户同意的版本
-        .email_start(email.trim(), CROSS_BORDER_CONSENT_VERSION)
+        .email_start(email.trim(), consent)
         .map_err(|error| Failure::from_client(&error, email_start_message(&error)))
 }
 
@@ -62,15 +72,16 @@ pub fn email_verify(
     email: &str,
     code: &str,
     device_name: &str,
+    cross_border_consented: bool,
 ) -> Result<(), Failure> {
+    let consent = consent_version(cross_border_consented)?;
     let server = server(path);
     let request = EmailVerify {
         email: email.trim().to_owned(),
         code: code.trim().to_owned(),
         device: device(device_name),
         challenge: None,
-        // 下一轮改成由 App 传入用户同意的版本
-        cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
+        cross_border_consent: consent.to_owned(),
     };
     let grant = Client::anonymous(&server)
         .email_verify(&request)

@@ -33,7 +33,7 @@ pub unsafe extern "C" fn qj_account_status(path: *const c_char) -> *mut c_char {
 /// Apple 登录：`nonce` 是原始值（交给 Apple 的是它的 SHA-256 十六进制），`device` 是设备名（可为空）。
 ///
 /// # Safety
-/// 前四个参数是有效的 UTF-8 C 字符串，`device` 为空或同上。
+/// 前四个参数是有效的 UTF-8 C 字符串，`device` 为空或同上。`cross_border_consented` 为假时不联网，直接返回 `consent_required`。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_account_sign_in_apple(
     path: *const c_char,
@@ -41,6 +41,7 @@ pub unsafe extern "C" fn qj_account_sign_in_apple(
     authorization_code: *const c_char,
     nonce: *const c_char,
     device: *const c_char,
+    cross_border_consented: bool,
 ) -> *mut c_char {
     let (Some(path), Some(identity_token), Some(authorization_code), Some(nonce)) = (
         unsafe { path_arg(path) },
@@ -58,6 +59,7 @@ pub unsafe extern "C" fn qj_account_sign_in_apple(
             authorization_code,
             nonce,
             device,
+            cross_border_consented,
         )
     })
 }
@@ -65,28 +67,30 @@ pub unsafe extern "C" fn qj_account_sign_in_apple(
 /// 给邮箱发验证码。
 ///
 /// # Safety
-/// 两个参数都是有效的 UTF-8 C 字符串。
+/// 两个字符串参数都是有效的 UTF-8 C 字符串。`cross_border_consented` 为假时不联网，直接返回 `consent_required`。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_account_email_start(
     path: *const c_char,
     email: *const c_char,
+    cross_border_consented: bool,
 ) -> *mut c_char {
     let (Some(path), Some(email)) = (unsafe { path_arg(path) }, unsafe { path_arg(email) }) else {
         return owned(&Failure::invalid_argument().to_json());
     };
-    outcome(|| super::email_start(Path::new(path), email))
+    outcome(|| super::email_start(Path::new(path), email, cross_border_consented))
 }
 
 /// 邮箱加验证码登录。
 ///
 /// # Safety
-/// 前三个参数是有效的 UTF-8 C 字符串，`device` 为空或同上。
+/// 前三个参数是有效的 UTF-8 C 字符串，`device` 为空或同上。`cross_border_consented` 为假时不联网，直接返回 `consent_required`。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_account_email_verify(
     path: *const c_char,
     email: *const c_char,
     code: *const c_char,
     device: *const c_char,
+    cross_border_consented: bool,
 ) -> *mut c_char {
     let (Some(path), Some(email), Some(code)) = (
         unsafe { path_arg(path) },
@@ -96,7 +100,7 @@ pub unsafe extern "C" fn qj_account_email_verify(
         return owned(&Failure::invalid_argument().to_json());
     };
     let device = unsafe { path_arg(device) }.unwrap_or_default();
-    outcome(|| super::email_verify(Path::new(path), email, code, device))
+    outcome(|| super::email_verify(Path::new(path), email, code, device, cross_border_consented))
 }
 
 /// 开关一项功能（`clipboard` / `sync` / `input_log` / `llm`），成功后写回 `cloud.toml` 的开关。

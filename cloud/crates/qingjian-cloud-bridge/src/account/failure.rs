@@ -7,6 +7,12 @@ use serde::Serialize;
 /// 当天验证码输错太多次：email/start 与 email/verify 都被锁到明天。
 pub const LOCKED_TODAY: &str = "今天验证失败次数过多，请明天再试，或改用 Apple 登录";
 
+/// App 没传「已勾选同意」：不联网，直接提示。
+pub const CONSENT_NEEDED: &str = "请先勾选同意，才能继续登录";
+
+/// 服务端不认这个同意版本（一般是 App 太旧）。
+pub const OUTDATED_CONSENT: &str = "需要先同意把数据发到境外服务器；如果已经勾选，请更新到最新版本";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Failure {
     /// `auth_failed` `locked_today` `unauthorized` `not_configured` `rate_limited` `forbidden`
@@ -28,6 +34,11 @@ impl Failure {
 
     pub fn invalid_argument() -> Self {
         Self::new("invalid_argument", "参数无效".to_owned())
+    }
+
+    /// 没勾选出境同意。
+    pub fn consent_needed() -> Self {
+        Self::new("consent_required", CONSENT_NEEDED.to_owned())
     }
 
     pub fn not_signed_in() -> Self {
@@ -99,7 +110,7 @@ pub fn message(error: &ClientError) -> String {
             "这项功能还没打开".to_owned()
         }
         ClientError::LockedToday(_) => LOCKED_TODAY.to_owned(),
-        ClientError::ConsentRequired(_) => "需要先同意把数据发到境外服务器".to_owned(),
+        ClientError::ConsentRequired(_) => OUTDATED_CONSENT.to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级 App".to_owned(),
