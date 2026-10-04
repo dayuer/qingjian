@@ -15,8 +15,14 @@ struct KeyboardView: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.hasHintRow {
-                HintRow(model: model, hint: model.hint)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                Group {
+                    if model.noteDraft != nil || model.noteDone {
+                        NoteBar(model: model)
+                    } else {
+                        HintRow(model: model, hint: model.hint)
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
             CandidateBar(model: model)
             Group {

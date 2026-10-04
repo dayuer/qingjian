@@ -75,6 +75,27 @@ struct MemoryCard: Codable, Identifiable, Hashable, Sendable {
         }
     }
 
+    /// 对象卡左列：日子 / 约定 3 天内写相对（今天、明天、周几），更远的写 `M.dd`；别的种类没有日期，为 nil。
+    func dateLabel(now: Date = Date()) -> String? {
+        guard let days = daysAway(now: now), let when, let date = MemoryDate.parse(when) else { return nil }
+        let target = kind == .date ? MemoryDate.nextAnniversary(of: date, from: now) : date
+        switch days {
+        case 0: return "今天"
+        case 1: return "明天"
+        case 2...3:
+            let names = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+            return names[MemoryDate.calendar.component(.weekday, from: target) - 1]
+        default:
+            let parts = MemoryDate.calendar.dateComponents([.month, .day], from: target)
+            return String(format: "%d.%02d", parts.month ?? 0, parts.day ?? 0)
+        }
+    }
+
+    /// 对象卡标题下的小字：关键词（跟标题一样的不重复写），没有就留空。
+    var subtitle: String {
+        keywords.filter { $0 != text }.joined(separator: " · ")
+    }
+
     /// 日子「明天是她的生日」，约定「明天：看电影」：与桥的 `reminder_text` 同一模板（扩展之前的最后一个方法）。
     func reminderText(days: Int, contact: MemoryContact) -> String {
         let when = switch days {

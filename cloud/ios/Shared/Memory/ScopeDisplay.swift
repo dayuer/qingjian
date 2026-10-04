@@ -26,4 +26,21 @@ enum ScopeDisplay {
     static func canNote(fullAccess: Bool, clipboardHasText: Bool, privateField: Bool, hasContact: Bool) -> Bool {
         fullAccess && clipboardHasText && !privateField && hasContact
     }
+
+    /// 恋爱场景最多几个对象（与桥的上限一致）。
+    static let maxContacts = 8
+
+    static func contactSubtitle(knownDays: Int) -> String { "认识 \(knownDays) 天" }
+
+    static func newContactSubtitle(count: Int) -> String { "\(count) / \(maxContacts)" }
+
+    static let noScopeSubtitle = "只用场景"
+
+    /// 对象卡页脚左边：面板只列与今天有关的卡。
+    static func cardFooter(count: Int) -> String { "只显示与今天有关的 \(count) 条" }
+
+    /// 键盘扩展没有官方办法打开容器 App，点了只给提示。
+    static let allMemoryNotice = "在素笺 App 里查看全部记忆"
+
+    static let enableFullAccessNotice = "在素笺 App 里按引导开启完全访问"
 }
