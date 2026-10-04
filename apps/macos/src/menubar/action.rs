@@ -4,7 +4,7 @@ use qingjian_core::FuzzyRules;
 /// 模糊音条目的 tag 起点，后面加规则在 [`FuzzyRules::NAMES`] 里的下标。
 const FUZZY_TAG_BASE: NSInteger = 100;
 
-/// 分叉补丁：「青简 Cloud」子菜单条目的 tag 区间中点；青简 Cloud 自己的 tag 是 -100..100（负数是固定动作）。
+/// 分叉补丁：「素笺云」子菜单条目的 tag 区间中点；素笺云自己的 tag 是 -100..100（负数是固定动作）。
 const CLOUD_AGENT_TAG_MID: NSInteger = 1100;
 
 /// 菜单能触发的动作。编码进 NSMenuItem 的 tag，派发时再解出来。
@@ -25,7 +25,7 @@ pub enum MenuAction {
     /// 打开下载页（菜单里「有新版本」那一行）。
     OpenDownload,
 
-    /// 「青简 Cloud」子菜单里的一项，值是青简 Cloud 菜单里的 tag，原样转给它。
+    /// 「素笺云」子菜单里的一项，值是素笺云菜单里的 tag，原样转给它。
     CloudAgent(isize),
 }
 

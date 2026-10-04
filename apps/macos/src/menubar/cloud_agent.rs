@@ -1,4 +1,4 @@
-//! 「青简 Cloud ›」子菜单：青简 Cloud 链在输入法进程里（`qingjian-cloud-mac`，自带定时器与后台线程），
+//! 「素笺云 ›」子菜单：素笺云链在输入法进程里（`qingjian-cloud-mac`，自带定时器与后台线程），
 //! 这里只照它给的菜单行画子菜单，点了哪项把 tag 传回去。输入法不碰剪贴板与同步。
 //! 自用分叉补丁，见 `cloud/docs/fork-patch.md`。
 //!
@@ -20,7 +20,7 @@ use super::menu::action_item;
 use super::target::MenuTarget;
 
 pub struct CloudAgentMenu {
-    /// 挂在输入法菜单上的父项；青简 Cloud 没启动（或出错停了）时隐藏且不挂子菜单。
+    /// 挂在输入法菜单上的父项；素笺云没启动（或出错停了）时隐藏且不挂子菜单。
     item: Retained<NSMenuItem>,
 
     /// 上次画的菜单行版本号，没变就不重画。
@@ -29,7 +29,7 @@ pub struct CloudAgentMenu {
 
 impl CloudAgentMenu {
     pub fn new(mtm: MainThreadMarker, target: &MenuTarget) -> Self {
-        let item = action_item(mtm, "青简 Cloud", None, target);
+        let item = action_item(mtm, "素笺云", None, target);
         item.setHidden(true);
         Self {
             item,

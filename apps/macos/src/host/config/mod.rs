@@ -54,7 +54,7 @@ impl Host {
             self.input_log_enabled = Some(config.general.input_log);
             self.open_input_log(config.general.input_log);
         }
-        // 比的是生效的配置：选青简 Cloud 时它随菜单栏里 Cloud 的配置变，config.toml 没动也可能要重建
+        // 比的是生效的配置：选素笺云时它随菜单栏里 Cloud 的配置变，config.toml 没动也可能要重建
         let effective = if config.predict.enabled {
             self.effective_predict(&config)
         } else {
@@ -214,11 +214,11 @@ impl Host {
             updates.poll(&self.settings.config().update);
         }
         self.sync_update();
-        // 分叉补丁：青简 Cloud 换账号清了输入日志，丢掉写入端缓冲里旧账号的输入并重开
+        // 分叉补丁：素笺云换账号清了输入日志，丢掉写入端缓冲里旧账号的输入并重开
         if qingjian_cloud_mac::take_input_log_reset() {
             self.reset_input_log_after_account_switch();
         }
-        // 分叉补丁：「青简 Cloud」子菜单
+        // 分叉补丁：「素笺云」子菜单
         if let Some(mtm) = objc2::MainThreadMarker::new() {
             self.menu.sync_cloud_agent(mtm);
         }

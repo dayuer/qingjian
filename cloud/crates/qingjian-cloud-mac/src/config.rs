@@ -14,7 +14,7 @@ use toml_edit::{DocumentMut, value};
 pub const DEFAULT_SERVER: &str = "https://pinyin.synon.ai";
 
 /// 第一次运行写出的模板。令牌只在本机，文件权限设成仅本人可读。
-const TEMPLATE: &str = r#"# 青简 Cloud 配置。登录与功能开关都在输入法「中☁ → 青简 Cloud ›」里操作，一般不用手改。
+const TEMPLATE: &str = r#"# 素笺云配置。登录与功能开关都在输入法「中☁ → 素笺云 ›」里操作，一般不用手改。
 # 服务器地址，带 https://
 server = "https://pinyin.synon.ai"
 
@@ -300,7 +300,7 @@ mod tests {
         };
         AgentConfig::store_session(&path, "sjt_x", 7, consents).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.contains("# 青简 Cloud 配置"));
+        assert!(text.contains("# 素笺云配置"));
         let config = AgentConfig::load(&path).unwrap();
         assert!(config.signed_in());
         assert_eq!(config.token, "sjt_x");

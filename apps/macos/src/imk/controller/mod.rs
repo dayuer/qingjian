@@ -166,7 +166,7 @@ const RESCORE_LOOKBACK: usize = qingjian_core::RESCORE_CONTEXT_CHARS;
 const LOGIN_WINDOW: &str = "com.apple.loginwindow";
 
 /// 分叉补丁：系统授权框（装 pkg、改系统设置时输管理员密码的那个）。它的密码框照样把按键送给输入法，
-/// 青简把每个字符原样上屏、记进了输入日志，日志又同步到了服务器（2026-10-03 实测）。与登录窗口一样整个交还系统。
+/// 素笺把每个字符原样上屏、记进了输入日志，日志又同步到了服务器（2026-10-03 实测）。与登录窗口一样整个交还系统。
 const SECURITY_AGENT: &str = "com.apple.SecurityAgent";
 
 /// 数字行与小键盘的键码对应的数字 1–9（ANSI 布局的物理键）。
@@ -186,10 +186,10 @@ fn digit_key(key_code: u16) -> Option<usize> {
 }
 
 impl QingjianInputController {
-    /// 登录 / 锁屏窗口：输入源菜单里没有青简，loginwindow 却照样激活它，按键一律交还系统。
+    /// 登录 / 锁屏窗口：输入源菜单里没有素笺，loginwindow 却照样激活它，按键一律交还系统。
     ///
-    /// TODO(#190): 临时防护。现象是开机登录界面打不进模式键（u / i），推断为按键进了青简的组句；
-    /// 日志只证实 loginwindow 会激活青简，按键是否真的送来没有复现（开 FileVault 的机器进不到这个界面）。
+    /// TODO(#190): 临时防护。现象是开机登录界面打不进模式键（u / i），推断为按键进了素笺的组句；
+    /// 日志只证实 loginwindow 会激活素笺，按键是否真的送来没有复现（开 FileVault 的机器进不到这个界面）。
     /// 找到按键送进来的条件后改成针对它的判断，并确认别的系统界面有没有同样的情况。
     fn in_login_window(&self) -> bool {
         host::with(|h| {

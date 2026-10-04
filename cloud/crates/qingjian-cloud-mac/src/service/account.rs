@@ -84,7 +84,7 @@ impl Service {
         });
         self.note = None;
         self.store(AgentConfig::clear_session);
-        tracing::info!("青简 Cloud 已退出登录");
+        tracing::info!("素笺云已退出登录");
         self.refresh_menu(true);
     }
 
@@ -230,7 +230,7 @@ impl Service {
             }
         }
         self.store(|path| AgentConfig::store_session(path, token, user_id, consents));
-        tracing::info!("青简 Cloud 已登录");
+        tracing::info!("素笺云已登录");
     }
 
     /// 登录窗回跳：关掉窗口，在后台用一次性码与 verifier 换令牌，再问一次服务器上的开关。
@@ -315,7 +315,7 @@ impl Service {
         match paths::config_path() {
             Some(path) => {
                 if let Err(reason) = write(&path) {
-                    tracing::warn!(%reason, "青简 Cloud 配置写不进去");
+                    tracing::warn!(%reason, "素笺云配置写不进去");
                     self.note = Some(reason);
                 }
             }

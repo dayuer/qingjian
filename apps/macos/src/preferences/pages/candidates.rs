@@ -22,7 +22,7 @@ pub struct CandidatesPage {
     /// 横排时上 / 下键展开成多行矩阵。
     horizontal_grid: Retained<NSButton>,
 
-    /// 青简渲染器 / 系统绘制。
+    /// 素笺渲染器 / 系统绘制。
     renderer: Retained<NSPopUpButton>,
 
     /// 候选窗字体：搜索框 + 列表。
@@ -69,12 +69,12 @@ impl CandidatesPage {
             Setting::Renderer,
             target,
         );
-        note(layout, mtm, "青简渲染器让候选窗口在各平台一致。");
+        note(layout, mtm, "素笺渲染器让候选窗口在各平台一致。");
         let font = FontPicker::build(layout, mtm, "字体", available_families(mtm));
         note(
             layout,
             mtm,
-            "只对青简渲染器生效；没装的字体自动回到系统字体。",
+            "只对素笺渲染器生效；没装的字体自动回到系统字体。",
         );
         let preedit_titles: Vec<String> = PreeditMode::ALL
             .iter()

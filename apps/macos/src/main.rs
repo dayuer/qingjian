@@ -1,4 +1,4 @@
-//! 青简 macOS 输入法壳（IMK）。
+//! 素笺 macOS 输入法壳（IMK）。
 //!
 //! 按键进 [`qingjian_core::Engine`]，候选画在自绘 NSPanel 里。数字选词，空格上首选，
 //! 回车上屏拼音本身，退格删一个，Esc 清空，上下键移动高亮。
@@ -28,10 +28,10 @@ fn main() {
     // 安装器的 postinstall 以登录用户身份调 `--register`：注册、启用并切成当前输入源后直接退出，不起 IMK
     if std::env::args().any(|argument| argument == "--register") {
         match app::input_source::register_main_bundle() {
-            Ok(true) => println!("青简输入源已注册、启用并切成当前输入源"),
-            Ok(false) => println!("青简输入源已注册并启用，请在输入法菜单里选择「青简」"),
+            Ok(true) => println!("素笺输入源已注册、启用并切成当前输入源"),
+            Ok(false) => println!("素笺输入源已注册并启用，请在输入法菜单里选择「素笺」"),
             Err(error) => {
-                eprintln!("青简输入源注册失败：{error}");
+                eprintln!("素笺输入源注册失败：{error}");
                 std::process::exit(1);
             }
         }
@@ -73,7 +73,7 @@ fn main() {
         );
         std::process::exit(1);
     };
-    // 分叉补丁：青简 Cloud 链在输入法进程里，自带定时器与后台线程，见 cloud/docs/fork-patch.md
+    // 分叉补丁：素笺云链在输入法进程里，自带定时器与后台线程，见 cloud/docs/fork-patch.md
     qingjian_cloud_mac::start(mtm);
     NSApplication::sharedApplication(mtm).run();
 }

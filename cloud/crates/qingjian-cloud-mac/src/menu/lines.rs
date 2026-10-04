@@ -1,4 +1,4 @@
-//! 菜单内容的中间表示：输入法照它画「青简 Cloud ›」子菜单，点了某项就把 tag 传回 [`crate::perform`]。
+//! 菜单内容的中间表示：输入法照它画「素笺云 ›」子菜单，点了某项就把 tag 传回 [`crate::perform`]。
 
 /// 菜单里的一行。
 #[derive(Debug, Clone, PartialEq, Eq)]

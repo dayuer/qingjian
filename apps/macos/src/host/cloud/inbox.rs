@@ -1,4 +1,4 @@
-//! 青简 Cloud 收件箱：Cloud 的常驻程序把别的设备的学习增量写成数据目录下的 `sync/inbox.tsv`，
+//! 素笺云收件箱：Cloud 的常驻程序把别的设备的学习增量写成数据目录下的 `sync/inbox.tsv`，
 //! 这里每拍看一眼，有就合并进学习数据、落盘、删掉文件。没装 Cloud 时文件不存在，什么都不做。
 //! 格式与合并规则见 `qingjian-learning` 的 `frequency_learner/remote.rs`，整体设计见 `cloud/docs/design.md`。
 
@@ -20,13 +20,13 @@ impl Host {
             Ok(text) => text,
             Err(error) if error.kind() == ErrorKind::NotFound => return,
             Err(error) => {
-                tracing::warn!(%error, "青简 Cloud 收件箱读不了");
+                tracing::warn!(%error, "素笺云收件箱读不了");
                 return;
             }
         };
         let applied = self.engine.learner_mut().merge_remote(&text);
         if let Err(error) = std::fs::remove_file(&path) {
-            tracing::warn!(%error, "青简 Cloud 收件箱删不掉");
+            tracing::warn!(%error, "素笺云收件箱删不掉");
         }
         tracing::info!(applied, "合并了别的设备的学习数据");
     }

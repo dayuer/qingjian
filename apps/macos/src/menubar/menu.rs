@@ -26,7 +26,7 @@ pub struct InputMenu {
     /// 「有新版本 x.y.z…」，点了打开下载页；没有新版时隐藏。
     update: Retained<NSMenuItem>,
 
-    /// 「青简 Cloud ›」子菜单；没装青简 Cloud 时隐藏。
+    /// 「素笺云 ›」子菜单；没装素笺云时隐藏。
     cloud_agent: CloudAgentMenu,
 
     /// 所有条目的 target，要和菜单活得一样久。
@@ -89,7 +89,7 @@ impl InputMenu {
         error.setEnabled(false);
         error.setHidden(true);
         menu.addItem(&error);
-        let about = action_item(mtm, &format!("青简 {version}"), None, &target);
+        let about = action_item(mtm, &format!("素笺 {version}"), None, &target);
         about.setEnabled(false);
         menu.addItem(&about);
 
@@ -104,7 +104,7 @@ impl InputMenu {
         }
     }
 
-    /// 每秒一次：照青简 Cloud 给的菜单行刷新「青简 Cloud」子菜单。
+    /// 每秒一次：照素笺云给的菜单行刷新「素笺云」子菜单。
     pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) {
         self.cloud_agent.sync(mtm, &self._target);
     }

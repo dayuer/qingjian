@@ -1,6 +1,6 @@
 [package]
 name = "qingjian-cloud-mac"
-description = "青简 Cloud 的 Mac 端：链进输入法进程，跨设备剪贴板与学习数据、设置、输入日志同步"
+description = "素笺云的 Mac 端：链进输入法进程，跨设备剪贴板与学习数据、设置、输入日志同步"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
