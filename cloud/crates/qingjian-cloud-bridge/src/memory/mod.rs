@@ -28,7 +28,7 @@ use self::dismissed_file::DismissedFile;
 use crate::scope::{ContactPick, ScopeState};
 
 pub use self::card::Card;
-pub use self::contact::Contact;
+pub use self::contact::{Contact, MAX_DISPLAY_NAME_CHARS};
 pub use self::error::MemoryError;
 pub use self::hint::{Hint, HintIndex, HintReason, days_away, panel_cards, reminder_text};
 pub use self::local_date::LocalDate;
