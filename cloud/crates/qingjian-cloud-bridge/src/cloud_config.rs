@@ -19,6 +19,9 @@ pub struct CloudConfig {
     /// 登录得到的会话令牌（`sjt_` 开头）。旧版的设备令牌（`qjc_`）已作废，当没登录。
     pub token: String,
 
+    /// 登录的账号 id。退出登录时留着，换账号或删号后才变，用来判断同步进度要不要作废；旧文件里没有。
+    pub user_id: Option<i64>,
+
     /// 用服务器的大模型：润色，以及 `config.toml` 里 `[predict]` 开着时的云联想（服务器上的 `llm`）。
     pub llm: bool,
 
@@ -43,7 +46,9 @@ impl CloudConfig {
     pub fn read(path: &Path) -> Option<Self> {
         let text = std::fs::read_to_string(path).ok()?;
         toml::from_str(&text)
-            .inspect_err(|error| tracing::warn!(%error, "cloud.toml 格式不对，按离线用"))
+            .inspect_err(|error| {
+                tracing::warn!(reason = %parse_failure_note(error), "cloud.toml 格式不对，按离线用");
+            })
             .ok()
     }
 
@@ -82,23 +87,25 @@ impl CloudConfig {
         path: &Path,
         server: &str,
         token: &str,
+        user_id: i64,
         consents: Consents,
     ) -> Result<(), String> {
         let mut config = Self::read(path).unwrap_or_default();
         config.server = server.to_owned();
         config.token = token.to_owned();
+        config.user_id = Some(user_id);
         config.set_consents(consents);
         config.save(path)
     }
 
-    /// 服务器上的开关变了：只改开关，地址与令牌不动。
+    /// 服务器上的开关变了：只改开关，地址与令牌不动。读不到现有文件就报错，不用默认值写出一份没有令牌的把登录状态清掉。
     pub fn store_consents(path: &Path, consents: Consents) -> Result<(), String> {
-        let mut config = Self::read(path).unwrap_or_default();
+        let mut config = Self::read(path).ok_or_else(|| "cloud.toml 读不了".to_owned())?;
         config.set_consents(consents);
         config.save(path)
     }
 
-    /// 退出登录、删账号、令牌失效：清掉令牌与开关，地址留着。没有文件也算成功。
+    /// 退出登录、令牌失效：清掉令牌与开关，地址与 `user_id` 留着。没有文件也算成功。
     pub fn clear_session(path: &Path) -> Result<(), String> {
         let Some(mut config) = Self::read(path) else {
             return Ok(());
@@ -108,17 +115,60 @@ impl CloudConfig {
         config.save(path)
     }
 
-    /// 整份写回（这份文件只有这几项，不用保留注释）。
+    /// 删账号成功：在 [`CloudConfig::clear_session`] 之外连 `user_id` 也忘掉，之后再登录一律按换账号处理。
+    pub fn clear_account(path: &Path) -> Result<(), String> {
+        let Some(mut config) = Self::read(path) else {
+            return Ok(());
+        };
+        config.token.clear();
+        config.user_id = None;
+        config.set_consents(Consents::default());
+        config.save(path)
+    }
+
+    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌：同目录写 `.tmp`（Unix 上 0600）再改名，
+    /// 键盘随时在读，不能让它读到写了一半的文件。
     pub fn save(&self, path: &Path) -> Result<(), String> {
         let text = toml::to_string(self).map_err(|e| e.to_string())?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        std::fs::write(path, text).map_err(|e| e.to_string())
+        let mut name = path.file_name().unwrap_or_default().to_os_string();
+        name.push(".tmp");
+        let temp = path.with_file_name(name);
+        let written =
+            write_private(&temp, text.as_bytes()).and_then(|()| std::fs::rename(&temp, path));
+        written.map_err(|e| {
+            std::fs::remove_file(&temp).ok();
+            e.to_string()
+        })
     }
 
     /// 大模型代理的接口地址（OpenAI 兼容，不含 `/chat/completions`）。
     pub fn llm_base_url(&self) -> String {
         format!("{}/v1", self.server_or_default())
     }
+}
+
+/// 解析失败的日志文案：只有原因与出错位置。`toml` 错误的 `Display` 会带出错行原文，那一行可能就是令牌。
+pub fn parse_failure_note(error: &toml::de::Error) -> String {
+    match error.span() {
+        Some(span) => format!("{}（第 {} 字节）", error.message(), span.start),
+        None => error.message().to_owned(),
+    }
+}
+
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
 }

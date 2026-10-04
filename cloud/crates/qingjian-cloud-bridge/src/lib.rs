@@ -19,7 +19,7 @@ use std::ptr;
 
 pub use self::account::AccountStatus;
 pub use self::clipboard::{ClipOffer, Clipboard};
-pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER};
+pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::rewrite::{RewriteState, Rewriter};
