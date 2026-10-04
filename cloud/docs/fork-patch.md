@@ -194,6 +194,12 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/cli/src/args.rs`、`main.rs` | 加 2 个参数与加载 | `--word-model`、`--word-weight` |
 | `apps/macos/src/host/model/mod.rs` | 改 `poll_rescoring` 1 处 | 另一条线程还在算就继续轮询 |
 | `cloud/scripts/word-sweep.sh` | 新文件 | 扫 λ_w 的脚本 |
+| `crates/qingjian-platform/src/config/scorer_set.rs` | 新文件 | `ScorerSet`（`tongbian` / `both`） |
+| `crates/qingjian-platform/src/config/model.rs`、`mod.rs`、`lib.rs` | 加 1 个字段、2 行模板、1 条测试、导出 1 个名字 | `[model] scorers`，缺省 `both` |
+| `apps/macos/src/host/model/word_model.rs` | 新文件 | 知微后台加载、接上（晚于组句时补查）、卸掉 |
+| `apps/macos/src/host/model/mod.rs` | 再加 1 行 mod、改 4 处 | `load_local_model` 先管知微；`attach_loaded_model` 兼看知微还在加载；`unload_local_model` 卸知微 |
+| `apps/macos/src/host/mod.rs`、`init.rs` | 加 1 个字段 | `word_loader` |
+| `cloud/docs/design.md` | 加一节 | 上下文预测 |
 
 ## 合并上游时
 

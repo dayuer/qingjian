@@ -168,6 +168,13 @@ pub struct Host {
         >,
     >,
 
+    /// 正在后台加载的知微（素笺：按前文排词与续写）；接上就清掉。
+    word_loader: Option<
+        std::sync::mpsc::Receiver<
+            Result<Box<dyn qingjian_core::sentence::SentenceScorer>, qingjian_neural::NeuralError>,
+        >,
+    >,
+
     /// 上次套用的 `[model]`，变了才重载 / 卸载。
     applied_model: Option<LocalModelConfig>,
 

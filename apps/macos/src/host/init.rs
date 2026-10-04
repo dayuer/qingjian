@@ -159,6 +159,7 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
             cloud_test_monitor: CloudTestMonitor::new(mtm),
             rescore: RescoreMonitor::new(mtm),
             model_loader: None,
+            word_loader: None,
             applied_model: None,
             updates: paths::user_data_dir()
                 .map(|dir| qingjian_update::Checker::new(dir.join(UPDATE_STATE_FILE), version)),
