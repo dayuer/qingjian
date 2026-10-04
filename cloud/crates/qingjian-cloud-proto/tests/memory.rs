@@ -63,12 +63,16 @@ fn memory_push_matches_the_spec_example() {
 
 #[test]
 fn responses_and_registration_round_trip() {
-    let accepted: MemoryAccepted = serde_json::from_value(json!({ "accepted": 3 })).unwrap();
-    assert_eq!(accepted.accepted, 3);
+    let accepted: MemoryAccepted =
+        serde_json::from_value(json!({ "accepted": 2, "skipped": 1 })).unwrap();
+    assert_eq!((accepted.accepted, accepted.skipped), (2, 1));
     assert_eq!(
         serde_json::to_value(&accepted).unwrap(),
-        json!({ "accepted": 3 })
+        json!({ "accepted": 2, "skipped": 1 })
     );
+    // 旧形状没有 skipped
+    let old: MemoryAccepted = serde_json::from_value(json!({ "accepted": 3 })).unwrap();
+    assert_eq!((old.accepted, old.skipped), (3, 0));
 
     let registration: ContactRegistration =
         serde_json::from_value(json!({ "scene": "dating" })).unwrap();
@@ -86,6 +90,14 @@ fn responses_and_registration_round_trip() {
         serde_json::to_value(&processor).unwrap(),
         json!({ "name": "某供应商", "zero_retention": true })
     );
+    let without: ProcessorInfo = serde_json::from_value(json!({ "name": "x" })).unwrap();
+    assert!(!without.zero_retention);
+    assert_eq!(
+        serde_json::to_value(&without).unwrap(),
+        json!({ "name": "x", "zero_retention": false })
+    );
+    // name 仍然必填
+    assert!(serde_json::from_value::<ProcessorInfo>(json!({ "zero_retention": true })).is_err());
 }
 
 #[test]

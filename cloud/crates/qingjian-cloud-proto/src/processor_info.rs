@@ -7,5 +7,7 @@ pub struct ProcessorInfo {
     /// 供应商名称，来自服务端配置；为空时客户端不允许打开记录。
     pub name: String,
 
+    /// 是否零留存，由服务端按配置给出；缺省 false。
+    #[serde(default)]
     pub zero_retention: bool,
 }
