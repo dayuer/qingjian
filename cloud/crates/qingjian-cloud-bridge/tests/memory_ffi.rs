@@ -27,6 +27,11 @@ unsafe extern "C" {
         contact_id: *const c_char,
         text: *const c_char,
     ) -> *mut c_char;
+    fn qj_memory_add_contact(
+        session: *mut Session,
+        name: *const c_char,
+        pronoun: *const c_char,
+    ) -> *mut c_char;
     fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
     fn qj_memory_write(user_dir: *const c_char, json: *const c_char) -> *mut c_char;
 }
@@ -317,6 +322,59 @@ fn note_creates_a_manual_card() {
     let blank = c("   ");
     let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), blank.as_ptr()) });
     assert_eq!(failure["code"], "invalid");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn keyboard_adds_a_contact_and_can_switch_to_it() {
+    let (data, user) = dirs("add-contact");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let name = c("  阿杰 ");
+    let pronoun = c("ta_m");
+    let added = json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), pronoun.as_ptr()) });
+    let id = added["id"].as_str().expect("建好返回 id").to_owned();
+    assert_eq!(id.len(), 32);
+    set_scope(session, "dating", Some(&id));
+    let scope = json_of(unsafe { qj_scope_get(session) });
+    assert_eq!(scope["contact_id"], id.as_str(), "新建的人马上能选");
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    let contact = snapshot["contacts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == id.as_str())
+        .expect("名单里有新建的人")
+        .clone();
+    assert_eq!(contact["name"], "阿杰", "名字去掉首尾空白");
+    assert_eq!(contact["pronoun"], "ta_m");
+    assert_eq!(contact["scene"], "dating");
+    assert!(user.join("memory").join(&id).is_dir(), "对象目录建好了");
+
+    let blank = c("   ");
+    let failure = json_of(unsafe { qj_memory_add_contact(session, blank.as_ptr(), ptr::null()) });
+    assert_eq!(failure["code"], "invalid");
+    let failure =
+        json_of(unsafe { qj_memory_add_contact(ptr::null_mut(), name.as_ptr(), ptr::null()) });
+    assert_eq!(failure["code"], "invalid");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn keyboard_add_contact_respects_the_limit() {
+    let (data, user) = dirs("add-limit");
+    let session = open(&data, Some(&user));
+    let unknown = c("??");
+    for n in 0..8 {
+        let name = c(&format!("人{n}"));
+        let added =
+            json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), unknown.as_ptr()) });
+        assert!(added["id"].is_string(), "第 {n} 个应当建得了：{added}");
+    }
+    let ninth = c("人8");
+    let failure = json_of(unsafe { qj_memory_add_contact(session, ninth.as_ptr(), ptr::null()) });
+    assert_eq!(failure["code"], "contact_limit");
     unsafe { qj_session_free(session) };
 }
 

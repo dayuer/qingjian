@@ -1,5 +1,5 @@
 // 点牌子后键区换成的选择面板：场景三选一；恋爱场景再选对象（App 里建的，最多 8 个，带头像与副文字）或不指定。
-// 键盘扩展打不开 App，「新对象」只提示去 App 新建。没开完全访问时读不到 App Group 里的名单，也不让切场景（切了也用不上记忆），
+// 「新对象」在提示行的位置打名字直接建（KeyboardModel.startNamingContact），称呼先按 TA，详细的在 App 里补。没开完全访问时读不到 App Group 里的名单，也不让切场景（切了也用不上记忆），
 // 面板里只有一句「开启完全访问后才能使用记忆」与「去开启」；桥不知道有没有完全访问，这道门在 Swift 侧。
 // 「完成」/「收起」在候选栏那一行右端（IdleBar.panelBar）。
 
@@ -7,8 +7,6 @@ import SwiftUI
 
 struct ScopePicker: View {
     let model: KeyboardModel
-
-    @State private var showsNewContactTip = false
 
     private static let scenes = [MemoryScope.daily, MemoryScope.dating, MemoryScope.work]
 
@@ -91,9 +89,9 @@ struct ScopePicker: View {
             }
             cell(
                 avatar: "+", title: "新对象",
-                subtitle: showsNewContactTip ? "在素笺 App 里新建" : ScopeDisplay.newContactSubtitle(count: model.contacts.count),
+                subtitle: ScopeDisplay.newContactSubtitle(count: model.contacts.count),
                 selected: false
-            ) { showsNewContactTip = true }
+            ) { model.startNamingContact() }
         }
     }
 

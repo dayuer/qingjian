@@ -340,7 +340,7 @@ final class KeyboardModel {
     /// 提示行这一行在不在：「恋爱 · 某人」且有提示或记一笔条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
     var hasHintRow: Bool {
         ScopeDisplay.hasHintRow(
-            scene: scope.scene, hasContact: currentContact != nil,
+            scene: scope.scene, hasContact: currentContact != nil || namingContact,
             hasContent: hint != nil || noteDraft != nil || noteDone || sink.isComposingNote)
     }
 
@@ -429,16 +429,53 @@ final class KeyboardModel {
     var composedNote: NoteComposer? { sink.composer }
 
     /// 「记到」：存成 other 卡（桥的 qj_memory_note），成败都退出手写；没上屏的拼音不算进去，直接丢掉。
+    /// 起名字时是「好了」：建对象并切过去，没建成（锁被 App 占着、满 8 个）就留在输入条里显示原因。
     func confirmComposedNote() {
         guard let composer = sink.composer, composer.canSave else { return }
+        if namingContact {
+            confirmNewContact(composer.text)
+            return
+        }
         endComposedNote()
         saveNote(composer.text)
+    }
+
+    /// 选择面板里点「新对象」：在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
+    func startNamingContact() {
+        guard fullAccess, !sink.isComposingNote else { return }
+        guard contacts.count < ScopeDisplay.maxContacts else {
+            showNotice(MemoryFailure(code: .contactLimit, message: "").userMessage)
+            return
+        }
+        namingContact = true
+        namingError = nil
+        if scope.scene != MemoryScope.dating { chooseScope(scene: MemoryScope.dating, contactId: nil) }
+        beginComposedNote()
+    }
+
+    private func confirmNewContact(_ draft: String) {
+        guard let name = ContactAdd.name(draft), let engine else { return }
+        switch engine.addContact(name: name) {
+        case .success(let id):
+            endComposedNote()
+            reloadContacts()
+            chooseScope(scene: MemoryScope.dating, contactId: id)
+        case .failure(let failure):
+            // 通用文案「键盘正在写记忆」是给 App 看的；这里占锁的是 App
+            namingError = failure.code == .lockTimeout ? "素笺 App 正在保存，请再点一次「好了」" : failure.userMessage
+        }
     }
 
     /// 「取消」、换输入框、键盘收起、进私密输入框、换了对象：草稿直接丢掉。
     func cancelComposedNote() {
         endComposedNote()
     }
+
+    /// 输入条是在给新对象起名字（不是手写记一笔）。
+    private(set) var namingContact = false
+
+    /// 新建对象没成功的原因，显示在输入条里，再按一个键就消失。
+    private(set) var namingError: String?
 
     private func beginComposedNote() {
         dismissRewrite()
@@ -459,6 +496,8 @@ final class KeyboardModel {
             refresh()
         }
         sink.endNote()
+        namingContact = false
+        namingError = nil
     }
 
     private func saveNote(_ text: String) {
@@ -622,6 +661,7 @@ final class KeyboardModel {
 
     private func refresh() {
         guard let engine else { return }
+        namingError = nil
         let next = engine.preedit
         if next != preedit { sink.setMarked(next) }
         preedit = next

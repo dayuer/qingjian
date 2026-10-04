@@ -132,6 +132,33 @@ pub unsafe extern "C" fn qj_memory_note(
     }
 }
 
+/// 键盘里新建一个恋爱场景的对象。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
+/// （`contact_limit`：恋爱场景已满 8 个；`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
+/// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]；`name` 为有效 UTF-8 C 字符串，`pronoun` 可为空指针。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_add_contact(
+    session: *mut Session,
+    name: *const c_char,
+    pronoun: *const c_char,
+) -> *mut c_char {
+    let Some(name) = (unsafe { path_arg(name) }).map(str::to_owned) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let pronoun = unsafe { path_arg(pronoun) }
+        .and_then(|text| serde_json::from_value(serde_json::Value::String(text.to_owned())).ok())
+        .unwrap_or_default();
+    let added = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
+        s.memory_add_contact(&name, pronoun)
+    });
+    match added {
+        Ok(id) => owned(&serde_json::json!({ "id": id }).to_string()),
+        Err(error) => owned(&error.to_json()),
+    }
+}
+
 /// App 用：整份读出 `{"contacts","cards","revs","state","broken"}`；参数无效或有文件读不了（开机后还没解锁过）时返回空指针。
 ///
 /// # Safety

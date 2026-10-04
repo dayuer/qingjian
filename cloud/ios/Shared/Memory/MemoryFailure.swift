@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct MemoryFailure: Equatable, Sendable {
+struct MemoryFailure: Error, Equatable, Sendable {
     let code: Code
 
     let message: String

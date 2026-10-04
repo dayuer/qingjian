@@ -36,4 +36,10 @@ extension Engine {
         let raw = contactId.withCString { c in text.withCString { qj_memory_note(session, c, $0) } }
         return MemoryFailure.decode(take(raw))
     }
+
+    /// 键盘里新建一个恋爱场景的对象，称呼先按 TA（App 里能改）；建好返回 id。
+    func addContact(name: String) -> Result<String, MemoryFailure> {
+        let raw = name.withCString { qj_memory_add_contact(session, $0, nil) }
+        return ContactAdd.parse(take(raw))
+    }
 }
