@@ -2,6 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > 本文件是审计会话给出的**任务大纲**：接口、文件、测试与验收已定死。执行前由客户端会话用 writing-plans 把每个任务展开成逐步的代码与命令（写在本文件各任务下），展开后先发审计会话审一遍再动手。
+> **展开状态（2026-10-04）：** 7 个任务已展开。每个任务先保留大纲原文（接口、测试清单、验收），其下是「与大纲的差异」（有的话）与逐步的步骤。核实结果在下面「展开前核实」一节，需要审计会话拍板的在文末「需要审计会话决定的点」。
 
 **Goal:** 免费版的本地记忆：场景、对象、手动记忆卡、分区学习、键盘提示行与对象卡、App「键盘记住的事」，不联网、不登录。
 
@@ -10,6 +11,72 @@
 **Tech Stack:** Rust（qingjian-cloud-bridge、qingjian-core 的 `Learner` trait、qingjian-learning 的 `FrequencyLearner`）、Swift / SwiftUI（cloud/ios）、XcodeGen。
 
 **Spec:** `synon-ime` 仓库 `docs/superpowers/specs/2026-10-04-memory-design.md`「2A 本地记忆」（分支 `sujian-memory-docs`）。UI：Claude Design「关系记忆 · 移动端 UI」01、02、05（2c、2g、2i）。
+
+---
+
+## 展开前核实（以代码为准，2026-10-04 在 `sujian` 分支上查的；proto 的卡片类型按 22086d7）
+
+1. **`Context`、`UserNgram` 的导出：** `qingjian_core` 根上没有，但 `pub mod sentence` 里有 `pub use context::Context;`、`pub use user_ngram::UserNgram;`（`crates/qingjian-core/src/sentence/mod.rs:27,37`）。
+   桥里写 `use qingjian_core::sentence::{Context, UserNgram};`，与 `qingjian-learning` 的 `frequency_learner/mod.rs:11` 同一写法，**不需要上游补丁**。`Forgotten`、`Learner`、`Candidate`、`CandidateKind` 在根上导出；`Dictionary`、`WordList` 用桥已依赖的 `qingjian_dictionary`。
+2. **`Learner` trait 全部方法**（`crates/qingjian-core/src/engine/learning/learner.rs`，共 22 个，只有 `record`、`weight` 没有缺省实现）：
+
+   | # | 签名 | `FrequencyLearner` 的行为 | `ScopedLearner` 转发到 |
+   |---|---|---|---|
+   | 1 | `fn record(&mut self, candidate: &Candidate)` | `counts[text] += 1` | 恋爱：场景 + 对象；其余：全局 |
+   | 2 | `fn weight(&self, text: &str) -> u32` | 读 `counts` | 全局 + k×场景 + k×对象 |
+   | 3 | `fn record_choice(&mut self, input: &str, text: &str)` | `choices[input][text] += 1`，超 5 万条减半 | 同 1 |
+   | 4 | `fn choice_weight(&self, input: &str, text: &str) -> u32` | 读 `choices` | 同 2 |
+   | 5 | `fn record_raw(&mut self, input: &str)` | `record_choice(input, "<raw>")` | 同 1 |
+   | 6 | `fn raw_count(&self, input: &str) -> u32` | `choice_weight(input, "<raw>")` | 同 2 |
+   | 7 | `fn unrecord(&mut self, text: &str)` | `counts` 减 1，到 0 删 | 同 1 |
+   | 8 | `fn unrecord_choice(&mut self, input: &str, text: &str)` | `choices` 减 1 | 同 1 |
+   | 9 | `fn unrecord_transition(&mut self, context: Context<'_>, word: &str, times: u32)` | 个人 n-gram 减 | 全局 |
+   | 10 | `fn learn_word(&mut self, text: &str, syllables: &[String])` | 加用户词、重建小词库 | 全局 |
+   | 11 | `fn user_words(&self) -> Option<&Dictionary>` | 用户词小词库 | 全局 |
+   | 12 | `fn learn_english(&mut self, word: &str)` | 个人英文词 +1 | 全局 |
+   | 13 | `fn user_english(&self) -> Option<&WordList>` | 个人英文词表 | 全局 |
+   | 14 | `fn record_transition(&mut self, context: Context<'_>, word: &str, times: u32)` | 个人 n-gram 加 | 全局 |
+   | 15 | `fn user_ngram(&self) -> Option<&UserNgram>` | 非空时给引用 | 全局 |
+   | 16 | `fn record_typo(&mut self, typed: &str, intended: &str)` | 敲错表 +1 | 同 1 |
+   | 17 | `fn unrecord_typo(&mut self, typed: &str, intended: &str)` | 敲错表 -1 | 同 1 |
+   | 18 | `fn typo_count(&self, typed: &str, intended: &str) -> u32` | 读敲错表 | 同 2 |
+   | 19 | `fn forget(&mut self, text: &str) -> Forgotten` | 删用户词、计数、各输入串选择、n-gram | 全局（见文末决定点 1） |
+   | 20 | `fn forget_english(&mut self, word: &str) -> bool` | 删个人英文词 | 全局 |
+   | 21 | `fn merge_remote(&mut self, inbox: &str) -> usize` | `merge_inbox_and_flush`（合并后只刷自己） | 全局 |
+   | 22 | `fn flush(&mut self)` | 各表脏了就原子写 | 三层都刷 |
+
+   - **`MutedLearner` 的套法：** `Engine` 的 `learner` 字段就是 `MutedLearner`（`engine/learning/muted.rs`，`pub(in crate::engine)`），`Engine::with_learner(Box<dyn Learner>)` 调 `MutedLearner::replace` 把我们的学习器装进去。私密输入、关学习时它吞写、照常读，**包装层不另做私密判断**（spec 原话）。注意 `MutedLearner` 自己没转发 `merge_remote`，但会话的收件箱走 `Engine::learner_mut()`，它返回的是 `MutedLearner::inner_mut()`（即我们的 `ScopedLearner`），不经过 `MutedLearner`，所以合并不会被吞。
+   - **`Engine::learner_mut()` 存在**（`engine/setup.rs:510`）：`pub fn learner_mut(&mut self) -> &mut dyn Learner`，调用时先 `forget_span_cache()`。切换场景后「作废格子缓存」的正确调用就是 `self.engine.learner_mut();`（丢弃返回值）。`Engine::commit` 内部本来就会 `forget_span_cache()`。
+   - **它只给 `&mut dyn Learner`，没法向下转型成 `ScopedLearner`**，trait 也没有换层的方法（加了就是上游补丁）。所以叠加层放在 `Arc<Mutex<Overlay>>` 里，`ScopedLearner` 与会话手里的 `ScopeHandle` 共享（见 Task 1「与大纲的差异」）。
+   - **`Session` 现在的构造**（`cloud/crates/qingjian-cloud-bridge/src/session/mod.rs:62-107`）：`Session::open(data_dir, user_dir, config, cloud)` 里 `user_dir.map_or_else(FrequencyLearner::default, load_learner)`，`load_learner` 读 `<user_dir>/user.tsv`；`Engine::new(dictionary).with_learner(Box::new(learner))`。`Session` 只持有 `engine: Engine`，学习器在引擎里。Task 4 把这一行换成 `LiveMemory::open(dir)` 返回的 `ScopedLearner`，`user_dir` 为空时仍用 `FrequencyLearner::default()`（只在内存里学，不分区）。
+3. **C 接口的会话约定：** 现有接口都显式带会话指针（`char *qj_preedit(QjSession *session)`、`char *qj_commit(QjSession *session, uint32_t index)`，Rust 侧 `*mut Session`，经 `lib.rs` 的 `with()` 折空指针与 panic），没有全局会话。所以 `qj_scope_*` 与键盘用的 `qj_memory_hint/dismiss/cards/note` **带 `QjSession *session`**；`qj_memory_read/write` 像 `qj_settings_*` / `qj_account_*` 那样按路径传。参数名照头文件现有写法叫 `session`（大纲里的 `s` 改成 `session`）。
+4. **上屏路径：** 全在 `session/mod.rs` 的 `impl Session`：`commit(&mut self, index) -> Option<String>`（137 行）、`take_raw(&mut self) -> String`（153 行）、`punctuate(&mut self, c) -> String`（160 行）、`note_passthrough(&mut self, c)`（171 行）；`refresh()`（181 行）在没组字时提前 `return`。iOS 的 `typeSymbol` 不经过桥（123 层的标点直接 `output.commit`），表情、剪贴板插入也不经过桥，这几类不会进最近 24 字（够用：提示只看汉字词）。
+   最近 24 字的缓冲挂在 `Session` 的新字段 `memory: Option<LiveMemory>` 里（`LiveMemory.recent: RecentText`）。
+   **私密输入：** `qj_set_private` → `Session::set_private`（`session/cloud.rs:61`）→ `Engine::set_private`；判断用 `self.engine.is_private()`（`cloud.rs:56,76,89` 都是这个写法）。私密时上屏文字不进缓冲、不匹配、`memory_hint` 恒为 `None`。
+5. **iOS 现状：**
+   - `KeyboardView`（`Keyboard/Sources/KeyboardView.swift`）是 `VStack { CandidateBar; 键区 / 面板 }`，键区高度 `keyAreaHeight` 固定；**键盘总高度不在 SwiftUI 里，而是 `KeyboardViewController.mountKeyboard()` 钉在 `view.heightAnchor` 上的约束**（`candidateBarHeight + keyAreaHeight`，优先级 `.defaultHigh`），触摸层 `KeyTouchView` 的 `keyArea` 在 `viewDidLayoutSubviews` 里按 `y = candidateBarHeight` 算，⌄ 的范围在 `syncTouchView` 里按 `y = 0` 算。提示行要改这三处（见 Task 5 差异）。
+   - `IdleBar` 是没组字时的候选栏：私密锁 / 剪贴板提示 / 润色条 / `actions`（润色 + 发到其他设备）；牌子与「记一笔」放进 `actions` 左侧与右侧，确认条作为新的一个分支。
+   - `KeyboardModel` 是 `@MainActor @Observable`，`private(set)` 状态 + `refresh()` / `poll()`；面板由 `panel: KeyboardPanel`（`keys / candidates / emoji`）切，键区换成面板时触摸层自动清空格子（`syncTouchView` 里 `panel == .keys` 才给格子），SwiftUI 面板自己收点击（`onKeyboardTap` / `onKeyboardPress`）。
+   - `CandidateBar*`：`CandidateBar` 组字时是横向候选，否则交给 `IdleBar`；提示行不放在它里面，放在 `KeyboardView` 的 VStack 顶上。
+   - `Engine.swift` 的会话指针是 `private nonisolated(unsafe) let session`，`take` 与 `withOptionalCString` 也是 `private`；`MemoryBridge.swift` 做成 `extension Engine` 要把这三个放宽到模块内可见。
+   - App：`QingjianApp` → `SetupView`（一个 `NavigationStack { Form }`，含「启用键盘」「设置」（键盘设置、账号两个 `NavigationLink`）「试一试」）。Tab 化的最小改法：`SetupView.body` 换成 `TabView`，原来的 `Form` 原样搬进第三个 Tab「我」。
+   - `project.yml`：各 target 的 `sources` 是目录（`App`、`Shared`、`Keyboard/Sources`、`Tests`），**xcodegen 按目录自动收录**，新文件不用逐个列；`.xcassets` 放进 `App/` 也会自动当资源。测试 target `QingjianCloudTests` 的 `sources` 是 `Tests` 目录加两个键盘文件，依赖 `QingjianCloud`（`@testable import QingjianCloud`）；现有 `Tests/AccountDecodeTests.swift`、`Tests/AccountStoreTests.swift`。工程里没有共享 scheme，`xcodebuild -scheme QingjianCloud` 用的是 Xcode 自动生成的 scheme（账号计划里已这么用过）。
+6. **日期：** 桥的 `Cargo.toml` 没有 `chrono` / `time`（`time` 只作为别的 crate 的传递依赖出现在 `Cargo.lock`）。按要求不引依赖：新类型 `LocalDate`（Unix 秒加 8 小时按天取整，公历换算用 Howard Hinnant 的 days_from_civil / civil_from_days），自带测试。大纲里的 `NaiveDate` 全部换成 `LocalDate`。
+7. **`FrequencyLearner` 的布局：** `FrequencyLearner::from_path(path: impl Into<PathBuf>) -> Result<Self, LearningError>`，`path` 是**词频文件** `user.tsv` 本身，其余五张表用 `with_file_name` 放同目录：`user-words.tsv`、`user-ngram.tsv`、`user-choices.tsv`、`user-english.tsv`、`user-typos.tsv`（`frequency_learner/mod.rs:19-34`）。文件不在返回空表；只有真 io 错误才 `Err`。落盘走 `qingjian_core::storage::write_atomic`，**不建父目录**，所以分区层打开前要 `create_dir_all`。
+   分区层路径：场景 `memory/scene-<场景>/learning/user.tsv`、对象 `memory/<对象 id>/learning/user.tsv`；`memory/` 在学习数据目录下（iOS 开了完全访问时就是 App Group 的 `Qingjian/`，与 spec 的路径一致），所以**不改 `qj_session_open` 的签名**。学习数据同步（`qingjian-cloud-client` 的 `Snapshot::read_dir`）只认学习数据目录顶层的这六个文件名，不会扫到 `memory/` 下的分区层，与 spec「只同步全局层」一致，不用另做处理。
+
+其他核实到的、影响写法的事实：
+
+- `qingjian-cloud-proto` 已有 `Scene { Daily, Dating, Work }`（`serde(rename_all = "lowercase")`，`Copy + Hash`），但没有 `as_str` / `parse`；桥直接用它，不再定义一个同名枚举。
+- 展开期间 proto 又合进了 2C 的卡片类型（22086d7）：`CardKind { Date, Promise, Preference, Recent, Other }`、`CardSource { Cloud, Manual }`，serde 都是小写，与 spec 的 `kind` / `source` 取值一致，`Copy`，`CardSource` 没有 `Default`。桥的 `Card` 直接用这两个枚举，不另定义（2C 下发的卡进同一套本地结构时不用转换）。
+- `cloud_config.rs` 的原子写在 `CloudConfig::save` 里（临时名 `<文件>.<pid>.<序号>.tmp`、0600、改名），写锁是私有的 `lock()`。Task 2 把写文件的部分抽成 `pub(crate) fn write_atomic`、把 `lock` 改成 `pub(crate)`，两边共用。
+- 桥现在**没有**「导出符号与头文件逐个核对」的测试，`tests/ffi.rs` 只是按 C 签名声明并调用（能链接就说明导出了）。展开时用 shell 核过一遍：`src/` 里的 `extern "C" fn qj_*` 与头文件里的 `qj_*(` 完全一致。Task 4 把这个核对写成测试 `header_declares_every_export`。
+- `Dictionary::from_path` 按文件头魔数认格式，TSV 起名 `dict.qj` 也能读；FFI 测试用仓库里的 `assets/sample/dict.tsv`（含「生日」`sheng ri`），不需要产品数据。
+- `Engine::language_model() -> &dyn LanguageModel` 是公开的；`qingjian_core::sentence::segment_text(text, model)` 按语言模型切词（模型一个词都不认识时返回 `None`）。上游的 `Dictionary` 只能按拼音查、不能按文字查，所以「用引擎词库切分」落实为用语言模型切（见 Task 3 差异）。
+- `getrandom 0.4.3` 已经作为 `uuid` 的依赖在 `Cargo.lock` 里（iOS 上能编，`uuid` 在用），`cargo add getrandom@0.4` 不引入新包；API 是 `getrandom::fill(&mut [u8]) -> Result<(), getrandom::Error>`。
+- 提交钩子在仓库根，`cloud/` 是独立 workspace：每个任务提交前在 `cloud/` 下手动跑 `cargo fmt --all` 与 `cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings`。
+
+**顺序与编译状态：** Task 1–3 是纯 Rust，各自可独立提交，每次提交 `cargo test -p qingjian-cloud-bridge` 全绿。Task 4 只**新增** C 函数、不改已有签名，iOS 工程在 Task 4 提交后照样能编（Swift 不用新函数也不报错；`build-bridge.sh` 在 preBuildScript 里会重编桥），所以 Task 4、5 不必连着做。Task 5、6 都要先跑 `scripts/build-bridge.sh` 让 xcframework 带上新头文件。Task 6 依赖 Task 5 建的 `Shared/Memory/` 模型（两个 target 共用）。
 
 ---
 
@@ -46,6 +113,63 @@ cloud/ios/App/Memory/
 cloud/ios/Tests/MemoryStoreTests.swift
 ```
 
+### 展开后的文件结构（以此为准；按「一个类型一个文件」「同词干收进目录」「测试多了按主题分文件」拆开）
+
+```
+cloud/crates/qingjian-cloud-bridge/
+  Cargo.toml                    （改，Task 2）加 getrandom = "0.4.3"
+  src/lib.rs                    （改）mod scope / memory；pub use；with() 改 pub(crate)
+  src/cloud_config.rs           （改，Task 2）抽出 pub(crate) write_atomic，lock 改 pub(crate)
+  src/scope/mod.rs              scene_name / parse_scene / is_contact_id / 路径约定 / load_layer / lock
+  src/scope/overlay.rs          Overlay：当前叠加层（场景层 + 对象层）
+  src/scope/handle.rs           ScopeHandle：会话换层的把手
+  src/scope/scoped_learner.rs   ScopedLearner：实现 Learner 全部 22 个方法
+  src/scope/state.rs            ScopeState（state.json）
+  src/scope/tests.rs
+  src/memory/mod.rs             常量、new_id、now_unix、has_date、re-export
+  src/memory/contact.rs         Contact
+  src/memory/pronoun.rs         Pronoun
+  src/memory/card.rs            Card（种类与来源用 proto 的 CardKind、CardSource）
+  src/memory/error.rs           MemoryError（code / message / to_json）
+  src/memory/local_date.rs      LocalDate（北京时间日历日）
+  src/memory/snapshot.rs        MemorySnapshot（App 整份读写的 JSON）
+  src/memory/store.rs           MemoryStore
+  src/memory/recent.rs          RecentText（最近 24 字）            （Task 3）
+  src/memory/stopwords.txt      100 个停用词                        （Task 3）
+  src/memory/hint/mod.rs        常量、停用词、reminder_text、panel_cards（Task 3）
+  src/memory/hint/entry.rs      IndexedCard（索引里的一张卡）        （Task 3）
+  src/memory/hint/index.rs      HintIndex                           （Task 3）
+  src/memory/hint/item.rs       Hint                                （Task 3）
+  src/memory/hint/reason.rs     HintReason                          （Task 3）
+  src/memory/ffi.rs             8 个 C 函数                         （Task 4）
+  src/memory/tests/mod.rs       测试用的临时目录、样例对象与卡片
+  src/memory/tests/date.rs      LocalDate
+  src/memory/tests/store.rs     MemoryStore / MemorySnapshot
+  src/memory/tests/hint.rs      HintIndex / RecentText / panel_cards（Task 3）
+  src/session/mod.rs            （改，Task 4）memory 字段、上屏路径喂缓冲、refresh 后更新提示
+  src/session/cloud.rs          （改，Task 4）poll 里按修改时间重载记忆
+  src/session/memory/mod.rs     impl Session：set_scope / scope / memory_hint / dismiss_hint / memory_cards / memory_note …（Task 4）
+  src/session/memory/live.rs    LiveMemory：会话里的记忆状态（Task 4）
+  include/qingjian_bridge.h     （改，Task 4）
+  tests/memory_ffi.rs           （Task 4）
+  examples/overlay_replay.rs    叠加权重回放（Task 7）
+cloud/ios/
+  project.yml                   （改，Task 6）App 显示名「素笺」、AppIcon
+  Shared/Memory/MemoryContact.swift  MemoryPronoun.swift  MemoryCard.swift  MemoryScope.swift
+  Shared/Memory/MemorySnapshot.swift MemoryHint.swift     MemoryFailure.swift MemoryDate.swift
+  Shared/Memory/MemoryID.swift       MemoryFiles.swift    MemoryAvatar.swift            （Task 5，App 与键盘共用）
+  Keyboard/Sources/ScopeChip.swift ScopePicker.swift HintRow.swift ContactCardPanel.swift MemoryBridge.swift（Task 5）
+  Keyboard/Sources/Engine.swift KeyboardModel.swift KeyboardView.swift IdleBar.swift KeyboardPanel.swift
+  Keyboard/Sources/KeyStyle.swift KeyboardViewController.swift                         （改，Task 5）
+  App/Memory/MemoryStore.swift MemoryHomeView.swift ContactDetailView.swift CardEditor.swift
+  App/Memory/ContactEditor.swift ContactSettingsView.swift WeekView.swift CloudIntroView.swift（Task 6）
+  App/SetupView.swift            （改，Task 6）
+  App/Assets.xcassets/            Contents.json、AppIcon.appiconset/（三张 1024 图 + Contents.json）（Task 6）
+  Tests/MemoryStoreTests.swift   （Task 6）
+  README.md                      （改，Task 7）
+cloud/docs/design.md、cloud/README.md、cloud/docs/fork-patch.md（改，Task 7）
+```
+
 ## Task 1：`ScopedLearner`（分区学习）
 
 **Files:** Create `scope/mod.rs`、`scope/scoped_learner.rs`、`scope/tests.rs`；Modify `src/lib.rs`（mod 声明）。
@@ -78,6 +202,648 @@ impl qingjian_core::Learner for ScopedLearner { /* 全部方法，见下表 */ }
 
 验收：`cargo test -p qingjian-cloud-bridge scope`、clippy 无告警。动手前先核实 `Context`、`UserNgram` 是否由 qingjian_core 公开导出（`record_transition` / `user_ngram` 签名要用）；没导出就在本任务里写明改用的办法，不加上游补丁。
 
+### 与大纲的差异
+
+1. **`Scene` 不新定义**，直接用 `qingjian_cloud_proto::Scene`（提交 b1355c8 已有，serde 名就是 `daily/dating/work`）；proto 里没有 `as_str`，桥里写自由函数 `scope::scene_name(Scene) -> &'static str` 与 `scope::parse_scene(&str) -> Option<Scene>`（不改 proto，免得碰服务端也在用的 crate）。
+2. **结构体字段改了：** `ScopedLearner { global: FrequencyLearner, overlay: Arc<Mutex<Overlay>>, weight: u32, memory_dir: PathBuf }`，`Overlay { scene: Option<FrequencyLearner>, contact: Option<FrequencyLearner> }`。
+   理由：`Engine::learner_mut()` 只给 `&mut dyn Learner`，没有向下转型的口子，`Learner` 也没有换层的方法；不加上游补丁就只能让会话另拿一个共享的把手。新增 `ScopeHandle`（`handle()` 取得，`switch(scene, contact)` 换层）。锁只有键盘主线程在拿，不会争用。
+3. **新增 `ScopedLearner::open_with_weight(..., weight)`**：只给 Task 7 的回放调参用，产品路径 `open` 固定用 `OVERLAY_WEIGHT`。
+4. **测试数字按 spec 的公式改：** 恋爱同一对象下记 10 次，读到的是 `0 + 4×10（场景）+ 4×10（对象）= 80`，不是大纲写的 40；换到对象 B 是 `4×10 = 40`（与大纲一致）。测试里写成 `2 * K * 10` 与 `K * 10`（`K = OVERLAY_WEIGHT`），Task 7 若改权重测试不用跟着改。
+5. **`ScopeState` 放在 `scope/state.rs`**（一个类型一个文件），字段 `scene`、`contact_id`、`hints`、`reminders`；`reminders` 是 spec 之外加的「日子提醒」开关（见文末决定点 3）。
+6. 多出两个文件 `scope/overlay.rs`、`scope/handle.rs`，以及 `scope/mod.rs` 里的 `is_contact_id`（对象 id 当目录名，要挡 `../`）。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/crates/qingjian-cloud-bridge/src/scope/{mod,overlay,handle,scoped_learner,state,tests}.rs`
+- Modify: `cloud/crates/qingjian-cloud-bridge/src/lib.rs:6-27`（mod 声明与 re-export）
+
+- [ ] **Step 1: 写失败的测试**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/tests.rs`：
+
+```rust
+//! 分区学习：恋爱场景的写不进全局、对象之间互不相通、计数类读三层加权、其余方法一律走全局、落盘三层都刷。
+
+use std::path::PathBuf;
+
+use qingjian_cloud_proto::Scene;
+use qingjian_core::sentence::Context;
+use qingjian_core::{Candidate, CandidateKind, Learner};
+
+use super::{
+    ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
+    scene_learning_dir, scene_name,
+};
+
+const A: &str = "0123456789abcdef0123456789abcdef";
+const B: &str = "fedcba9876543210fedcba9876543210";
+const K: u32 = ScopedLearner::OVERLAY_WEIGHT;
+
+fn candidate(text: &str) -> Candidate {
+    Candidate {
+        text: text.to_owned(),
+        kind: CandidateKind::Chinese,
+        syllables: Vec::new(),
+        reading: None,
+        translation: None,
+        aux_code: None,
+    }
+}
+
+/// 每个测试一个临时的学习数据目录，记忆目录在它下面的 `memory/`。
+fn dirs(name: &str) -> (PathBuf, PathBuf) {
+    let user = std::env::temp_dir().join(format!("qj-scope-{name}-{}", std::process::id()));
+    std::fs::remove_dir_all(&user).ok();
+    std::fs::create_dir_all(&user).unwrap();
+    let memory = user.join("memory");
+    (user, memory)
+}
+
+#[test]
+fn dating_writes_do_not_reach_work() {
+    let (user, memory) = dirs("dating-work");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Dating, Some(A));
+    let handle = learner.handle();
+    for _ in 0..10 {
+        learner.record(&candidate("宝贝"));
+    }
+    // 恋爱场景读「全局 + k×场景 + k×对象」：全局没写，场景层与对象层各 10 次
+    assert_eq!(learner.weight("宝贝"), 2 * K * 10);
+    handle.switch(Scene::Work, None);
+    assert_eq!(learner.weight("宝贝"), 0, "工作场景只读全局");
+    handle.switch(Scene::Dating, Some(A));
+    assert_eq!(
+        learner.weight("宝贝"),
+        2 * K * 10,
+        "换层时落过盘，换回同一对象读得到"
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn contacts_are_isolated() {
+    let (user, memory) = dirs("contacts");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Dating, Some(A));
+    let handle = learner.handle();
+    for _ in 0..10 {
+        learner.record(&candidate("宝贝"));
+    }
+    handle.switch(Scene::Dating, Some(B));
+    assert_eq!(learner.weight("宝贝"), K * 10, "对象 B 只读到场景层");
+    handle.switch(Scene::Dating, None);
+    assert_eq!(learner.weight("宝贝"), K * 10, "不指定对象也只有场景层");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn daily_and_work_share_global() {
+    let (user, memory) = dirs("daily-work");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Daily, None);
+    let handle = learner.handle();
+    for _ in 0..3 {
+        learner.record(&candidate("开会"));
+    }
+    assert_eq!(learner.weight("开会"), 3);
+    handle.switch(Scene::Work, None);
+    assert_eq!(learner.weight("开会"), 3);
+    handle.switch(Scene::Dating, None);
+    assert_eq!(learner.weight("开会"), 3, "恋爱场景也读全局，叠加层是空的");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn counts_overlay_for_choices_raw_and_typos() {
+    let (user, memory) = dirs("counts");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Dating, Some(A));
+    learner.record_choice("bb", "宝贝");
+    learner.record_raw("bb");
+    learner.record_typo("bv", "bei");
+    assert_eq!(learner.choice_weight("bb", "宝贝"), 2 * K);
+    assert_eq!(learner.raw_count("bb"), 2 * K);
+    assert_eq!(learner.typo_count("bv", "bei"), 2 * K);
+    learner.unrecord_choice("bb", "宝贝");
+    learner.unrecord_typo("bv", "bei");
+    assert_eq!(learner.choice_weight("bb", "宝贝"), 0);
+    assert_eq!(learner.typo_count("bv", "bei"), 0);
+    learner.record(&candidate("宝贝"));
+    learner.unrecord("宝贝");
+    assert_eq!(learner.weight("宝贝"), 0);
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn forwarding_is_complete() {
+    for scene in [Scene::Daily, Scene::Dating, Scene::Work] {
+        let (user, memory) = dirs(&format!("forward-{}", scene_name(scene)));
+        let contact = (scene == Scene::Dating).then_some(A);
+        let mut learner = ScopedLearner::open(&user, &memory, scene, contact);
+        assert_eq!(learner.merge_remote("user\tadd\t开发\t3\n"), 1, "{scene:?}");
+        learner.learn_word("青简", &["qing".to_owned(), "jian".to_owned()]);
+        assert!(learner.user_words().is_some(), "{scene:?}");
+        learner.learn_english("gist");
+        assert!(learner.user_english().is_some(), "{scene:?}");
+        learner.record_transition(Context::START, "你好", 1);
+        assert!(learner.user_ngram().is_some(), "{scene:?}");
+        learner.flush();
+        let read = |name: &str| std::fs::read_to_string(user.join(name)).unwrap_or_default();
+        assert!(read("user.tsv").contains("开发"), "{scene:?}");
+        assert!(read("user-words.tsv").contains("青简"), "{scene:?}");
+        assert!(read("user-english.tsv").contains("gist"), "{scene:?}");
+        assert!(read("user-ngram.tsv").contains("你好"), "{scene:?}");
+        // 删词也走全局
+        assert!(learner.forget("开发").learning, "{scene:?}");
+        assert!(learner.forget_english("gist"), "{scene:?}");
+        assert_eq!(learner.weight("开发"), 0, "{scene:?}");
+        std::fs::remove_dir_all(&user).ok();
+    }
+}
+
+#[test]
+fn flush_writes_all_layers() {
+    let (user, memory) = dirs("flush");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Dating, Some(A));
+    learner.record(&candidate("宝贝"));
+    learner.flush();
+    assert!(
+        scene_learning_dir(&memory, Scene::Dating)
+            .join("user.tsv")
+            .is_file()
+    );
+    assert!(contact_learning_dir(&memory, A).join("user.tsv").is_file());
+    assert!(!user.join("user.tsv").exists(), "恋爱场景不写全局");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn bad_contact_ids_are_ignored_and_scenes_parse() {
+    assert!(is_contact_id(A));
+    assert!(!is_contact_id("../etc"));
+    assert!(!is_contact_id(&A.to_uppercase()));
+    assert_eq!(parse_scene("party"), None);
+    for scene in [Scene::Daily, Scene::Dating, Scene::Work] {
+        assert_eq!(parse_scene(scene_name(scene)), Some(scene));
+    }
+    let (user, memory) = dirs("bad-id");
+    let mut learner = ScopedLearner::open(&user, &memory, Scene::Dating, Some("../x"));
+    learner.record(&candidate("宝贝"));
+    assert_eq!(
+        learner.weight("宝贝"),
+        K,
+        "不合格的 id 当没选对象，只有场景层"
+    );
+    assert!(!memory.join("..").join("x").join("learning").exists());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn scope_state_defaults() {
+    let state: ScopeState =
+        serde_json::from_str(r#"{"scene":"dating","contact_id":null}"#).unwrap();
+    assert_eq!(state.scene, Scene::Dating);
+    assert!(state.hints && state.reminders, "缺的开关按开");
+    assert_eq!(ScopeState::default().scene, Scene::Daily);
+}
+```
+
+- [ ] **Step 2: 挂上空模块，跑测试看它失败**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/mod.rs`（临时只挂测试，Step 3 整个替换）：
+
+```rust
+//! 场景与对象的分区学习。
+
+#[cfg(test)]
+mod tests;
+```
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/lib.rs`：第 6–13 行的 `mod` 列表里按字母序加一行 `mod scope;`（在 `mod rewrite;` 与 `mod session;` 之间）。
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge scope 2>&1 | tail -20`
+Expected: 编译失败，`error[E0432]: unresolved imports super::ScopeState, super::ScopedLearner …`。
+
+- [ ] **Step 3: 写 `scope/mod.rs`**
+
+Replace `cloud/crates/qingjian-cloud-bridge/src/scope/mod.rs`：
+
+```rust
+//! 场景与对象的分区学习（spec「2A 本地记忆 · 分区学习」）：[`ScopedLearner`] 包三层 `FrequencyLearner`，
+//! 会话用 [`ScopeHandle`] 换叠加层，当前场景与对象存在 [`ScopeState`]（`memory/state.json`）。
+//! 目录约定：场景层 `memory/scene-<场景>/learning/`，对象层 `memory/<对象 id>/learning/`，文件名与全局层一样是 `user*.tsv`。
+
+mod handle;
+mod overlay;
+mod scoped_learner;
+mod state;
+
+#[cfg(test)]
+mod tests;
+
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, PoisonError};
+
+use qingjian_cloud_proto::Scene;
+use qingjian_learning::FrequencyLearner;
+
+use self::overlay::Overlay;
+
+pub use self::handle::ScopeHandle;
+pub use self::scoped_learner::ScopedLearner;
+pub use self::state::ScopeState;
+
+/// 场景在路径与 JSON 里的名字，与 proto 的 serde 名一致。
+pub fn scene_name(scene: Scene) -> &'static str {
+    match scene {
+        Scene::Daily => "daily",
+        Scene::Dating => "dating",
+        Scene::Work => "work",
+    }
+}
+
+pub fn parse_scene(text: &str) -> Option<Scene> {
+    [Scene::Daily, Scene::Dating, Scene::Work]
+        .into_iter()
+        .find(|scene| scene_name(*scene) == text)
+}
+
+/// 对象 id 是 16 字节随机数的小写十六进制；它要拿来当目录名，不合格的一律不认（挡 `../` 之类）。
+pub fn is_contact_id(id: &str) -> bool {
+    id.len() == 32
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+pub fn scene_learning_dir(memory_dir: &Path, scene: Scene) -> PathBuf {
+    memory_dir
+        .join(format!("scene-{}", scene_name(scene)))
+        .join("learning")
+}
+
+pub fn contact_learning_dir(memory_dir: &Path, contact_id: &str) -> PathBuf {
+    memory_dir.join(contact_id).join("learning")
+}
+
+/// 打开一层：目录不在就建（`FrequencyLearner` 落盘时不建父目录）；读不了（锁屏时的数据保护、权限）
+/// 退回只在内存里学，不拿空表覆盖用户文件。
+pub(crate) fn load_layer(dir: &Path) -> FrequencyLearner {
+    if let Err(error) = std::fs::create_dir_all(dir) {
+        tracing::warn!(%error, "学习数据目录建不了，这一层只在内存里学习");
+        return FrequencyLearner::default();
+    }
+    let path = dir.join("user.tsv");
+    FrequencyLearner::from_path(&path).unwrap_or_else(|error| {
+        tracing::error!(path = %path.display(), %error, "学习数据读取失败，这一层只在内存里学习");
+        FrequencyLearner::default()
+    })
+}
+
+/// 叠加层的锁：只有键盘主线程在拿；中毒了也照用里面的数据。
+fn lock(overlay: &Mutex<Overlay>) -> MutexGuard<'_, Overlay> {
+    overlay.lock().unwrap_or_else(PoisonError::into_inner)
+}
+```
+
+- [ ] **Step 4: 写 `scope/overlay.rs` 与 `scope/handle.rs`**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/overlay.rs`：
+
+```rust
+//! 当前生效的叠加层：只在恋爱场景有；场景层必有，对象层看选没选对象。
+
+use std::path::Path;
+
+use qingjian_cloud_proto::Scene;
+use qingjian_core::Learner;
+use qingjian_learning::FrequencyLearner;
+
+use super::{contact_learning_dir, is_contact_id, load_layer, scene_learning_dir};
+
+#[derive(Debug, Default)]
+pub struct Overlay {
+    scene: Option<FrequencyLearner>,
+
+    contact: Option<FrequencyLearner>,
+}
+
+impl Overlay {
+    /// 日常与工作没有叠加层；恋爱场景开场景层，给了合格的对象 id 再开对象层。
+    pub fn open(memory_dir: &Path, scene: Scene, contact: Option<&str>) -> Self {
+        if scene != Scene::Dating {
+            return Self::default();
+        }
+        let contact = contact
+            .filter(|id| is_contact_id(id))
+            .map(|id| load_layer(&contact_learning_dir(memory_dir, id)));
+        Self {
+            scene: Some(load_layer(&scene_learning_dir(memory_dir, scene))),
+            contact,
+        }
+    }
+
+    /// 有叠加层（恋爱场景）时，写只进叠加层。
+    pub fn active(&self) -> bool {
+        self.scene.is_some()
+    }
+
+    /// 各叠加层的计数乘 `weight` 再相加。
+    pub fn count(&self, weight: u32, read: impl Fn(&FrequencyLearner) -> u32) -> u32 {
+        [&self.scene, &self.contact]
+            .into_iter()
+            .flatten()
+            .fold(0, |sum, layer| {
+                sum.saturating_add(weight.saturating_mul(read(layer)))
+            })
+    }
+
+    pub fn write(&mut self, mut f: impl FnMut(&mut FrequencyLearner)) {
+        for layer in [&mut self.scene, &mut self.contact].into_iter().flatten() {
+            f(layer);
+        }
+    }
+
+    pub fn flush(&mut self) {
+        self.write(|layer| layer.flush());
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/handle.rs`：
+
+```rust
+//! 会话手里的换层把手。引擎拿走了 `Box<dyn Learner>`，`Engine::learner_mut()` 只给 `&mut dyn Learner`、没法向下转型，
+//! 所以叠加层放在与 [`super::ScopedLearner`] 共享的 `Arc<Mutex<_>>` 里，由这里换。
+
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+use qingjian_cloud_proto::Scene;
+
+use super::{Overlay, lock};
+
+#[derive(Debug, Clone)]
+pub struct ScopeHandle {
+    overlay: Arc<Mutex<Overlay>>,
+
+    memory_dir: PathBuf,
+}
+
+impl ScopeHandle {
+    pub(super) fn new(overlay: Arc<Mutex<Overlay>>, memory_dir: PathBuf) -> Self {
+        Self {
+            overlay,
+            memory_dir,
+        }
+    }
+
+    /// 换到 `scene` / `contact`：旧叠加层先落盘再从磁盘开新的，换回同一对象时读得到刚记的。
+    /// 换完调用方要调一次 `Engine::learner_mut()`，作废格子缓存里按旧叠加层排的候选。
+    pub fn switch(&self, scene: Scene, contact: Option<&str>) {
+        let mut overlay = lock(&self.overlay);
+        overlay.flush();
+        *overlay = Overlay::open(&self.memory_dir, scene, contact);
+    }
+}
+```
+
+- [ ] **Step 5: 写 `scope/scoped_learner.rs` 与 `scope/state.rs`**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/scoped_learner.rs`：
+
+```rust
+//! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，恋爱场景再叠场景层与对象层。
+//! 计数类读三层加权求和、写只进叠加层；用户词、个人 n-gram、英文词表要返回引用，没法现场叠加，一律走全局。
+//! 包装层必须逐个转发 `Learner` 的全部方法，漏一个就会被 trait 的缺省实现悄悄吞掉。私密输入由外面的 `MutedLearner` 挡写。
+
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+use qingjian_cloud_proto::Scene;
+use qingjian_core::sentence::{Context, UserNgram};
+use qingjian_core::{Candidate, Forgotten, Learner};
+use qingjian_dictionary::{Dictionary, WordList};
+use qingjian_learning::FrequencyLearner;
+
+use super::{Overlay, ScopeHandle, load_layer, lock};
+
+pub struct ScopedLearner {
+    global: FrequencyLearner,
+
+    overlay: Arc<Mutex<Overlay>>,
+
+    /// 叠加层的倍数：产品里是 [`Self::OVERLAY_WEIGHT`]，回放调参时经 [`Self::open_with_weight`] 换。
+    weight: u32,
+
+    memory_dir: PathBuf,
+}
+
+impl ScopedLearner {
+    /// 叠加层计数的倍数（spec 定 4，`examples/overlay_replay.rs` 回放调）。
+    pub const OVERLAY_WEIGHT: u32 = 4;
+
+    pub fn open(user_dir: &Path, memory_dir: &Path, scene: Scene, contact: Option<&str>) -> Self {
+        Self::open_with_weight(user_dir, memory_dir, scene, contact, Self::OVERLAY_WEIGHT)
+    }
+
+    /// 同 [`Self::open`]，叠加倍数自定。只给回放调参用，不进产品配置。
+    pub fn open_with_weight(
+        user_dir: &Path,
+        memory_dir: &Path,
+        scene: Scene,
+        contact: Option<&str>,
+        weight: u32,
+    ) -> Self {
+        Self {
+            global: load_layer(user_dir),
+            overlay: Arc::new(Mutex::new(Overlay::open(memory_dir, scene, contact))),
+            weight,
+            memory_dir: memory_dir.to_path_buf(),
+        }
+    }
+
+    /// 会话换场景、换对象用的把手。
+    pub fn handle(&self) -> ScopeHandle {
+        ScopeHandle::new(Arc::clone(&self.overlay), self.memory_dir.clone())
+    }
+
+    fn count(&self, read: impl Fn(&FrequencyLearner) -> u32) -> u32 {
+        read(&self.global).saturating_add(lock(&self.overlay).count(self.weight, &read))
+    }
+
+    /// 恋爱场景写进叠加层（不写全局），日常与工作写全局。
+    fn write(&mut self, mut f: impl FnMut(&mut FrequencyLearner)) {
+        let mut overlay = lock(&self.overlay);
+        if overlay.active() {
+            overlay.write(&mut f);
+        } else {
+            f(&mut self.global);
+        }
+    }
+}
+
+impl Learner for ScopedLearner {
+    fn record(&mut self, candidate: &Candidate) {
+        self.write(|layer| layer.record(candidate));
+    }
+
+    fn weight(&self, text: &str) -> u32 {
+        self.count(|layer| layer.weight(text))
+    }
+
+    fn record_choice(&mut self, input: &str, text: &str) {
+        self.write(|layer| layer.record_choice(input, text));
+    }
+
+    fn choice_weight(&self, input: &str, text: &str) -> u32 {
+        self.count(|layer| layer.choice_weight(input, text))
+    }
+
+    fn record_raw(&mut self, input: &str) {
+        self.write(|layer| layer.record_raw(input));
+    }
+
+    fn raw_count(&self, input: &str) -> u32 {
+        self.count(|layer| layer.raw_count(input))
+    }
+
+    fn unrecord(&mut self, text: &str) {
+        self.write(|layer| layer.unrecord(text));
+    }
+
+    fn unrecord_choice(&mut self, input: &str, text: &str) {
+        self.write(|layer| layer.unrecord_choice(input, text));
+    }
+
+    fn unrecord_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
+        self.global.unrecord_transition(context, word, times);
+    }
+
+    fn learn_word(&mut self, text: &str, syllables: &[String]) {
+        self.global.learn_word(text, syllables);
+    }
+
+    fn user_words(&self) -> Option<&Dictionary> {
+        self.global.user_words()
+    }
+
+    fn learn_english(&mut self, word: &str) {
+        self.global.learn_english(word);
+    }
+
+    fn user_english(&self) -> Option<&WordList> {
+        self.global.user_english()
+    }
+
+    fn record_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
+        self.global.record_transition(context, word, times);
+    }
+
+    fn user_ngram(&self) -> Option<&UserNgram> {
+        self.global.user_ngram()
+    }
+
+    fn record_typo(&mut self, typed: &str, intended: &str) {
+        self.write(|layer| layer.record_typo(typed, intended));
+    }
+
+    fn unrecord_typo(&mut self, typed: &str, intended: &str) {
+        self.write(|layer| layer.unrecord_typo(typed, intended));
+    }
+
+    fn typo_count(&self, typed: &str, intended: &str) -> u32 {
+        self.count(|layer| layer.typo_count(typed, intended))
+    }
+
+    fn forget(&mut self, text: &str) -> Forgotten {
+        self.global.forget(text)
+    }
+
+    fn forget_english(&mut self, word: &str) -> bool {
+        self.global.forget_english(word)
+    }
+
+    fn merge_remote(&mut self, inbox: &str) -> usize {
+        self.global.merge_remote(inbox)
+    }
+
+    fn flush(&mut self) {
+        self.global.flush();
+        lock(&self.overlay).flush();
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/scope/state.rs`：
+
+```rust
+//! `memory/state.json`：键盘当前的场景与对象（键盘写），以及 App 里的两个提示开关（App 写，键盘按修改时间重读）。
+
+use qingjian_cloud_proto::Scene;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScopeState {
+    pub scene: Scene,
+
+    /// 当前对象；只在恋爱场景有。
+    pub contact_id: Option<String>,
+
+    /// 打字时按卡片内容给提示。
+    pub hints: bool,
+
+    /// 切到对象时给 3 天内的日子与约定提醒。
+    pub reminders: bool,
+}
+
+impl Default for ScopeState {
+    fn default() -> Self {
+        Self {
+            scene: Scene::Daily,
+            contact_id: None,
+            hints: true,
+            reminders: true,
+        }
+    }
+}
+```
+
+- [ ] **Step 6: lib.rs 导出**
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/lib.rs`：在 `pub use self::rewrite::{RewriteState, Rewriter};`（第 25 行）之后加：
+
+```rust
+pub use self::scope::{
+    ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
+    scene_learning_dir, scene_name,
+};
+```
+
+（`parse_scene` 等在 Task 4 之前只有测试用，不导出会报 dead_code；导出后 Task 7 的 example 也要用 `ScopedLearner`、`ScopeHandle`。）
+
+- [ ] **Step 7: 跑测试看它通过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge scope 2>&1 | tail -15`
+Expected: `test result: ok. 8 passed; 0 failed`（`scope::tests::` 下 8 个）。
+
+- [ ] **Step 8: 全量测试、格式与 clippy**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo fmt --all && cargo test -p qingjian-cloud-bridge 2>&1 | grep "test result" && cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings 2>&1 | tail -3`
+Expected: 每个测试二进制都是 `test result: ok`；clippy 末行 `Finished`，没有 `warning` / `error`。
+
+- [ ] **Step 9: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/crates/qingjian-cloud-bridge/src/scope cloud/crates/qingjian-cloud-bridge/src/lib.rs
+git commit -m "feat(cloud): 桥加分区学习 ScopedLearner
+
+恋爱场景在全局之外叠场景层与对象层：计数类读三层加权（k=4），写只进叠加层；用户词、n-gram、英文词表要返回引用，一律走全局。
+Engine::learner_mut 只给 &mut dyn Learner，不加上游补丁就没法换层，叠加层放进 Arc<Mutex<_>>，会话拿 ScopeHandle 换。
+逐个转发 Learner 的 22 个方法，flush 三层都刷。
+
+```
+
 ## Task 2：记忆存储 `MemoryStore`
 
 **Files:** Create `memory/{mod,contact,card,store,tests}.rs`。
@@ -104,6 +870,1161 @@ impl MemoryStore {
 
 测试：往返；8 个上限（恋爱第 9 个报 `ContactLimit`，日常不计）；`forget_contact` 后目录不存在；坏 JSON 被改名且返回空；并发 put（两个线程各写 50 次）后文件可解析。
 
+### 与大纲的差异
+
+1. **按「一个类型一个文件」拆：** `Pronoun` 单独 `memory/pronoun.rs`；**`CardKind`、`CardSource` 不在桥里定义，直接用 `qingjian_cloud_proto` 的**（22086d7 刚合进，serde 名与 spec 一致），`memory/card.rs` 里只有 `Card`，「日子与约定才有日期」写成 `memory/mod.rs` 的自由函数 `has_date(CardKind)`（外部枚举上加不了方法）；`Card.source` 因此没有 `#[serde(default)]`（proto 的 `CardSource` 没有 `Default`，桥写出的文件总带这个字段）；另有 `memory/error.rs`（`MemoryError`）、`memory/local_date.rs`（`LocalDate`，`when` 的校验要用，Task 3 的提醒也用）、`memory/snapshot.rs`（`MemorySnapshot`）。测试超过 200 行，按主题放 `memory/tests/{mod,date,store}.rs`（Task 3 再加 `hint.rs`）。
+2. **`MemoryStore` 多三个方法**：`snapshot()`、`write_snapshot(&MemorySnapshot)`（Task 4 的 `qj_memory_read/write` 要用，校验与写盘逻辑属于存储，放这里一起测）、`stamp(contact_id)`（键盘按修改时间重载用）；外加 `root()`。
+   `write_snapshot` 只采纳快照里 `state` 的 `hints` / `reminders`，当前场景与对象以磁盘上（键盘写的）为准，当前对象被删就置空——否则 App 拿着旧状态整份写回会把键盘刚切的场景盖掉。
+3. **`MemorySnapshot.broken`**：读快照时卡片文件坏了、已改名备份的对象 id 列表，App 据此提示「这个人的记忆文件损坏，已备份」（spec「2A 的错误与边界」第一条，大纲没写接口）。
+4. **读失败分两种：** 解析失败才改名备份、按空处理；io 错误（锁屏时数据保护挡住、权限）不改名，读-改-写的操作直接返回 `MemoryError::Io`，免得拿空表覆盖真文件。只读的 `contacts()` / `cards()` / `state()` 照大纲返回空 / 缺省。
+5. **`new_id()` 返回 `Result<String, MemoryError>`**：`getrandom::fill` 理论上会失败，不 panic。依赖用 `cargo add getrandom@0.4`（`Cargo.lock` 里已有 0.4.3，`uuid` 在用，不引新包）。
+6. `cloud_config.rs` 抽出 `pub(crate) fn write_atomic(path, bytes)`、`lock()` 改 `pub(crate)`：大纲说的「复用写法与写锁」落实为两边调同一个函数、拿同一把锁。记忆文件因此也是 0600（更严，无副作用）。
+7. 8 个上限只数恋爱场景（`scene == Dating`）：spec「对象只在恋爱场景」，大纲测试也写「日常不计」。
+
+### 步骤
+
+**Files:**
+- Modify: `cloud/crates/qingjian-cloud-bridge/Cargo.toml`（`cargo add`）
+- Modify: `cloud/crates/qingjian-cloud-bridge/src/cloud_config.rs:146-175`（`save` 与 `lock`）
+- Create: `cloud/crates/qingjian-cloud-bridge/src/memory/{mod,card,contact,pronoun,error,local_date,snapshot,store}.rs`
+- Create: `cloud/crates/qingjian-cloud-bridge/src/memory/tests/{mod,date,store}.rs`
+- Modify: `cloud/crates/qingjian-cloud-bridge/src/lib.rs`
+
+- [ ] **Step 1: 加依赖**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo add getrandom@0.4 -p qingjian-cloud-bridge && grep -n getrandom crates/qingjian-cloud-bridge/Cargo.toml`
+Expected: 输出 `getrandom = "0.4.3"`（或 `"0.4"`）一行；`git diff --stat Cargo.lock` 只多了桥对 `getrandom 0.4.3` 的一条依赖边，没有新包。
+
+- [ ] **Step 2: 抽出原子写**
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/cloud_config.rs`：把第 146–163 行的 `save` 整个换成：
+
+```rust
+    /// 整份写回（这份文件只有这几项，不用保留注释）。里面有令牌，写法见 [`write_atomic`]。
+    pub fn save(&self, path: &Path) -> Result<(), String> {
+        let text = toml::to_string(self).map_err(|e| e.to_string())?;
+        write_atomic(path, text.as_bytes()).map_err(|e| e.to_string())
+    }
+```
+
+第 171–175 行的 `fn lock()` 改成 `pub(crate) fn lock()`，并在它后面加：
+
+```rust
+/// 同目录写 `.tmp`（名字带进程号与序号，Unix 上 0600）再改名：读的一方（键盘）随时在读，不能读到写了一半的文件。
+/// `cloud.toml` 与 `memory/` 下的文件都走这里；读-改-写的调用方先拿 [`lock`]。
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    let serial = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    name.push(format!(".{}.{serial}.tmp", std::process::id()));
+    let temp = path.with_file_name(name);
+    write_private(&temp, bytes)
+        .and_then(|()| std::fs::rename(&temp, path))
+        .inspect_err(|_| {
+            std::fs::remove_file(&temp).ok();
+        })
+}
+```
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge --test cloud_config 2>&1 | grep "test result"`
+Expected: `test result: ok.`（行为没变，原有测试照过）。
+
+- [ ] **Step 3: 写失败的测试**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/tests/mod.rs`：
+
+```rust
+//! 本地记忆的单元测试，按主题分文件；这里放共用的临时目录与样例对象、卡片。
+
+mod date;
+mod store;
+
+use std::path::PathBuf;
+
+use qingjian_cloud_proto::{CardKind, CardSource, Scene};
+
+use crate::memory::{Card, Contact, Pronoun};
+
+fn temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("qj-memory-{name}-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// 第 `n` 个样例 id（32 位十六进制）。
+fn id(n: u32) -> String {
+    format!("{n:032x}")
+}
+
+fn contact(n: u32, scene: Scene) -> Contact {
+    Contact {
+        id: id(n),
+        name: format!("人{n}"),
+        pronoun: Pronoun::Ta,
+        scene,
+        created_at: 1_791_043_200,
+    }
+}
+
+/// 卡片 id 取 `id(1000 + n)`，与对象 id 错开。
+fn card(
+    n: u32,
+    kind: CardKind,
+    text: &str,
+    keywords: &[&str],
+    when: Option<&str>,
+    touched_at: i64,
+) -> Card {
+    Card {
+        id: id(1000 + n),
+        kind,
+        text: text.to_owned(),
+        keywords: keywords.iter().map(|k| (*k).to_owned()).collect(),
+        when: when.map(str::to_owned),
+        source: CardSource::Manual,
+        confirmed: true,
+        created_at: 1_791_043_200,
+        touched_at,
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/tests/date.rs`：
+
+```rust
+//! 北京时间的日历日：Unix 秒加 8 小时、`YYYY-MM-DD` 的解析与往返、跨月跨年的天数。
+
+use crate::memory::LocalDate;
+
+#[test]
+fn unix_seconds_use_beijing_time() {
+    assert_eq!(LocalDate::from_unix(0).to_string(), "1970-01-01");
+    assert_eq!(
+        LocalDate::from_unix(16 * 3600 - 1).to_string(),
+        "1970-01-01"
+    );
+    assert_eq!(LocalDate::from_unix(16 * 3600).to_string(), "1970-01-02");
+    // 2026-10-04 00:00 北京时间 = 2026-10-03T16:00Z
+    assert_eq!(
+        LocalDate::from_unix(1_791_043_200).to_string(),
+        "2026-10-04"
+    );
+    assert_eq!(
+        LocalDate::from_unix(1_791_043_199).to_string(),
+        "2026-10-03"
+    );
+}
+
+#[test]
+fn parses_only_full_dates() {
+    assert!(LocalDate::parse("2024-02-29").is_some());
+    assert!(LocalDate::parse("2023-02-29").is_none());
+    assert!(LocalDate::parse("2026-13-01").is_none());
+    assert!(LocalDate::parse("2026-1-05").is_none());
+    assert!(LocalDate::parse("2026/01/05").is_none());
+    assert!(LocalDate::parse("+026-01-05").is_none());
+    assert!(LocalDate::parse("").is_none());
+}
+
+#[test]
+fn counts_days_across_months_and_years() {
+    let day = |text: &str| LocalDate::parse(text).unwrap();
+    assert_eq!(day("2025-12-31").days_until(day("2026-01-01")), 1);
+    assert_eq!(day("2026-03-01").days_until(day("2026-02-28")), -1);
+    assert_eq!(day("2024-02-28").add_days(1).to_string(), "2024-02-29");
+    assert_eq!(day("2026-10-04").add_days(3).to_string(), "2026-10-07");
+}
+
+#[test]
+fn round_trips_through_text() {
+    let epoch = LocalDate::from_unix(0);
+    for offset in -700_000..700_000 {
+        if offset % 997 != 0 {
+            continue;
+        }
+        let date = epoch.add_days(offset);
+        assert_eq!(LocalDate::parse(&date.to_string()), Some(date), "{date}");
+    }
+}
+```
+
+（±700 000 天约是公元 54 年到 3886 年，年份都是四位，`to_string` 与 `parse` 能往返。）
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/tests/store.rs`：
+
+```rust
+//! 记忆存储：往返、恋爱场景 8 个上限、忘掉一个人、坏文件改名、并发写、App 整份写回的规则。
+
+use qingjian_cloud_proto::{CardKind, Scene};
+
+use super::{card, contact, id, temp_dir};
+use crate::memory::{Card, MemoryError, MemorySnapshot, MemoryStore};
+use crate::scope::ScopeState;
+
+#[test]
+fn round_trips_contacts_cards_and_state() {
+    let user = temp_dir("round-trip");
+    let store = MemoryStore::open(&user);
+    assert!(store.contacts().is_empty());
+    assert_eq!(store.state(), ScopeState::default());
+
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    assert_eq!(store.contacts(), vec![contact(1, Scene::Dating)]);
+    let mut renamed = contact(1, Scene::Dating);
+    renamed.name = "小美".to_owned();
+    store.put_contact(renamed.clone()).unwrap();
+    assert_eq!(store.contacts(), vec![renamed], "同 id 是改，不是加");
+
+    let cards = vec![card(
+        1,
+        CardKind::Date,
+        "生日",
+        &["生日"],
+        Some("2026-10-05"),
+        1,
+    )];
+    store.put_cards(&id(1), &cards).unwrap();
+    assert_eq!(store.cards(&id(1)), cards);
+    assert!(store.cards("../x").is_empty());
+
+    let state = ScopeState {
+        scene: Scene::Dating,
+        contact_id: Some(id(1)),
+        hints: false,
+        reminders: true,
+    };
+    store.put_state(&state).unwrap();
+    assert_eq!(store.state(), state);
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn ninth_dating_contact_hits_the_limit() {
+    let user = temp_dir("limit");
+    let store = MemoryStore::open(&user);
+    for n in 0..8 {
+        store.put_contact(contact(n, Scene::Dating)).unwrap();
+    }
+    assert!(matches!(
+        store.put_contact(contact(8, Scene::Dating)),
+        Err(MemoryError::ContactLimit)
+    ));
+    store.put_contact(contact(9, Scene::Daily)).unwrap();
+    store.put_contact(contact(0, Scene::Dating)).unwrap();
+    assert_eq!(store.contacts().len(), 9, "日常不计数，改已有的不算新增");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn forget_contact_removes_the_directory() {
+    let user = temp_dir("forget");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    store
+        .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
+        .unwrap();
+    let dir = user.join("memory").join(id(1));
+    assert!(dir.is_dir());
+    store.forget_contact(&id(1)).unwrap();
+    assert!(!dir.exists());
+    assert!(store.contacts().is_empty());
+    assert!(matches!(
+        store.forget_contact("../x"),
+        Err(MemoryError::Invalid(_))
+    ));
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn broken_files_are_renamed_and_read_as_empty() {
+    let user = temp_dir("broken");
+    let store = MemoryStore::open(&user);
+    let memory = user.join("memory");
+    std::fs::create_dir_all(&memory).unwrap();
+    std::fs::write(memory.join("contacts.json"), "{not json").unwrap();
+    assert!(store.contacts().is_empty());
+    let names: Vec<String> = std::fs::read_dir(&memory)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        names.iter().any(|n| n.starts_with("contacts.json.broken-")),
+        "{names:?}"
+    );
+    assert!(!memory.join("contacts.json").exists());
+
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    std::fs::create_dir_all(memory.join(id(1))).unwrap();
+    std::fs::write(memory.join(id(1)).join("cards.json"), "[{").unwrap();
+    let snapshot = store.snapshot();
+    assert_eq!(snapshot.broken, vec![id(1)]);
+    assert!(snapshot.cards[&id(1)].is_empty());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn concurrent_writes_leave_a_parseable_file() {
+    let user = temp_dir("concurrent");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let threads: Vec<_> = (0..2u32)
+        .map(|t| {
+            let store = store.clone();
+            std::thread::spawn(move || {
+                for i in 0..50u32 {
+                    let cards = vec![card(
+                        t * 100 + i,
+                        CardKind::Other,
+                        "x",
+                        &[],
+                        None,
+                        i64::from(i),
+                    )];
+                    store.put_cards(&id(1), &cards).unwrap();
+                }
+            })
+        })
+        .collect();
+    for thread in threads {
+        thread.join().unwrap();
+    }
+    let dir = user.join("memory").join(id(1));
+    let text = std::fs::read_to_string(dir.join("cards.json")).unwrap();
+    let cards: Vec<Card> = serde_json::from_str(&text).unwrap();
+    assert_eq!(cards.len(), 1);
+    let leftovers: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".tmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn snapshot_write_replaces_all_but_the_current_scene() {
+    let user = temp_dir("snapshot");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    store.put_contact(contact(2, Scene::Dating)).unwrap();
+    store
+        .put_cards(&id(2), &[card(2, CardKind::Other, "x", &[], None, 1)])
+        .unwrap();
+    store
+        .put_state(&ScopeState {
+            scene: Scene::Dating,
+            contact_id: Some(id(2)),
+            hints: true,
+            reminders: true,
+        })
+        .unwrap();
+
+    let mut snapshot = store.snapshot();
+    snapshot.contacts.retain(|c| c.id == id(1));
+    snapshot.cards.remove(&id(2));
+    snapshot.cards.insert(
+        id(1),
+        vec![card(5, CardKind::Preference, "喜欢草莓", &[], None, 2)],
+    );
+    snapshot.state = ScopeState {
+        scene: Scene::Work,
+        contact_id: None,
+        hints: false,
+        reminders: false,
+    };
+    store.write_snapshot(&snapshot).unwrap();
+
+    assert_eq!(store.contacts(), vec![contact(1, Scene::Dating)]);
+    assert!(
+        !user.join("memory").join(id(2)).exists(),
+        "名单上没了的人连目录一起删"
+    );
+    assert_eq!(store.cards(&id(1)).len(), 1);
+    let state = store.state();
+    assert_eq!(state.scene, Scene::Dating, "场景以键盘写的为准");
+    assert_eq!(state.contact_id, None, "当前对象被删就退回不指定");
+    assert!(!state.hints && !state.reminders, "两个开关以 App 的为准");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn snapshot_write_validates() {
+    let user = temp_dir("validate");
+    let store = MemoryStore::open(&user);
+    let ok = MemorySnapshot {
+        contacts: vec![contact(1, Scene::Dating)],
+        ..MemorySnapshot::default()
+    };
+
+    let mut unknown = ok.clone();
+    unknown.cards.insert(id(9), Vec::new());
+    assert!(matches!(
+        store.write_snapshot(&unknown),
+        Err(MemoryError::Invalid(_))
+    ));
+
+    let mut bad_date = ok.clone();
+    bad_date.cards.insert(
+        id(1),
+        vec![card(1, CardKind::Date, "生日", &[], Some("2026-13-01"), 0)],
+    );
+    assert!(matches!(
+        store.write_snapshot(&bad_date),
+        Err(MemoryError::Invalid(_))
+    ));
+
+    let mut bad_id = ok.clone();
+    bad_id.contacts[0].id = "../x".to_owned();
+    assert!(matches!(
+        store.write_snapshot(&bad_id),
+        Err(MemoryError::Invalid(_))
+    ));
+
+    let nine = MemorySnapshot {
+        contacts: (0..9).map(|n| contact(n, Scene::Dating)).collect(),
+        ..MemorySnapshot::default()
+    };
+    assert!(matches!(
+        store.write_snapshot(&nine),
+        Err(MemoryError::ContactLimit)
+    ));
+
+    store.write_snapshot(&ok).unwrap();
+    assert_eq!(store.contacts().len(), 1);
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn errors_have_codes_for_swift() {
+    let json: serde_json::Value =
+        serde_json::from_str(&MemoryError::ContactLimit.to_json()).unwrap();
+    assert_eq!(json["code"], "contact_limit");
+    assert_eq!(json["message"], "恋爱场景最多 8 个人");
+    assert_eq!(MemoryError::Invalid("x").code(), "invalid");
+    assert_eq!(MemoryError::Io(std::io::Error::other("x")).code(), "io");
+    assert_eq!(crate::memory::new_id().unwrap().len(), 32);
+}
+```
+
+- [ ] **Step 4: 挂空模块，跑测试看它失败**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/mod.rs`（临时，Step 5 整个替换）：
+
+```rust
+//! 本地记忆。
+
+#[cfg(test)]
+mod tests;
+```
+
+Modify `src/lib.rs`：`mod` 列表里在 `mod error;` 与 `mod rewrite;` 之间加 `mod memory;`。
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge memory 2>&1 | tail -5`
+Expected: 编译失败，`error[E0432]: unresolved import crate::memory::Card` 等。
+
+- [ ] **Step 5: 写 `memory/mod.rs` 与几个数据类型**
+
+Replace `cloud/crates/qingjian-cloud-bridge/src/memory/mod.rs`：
+
+```rust
+//! 本地记忆（spec「2A 本地记忆」）：对象、记忆卡、当前场景的存储，打字时的提示，以及 C 接口。
+//! 数据在学习数据目录的 `memory/` 下（iOS 开了完全访问时是 App Group 的 `Qingjian/memory/`）；
+//! App 整份读写，键盘只读（「记一笔」与当前场景除外）。卡片的种类与来源用 proto 的 `CardKind`、`CardSource`。
+
+mod card;
+mod contact;
+mod error;
+mod local_date;
+mod pronoun;
+mod snapshot;
+mod store;
+
+#[cfg(test)]
+mod tests;
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use qingjian_cloud_proto::CardKind;
+
+pub use self::card::Card;
+pub use self::contact::Contact;
+pub use self::error::MemoryError;
+pub use self::local_date::LocalDate;
+pub use self::pronoun::Pronoun;
+pub use self::snapshot::MemorySnapshot;
+pub use self::store::MemoryStore;
+
+/// 学习数据目录下放记忆的子目录。
+pub const MEMORY_DIR: &str = "memory";
+
+/// 恋爱场景最多几个对象。
+pub const MAX_CONTACTS: usize = 8;
+
+/// 对象与卡片的 id：16 字节随机数的小写十六进制（32 位，不含名字）。
+pub fn new_id() -> Result<String, MemoryError> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|error| MemoryError::Io(std::io::Error::other(error)))?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+/// 现在的 Unix 秒；系统时钟早于 1970 时当 0。
+pub fn now_unix() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
+        })
+}
+
+/// 只有日子与约定的 `when` 有意义（提醒、面板排序、校验都按它）。
+pub fn has_date(kind: CardKind) -> bool {
+    matches!(kind, CardKind::Date | CardKind::Promise)
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/pronoun.rs`：
+
+```rust
+//! 提醒文案里怎么称呼对象。
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Pronoun {
+    #[default]
+    Ta,
+
+    /// 他。
+    TaM,
+
+    /// 她。
+    TaF,
+
+    /// 直接用名字。
+    Name,
+}
+
+impl Pronoun {
+    /// 文案里的称呼；`Name` 时用 `name`。
+    pub fn label(self, name: &str) -> String {
+        match self {
+            Self::Ta => "TA".to_owned(),
+            Self::TaM => "他".to_owned(),
+            Self::TaF => "她".to_owned(),
+            Self::Name => name.to_owned(),
+        }
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/contact.rs`：
+
+```rust
+//! `contacts.json` 的一项：一个对象。名字只在这里，目录名用随机 id。
+
+use qingjian_cloud_proto::Scene;
+use serde::{Deserialize, Serialize};
+
+use super::Pronoun;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Contact {
+    pub id: String,
+
+    /// 名字或代号。
+    pub name: String,
+
+    #[serde(default)]
+    pub pronoun: Pronoun,
+
+    pub scene: Scene,
+
+    /// 建这个对象时的 Unix 秒（「认识 n 天」从这里算）。
+    pub created_at: i64,
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/card.rs`：
+
+```rust
+//! `<对象 id>/cards.json` 的一项：一张记忆卡。种类与来源用 proto 的 `CardKind`、`CardSource`，与 2C 云端下发的卡同一套 JSON 名。
+
+use qingjian_cloud_proto::{CardKind, CardSource};
+use serde::{Deserialize, Serialize};
+
+use super::{MemoryError, new_id};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Card {
+    pub id: String,
+
+    pub kind: CardKind,
+
+    pub text: String,
+
+    /// 用户写的匹配词；提示还会从 `text` 里切词。
+    #[serde(default)]
+    pub keywords: Vec<String>,
+
+    /// `YYYY-MM-DD`（北京时间），只对日子与约定有意义。
+    #[serde(default)]
+    pub when: Option<String>,
+
+    /// 手写（2A）或云端整理（2C）。
+    pub source: CardSource,
+
+    /// 手写的恒为真；云端整理的（2C）等用户确认。
+    #[serde(default)]
+    pub confirmed: bool,
+
+    pub created_at: i64,
+
+    pub touched_at: i64,
+}
+
+impl Card {
+    /// 键盘「记一笔」：一张手写的 `other` 卡。
+    pub fn note(text: &str, now: i64) -> Result<Self, MemoryError> {
+        Ok(Self {
+            id: new_id()?,
+            kind: CardKind::Other,
+            text: text.to_owned(),
+            keywords: Vec::new(),
+            when: None,
+            source: CardSource::Manual,
+            confirmed: true,
+            created_at: now,
+            touched_at: now,
+        })
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/error.rs`：
+
+```rust
+//! 记忆读写失败的种类。C 接口把它折成 `{"code","message"}`：code 给 Swift 分支，message 是给用户看的中文。
+
+use thiserror::Error;
+
+use super::MAX_CONTACTS;
+
+#[derive(Debug, Error)]
+pub enum MemoryError {
+    /// 恋爱场景的对象超过上限。
+    #[error("too many contacts in the dating scene")]
+    ContactLimit,
+
+    /// 数据不合格；里面是给用户看的原因。
+    #[error("invalid memory data")]
+    Invalid(&'static str),
+
+    #[error("memory file io: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+impl MemoryError {
+    /// `contact_limit` / `invalid` / `io`，与头文件里写的一致。
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::ContactLimit => "contact_limit",
+            Self::Invalid(_) => "invalid",
+            Self::Io(_) => "io",
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            Self::ContactLimit => format!("恋爱场景最多 {MAX_CONTACTS} 个人"),
+            Self::Invalid(reason) => (*reason).to_owned(),
+            Self::Io(_) => "记忆文件写不进去，请重试".to_owned(),
+        }
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::json!({"code": self.code(), "message": self.message()}).to_string()
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/local_date.rs`：
+
+```rust
+//! 北京时间（UTC+8，没有夏令时）的日历日，算「还有几天」用。不为这点事引日期库：
+//! Unix 秒加 8 小时按天取整；公历换算用 Howard Hinnant 的 days_from_civil / civil_from_days。
+
+use std::fmt;
+
+use super::now_unix;
+
+const SECS_PER_DAY: i64 = 86_400;
+
+const BEIJING_OFFSET_SECS: i64 = 8 * 3600;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LocalDate {
+    /// 1970-01-01 起的天数。
+    days: i64,
+}
+
+impl LocalDate {
+    pub fn from_unix(secs: i64) -> Self {
+        Self {
+            days: (secs + BEIJING_OFFSET_SECS).div_euclid(SECS_PER_DAY),
+        }
+    }
+
+    pub fn today() -> Self {
+        Self::from_unix(now_unix())
+    }
+
+    pub fn from_ymd(year: i64, month: u32, day: u32) -> Option<Self> {
+        if !(1..=12).contains(&month) || day == 0 || day > days_in_month(year, month) {
+            return None;
+        }
+        Some(Self {
+            days: days_from_civil(year, month, day),
+        })
+    }
+
+    /// 只认 `YYYY-MM-DD`（`2026-1-5`、`2026/01/05` 都不认）。
+    pub fn parse(text: &str) -> Option<Self> {
+        let bytes = text.as_bytes();
+        let shaped = bytes.len() == 10
+            && bytes.iter().enumerate().all(|(i, b)| {
+                if i == 4 || i == 7 {
+                    *b == b'-'
+                } else {
+                    b.is_ascii_digit()
+                }
+            });
+        if !shaped {
+            return None;
+        }
+        let year = text[0..4].parse().ok()?;
+        let month = text[5..7].parse().ok()?;
+        let day = text[8..10].parse().ok()?;
+        Self::from_ymd(year, month, day)
+    }
+
+    /// 从 `self` 到 `other` 还有几天，过去的是负数。
+    pub fn days_until(self, other: Self) -> i64 {
+        other.days - self.days
+    }
+
+    pub fn add_days(self, days: i64) -> Self {
+        Self {
+            days: self.days + days,
+        }
+    }
+
+    pub fn ymd(self) -> (i64, u32, u32) {
+        civil_from_days(self.days)
+    }
+}
+
+impl fmt::Display for LocalDate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (year, month, day) = self.ymd();
+        write!(f, "{year:04}-{month:02}-{day:02}")
+    }
+}
+
+fn is_leap(year: i64) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+fn days_in_month(year: i64, month: u32) -> u32 {
+    match month {
+        2 if is_leap(year) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let yoe = year.rem_euclid(400);
+    let month = i64::from(month);
+    let day = i64::from(day);
+    let doy = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (year, month as u32, day as u32)
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/snapshot.rs`：
+
+```rust
+//! App 整份读写的 JSON：`{"contacts":[…],"cards":{id:[…]},"state":{…},"broken":[id…]}`。
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use super::{Card, Contact};
+use crate::scope::ScopeState;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MemorySnapshot {
+    pub contacts: Vec<Contact>,
+
+    /// 对象 id → 卡片。
+    pub cards: BTreeMap<String, Vec<Card>>,
+
+    pub state: ScopeState,
+
+    /// 这次读时卡片文件坏了、已改名备份的对象（App 据此提示）；写回时忽略。
+    pub broken: Vec<String>,
+}
+```
+
+- [ ] **Step 6: 写 `memory/store.rs`**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/store.rs`：
+
+```rust
+//! `memory/` 下三类文件的读写：`contacts.json`、`state.json`、`<对象 id>/cards.json`。
+//! 写走 `cloud_config::write_atomic`（同目录临时文件加改名）并与 `cloud.toml` 共用进程内写锁；App 与键盘是两个进程，
+//! 读的一方只会看到整份旧文件或整份新文件。解析不了的文件改名为 `<文件>.broken-<unix 秒>` 再按空处理；
+//! 读不了的（锁屏时数据保护、权限）不改名，读-改-写直接报错，免得拿空表覆盖真文件。
+
+use std::collections::{BTreeMap, HashSet};
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+
+use qingjian_cloud_proto::Scene;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
+use super::{
+    Card, Contact, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError, MemorySnapshot, now_unix,
+};
+use crate::cloud_config::{lock, write_atomic};
+use crate::scope::{ScopeState, is_contact_id};
+
+const CONTACTS_FILE: &str = "contacts.json";
+
+const STATE_FILE: &str = "state.json";
+
+const CARDS_FILE: &str = "cards.json";
+
+#[derive(Debug, Clone)]
+pub struct MemoryStore {
+    /// `<学习数据目录>/memory`。
+    root: PathBuf,
+}
+
+impl MemoryStore {
+    pub fn open(user_dir: &Path) -> Self {
+        Self {
+            root: user_dir.join(MEMORY_DIR),
+        }
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn contacts(&self) -> Vec<Contact> {
+        self.read_contacts().unwrap_or_default()
+    }
+
+    /// 加一个对象或改已有的（同 id）。恋爱场景超过 [`MAX_CONTACTS`] 个返回 [`MemoryError::ContactLimit`]。
+    pub fn put_contact(&self, contact: Contact) -> Result<(), MemoryError> {
+        validate_contacts(std::slice::from_ref(&contact))?;
+        let _guard = lock();
+        let mut contacts = self.read_contacts()?;
+        match contacts.iter_mut().find(|c| c.id == contact.id) {
+            Some(existing) => *existing = contact,
+            None => contacts.push(contact),
+        }
+        check_limit(&contacts)?;
+        write_json(&self.contacts_path(), &contacts)
+    }
+
+    /// 忘掉一个人：先删 `memory/<id>/` 整个目录（卡片与分区学习），删成了再从名单去掉。
+    pub fn forget_contact(&self, id: &str) -> Result<(), MemoryError> {
+        if !is_contact_id(id) {
+            return Err(MemoryError::Invalid("对象编号不对"));
+        }
+        let _guard = lock();
+        let mut contacts = self.read_contacts()?;
+        remove_dir(&self.root.join(id))?;
+        contacts.retain(|c| c.id != id);
+        write_json(&self.contacts_path(), &contacts)
+    }
+
+    pub fn cards(&self, contact_id: &str) -> Vec<Card> {
+        if !is_contact_id(contact_id) {
+            return Vec::new();
+        }
+        read_json(&self.cards_path(contact_id))
+            .map(|(cards, _)| cards)
+            .unwrap_or_default()
+    }
+
+    pub fn put_cards(&self, contact_id: &str, cards: &[Card]) -> Result<(), MemoryError> {
+        if !is_contact_id(contact_id) {
+            return Err(MemoryError::Invalid("对象编号不对"));
+        }
+        validate_cards(cards)?;
+        let _guard = lock();
+        write_json(&self.cards_path(contact_id), cards)
+    }
+
+    pub fn state(&self) -> ScopeState {
+        read_json(&self.state_path())
+            .map(|(state, _)| state)
+            .unwrap_or_default()
+    }
+
+    pub fn put_state(&self, state: &ScopeState) -> Result<(), MemoryError> {
+        let _guard = lock();
+        write_json(&self.state_path(), state)
+    }
+
+    /// App 读的整份数据；卡片文件坏了的对象记进 `broken`。
+    pub fn snapshot(&self) -> MemorySnapshot {
+        let contacts = self.contacts();
+        let mut cards = BTreeMap::new();
+        let mut broken = Vec::new();
+        for contact in contacts.iter().filter(|c| is_contact_id(&c.id)) {
+            match read_json::<Vec<Card>>(&self.cards_path(&contact.id)) {
+                Ok((list, quarantined)) => {
+                    if quarantined {
+                        broken.push(contact.id.clone());
+                    }
+                    cards.insert(contact.id.clone(), list);
+                }
+                Err(error) => tracing::warn!(%error, "卡片读不了"),
+            }
+        }
+        MemorySnapshot {
+            contacts,
+            cards,
+            state: self.state(),
+            broken,
+        }
+    }
+
+    /// App 整份写回：先校验；名单上没了的人连目录一起删；卡片按快照写；`state` 只取两个开关，
+    /// 当前场景与对象以磁盘上（键盘写的）为准，当前对象不在名单上了就置空。
+    pub fn write_snapshot(&self, snapshot: &MemorySnapshot) -> Result<(), MemoryError> {
+        validate_contacts(&snapshot.contacts)?;
+        check_limit(&snapshot.contacts)?;
+        for (id, cards) in &snapshot.cards {
+            if !snapshot.contacts.iter().any(|c| &c.id == id) {
+                return Err(MemoryError::Invalid("卡片对不上人"));
+            }
+            validate_cards(cards)?;
+        }
+        let _guard = lock();
+        let old = self.read_contacts()?;
+        for gone in old
+            .iter()
+            .filter(|o| is_contact_id(&o.id) && !snapshot.contacts.iter().any(|c| c.id == o.id))
+        {
+            remove_dir(&self.root.join(&gone.id))?;
+        }
+        for (id, cards) in &snapshot.cards {
+            write_json(&self.cards_path(id), cards)?;
+        }
+        write_json(&self.contacts_path(), &snapshot.contacts)?;
+        let (mut state, _) = read_json::<ScopeState>(&self.state_path())?;
+        state.hints = snapshot.state.hints;
+        state.reminders = snapshot.state.reminders;
+        let still_there = state
+            .contact_id
+            .as_deref()
+            .is_some_and(|id| snapshot.contacts.iter().any(|c| c.id == id));
+        if !still_there {
+            state.contact_id = None;
+        }
+        write_json(&self.state_path(), &state)
+    }
+
+    /// `contacts.json`、`state.json` 与当前对象 `cards.json` 的修改时间；键盘轮询时比对，变了才重读。
+    pub fn stamp(&self, contact_id: Option<&str>) -> [Option<SystemTime>; 3] {
+        let cards = contact_id
+            .filter(|id| is_contact_id(id))
+            .map(|id| self.cards_path(id));
+        [
+            modified(&self.contacts_path()),
+            modified(&self.state_path()),
+            cards.as_deref().and_then(modified),
+        ]
+    }
+
+    fn read_contacts(&self) -> Result<Vec<Contact>, MemoryError> {
+        read_json(&self.contacts_path()).map(|(contacts, _)| contacts)
+    }
+
+    fn contacts_path(&self) -> PathBuf {
+        self.root.join(CONTACTS_FILE)
+    }
+
+    fn state_path(&self) -> PathBuf {
+        self.root.join(STATE_FILE)
+    }
+
+    fn cards_path(&self, contact_id: &str) -> PathBuf {
+        self.root.join(contact_id).join(CARDS_FILE)
+    }
+}
+
+/// 读一个 JSON 文件：不在按缺省；解析不了改名备份后按缺省，第二个值为真；其余 io 错误原样返回。
+fn read_json<T: DeserializeOwned + Default>(path: &Path) -> Result<(T, bool), MemoryError> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok((T::default(), false)),
+        Err(error) => return Err(error.into()),
+    };
+    match serde_json::from_str(&text) {
+        Ok(value) => Ok((value, false)),
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "记忆文件坏了，改名备份后按空处理");
+            quarantine(path);
+            Ok((T::default(), true))
+        }
+    }
+}
+
+fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), MemoryError> {
+    let bytes =
+        serde_json::to_vec_pretty(value).map_err(|_| MemoryError::Invalid("数据编码失败"))?;
+    write_atomic(path, &bytes)?;
+    Ok(())
+}
+
+fn quarantine(path: &Path) {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".broken-{}", now_unix()));
+    if let Err(error) = std::fs::rename(path, path.with_file_name(name)) {
+        tracing::warn!(%error, "坏文件没改成备份名");
+    }
+}
+
+fn remove_dir(dir: &Path) -> Result<(), MemoryError> {
+    match std::fs::remove_dir_all(dir) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+fn check_limit(contacts: &[Contact]) -> Result<(), MemoryError> {
+    let dating = contacts.iter().filter(|c| c.scene == Scene::Dating).count();
+    if dating > MAX_CONTACTS {
+        return Err(MemoryError::ContactLimit);
+    }
+    Ok(())
+}
+
+fn validate_contacts(contacts: &[Contact]) -> Result<(), MemoryError> {
+    let mut seen = HashSet::new();
+    for contact in contacts {
+        if !is_contact_id(&contact.id) {
+            return Err(MemoryError::Invalid("对象编号不对"));
+        }
+        if contact.name.trim().is_empty() {
+            return Err(MemoryError::Invalid("名字不能是空的"));
+        }
+        if !seen.insert(contact.id.as_str()) {
+            return Err(MemoryError::Invalid("同一个人出现了两次"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_cards(cards: &[Card]) -> Result<(), MemoryError> {
+    let mut seen = HashSet::new();
+    for card in cards {
+        if !is_contact_id(&card.id) {
+            return Err(MemoryError::Invalid("卡片编号不对"));
+        }
+        if card.text.trim().is_empty() {
+            return Err(MemoryError::Invalid("卡片内容不能是空的"));
+        }
+        if card
+            .when
+            .as_deref()
+            .is_some_and(|when| LocalDate::parse(when).is_none())
+        {
+            return Err(MemoryError::Invalid("日期要写成 2026-10-04 这样"));
+        }
+        if !seen.insert(card.id.as_str()) {
+            return Err(MemoryError::Invalid("同一张卡片出现了两次"));
+        }
+    }
+    Ok(())
+}
+```
+
+（卡片 id 与对象 id 同一格式，所以用 `is_contact_id` 校验。）
+
+- [ ] **Step 7: lib.rs 导出**
+
+Modify `src/lib.rs`：在 `pub use self::error::BridgeError;` 之后加：
+
+```rust
+pub use self::memory::{
+    Card, Contact, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError, MemorySnapshot, MemoryStore,
+    Pronoun, has_date, new_id, now_unix,
+};
+```
+
+- [ ] **Step 8: 跑测试看它通过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge memory 2>&1 | tail -15`
+Expected: `memory::tests::date::` 4 个、`memory::tests::store::` 8 个全过，`test result: ok. 12 passed`。
+
+- [ ] **Step 9: 全量测试、格式与 clippy**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo fmt --all && cargo test -p qingjian-cloud-bridge 2>&1 | grep "test result" && cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings 2>&1 | tail -3`
+Expected: 全部 `ok`；clippy 末行 `Finished`。
+
+- [ ] **Step 10: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/Cargo.lock cloud/crates/qingjian-cloud-bridge/Cargo.toml \
+  cloud/crates/qingjian-cloud-bridge/src/cloud_config.rs \
+  cloud/crates/qingjian-cloud-bridge/src/memory cloud/crates/qingjian-cloud-bridge/src/lib.rs
+git commit -m "feat(cloud): 桥加本地记忆存储 MemoryStore
+
+memory/ 下 contacts.json、state.json、<id>/cards.json：原子写与 cloud.toml 共用 write_atomic 和进程内写锁；
+解析不了的文件改名 .broken-<秒> 按空处理，读不了的不改名、读-改-写直接报错，免得锁屏时拿空表覆盖。
+恋爱场景最多 8 个人；App 整份写回时只采纳两个提示开关，场景与对象以键盘写的为准。
+北京时间日期自己算（LocalDate），不为这点事引日期库；id 用 getrandom 的 16 字节。
+
+```
+
 ## Task 3：提示 `HintIndex`
 
 **Files:** Create `memory/hint.rs`；测试进 `memory/tests.rs`。
@@ -128,6 +2049,680 @@ impl HintIndex {
 
 测试：命中与不命中；停用词不触发；节流 10 分钟；dismiss 当天；today 0 / 1 / 3 / 4 天边界；称呼替换四种。
 
+### 与大纲的差异
+
+1. **`today` 的签名改成 `today(&self, today: LocalDate, pronoun: Pronoun, name: &str) -> Option<Hint>`**：`NaiveDate` 换成 Task 2 的 `LocalDate`（不引日期库）；`Pronoun::Name` 要用名字，得把名字传进来；它不改索引状态，用 `&self`。
+2. **「用引擎词库切分」落实为用语言模型切：** 上游 `Dictionary` 只能按拼音查、没有按文字查词的接口；`Engine::language_model()` 公开，`qingjian_core::sentence::segment_text(text, model)` 就是引擎自己切上屏文字用的（输入统计按它算词数）。没有 `lm.qj` 时它返回 `None`，这时匹配词只剩 `keywords`（会话侧在 Task 4 接，`HintIndex` 只收一个闭包，不受影响）。
+3. **拆文件：** `memory/hint/{mod,entry,index,item,reason}.rs`（`Hint`、`HintReason`、`HintIndex`、索引里的一张卡 `IndexedCard` 各一个文件）；停用词表 `memory/stopwords.txt`；测试放 `memory/tests/hint.rs`。
+4. **多两样东西：** `RecentText`（`memory/recent.rs`，最近 24 字的环形缓冲，Task 4 用）与自由函数 `panel_cards`（`qj_memory_cards` 挑「今日相关最多 3 张」的规则，放这里一起测）、`reminder_text`（提醒文案，Swift 侧 App 首页用同一模板）。
+5. **节流的具体语义**（大纲只说「同卡 10 分钟内不重复」）：提示行一直命中同一张卡时接着显示（不然打一个字就消失）；每次给出都记时间，**消失之后** 10 分钟内同一张卡不再出。`dismiss(today=false)` 等于「现在起 10 分钟内别出」。
+6. **`more` 的语义：** 当前对象的卡片多于 1 张（「展开」能看到别的）。spec 只给了字段名。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/crates/qingjian-cloud-bridge/src/memory/hint/{mod,entry,index,item,reason}.rs`、`src/memory/recent.rs`、`src/memory/stopwords.txt`
+- Create: `cloud/crates/qingjian-cloud-bridge/src/memory/tests/hint.rs`
+- Modify: `src/memory/mod.rs`、`src/memory/tests/mod.rs`、`src/lib.rs`
+
+- [ ] **Step 1: 写失败的测试**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/tests/hint.rs`：
+
+```rust
+//! 提示：两字以上的词才算、停用词不触发、排序、10 分钟节流、「知道了」当天不出、0–3 天的日子提醒与称呼、面板挑卡、最近 24 字。
+
+use qingjian_cloud_proto::CardKind;
+
+use super::{card, id};
+use crate::memory::{
+    HintIndex, HintReason, LocalDate, Pronoun, RECENT_CHARS, RecentText, panel_cards, reminder_text,
+};
+
+/// 2026-10-04 10:00 北京时间。
+const NOW: i64 = 1_791_079_200;
+
+/// 测试用的切词：卡片文字里用 `/` 标好词界。
+fn split(text: &str) -> Vec<String> {
+    text.split('/').map(str::to_owned).collect()
+}
+
+#[test]
+fn matches_terms_of_two_or_more_chars() {
+    let cards = [card(1, CardKind::Other, "想去/海边/看/日出", &[], None, 1)];
+    let mut index = HintIndex::build(&cards, split);
+    let hint = index.match_text("周末我们去海边吧", NOW).unwrap();
+    assert_eq!(hint.card_id, id(1001));
+    assert_eq!(hint.reason, HintReason::Match);
+    assert_eq!(hint.text, "想去/海边/看/日出");
+    assert!(!hint.more, "只有一张卡");
+    assert!(index.match_text("今天天气不错", NOW + 1).is_none());
+    assert!(index.match_text("看", NOW + 2000).is_none(), "单字不算词");
+}
+
+#[test]
+fn keywords_count_and_stopwords_never_trigger() {
+    let cards = [card(
+        1,
+        CardKind::Other,
+        "我们/一起/散步",
+        &["今天", " 公园 "],
+        None,
+        1,
+    )];
+    let mut index = HintIndex::build(&cards, split);
+    assert!(index.match_text("我们今天一起吃饭", NOW).is_none());
+    assert!(
+        index.match_text("去公园吗", NOW + 1).is_some(),
+        "关键词去掉首尾空白"
+    );
+    assert!(index.match_text("饭后去散步", NOW + 2).is_some());
+}
+
+#[test]
+fn more_hits_then_newer_cards_rank_first() {
+    let cards = [
+        card(1, CardKind::Other, "海边", &[], None, 5),
+        card(2, CardKind::Other, "海边/日出", &[], None, 1),
+        card(3, CardKind::Other, "海边", &[], None, 9),
+    ];
+    let mut index = HintIndex::build(&cards, split);
+    let hint = index.match_text("海边看日出", NOW).unwrap();
+    assert_eq!(hint.card_id, id(1002));
+    assert!(hint.more);
+    let mut index = HintIndex::build(&cards, split);
+    assert_eq!(
+        index.match_text("去海边", NOW).unwrap().card_id,
+        id(1003),
+        "命中数一样时新改过的在前"
+    );
+}
+
+#[test]
+fn same_card_waits_ten_minutes_after_it_goes_away() {
+    let cards = [card(1, CardKind::Other, "海边", &[], None, 1)];
+    let mut index = HintIndex::build(&cards, split);
+    assert!(index.match_text("海边", NOW).is_some());
+    assert!(
+        index.match_text("海边呀", NOW + 5).is_some(),
+        "一直命中时接着显示"
+    );
+    assert!(index.match_text("吃饭", NOW + 10).is_none());
+    assert!(
+        index.match_text("海边", NOW + 60).is_none(),
+        "消失后 10 分钟内不再出"
+    );
+    assert!(index.match_text("海边", NOW + 5 + 600).is_some());
+
+    index.dismiss(&id(1001), false, NOW + 700);
+    assert!(
+        index.match_text("海边", NOW + 760).is_none(),
+        "关掉也算出过"
+    );
+    assert!(index.match_text("海边", NOW + 1300).is_some());
+}
+
+#[test]
+fn dismissed_today_stays_quiet_until_tomorrow() {
+    let cards = [card(1, CardKind::Other, "海边", &[], None, 1)];
+    let mut index = HintIndex::build(&cards, split);
+    assert!(index.match_text("海边", NOW).is_some());
+    index.dismiss(&id(1001), true, NOW);
+    assert!(index.match_text("海边", NOW + 700).is_none());
+    assert!(
+        index.match_text("海边", NOW + 86_400).is_some(),
+        "第二天照常"
+    );
+}
+
+#[test]
+fn reminders_cover_today_to_three_days() {
+    let today = LocalDate::parse("2026-10-04").unwrap();
+    let at = |when: &str| {
+        let cards = [card(1, CardKind::Date, "生日", &[], Some(when), 1)];
+        HintIndex::build(&cards, split)
+            .today(today, Pronoun::Ta, "小美")
+            .map(|hint| hint.text)
+    };
+    assert_eq!(at("2026-10-04").as_deref(), Some("今天是TA的生日"));
+    assert_eq!(at("2026-10-05").as_deref(), Some("明天是TA的生日"));
+    assert_eq!(at("2026-10-07").as_deref(), Some("3 天后是TA的生日"));
+    assert_eq!(at("2026-10-08"), None);
+    assert_eq!(at("2026-10-03"), None);
+
+    let cards = [
+        card(1, CardKind::Preference, "生日", &[], Some("2026-10-04"), 1),
+        card(2, CardKind::Promise, "看电影", &[], Some("2026-10-06"), 1),
+        card(3, CardKind::Date, "纪念日", &[], Some("2026-10-05"), 1),
+    ];
+    let hint = HintIndex::build(&cards, split)
+        .today(today, Pronoun::TaF, "小美")
+        .unwrap();
+    assert_eq!(hint.reason, HintReason::Today);
+    assert_eq!(hint.card_id, id(1003), "只看日子与约定，近的先出");
+    assert_eq!(hint.text, "明天是她的纪念日");
+}
+
+#[test]
+fn dismissed_reminder_stays_quiet_today() {
+    let today = LocalDate::from_unix(NOW);
+    let cards = [card(1, CardKind::Date, "生日", &[], Some("2026-10-05"), 1)];
+    let mut index = HintIndex::build(&cards, split);
+    assert!(index.today(today, Pronoun::Ta, "小美").is_some());
+    index.dismiss(&id(1001), true, NOW);
+    assert!(index.today(today, Pronoun::Ta, "小美").is_none());
+    assert!(
+        index
+            .today(today.add_days(1), Pronoun::Ta, "小美")
+            .is_some()
+    );
+}
+
+#[test]
+fn pronouns_fill_the_template() {
+    assert_eq!(
+        reminder_text(1, Pronoun::Ta, "小美", "生日"),
+        "明天是TA的生日"
+    );
+    assert_eq!(
+        reminder_text(1, Pronoun::TaM, "小美", "生日"),
+        "明天是他的生日"
+    );
+    assert_eq!(
+        reminder_text(1, Pronoun::TaF, "小美", "生日"),
+        "明天是她的生日"
+    );
+    assert_eq!(
+        reminder_text(1, Pronoun::Name, "小美", "生日"),
+        "明天是小美的生日"
+    );
+    assert_eq!(
+        reminder_text(0, Pronoun::Ta, "小美", "约会"),
+        "今天是TA的约会"
+    );
+    assert_eq!(
+        reminder_text(2, Pronoun::Ta, "小美", "约会"),
+        "2 天后是TA的约会"
+    );
+}
+
+#[test]
+fn panel_puts_upcoming_dates_then_the_hinted_card_first() {
+    let today = LocalDate::parse("2026-10-04").unwrap();
+    let cards = vec![
+        card(1, CardKind::Other, "猫叫团子", &[], None, 9),
+        card(2, CardKind::Promise, "看电影", &[], Some("2026-10-06"), 1),
+        card(3, CardKind::Date, "生日", &[], Some("2026-10-05"), 1),
+        card(4, CardKind::Recent, "在准备考试", &[], None, 5),
+        card(5, CardKind::Date, "纪念日", &[], Some("2026-12-01"), 20),
+    ];
+    let focus = id(1004);
+    let picked: Vec<String> = panel_cards(cards, today, Some(focus.as_str()))
+        .into_iter()
+        .map(|card| card.id)
+        .collect();
+    assert_eq!(picked, vec![id(1003), id(1002), id(1004)]);
+}
+
+#[test]
+fn recent_text_keeps_the_last_chars() {
+    let mut recent = RecentText::default();
+    recent.push_str(&"一".repeat(30));
+    recent.push_str("海边");
+    assert_eq!(recent.text().chars().count(), RECENT_CHARS);
+    assert!(recent.text().ends_with("海边"));
+    recent.clear();
+    assert!(recent.text().is_empty());
+}
+```
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/memory/tests/mod.rs`：`mod date;` 之后加一行 `mod hint;`。
+
+- [ ] **Step 2: 跑测试看它失败**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge memory::tests::hint 2>&1 | tail -5`
+Expected: 编译失败，`error[E0432]: unresolved imports crate::memory::HintIndex …`。
+
+- [ ] **Step 3: 停用词表**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/stopwords.txt`（100 个，空格分隔、一行十个；`#` 开头是注释）：
+
+```
+# 提示的停用词：卡片文字切出来的这些词不当匹配词（太常见，打字时处处会碰上）。空格或换行分隔。
+我们 你们 他们 她们 它们 咱们 自己 大家 别人 人家
+什么 怎么 怎样 为什么 哪里 哪儿 哪个 多少 几个 如何
+这个 那个 这些 那些 这样 那样 这里 那里 这么 那么
+时候 现在 今天 明天 昨天 后天 刚才 最近 以后 以前
+之前 之后 已经 还是 还有 就是 但是 因为 所以 如果
+虽然 然后 而且 或者 不过 只是 不是 没有 可以 可能
+应该 需要 知道 觉得 感觉 一个 一些 一点 一下 一起
+一直 一定 一样 真的 其实 确实 比较 非常 特别 有点
+好像 东西 事情 地方 问题 时间 开始 继续 希望 喜欢
+今年 去年 明年 晚上 早上 中午 下午 上午 周末 哈哈
+```
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/crates/qingjian-cloud-bridge && grep -v '^#' src/memory/stopwords.txt | tr ' ' '\n' | grep -c . && grep -v '^#' src/memory/stopwords.txt | tr ' ' '\n' | grep . | sort | uniq -d`
+Expected: `100`，第二条命令没有输出（没有重复）。
+
+- [ ] **Step 4: 写 `RecentText`**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/recent.rs`：
+
+```rust
+//! 最近上屏的 [`RECENT_CHARS`] 个字：提示拿它加当前首选去匹配卡片。只在内存里，换对象时清空。
+
+use std::collections::VecDeque;
+
+use super::RECENT_CHARS;
+
+#[derive(Debug, Clone, Default)]
+pub struct RecentText {
+    chars: VecDeque<char>,
+}
+
+impl RecentText {
+    pub fn push_str(&mut self, text: &str) {
+        for c in text.chars() {
+            if self.chars.len() == RECENT_CHARS {
+                self.chars.pop_front();
+            }
+            self.chars.push_back(c);
+        }
+    }
+
+    pub fn text(&self) -> String {
+        self.chars.iter().collect()
+    }
+
+    pub fn clear(&mut self) {
+        self.chars.clear();
+    }
+}
+```
+
+- [ ] **Step 5: 写 `memory/hint/` 五个文件**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/hint/reason.rs`：
+
+```rust
+//! 提示是怎么来的：打字碰上了卡片里的词，或日子与约定快到了。
+
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HintReason {
+    Match,
+
+    Today,
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/hint/item.rs`：
+
+```rust
+//! 一条提示，C 接口原样转成 `{"card_id","text","reason","more"}`。
+
+use serde::Serialize;
+
+use super::HintReason;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Hint {
+    pub card_id: String,
+
+    /// 提示行上显示的字：匹配时是卡片文字，日子提醒时是套好模板的一句。
+    pub text: String,
+
+    pub reason: HintReason,
+
+    /// 当前对象还有别的卡（提示行右侧「展开」看得到）。
+    pub more: bool,
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/hint/entry.rs`：
+
+```rust
+//! 建好索引的一张卡：只留匹配与提醒用得上的字段。
+
+use qingjian_cloud_proto::CardKind;
+
+use crate::memory::LocalDate;
+
+#[derive(Debug)]
+pub struct IndexedCard {
+    pub id: String,
+
+    pub text: String,
+
+    pub kind: CardKind,
+
+    /// 解析得了的 `when`。
+    pub when: Option<LocalDate>,
+
+    pub touched_at: i64,
+
+    /// 匹配词：两字以上、不在停用词表里、去重。
+    pub terms: Vec<String>,
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/hint/index.rs`：
+
+```rust
+//! 当前对象的提示索引：卡片与匹配词、每张卡上次给出的时间、「知道了」的日子，以及正显示着的那张。
+
+use std::collections::HashMap;
+
+use super::{Hint, HintReason, IndexedCard, REMINDER_DAYS, THROTTLE_SECS, is_term, reminder_text};
+use crate::memory::{Card, LocalDate, Pronoun, has_date};
+
+#[derive(Debug, Default)]
+pub struct HintIndex {
+    cards: Vec<IndexedCard>,
+
+    /// 卡片 id → 上一次给出的时间（Unix 秒）。
+    shown: HashMap<String, i64>,
+
+    /// 卡片 id → 点了「知道了」的那天（北京时间）。
+    dismissed: HashMap<String, LocalDate>,
+
+    /// 上一次给出、还在显示的那张：接着命中时不受节流挡。
+    current: Option<String>,
+}
+
+impl HintIndex {
+    /// `segment` 把卡片文字切成词（会话里用引擎的语言模型切）。
+    pub fn build(cards: &[Card], segment: impl Fn(&str) -> Vec<String>) -> Self {
+        let cards = cards
+            .iter()
+            .map(|card| {
+                let mut terms: Vec<String> = Vec::new();
+                let keywords = card.keywords.iter().map(|k| k.trim().to_owned());
+                for term in keywords.chain(segment(&card.text)) {
+                    if is_term(&term) && !terms.contains(&term) {
+                        terms.push(term);
+                    }
+                }
+                IndexedCard {
+                    id: card.id.clone(),
+                    text: card.text.clone(),
+                    kind: card.kind,
+                    when: card.when.as_deref().and_then(LocalDate::parse),
+                    touched_at: card.touched_at,
+                    terms,
+                }
+            })
+            .collect();
+        Self {
+            cards,
+            ..Self::default()
+        }
+    }
+
+    /// `recent` 是最近上屏的字加当前首选。命中词多的、新改过的优先，最多给一条。
+    pub fn match_text(&mut self, recent: &str, now: i64) -> Option<Hint> {
+        let today = LocalDate::from_unix(now);
+        let mut ranked: Vec<(usize, usize)> = self
+            .cards
+            .iter()
+            .enumerate()
+            .map(|(i, card)| {
+                (
+                    i,
+                    card.terms
+                        .iter()
+                        .filter(|t| recent.contains(t.as_str()))
+                        .count(),
+                )
+            })
+            .filter(|(_, hits)| *hits > 0)
+            .collect();
+        ranked.sort_by(|a, b| {
+            b.1.cmp(&a.1)
+                .then(self.cards[b.0].touched_at.cmp(&self.cards[a.0].touched_at))
+        });
+        for (i, _) in ranked {
+            let card = &self.cards[i];
+            if self.dismissed.get(&card.id) == Some(&today) {
+                continue;
+            }
+            let showing = self.current.as_deref() == Some(card.id.as_str());
+            let recently = self
+                .shown
+                .get(&card.id)
+                .is_some_and(|&at| now - at < THROTTLE_SECS);
+            if !showing && recently {
+                continue;
+            }
+            let hint = Hint {
+                card_id: card.id.clone(),
+                text: card.text.clone(),
+                reason: HintReason::Match,
+                more: self.cards.len() > 1,
+            };
+            self.shown.insert(card.id.clone(), now);
+            self.current = Some(card.id.clone());
+            return Some(hint);
+        }
+        self.current = None;
+        None
+    }
+
+    /// 日子与约定在今天到 3 天后的，挑最近的一条；「知道了」过的当天不出。
+    pub fn today(&self, today: LocalDate, pronoun: Pronoun, name: &str) -> Option<Hint> {
+        let (days, card) = self
+            .cards
+            .iter()
+            .filter(|card| has_date(card.kind) && self.dismissed.get(&card.id) != Some(&today))
+            .filter_map(|card| {
+                let days = today.days_until(card.when?);
+                (0..=REMINDER_DAYS).contains(&days).then_some((days, card))
+            })
+            .min_by_key(|(days, card)| (*days, std::cmp::Reverse(card.touched_at)))?;
+        Some(Hint {
+            card_id: card.id.clone(),
+            text: reminder_text(days, pronoun, name, &card.text),
+            reason: HintReason::Today,
+            more: self.cards.len() > 1,
+        })
+    }
+
+    /// `today` 为真：当天不再出；为假：从 `now` 起按刚给出过算，10 分钟内不再出。
+    pub fn dismiss(&mut self, card_id: &str, today: bool, now: i64) {
+        if today {
+            self.dismissed
+                .insert(card_id.to_owned(), LocalDate::from_unix(now));
+        } else {
+            self.shown.insert(card_id.to_owned(), now);
+        }
+        if self.current.as_deref() == Some(card_id) {
+            self.current = None;
+        }
+    }
+}
+```
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/hint/mod.rs`：
+
+```rust
+//! 打字时的提示（spec「2A 本地记忆 · 提示」）：按当前对象的卡片建匹配词，拿最近上屏的字加当前首选去碰；
+//! 日子与约定在 3 天内的给一条提醒。另有对象卡面板挑卡、提醒文案两个自由函数。
+
+mod entry;
+mod index;
+mod item;
+mod reason;
+
+use std::cmp::Reverse;
+use std::collections::HashSet;
+use std::sync::LazyLock;
+
+use self::entry::IndexedCard;
+use super::{Card, LocalDate, Pronoun, has_date};
+
+pub use self::index::HintIndex;
+pub use self::item::Hint;
+pub use self::reason::HintReason;
+
+/// 匹配词至少几个字。
+const MIN_TERM_CHARS: usize = 2;
+
+/// 同一张卡给出过之后多久不再出（秒）。
+const THROTTLE_SECS: i64 = 10 * 60;
+
+/// 日子与约定提前几天提醒（含当天，0–3）。
+const REMINDER_DAYS: i64 = 3;
+
+/// 键盘内对象卡面板最多几张。
+const PANEL_CARDS: usize = 3;
+
+static STOPWORDS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    include_str!("../stopwords.txt")
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .flat_map(str::split_whitespace)
+        .collect()
+});
+
+fn is_term(word: &str) -> bool {
+    word.chars().count() >= MIN_TERM_CHARS && !STOPWORDS.contains(word)
+}
+
+/// 「今天是她的生日」「明天是…」「3 天后是…」。
+pub fn reminder_text(days: i64, pronoun: Pronoun, name: &str, text: &str) -> String {
+    let who = pronoun.label(name);
+    match days {
+        0 => format!("今天是{who}的{text}"),
+        1 => format!("明天是{who}的{text}"),
+        n => format!("{n} 天后是{who}的{text}"),
+    }
+}
+
+/// 对象卡面板的卡片：3 天内的日子与约定（近的在前），然后是正在提示的那张，其余按最近改动；最多 3 张。
+pub fn panel_cards(mut cards: Vec<Card>, today: LocalDate, focus: Option<&str>) -> Vec<Card> {
+    cards.sort_by_key(|card| {
+        let days = card
+            .when
+            .as_deref()
+            .and_then(LocalDate::parse)
+            .map(|when| today.days_until(when))
+            .filter(|days| has_date(card.kind) && (0..=REMINDER_DAYS).contains(days));
+        let rank = match (days, focus == Some(card.id.as_str())) {
+            (Some(days), _) => (0, days),
+            (None, true) => (1, 0),
+            (None, false) => (2, 0),
+        };
+        (rank, Reverse(card.touched_at))
+    });
+    cards.truncate(PANEL_CARDS);
+    cards
+}
+```
+
+（`index.rs` 里 `today` 用了 `std::cmp::Reverse` 的全路径；`hint/mod.rs` 自己的 `panel_cards` 用 `use std::cmp::Reverse`。）
+
+- [ ] **Step 6: 挂模块并导出**
+
+Replace `cloud/crates/qingjian-cloud-bridge/src/memory/mod.rs` 的模块与导出部分，整份变成：
+
+```rust
+//! 本地记忆（spec「2A 本地记忆」）：对象、记忆卡、当前场景的存储，打字时的提示，以及 C 接口。
+//! 数据在学习数据目录的 `memory/` 下（iOS 开了完全访问时是 App Group 的 `Qingjian/memory/`）；
+//! App 整份读写，键盘只读（「记一笔」与当前场景除外）。卡片的种类与来源用 proto 的 `CardKind`、`CardSource`。
+
+mod card;
+mod contact;
+mod error;
+mod hint;
+mod local_date;
+mod pronoun;
+mod recent;
+mod snapshot;
+mod store;
+
+#[cfg(test)]
+mod tests;
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use qingjian_cloud_proto::CardKind;
+
+pub use self::card::Card;
+pub use self::contact::Contact;
+pub use self::error::MemoryError;
+pub use self::hint::{Hint, HintIndex, HintReason, panel_cards, reminder_text};
+pub use self::local_date::LocalDate;
+pub use self::pronoun::Pronoun;
+pub use self::recent::RecentText;
+pub use self::snapshot::MemorySnapshot;
+pub use self::store::MemoryStore;
+
+/// 学习数据目录下放记忆的子目录。
+pub const MEMORY_DIR: &str = "memory";
+
+/// 恋爱场景最多几个对象。
+pub const MAX_CONTACTS: usize = 8;
+
+/// 提示拿最近上屏的多少个字去匹配。
+pub const RECENT_CHARS: usize = 24;
+
+/// 对象与卡片的 id：16 字节随机数的小写十六进制（32 位，不含名字）。
+pub fn new_id() -> Result<String, MemoryError> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|error| MemoryError::Io(std::io::Error::other(error)))?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+/// 现在的 Unix 秒；系统时钟早于 1970 时当 0。
+pub fn now_unix() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
+        })
+}
+
+/// 只有日子与约定的 `when` 有意义（提醒、面板排序、校验都按它）。
+pub fn has_date(kind: CardKind) -> bool {
+    matches!(kind, CardKind::Date | CardKind::Promise)
+}
+```
+
+Modify `src/lib.rs`：把 Task 2 加的那行 `pub use self::memory::{…};` 换成：
+
+```rust
+pub use self::memory::{
+    Card, Contact, Hint, HintIndex, HintReason, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError,
+    MemorySnapshot, MemoryStore, Pronoun, RECENT_CHARS, RecentText, has_date, new_id, now_unix,
+    panel_cards, reminder_text,
+};
+```
+
+- [ ] **Step 7: 跑测试看它通过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge memory 2>&1 | tail -20`
+Expected: `memory::tests::hint::` 10 个、`date` 4 个、`store` 8 个，`test result: ok. 22 passed`。
+
+- [ ] **Step 8: 全量测试、格式与 clippy**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo fmt --all && cargo test -p qingjian-cloud-bridge 2>&1 | grep "test result" && cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings 2>&1 | tail -3`
+Expected: 全部 `ok`；clippy 末行 `Finished`。
+
+- [ ] **Step 9: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/crates/qingjian-cloud-bridge/src/memory cloud/crates/qingjian-cloud-bridge/src/lib.rs
+git commit -m "feat(cloud): 桥加记忆提示 HintIndex
+
+匹配词是卡片关键词加切出来的两字以上的词，去掉 100 个停用词；命中词多、新改过的优先，一直命中时接着显示，消失后 10 分钟内同一张不再出，「知道了」当天不出。
+日子与约定 0–3 天内给提醒，称呼按 TA / 他 / 她 / 名字套模板；对象卡面板挑卡的规则与最近 24 字的缓冲一起放这里。
+日期按北京时间算。
+
+```
+
 ## Task 4：Session 接入与 C 接口
 
 **Files:** Modify `session/mod.rs`（`Session::open` 用 `ScopedLearner`；上屏路径 `commit` / `take_raw` / `punctuate` / `note_passthrough` 把文字追加进最近 24 字的环形缓冲）；Create `memory/ffi.rs`；Modify `src/lib.rs`、`include/qingjian_bridge.h`。
@@ -151,6 +2746,1190 @@ char *qj_memory_write(const char *user_dir, const char *json); // App 用：整�
 
 测试（`tests/memory_ffi.rs`）：`qj_scope_set` 往返；提示在命中时出现、私密时不出；`qj_memory_note` 建卡；`qj_memory_write` 第 9 个对象返回 `contact_limit`；导出符号与头文件一致（沿用现有 FFI 测试的核对方式）。
 
+### 与大纲的差异
+
+1. **会话参数保留，名字叫 `session`**：现有接口都显式带会话指针（没有全局会话），新接口照写，参数名与头文件里其他函数一致。
+2. **会话里的记忆状态收进新类型 `LiveMemory`**（`session/memory/live.rs`），`Session` 只加一个字段 `memory: Option<LiveMemory>`；会话的记忆方法放 `session/memory/mod.rs`（`impl Session`），`session/mod.rs` 只改构造、上屏路径与 `refresh`。按修改时间重载挂在 `Session::poll`（`session/cloud.rs`）开头。
+3. **记忆目录 = `<user_dir>/memory`，`qj_session_open` 签名不变**；`user_dir` 为空的会话没有记忆，`qj_scope_get` / `qj_memory_hint` / `qj_memory_cards` 返回 NULL，`qj_memory_note` 返回 `invalid`。
+4. **`qj_memory_read` 的 JSON 多一个 `broken`**（Task 2 差异 3）；`qj_memory_write` 只采纳 `state` 的两个开关（Task 2 差异 2）。
+5. **现有 FFI 测试没有「头文件逐个核对」**（`tests/ffi.rs` 只按签名声明调用），新写 `header_declares_every_export`：扫 `src/**/*.rs` 里的 `extern "C" fn qj_*` 与头文件里的 `qj_*(`，两个集合相等。
+6. 私密输入时上屏的字也不进最近 24 字的缓冲、不做匹配（不只是 `qj_memory_hint` 返回 NULL），免得私密内容在恢复后触发提示。
+7. `punctuate` / `note_passthrough` 后也更新一次提示（它们不走 `refresh`）。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/crates/qingjian-cloud-bridge/src/session/memory/{mod,live}.rs`、`src/memory/ffi.rs`、`tests/memory_ffi.rs`
+- Modify: `src/session/mod.rs`（整份替换，见 Step 4）、`src/session/cloud.rs:116-120`（`poll` 开头）、`src/memory/mod.rs`（`mod ffi;`）、`src/lib.rs:457`（`with` 改 `pub(crate)`）、`include/qingjian_bridge.h:88`（`qj_string_free` 之前）
+
+- [ ] **Step 1: 写失败的测试**
+
+Create `cloud/crates/qingjian-cloud-bridge/tests/memory_ffi.rs`：
+
+```rust
+//! 本地记忆的 C 接口：按 C 签名直接调。词库用仓库里的样例 `assets/sample/dict.tsv`（按内容认格式，起名 dict.qj 也能读），
+//! 不需要产品数据。最后一个测试核对头文件与导出符号逐个一致。
+
+use std::collections::BTreeSet;
+use std::ffi::{CStr, CString, c_char};
+use std::path::{Path, PathBuf};
+use std::ptr;
+
+use qingjian_cloud_bridge::{
+    Session, qj_commit, qj_push, qj_session_free, qj_session_open, qj_set_private, qj_string_free,
+};
+use serde_json::{Value, json};
+
+// Session 在 C 侧是不透明指针，这里只传地址
+#[allow(improper_ctypes)]
+unsafe extern "C" {
+    fn qj_scope_set(session: *mut Session, scene: *const c_char, contact_id: *const c_char);
+    fn qj_scope_get(session: *mut Session) -> *mut c_char;
+    fn qj_memory_hint(session: *mut Session) -> *mut c_char;
+    fn qj_memory_dismiss(session: *mut Session, card_id: *const c_char, today: bool);
+    fn qj_memory_cards(session: *mut Session, contact_id: *const c_char) -> *mut c_char;
+    fn qj_memory_note(
+        session: *mut Session,
+        contact_id: *const c_char,
+        text: *const c_char,
+    ) -> *mut c_char;
+    fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
+    fn qj_memory_write(user_dir: *const c_char, json: *const c_char) -> *mut c_char;
+}
+
+const CONTACT: &str = "0123456789abcdef0123456789abcdef";
+
+const CARD: &str = "fedcba9876543210fedcba9876543210";
+
+fn take(raw: *mut c_char) -> Option<String> {
+    if raw.is_null() {
+        return None;
+    }
+    let text = unsafe { CStr::from_ptr(raw) }
+        .to_string_lossy()
+        .into_owned();
+    unsafe { qj_string_free(raw) };
+    Some(text)
+}
+
+fn json_of(raw: *mut c_char) -> Value {
+    serde_json::from_str(&take(raw).expect("应当返回 JSON")).unwrap()
+}
+
+fn c(text: &str) -> CString {
+    CString::new(text).unwrap()
+}
+
+/// 临时的数据目录（只有样例词库）与学习数据目录。
+fn dirs(name: &str) -> (PathBuf, PathBuf) {
+    let root = std::env::temp_dir().join(format!("qj-memory-ffi-{name}-{}", std::process::id()));
+    std::fs::remove_dir_all(&root).ok();
+    let data = root.join("data");
+    let user = root.join("user");
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::create_dir_all(&user).unwrap();
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/dict.tsv");
+    std::fs::copy(sample, data.join("dict.qj")).unwrap();
+    (data, user)
+}
+
+/// 经 `qj_memory_write` 放一个恋爱场景的对象与一张带关键词「生日」的卡。
+fn seed(user: &Path) {
+    let mut cards = serde_json::Map::new();
+    cards.insert(
+        CONTACT.to_owned(),
+        json!([{
+            "id": CARD, "kind": "other", "text": "想要一个生日蛋糕", "keywords": ["生日"],
+            "when": null, "source": "manual", "confirmed": true,
+            "created_at": 1_791_043_200, "touched_at": 1_791_043_200
+        }]),
+    );
+    let snapshot = json!({
+        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "scene": "dating", "created_at": 1_791_043_200}],
+        "cards": cards,
+        "state": {"scene": "daily", "contact_id": null, "hints": true, "reminders": true}
+    });
+    let dir = c(user.to_str().unwrap());
+    let text = c(&snapshot.to_string());
+    assert_eq!(
+        take(unsafe { qj_memory_write(dir.as_ptr(), text.as_ptr()) }),
+        None
+    );
+}
+
+fn open(data: &Path, user: Option<&Path>) -> *mut Session {
+    let data = c(data.to_str().unwrap());
+    let user = user.map(|dir| c(dir.to_str().unwrap()));
+    let user_ptr = user.as_ref().map_or(ptr::null(), |dir| dir.as_ptr());
+    let session = unsafe { qj_session_open(data.as_ptr(), user_ptr, ptr::null(), ptr::null()) };
+    assert!(!session.is_null());
+    session
+}
+
+fn set_scope(session: *mut Session, scene: &str, contact: Option<&str>) {
+    let scene = c(scene);
+    let contact = contact.map(c);
+    let contact_ptr = contact.as_ref().map_or(ptr::null(), |id| id.as_ptr());
+    unsafe { qj_scope_set(session, scene.as_ptr(), contact_ptr) };
+}
+
+fn type_and_commit(session: *mut Session, keys: &str) -> String {
+    for key in keys.chars() {
+        unsafe { qj_push(session, key as u32) };
+    }
+    take(unsafe { qj_commit(session, 0) }).unwrap()
+}
+
+#[test]
+fn scope_set_round_trips() {
+    let (data, user) = dirs("scope");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let scope = json_of(unsafe { qj_scope_get(session) });
+    assert_eq!(scope["scene"], "daily");
+    assert_eq!(scope["contact_id"], Value::Null);
+
+    set_scope(session, "dating", Some(CONTACT));
+    let scope = json_of(unsafe { qj_scope_get(session) });
+    assert_eq!(scope["scene"], "dating");
+    assert_eq!(scope["contact_id"], CONTACT);
+    unsafe { qj_session_free(session) };
+
+    // 写进了 state.json，下次打开还在
+    let session = open(&data, Some(&user));
+    assert_eq!(
+        json_of(unsafe { qj_scope_get(session) })["contact_id"],
+        CONTACT
+    );
+    set_scope(session, "work", Some(CONTACT));
+    let scope = json_of(unsafe { qj_scope_get(session) });
+    assert_eq!(scope["scene"], "work");
+    assert_eq!(scope["contact_id"], Value::Null, "非恋爱场景不带对象");
+    set_scope(session, "party", None);
+    assert_eq!(
+        json_of(unsafe { qj_scope_get(session) })["scene"],
+        "work",
+        "不认识的场景不动"
+    );
+    set_scope(session, "dating", Some("ffffffffffffffffffffffffffffffff"));
+    assert_eq!(
+        json_of(unsafe { qj_scope_get(session) })["contact_id"],
+        Value::Null,
+        "名单上没有的对象当不指定"
+    );
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn hint_shows_on_match_and_hides_when_private() {
+    let (data, user) = dirs("hint");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    assert!(
+        take(unsafe { qj_memory_hint(session) }).is_none(),
+        "日常场景不出提示"
+    );
+
+    set_scope(session, "dating", Some(CONTACT));
+    assert!(
+        take(unsafe { qj_memory_hint(session) }).is_none(),
+        "换对象时清了最近的字"
+    );
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    let hint = json_of(unsafe { qj_memory_hint(session) });
+    assert_eq!(hint["card_id"], CARD);
+    assert_eq!(hint["reason"], "match");
+    assert_eq!(hint["text"], "想要一个生日蛋糕");
+
+    unsafe { qj_set_private(session, true) };
+    assert!(
+        take(unsafe { qj_memory_hint(session) }).is_none(),
+        "私密输入不出提示"
+    );
+    unsafe { qj_set_private(session, false) };
+    assert!(take(unsafe { qj_memory_hint(session) }).is_some());
+
+    let card = c(CARD);
+    unsafe { qj_memory_dismiss(session, card.as_ptr(), true) };
+    assert!(take(unsafe { qj_memory_hint(session) }).is_none());
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    assert!(
+        take(unsafe { qj_memory_hint(session) }).is_none(),
+        "「知道了」当天不再出"
+    );
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn note_creates_a_manual_card() {
+    let (data, user) = dirs("note");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let contact = c(CONTACT);
+    let text = c("  周末一起看电影 ");
+    assert_eq!(
+        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
+        None
+    );
+
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    let cards = snapshot["cards"][CONTACT].as_array().unwrap();
+    assert_eq!(cards.len(), 2);
+    let note = &cards[1];
+    assert_eq!(note["kind"], "other");
+    assert_eq!(note["text"], "周末一起看电影");
+    assert_eq!(note["source"], "manual");
+    assert_eq!(note["confirmed"], true);
+    assert_eq!(note["id"].as_str().unwrap().len(), 32);
+
+    let panel = json_of(unsafe { qj_memory_cards(session, contact.as_ptr()) });
+    assert_eq!(panel.as_array().unwrap().len(), 2);
+
+    let stranger = c("ffffffffffffffffffffffffffffffff");
+    let failure = json_of(unsafe { qj_memory_note(session, stranger.as_ptr(), text.as_ptr()) });
+    assert_eq!(failure["code"], "invalid");
+    let blank = c("   ");
+    let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), blank.as_ptr()) });
+    assert_eq!(failure["code"], "invalid");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn ninth_dating_contact_is_rejected() {
+    let (_, user) = dirs("limit");
+    let people = |count: u32| -> Value {
+        let contacts: Vec<Value> = (0..count)
+            .map(|n| json!({"id": format!("{n:032x}"), "name": format!("人{n}"), "pronoun": "ta", "scene": "dating", "created_at": 0}))
+            .collect();
+        json!({"contacts": contacts, "cards": {}, "state": {}})
+    };
+    let dir = c(user.to_str().unwrap());
+    let nine = c(&people(9).to_string());
+    let failure = json_of(unsafe { qj_memory_write(dir.as_ptr(), nine.as_ptr()) });
+    assert_eq!(failure["code"], "contact_limit");
+    assert_eq!(failure["message"], "恋爱场景最多 8 个人");
+    let eight = c(&people(8).to_string());
+    assert_eq!(
+        take(unsafe { qj_memory_write(dir.as_ptr(), eight.as_ptr()) }),
+        None
+    );
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    assert_eq!(snapshot["contacts"].as_array().unwrap().len(), 8);
+}
+
+#[test]
+fn bad_arguments_do_not_crash() {
+    assert!(take(unsafe { qj_scope_get(ptr::null_mut()) }).is_none());
+    unsafe { qj_scope_set(ptr::null_mut(), ptr::null(), ptr::null()) };
+    assert!(take(unsafe { qj_memory_hint(ptr::null_mut()) }).is_none());
+    unsafe { qj_memory_dismiss(ptr::null_mut(), ptr::null(), true) };
+    assert!(take(unsafe { qj_memory_cards(ptr::null_mut(), ptr::null()) }).is_none());
+    assert!(take(unsafe { qj_memory_read(ptr::null()) }).is_none());
+    let failure = json_of(unsafe { qj_memory_write(ptr::null(), ptr::null()) });
+    assert_eq!(failure["code"], "invalid");
+    let failure = json_of(unsafe { qj_memory_note(ptr::null_mut(), ptr::null(), ptr::null()) });
+    assert_eq!(failure["code"], "invalid");
+
+    let (data, user) = dirs("bad-args");
+    let dir = c(user.to_str().unwrap());
+    let broken = c("{");
+    let failure = json_of(unsafe { qj_memory_write(dir.as_ptr(), broken.as_ptr()) });
+    assert_eq!(failure["code"], "invalid");
+
+    // 没有学习数据目录的会话：没有记忆
+    let session = open(&data, None);
+    assert!(take(unsafe { qj_scope_get(session) }).is_none());
+    set_scope(session, "dating", Some(CONTACT));
+    assert!(take(unsafe { qj_memory_hint(session) }).is_none());
+    let contact = c(CONTACT);
+    let text = c("x");
+    let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) });
+    assert_eq!(failure["code"], "invalid");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn header_declares_every_export() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let header = std::fs::read_to_string(root.join("include/qingjian_bridge.h")).unwrap();
+    let declared: BTreeSet<String> = header
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+        .flat_map(called_names)
+        .collect();
+    let mut exported = BTreeSet::new();
+    collect_exports(&root.join("src"), &mut exported);
+    assert!(exported.contains("qj_memory_write"), "{exported:?}");
+    assert_eq!(declared, exported);
+}
+
+/// 一行里所有紧跟 `(` 的 `qj_xxx`。
+fn called_names(line: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rest = line;
+    while let Some(start) = rest.find("qj_") {
+        let tail = &rest[start..];
+        let end = tail
+            .find(|c: char| !(c.is_ascii_lowercase() || c == '_'))
+            .unwrap_or(tail.len());
+        if tail[end..].starts_with('(') {
+            names.push(tail[..end].to_owned());
+        }
+        rest = &tail[end..];
+    }
+    names
+}
+
+/// `src/` 下所有 `extern "C" fn qj_xxx(` 的名字。
+fn collect_exports(dir: &Path, out: &mut BTreeSet<String>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            collect_exports(&path, out);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            for line in std::fs::read_to_string(&path).unwrap().lines() {
+                if let Some((_, tail)) = line.split_once("extern \"C\" fn ")
+                    && let Some((name, _)) = tail.split_once('(')
+                {
+                    out.insert(name.trim().to_owned());
+                }
+            }
+        }
+    }
+}
+```
+
+- [ ] **Step 2: 跑测试看它失败**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge --test memory_ffi 2>&1 | tail -8`
+Expected: 链接失败，`undefined symbols … _qj_scope_set`（或 `undefined reference to qj_scope_set`）。
+
+- [ ] **Step 3: 写 `LiveMemory`**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/live.rs`：
+
+```rust
+//! 会话里的本地记忆状态：当前场景与对象、换层把手、名单、当前对象的卡片与提示索引、最近上屏的字、两条提示。
+//! 键盘只读记忆文件（「记一笔」与当前场景除外），App 改了按修改时间重载（见 `Session::poll_memory`）。
+
+use std::path::Path;
+use std::time::SystemTime;
+
+use qingjian_cloud_proto::Scene;
+
+use crate::memory::{Card, Contact, Hint, HintIndex, MemoryStore, RecentText};
+use crate::scope::{ScopeHandle, ScopeState, ScopedLearner};
+
+pub(crate) struct LiveMemory {
+    pub(super) store: MemoryStore,
+
+    pub(super) handle: ScopeHandle,
+
+    pub(super) state: ScopeState,
+
+    pub(super) contacts: Vec<Contact>,
+
+    /// 当前对象的卡片；没选对象时为空。
+    pub(super) cards: Vec<Card>,
+
+    pub(super) hints: HintIndex,
+
+    pub(super) recent: RecentText,
+
+    /// 切到对象时算出的日子提醒，优先于匹配提示；「知道了」后清掉。
+    pub(super) today: Option<Hint>,
+
+    /// 最近一次 refresh 匹配到的提示。
+    pub(super) current: Option<Hint>,
+
+    /// `contacts.json`、`state.json`、当前对象 `cards.json` 上次读时的修改时间。
+    pub(super) stamp: [Option<SystemTime>; 3],
+}
+
+impl LiveMemory {
+    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前场景开分区学习器。提示索引由会话随后建（要用引擎的语言模型切词）。
+    pub(in crate::session) fn open(user_dir: &Path) -> (ScopedLearner, Self) {
+        let store = MemoryStore::open(user_dir);
+        let contacts = store.contacts();
+        let state = sanitized(store.state(), &contacts);
+        let learner = ScopedLearner::open(
+            user_dir,
+            store.root(),
+            state.scene,
+            state.contact_id.as_deref(),
+        );
+        let handle = learner.handle();
+        let cards = state
+            .contact_id
+            .as_deref()
+            .map(|id| store.cards(id))
+            .unwrap_or_default();
+        let stamp = store.stamp(state.contact_id.as_deref());
+        let memory = Self {
+            store,
+            handle,
+            state,
+            contacts,
+            cards,
+            hints: HintIndex::default(),
+            recent: RecentText::default(),
+            today: None,
+            current: None,
+            stamp,
+        };
+        (learner, memory)
+    }
+
+    /// 只在恋爱场景、选了对象时出提示（私密输入由会话另挡）。
+    pub(super) fn has_contact(&self) -> bool {
+        self.state.scene == Scene::Dating && self.state.contact_id.is_some()
+    }
+
+    pub(super) fn contact(&self) -> Option<&Contact> {
+        let id = self.state.contact_id.as_deref()?;
+        self.contacts.iter().find(|c| c.id == id)
+    }
+
+    /// 重读当前对象的卡片与修改时间（换对象、「记一笔」、App 改了之后）。
+    pub(super) fn reload_cards(&mut self) {
+        let id = self.state.contact_id.clone();
+        self.cards = id
+            .as_deref()
+            .map(|id| self.store.cards(id))
+            .unwrap_or_default();
+        self.stamp = self.store.stamp(id.as_deref());
+    }
+}
+
+/// 对象不在名单上（被 App 删了）、不是恋爱场景的人，或当前不在恋爱场景：退回不指定。
+pub(super) fn sanitized(mut state: ScopeState, contacts: &[Contact]) -> ScopeState {
+    let known = state.contact_id.as_deref().is_some_and(|id| {
+        contacts
+            .iter()
+            .any(|c| c.id == id && c.scene == Scene::Dating)
+    });
+    if state.scene != Scene::Dating || !known {
+        state.contact_id = None;
+    }
+    state
+}
+```
+
+- [ ] **Step 4: 会话的记忆方法**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/session/memory/mod.rs`：
+
+```rust
+//! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切场景与对象、取提示、对象卡、「记一笔」，
+//! 以及上屏路径喂进来的最近 24 字与按修改时间重载。
+
+mod live;
+
+use qingjian_cloud_proto::Scene;
+use qingjian_core::sentence::{LanguageModel, segment_text};
+
+use self::live::sanitized;
+use super::Session;
+use crate::entry::Entry;
+use crate::memory::{Card, Hint, HintIndex, LocalDate, MemoryError, now_unix, panel_cards};
+use crate::scope::ScopeState;
+
+pub(super) use self::live::LiveMemory;
+
+impl Session {
+    /// 切场景与对象：非恋爱场景、名单上没有的对象都当不指定。状态写进 `state.json`；叠加层换了就作废格子缓存、重建提示、重排候选。
+    pub fn set_scope(&mut self, scene: Scene, contact: Option<&str>) {
+        let Some(memory) = self.memory.as_mut() else {
+            return;
+        };
+        let wanted = ScopeState {
+            scene,
+            contact_id: contact.map(str::to_owned),
+            ..memory.state.clone()
+        };
+        let next = sanitized(wanted, &memory.contacts);
+        let moved = next.scene != memory.state.scene || next.contact_id != memory.state.contact_id;
+        memory.state = next;
+        if let Err(error) = memory.store.put_state(&memory.state) {
+            tracing::warn!(%error, "当前场景没写进 state.json");
+        }
+        if moved {
+            self.switch_layers();
+        }
+    }
+
+    /// 当前场景与对象；没有学习数据目录的会话没有记忆，返回 `None`。
+    pub fn scope(&self) -> Option<ScopeState> {
+        self.memory.as_ref().map(|memory| memory.state.clone())
+    }
+
+    /// 提示行要显示的：日子提醒优先，其次是匹配提示。私密输入、非恋爱场景、没选对象、开关关着都没有。
+    pub fn memory_hint(&self) -> Option<&Hint> {
+        if self.engine.is_private() {
+            return None;
+        }
+        let memory = self.memory.as_ref()?;
+        if !memory.has_contact() {
+            return None;
+        }
+        memory
+            .today
+            .as_ref()
+            .filter(|_| memory.state.reminders)
+            .or_else(|| memory.current.as_ref().filter(|_| memory.state.hints))
+    }
+
+    /// 「知道了」：`today` 为真当天不再出这张卡，为假 10 分钟内不再出。
+    pub fn dismiss_hint(&mut self, card_id: &str, today: bool) {
+        let Some(memory) = self.memory.as_mut() else {
+            return;
+        };
+        memory.hints.dismiss(card_id, today, now_unix());
+        if memory
+            .today
+            .as_ref()
+            .is_some_and(|hint| hint.card_id == card_id)
+        {
+            memory.today = None;
+        }
+        if memory
+            .current
+            .as_ref()
+            .is_some_and(|hint| hint.card_id == card_id)
+        {
+            memory.current = None;
+        }
+    }
+
+    /// 键盘内对象卡面板：今日相关的最多 3 张（规则见 [`panel_cards`]）。
+    pub fn memory_cards(&self, contact_id: &str) -> Vec<Card> {
+        let Some(memory) = self.memory.as_ref() else {
+            return Vec::new();
+        };
+        let cards = if memory.state.contact_id.as_deref() == Some(contact_id) {
+            memory.cards.clone()
+        } else {
+            memory.store.cards(contact_id)
+        };
+        let focus = memory.current.as_ref().map(|hint| hint.card_id.as_str());
+        panel_cards(cards, LocalDate::today(), focus)
+    }
+
+    /// 键盘「记一笔」：给名单上的对象加一张手写的 `other` 卡。
+    pub fn memory_note(&mut self, contact_id: &str, text: &str) -> Result<(), MemoryError> {
+        let memory = self
+            .memory
+            .as_mut()
+            .ok_or(MemoryError::Invalid("这个键盘没有记忆目录"))?;
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(MemoryError::Invalid("没有要记的文字"));
+        }
+        if !memory.contacts.iter().any(|c| c.id == contact_id) {
+            return Err(MemoryError::Invalid("名单上没有这个人"));
+        }
+        let mut cards = memory.store.cards(contact_id);
+        cards.push(Card::note(text, now_unix())?);
+        memory.store.put_cards(contact_id, &cards)?;
+        if memory.state.contact_id.as_deref() == Some(contact_id) {
+            memory.reload_cards();
+            self.rebuild_hints();
+        }
+        Ok(())
+    }
+
+    /// 上屏路径（选词、回车原样、标点、直通的空格回车）调：私密输入时不记。
+    pub(super) fn note_committed(&mut self, text: &str) {
+        if self.engine.is_private() {
+            return;
+        }
+        if let Some(memory) = self.memory.as_mut() {
+            memory.recent.push_str(text);
+        }
+    }
+
+    /// 每次 refresh 后：最近 24 字加当前首选去碰当前对象的卡片。
+    pub(super) fn update_hint(&mut self) {
+        let first = self
+            .entries
+            .first()
+            .map(Entry::text)
+            .unwrap_or_default()
+            .to_owned();
+        let private = self.engine.is_private();
+        let Some(memory) = self.memory.as_mut() else {
+            return;
+        };
+        if private || !memory.has_contact() || !memory.state.hints {
+            memory.current = None;
+            return;
+        }
+        let probe = format!("{}{first}", memory.recent.text());
+        memory.current = memory.hints.match_text(&probe, now_unix());
+    }
+
+    /// 按当前对象的卡片重建索引（切词用引擎的语言模型），并算一次日子提醒。
+    pub(super) fn rebuild_hints(&mut self) {
+        let Some(memory) = self.memory.as_mut() else {
+            return;
+        };
+        let model = self.engine.language_model();
+        memory.hints = HintIndex::build(&memory.cards, |text| words_of(text, model));
+        memory.current = None;
+        memory.today = memory.contact().and_then(|contact| {
+            memory
+                .hints
+                .today(LocalDate::today(), contact.pronoun, &contact.name)
+        });
+    }
+
+    /// `Session::poll` 开头调：`memory/` 下的文件被 App 改了（修改时间变了）就重读；当前对象被删时退回「恋爱 · 不指定」。
+    /// 换了叠加层（候选重排过）返回 true。
+    pub(super) fn poll_memory(&mut self) -> bool {
+        let Some(memory) = self.memory.as_mut() else {
+            return false;
+        };
+        let stamp = memory.store.stamp(memory.state.contact_id.as_deref());
+        if stamp == memory.stamp {
+            return false;
+        }
+        memory.contacts = memory.store.contacts();
+        let disk = sanitized(memory.store.state(), &memory.contacts);
+        let moved = disk.scene != memory.state.scene || disk.contact_id != memory.state.contact_id;
+        memory.state = disk;
+        if moved {
+            self.switch_layers();
+        } else {
+            memory.reload_cards();
+            self.rebuild_hints();
+        }
+        moved
+    }
+
+    /// 状态里的场景或对象变了：换叠加层、重读卡片、清最近的字，作废格子缓存后重建提示、重排候选。
+    fn switch_layers(&mut self) {
+        let Some(memory) = self.memory.as_mut() else {
+            return;
+        };
+        memory
+            .handle
+            .switch(memory.state.scene, memory.state.contact_id.as_deref());
+        memory.recent.clear();
+        memory.reload_cards();
+        // 叠加层换了，格子缓存里的排序作废（learner_mut 会清缓存）
+        self.engine.learner_mut();
+        self.rebuild_hints();
+        self.refresh();
+    }
+}
+
+/// 卡片文字切成词；没有语言模型（或一个词都不认识）时切不出来，只靠关键词。
+fn words_of(text: &str, model: &dyn LanguageModel) -> Vec<String> {
+    segment_text(text, model)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect()
+}
+```
+
+- [ ] **Step 5: 改 `session/mod.rs`**
+
+Replace `cloud/crates/qingjian-cloud-bridge/src/session/mod.rs`（整份；与原文件相比：文件头补一句、`mod memory;`、`memory` 字段、`open` 里学习器换成 `LiveMemory::open` 并在最后 `rebuild_hints`、四个上屏方法喂缓冲、`refresh` 不再提前 `return` 并在最后 `update_hint`、删掉 `load_learner`（挪进 `scope::load_layer`））：
+
+```rust
+//! 一次键盘会话：持有 Engine，每次缓冲变化后重查一遍候选缓存起来，给 C ABI 按下标取。
+//! 配了青简 Cloud 时还挂着大模型联想、润色与学习数据同步（见 `cloud.rs`）；
+//! 有学习数据目录时挂着本地记忆：场景 / 对象分区学习与打字提示（见 `memory/`）。
+
+mod cloud;
+mod config;
+mod memory;
+
+use std::path::{Path, PathBuf};
+
+use qingjian_cloud_client::DataSync;
+use qingjian_core::{Engine, Learner, SurroundingText};
+use qingjian_dictionary::Dictionary;
+use qingjian_learning::{FrequencyLearner, InputLog};
+use qingjian_lm::BigramModel;
+
+use self::memory::LiveMemory;
+use crate::clipboard::Clipboard;
+use crate::cloud_config::CloudConfig;
+use crate::entry::Entry;
+use crate::error::BridgeError;
+use crate::rewrite::Rewriter;
+
+/// 候选栏是横向滚动的一行，再多也翻不到，截断省得每键复制几百个候选。
+const MAX_CANDIDATES: usize = 120;
+
+pub struct Session {
+    engine: Engine,
+
+    /// 候选栏里的格子，下标与 Swift 那边显示的一致；云端结果回来后插在首选之后。
+    entries: Vec<Entry>,
+
+    /// 拼音行：Core 切好音节、补了 `'` 的显示串；没在组句时为空。
+    preedit: String,
+
+    /// 学习数据目录；同步的收件箱也在这下面。
+    user_dir: Option<PathBuf>,
+
+    /// 宿主光标前后的文字，发联想请求时带上。
+    context: Option<SurroundingText>,
+
+    data_sync: Option<DataSync>,
+
+    rewriter: Option<Rewriter>,
+
+    clipboard: Option<Clipboard>,
+
+    /// 与 Mac 同格式的 `config.toml`（模糊音、双拼、繁体、领域词库、自定义短语等）与它上次套用时的修改时间。
+    config_path: Option<PathBuf>,
+
+    config_modified: Option<std::time::SystemTime>,
+
+    /// 随包领域词库所在目录（`Data/dicts`）。
+    dicts_dir: PathBuf,
+
+    /// 青简 Cloud 的连接配置；云联想选青简 Cloud 时端点从这里来。离线为 `None`。
+    cloud: Option<CloudConfig>,
+
+    /// 本地记忆；没有学习数据目录（只在内存里学）时为 `None`，学习器也就不分区。
+    memory: Option<LiveMemory>,
+}
+
+impl Session {
+    /// `data_dir` 里要有 `dict.qj`，`lm.qj` 可选（没有就退回词频整句）；
+    /// `user_dir` 给了就从 `user.tsv` 读学习数据并在 [`Self::flush`] 时写回，记忆在它下面的 `memory/`；没给只在内存里学、没有记忆；
+    /// `config` 是设置文件 `config.toml`，不给就用 `user_dir` 下的（iOS 上没有完全访问时学习数据在扩展容器、设置在 App Group，两处分开）；
+    /// `cloud` 给了就接上大模型与同步，没给完全离线。
+    pub fn open(
+        data_dir: &Path,
+        user_dir: Option<&Path>,
+        config: Option<&Path>,
+        cloud: Option<CloudConfig>,
+    ) -> Result<Self, BridgeError> {
+        let dictionary = Dictionary::from_path(data_dir.join("dict.qj"))?;
+        let (learner, memory): (Box<dyn Learner>, Option<LiveMemory>) = match user_dir {
+            Some(dir) => {
+                let (learner, memory) = LiveMemory::open(dir);
+                (Box::new(learner), Some(memory))
+            }
+            None => (Box::new(FrequencyLearner::default()), None),
+        };
+        let mut engine = Engine::new(dictionary).with_learner(learner);
+        let lm = data_dir.join("lm.qj");
+        if lm.is_file() {
+            match BigramModel::from_path(&lm) {
+                Ok(model) => engine = engine.with_language_model(Box::new(model)),
+                Err(error) => tracing::warn!(%error, "语言模型加载失败，使用词频整句"),
+            }
+        }
+        // 只在登录了且开了「上传输入日志」时记日志：离线或没开的用户，输入不落任何日志
+        if let (Some(dir), Some(cloud)) = (user_dir, &cloud)
+            && cloud.logs
+        {
+            engine =
+                engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
+        }
+        let mut session = Self {
+            engine,
+            entries: Vec::new(),
+            preedit: String::new(),
+            user_dir: user_dir.map(Path::to_path_buf),
+            context: None,
+            data_sync: None,
+            rewriter: None,
+            clipboard: None,
+            config_path: config
+                .map(Path::to_path_buf)
+                .or_else(|| user_dir.map(|dir| dir.join("config.toml"))),
+            config_modified: None,
+            dicts_dir: data_dir.join("dicts"),
+            cloud: cloud.clone(),
+            memory,
+        };
+        session.reload_config();
+        if let Some(cloud) = cloud {
+            session.connect(&cloud);
+        }
+        session.apply_inbox();
+        session.rebuild_hints();
+        Ok(session)
+    }
+
+    pub fn composing(&self) -> bool {
+        !self.engine.composition().is_empty()
+    }
+
+    pub fn preedit(&self) -> &str {
+        &self.preedit
+    }
+
+    pub fn entries(&self) -> &[Entry] {
+        &self.entries
+    }
+
+    pub fn push(&mut self, c: char) {
+        self.engine.push(c);
+        self.refresh();
+    }
+
+    pub fn backspace(&mut self) {
+        self.engine.backspace();
+        self.refresh();
+    }
+
+    pub fn clear(&mut self) {
+        self.engine.clear();
+        self.refresh();
+    }
+
+    /// 上屏第 `index` 格；本地候选只吃掉一部分拼音时剩下的留在缓冲区，接着出候选。
+    pub fn commit(&mut self, index: usize) -> Option<String> {
+        let text = match self.entries.get(index)? {
+            Entry::Local(candidate) | Entry::Cloud(candidate) => {
+                let candidate = candidate.clone();
+                self.engine.commit(&candidate)
+            }
+            Entry::Sentence(sentence) => {
+                let sentence = sentence.clone();
+                self.engine.accept_prediction(&sentence)
+            }
+        };
+        self.note_committed(&text);
+        self.refresh();
+        Some(text)
+    }
+
+    /// 敲过的字母原样上屏（回车）。
+    pub fn take_raw(&mut self) -> String {
+        let text = self.engine.take_raw();
+        self.note_committed(&text);
+        self.refresh();
+        text
+    }
+
+    /// 没在组句时的标点：中文模式转全角，不需要转的原样返回并记成直通字符。
+    pub fn punctuate(&mut self, c: char) -> String {
+        let text = match self.engine.punctuate(c) {
+            Some(text) => text.to_owned(),
+            None => {
+                self.engine.note_passthrough(c);
+                c.to_string()
+            }
+        };
+        self.note_committed(&text);
+        self.update_hint();
+        text
+    }
+
+    /// 没在组字时直接输出的字符（空格、回车）告诉引擎，输入日志里的句子边界才对。
+    pub fn note_passthrough(&mut self, c: char) {
+        self.engine.note_passthrough(c);
+        self.note_committed(c.encode_utf8(&mut [0; 4]));
+        self.update_hint();
+    }
+
+    /// 键盘收起或进入后台时调，学习数据落盘（键盘扩展随时可能被系统杀掉），再催一轮同步。
+    pub fn flush(&mut self) {
+        self.engine.flush_learning();
+        self.sync_now();
+    }
+
+    fn refresh(&mut self) {
+        self.entries.clear();
+        self.preedit.clear();
+        if self.composing() {
+            match self.engine.query() {
+                Ok(query) => {
+                    self.preedit = query.marked_text();
+                    self.entries.extend(
+                        query
+                            .candidates
+                            .items
+                            .into_iter()
+                            .take(MAX_CANDIDATES)
+                            .map(Entry::Local),
+                    );
+                }
+                // 拼不成音节（如 `vvv`）：显示原样输入，没有候选，回车原样上屏。
+                Err(_) => self.preedit = self.engine.composition().text().to_owned(),
+            }
+            self.request_prediction();
+        } else {
+            self.engine.cancel_prediction();
+        }
+        self.update_hint();
+    }
+}
+```
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/session/cloud.rs` 的 `poll`：第 116–120 行
+
+```rust
+    /// 键盘可见期间定时调：合并收件箱、取回大模型结果。候选栏变了返回 true。
+    pub fn poll(&mut self) -> bool {
+        self.apply_inbox();
+        // 设置变了（主 App 改的或从 Mac 同步来的）候选要重排
+        let reloaded = self.reload_config() && self.composing();
+```
+
+换成
+
+```rust
+    /// 键盘可见期间定时调：合并收件箱、按修改时间重载记忆、取回大模型结果。候选栏变了返回 true。
+    pub fn poll(&mut self) -> bool {
+        self.apply_inbox();
+        let rescoped = self.poll_memory();
+        // 设置变了（主 App 改的或从 Mac 同步来的）、App 删了当前对象（换了叠加层），候选要重排
+        let config_changed = self.reload_config();
+        let reloaded = (config_changed || rescoped) && self.composing();
+```
+
+（其余不变。）
+
+- [ ] **Step 6: C 接口**
+
+Create `cloud/crates/qingjian-cloud-bridge/src/memory/ffi.rs`：
+
+```rust
+//! 本地记忆的 C 接口，与 `include/qingjian_bridge.h` 一一对应。`qj_scope_*` 与键盘用的 `qj_memory_*` 带会话（只在主线程上用）；
+//! `qj_memory_read` / `qj_memory_write` 是 App 用的，按学习数据目录传（与 `qj_settings_*` 同一做法）。
+//! 返回的字符串都用 `qj_string_free` 释放；失败返回 `{"code","message"}`（见 [`MemoryError`]）。全部折掉 panic。
+
+use std::ffi::c_char;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::path::Path;
+use std::ptr;
+
+use super::{MemoryError, MemorySnapshot, MemoryStore};
+use crate::scope::{parse_scene, scene_name};
+use crate::session::Session;
+use crate::{owned, path_arg, with};
+
+/// 切场景与对象；`contact_id` 可为空（不指定）。场景认不得时什么都不做。
+///
+/// # Safety
+/// `session` 来自 `qj_session_open` 且未释放；`scene` 为有效 UTF-8 C 字符串，`contact_id` 为空或同上。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_scope_set(
+    session: *mut Session,
+    scene: *const c_char,
+    contact_id: *const c_char,
+) {
+    let Some(scene) = (unsafe { path_arg(scene) }).and_then(parse_scene) else {
+        return;
+    };
+    let contact = unsafe { path_arg(contact_id) }.map(str::to_owned);
+    with(session, (), |s| s.set_scope(scene, contact.as_deref()));
+}
+
+/// `{"scene":"dating","contact_id":"…"|null}`；没有记忆的会话返回空指针。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_scope_get(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.scope().map_or(ptr::null_mut(), |state| {
+            let json = serde_json::json!({
+                "scene": scene_name(state.scene),
+                "contact_id": state.contact_id,
+            });
+            owned(&json.to_string())
+        })
+    })
+}
+
+/// 当前提示 `{"card_id","text","reason","more"}`；没有时返回空指针（私密输入时恒为空）。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_hint(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.memory_hint()
+            .and_then(|hint| serde_json::to_string(hint).ok())
+            .map_or(ptr::null_mut(), |json| owned(&json))
+    })
+}
+
+/// 「知道了」：`today` 为真当天不再出，为假 10 分钟内不再出。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]；`card_id` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_dismiss(
+    session: *mut Session,
+    card_id: *const c_char,
+    today: bool,
+) {
+    let Some(card_id) = (unsafe { path_arg(card_id) }).map(str::to_owned) else {
+        return;
+    };
+    with(session, (), |s| s.dismiss_hint(&card_id, today));
+}
+
+/// 键盘内对象卡面板：今日相关最多 3 张卡的 JSON 数组；没有记忆的会话返回空指针。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]；`contact_id` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_cards(
+    session: *mut Session,
+    contact_id: *const c_char,
+) -> *mut c_char {
+    let Some(contact_id) = (unsafe { path_arg(contact_id) }).map(str::to_owned) else {
+        return ptr::null_mut();
+    };
+    with(session, ptr::null_mut(), |s| {
+        if s.scope().is_none() {
+            return ptr::null_mut();
+        }
+        serde_json::to_string(&s.memory_cards(&contact_id))
+            .map_or(ptr::null_mut(), |json| owned(&json))
+    })
+}
+
+/// 键盘「记一笔」：给对象建一张 `other` 卡。成功返回空指针，失败返回 `{"code","message"}`。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]；两个字符串参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_note(
+    session: *mut Session,
+    contact_id: *const c_char,
+    text: *const c_char,
+) -> *mut c_char {
+    let (Some(contact_id), Some(text)) = (
+        unsafe { path_arg(contact_id) }.map(str::to_owned),
+        unsafe { path_arg(text) }.map(str::to_owned),
+    ) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    // 会话为空或 panic 时 with 给的是这个兜底；不能用空指针兜底，空指针在这里表示成功
+    let noted = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
+        s.memory_note(&contact_id, &text)
+    });
+    match noted {
+        Ok(()) => ptr::null_mut(),
+        Err(error) => owned(&error.to_json()),
+    }
+}
+
+/// App 用：整份读出 `{"contacts","cards","state","broken"}`；参数无效时返回空指针。
+///
+/// # Safety
+/// `user_dir` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_read(user_dir: *const c_char) -> *mut c_char {
+    let Some(user_dir) = (unsafe { path_arg(user_dir) }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| serde_json::to_string(&MemoryStore::open(Path::new(user_dir)).snapshot()).ok())
+        .ok()
+        .flatten()
+        .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// App 用：整份写回。成功返回空指针，失败返回 `{"code","message"}`，code 取 `contact_limit` / `invalid` / `io`。
+///
+/// # Safety
+/// 两个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_write(
+    user_dir: *const c_char,
+    json: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(json)) = (unsafe { path_arg(user_dir) }, unsafe { path_arg(json) })
+    else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let written = catch_unwind(AssertUnwindSafe(|| {
+        let snapshot: MemorySnapshot =
+            serde_json::from_str(json).map_err(|_| MemoryError::Invalid("数据格式不对"))?;
+        MemoryStore::open(Path::new(user_dir)).write_snapshot(&snapshot)
+    }));
+    match written {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("写入时出错").to_json()),
+    }
+}
+```
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/memory/mod.rs`：模块列表里 `mod error;` 之后加一行 `mod ffi;`。
+
+Modify `cloud/crates/qingjian-cloud-bridge/src/lib.rs`：第 458 行 `fn with<T>(` 改成 `pub(crate) fn with<T>(`。
+
+- [ ] **Step 7: 头文件**
+
+Modify `cloud/crates/qingjian-cloud-bridge/include/qingjian_bridge.h`：在第 88 行 `void qj_string_free(char *text);` 之前插入：
+
+```c
+// 本地记忆（素笺 2A）：场景、对象、打字提示、对象卡、「记一笔」。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
+// scene 取 daily / dating / work；contact_id 是 32 位十六进制，可为 NULL（不指定）；非恋爱场景、名单上没有的对象都当不指定。
+// 切换后状态写进 memory/state.json，候选按新的分区学习重排。
+void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
+// {"scene":"dating","contact_id":"…"|null}
+char *qj_scope_get(QjSession *session);
+// 当前提示 {"card_id","text","reason":"match"|"today","more":bool}；没有、私密输入、非恋爱场景或没选对象时为 NULL。
+char *qj_memory_hint(QjSession *session);
+// 「知道了」：today 为 true 时当天不再出这张卡，false 时 10 分钟内不再出。
+void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
+// 键盘内对象卡面板：今日相关最多 3 张卡的 JSON 数组。
+char *qj_memory_cards(QjSession *session, const char *contact_id);
+// 「记一笔」：给对象建一张 other 卡。成功返回 NULL，失败返回 {"code","message"}。
+char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);
+// App 用，user_dir 是 App Group 里的 Qingjian 目录（记忆在它下面的 memory/）。read 返回
+// {"contacts":[…],"cards":{id:[…]},"state":{…},"broken":[id…]}（broken 是卡片文件损坏、已备份的对象；参数无效时为 NULL）。
+// write 整份写回：成功返回 NULL，失败返回 {"code","message"}，code 取 contact_limit / invalid / io；
+// 只取 state 里的 hints / reminders（当前场景与对象以键盘写的为准），名单上没了的对象连目录一起删。
+char *qj_memory_read(const char *user_dir);
+char *qj_memory_write(const char *user_dir, const char *json);
+
+```
+
+- [ ] **Step 8: 跑测试看它通过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge --test memory_ffi 2>&1 | tail -12`
+Expected: `test result: ok. 6 passed; 0 failed`。
+
+- [ ] **Step 9: 用真实产品数据跑一遍会话测试（有数据才跑）**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && QINGJIAN_DATA=/Users/liyuqing/sproot/qingjian-mainline/data/generated cargo test -p qingjian-cloud-bridge --test session 2>&1 | grep "test result"`
+Expected: `test result: ok. 4 passed; 0 failed`（整句、原样上屏、候选串、`logs_only_when_connected` 都过；实测在改动前的 `sujian`（22086d7）上这个文件就是 4 个全过，测试的 `cloud.toml` 已按账号改造后的形状写好）。若这里出现 `logs_only_when_connected` 失败，说明 Task 4 对 `refresh` 或会话打开路径的改动破坏了输入日志的接入，要修，不是已知问题。
+
+- [ ] **Step 10: 全量测试、格式与 clippy**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo fmt --all && cargo test -p qingjian-cloud-bridge 2>&1 | grep "test result" && cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings 2>&1 | tail -3`
+Expected: 全部 `ok`；clippy 末行 `Finished`。
+
+- [ ] **Step 11: iOS 工程照样能编（只加了函数，Swift 还没用）**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && scripts/build-bridge.sh && xcodegen generate && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' build 2>&1 | tail -3`
+Expected: `QingjianBridge.xcframework（release）与产品数据已就绪`，最后 `** BUILD SUCCEEDED **`。
+
+- [ ] **Step 12: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/crates/qingjian-cloud-bridge/src cloud/crates/qingjian-cloud-bridge/include/qingjian_bridge.h \
+  cloud/crates/qingjian-cloud-bridge/tests/memory_ffi.rs
+git commit -m "feat(cloud): 会话接上本地记忆与 qj_scope_* / qj_memory_* 接口
+
+有学习数据目录的会话用 ScopedLearner，记忆在它下面的 memory/，qj_session_open 签名不变。
+上屏路径（选词、回车、标点、直通）喂最近 24 字，refresh 后拿它加首选匹配卡片；私密输入不记、不出提示。
+切场景后 learner_mut 作废格子缓存、重建提示；poll 按 memory/ 下的修改时间重载，当前对象被删退回恋爱 · 不指定。
+App 侧 qj_memory_read / write 整份读写；新加头文件与导出符号逐个核对的测试。
+
+```
+
 ## Task 5：iOS 键盘
 
 **Files:** Create `ScopeChip.swift`、`ScopePicker.swift`、`HintRow.swift`、`ContactCardPanel.swift`、`MemoryBridge.swift`；Modify `KeyboardView.swift`（VStack 加提示行）、`IdleBar`（左侧牌子、「记一笔」）、`KeyboardModel.swift`（refresh 后取 `qj_memory_hint`）、`project.yml`（新文件）。
@@ -162,6 +3941,1248 @@ char *qj_memory_write(const char *user_dir, const char *json); // App 用：整�
 - 没开完全访问时牌子点开显示「开启完全访问后才能使用记忆」（App Group 读不到）。
 
 验收：模拟器构建通过；按 01 键盘 1a–1e、05 的 2c 截图对照（结构一致即可，视觉打磨留给子项目 3）；键盘高度变化不遮挡宿主输入框。
+
+### 与大纲的差异
+
+1. **键盘高度在 `KeyboardViewController` 里管**（`mountKeyboard` 钉在 `view.heightAnchor` 上的约束），触摸层的键区与 ⌄ 的位置也在控制器里算；提示行出现时要改这三处，所以**加改 `KeyboardViewController.swift`**（大纲没列）：存下高度约束、`syncHintRow()` 跟着 `model.hint` 改高度（0.2 秒）、键区与 ⌄ 往下挪一行。
+2. **`project.yml` 不用改**：各 target 的 `sources` 是目录，xcodegen 自动收录新文件（`Shared/Memory/` 也在 App 与键盘两个 target 里）。
+3. **新增 `Shared/Memory/` 一组共用的模型与小工具**（`MemoryContact`、`MemoryPronoun`、`MemoryCard`、`MemoryScope`、`MemorySnapshot`、`MemoryHint`、`MemoryFailure`、`MemoryDate`、`MemoryID`、`MemoryFiles`、`MemoryAvatar`）：键盘与 Task 6 的 App 都用，放 `Shared` 不重复写。
+4. **另改 `KeyboardPanel.swift`**（加 `.scope`、`.contactCard` 两种面板）、**`KeyStyle.swift`**（提示行高度 34pt）、**`Engine.swift`**（`session`、`take`、`withOptionalCString` 放宽到模块内可见，`MemoryBridge.swift` 做成 `extension Engine` 要用）。
+5. **选择面板的名单经 `qj_memory_read` 读**（App 的接口，按 App Group 路径读，只读不写）：大纲的键盘接口里没有列名单的函数，不为此新加 C 函数。
+6. 选择面板加了「收起」：大纲没写怎么回到键区。选了对象、换到日常 / 工作时自动收起。
+7. 「记一笔」还要求选了对象（确认条要写「记到 {对象}」），并且不在私密输入框里。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/ios/Shared/Memory/{MemoryPronoun,MemoryContact,MemoryCard,MemoryScope,MemorySnapshot,MemoryHint,MemoryFailure,MemoryDate,MemoryID,MemoryFiles,MemoryAvatar}.swift`
+- Create: `cloud/ios/Keyboard/Sources/{MemoryBridge,ScopeChip,ScopePicker,HintRow,ContactCardPanel}.swift`
+- Modify: `cloud/ios/Keyboard/Sources/{Engine,KeyStyle,KeyboardPanel,KeyboardView,IdleBar,KeyboardModel,KeyboardViewController}.swift`
+
+- [ ] **Step 1: 共用模型（Shared/Memory）**
+
+Create `cloud/ios/Shared/Memory/MemoryPronoun.swift`：
+
+```swift
+// 提醒文案里怎么称呼对象，与桥的 Pronoun 一一对应（JSON 值 ta / ta_m / ta_f / name）。
+
+enum MemoryPronoun: String, Codable, CaseIterable, Sendable {
+    case ta
+    case taM = "ta_m"
+    case taF = "ta_f"
+    case name
+
+    /// 选称呼时的顺序（缺省 TA）。
+    static let choices: [MemoryPronoun] = [.taM, .taF, .ta, .name]
+
+    /// 文案里的称呼，与桥的 `Pronoun::label` 一致。
+    func label(name: String) -> String {
+        switch self {
+        case .ta: "TA"
+        case .taM: "他"
+        case .taF: "她"
+        case .name: name
+        }
+    }
+
+    /// 选称呼时的选项名。
+    var title: String {
+        switch self {
+        case .ta: "TA"
+        case .taM: "他"
+        case .taF: "她"
+        case .name: "直接用名字"
+        }
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryContact.swift`：
+
+```swift
+// 记忆里的一个人（contacts.json 的一项）。名字只在这里，对象目录名用随机 id。
+
+import Foundation
+
+struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
+    let id: String
+
+    var name: String
+
+    var pronoun: MemoryPronoun
+
+    var scene: String
+
+    let createdAt: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, pronoun, scene
+        case createdAt = "created_at"
+    }
+
+    /// 恋爱场景的新对象。
+    static func new(name: String, pronoun: MemoryPronoun) -> MemoryContact {
+        MemoryContact(
+            id: MemoryID.make(), name: name, pronoun: pronoun, scene: MemoryScope.dating,
+            createdAt: Int64(Date().timeIntervalSince1970))
+    }
+
+    /// 认识了几天：按北京时间的日历日，建的那天算第 1 天。
+    func knownDays(now: Date = Date()) -> Int {
+        MemoryDate.daysBetween(Date(timeIntervalSince1970: TimeInterval(createdAt)), now) + 1
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryCard.swift`：
+
+```swift
+// 一张记忆卡（<对象 id>/cards.json 的一项），与桥的 Card 一一对应。
+
+import Foundation
+
+struct MemoryCard: Codable, Identifiable, Hashable, Sendable {
+    let id: String
+
+    var kind: Kind
+
+    var text: String
+
+    var keywords: [String]
+
+    /// `yyyy-MM-dd`（北京时间），只对日子与约定有意义。
+    var when: String?
+
+    var source: String
+
+    var confirmed: Bool
+
+    let createdAt: Int64
+
+    var touchedAt: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, text, keywords, when, source, confirmed
+        case createdAt = "created_at"
+        case touchedAt = "touched_at"
+    }
+
+    enum Kind: String, Codable, CaseIterable, Sendable {
+        case date, promise, preference, recent, other
+
+        var title: String {
+            switch self {
+            case .date: "日子"
+            case .promise: "约定"
+            case .preference: "喜好"
+            case .recent: "近况"
+            case .other: "其他"
+            }
+        }
+
+        var hasDate: Bool { self == .date || self == .promise }
+    }
+
+    /// 手写的新卡。
+    static func new(kind: Kind, text: String, when: String?, keywords: [String]) -> MemoryCard {
+        let now = Int64(Date().timeIntervalSince1970)
+        return MemoryCard(
+            id: MemoryID.make(), kind: kind, text: text, keywords: keywords, when: when,
+            source: "manual", confirmed: true, createdAt: now, touchedAt: now)
+    }
+
+    /// 离今天还有几天；只算日子与约定、日期写得对的。
+    func daysAway(now: Date = Date()) -> Int? {
+        guard kind.hasDate, let when else { return nil }
+        return MemoryDate.daysUntil(when, now: now)
+    }
+
+    /// 「明天是她的生日」：与桥的 `reminder_text` 同一模板。
+    func reminderText(days: Int, contact: MemoryContact) -> String {
+        let who = contact.pronoun.label(name: contact.name)
+        switch days {
+        case 0: return "今天是\(who)的\(text)"
+        case 1: return "明天是\(who)的\(text)"
+        default: return "\(days) 天后是\(who)的\(text)"
+        }
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryScope.swift`：
+
+```swift
+// 键盘当前的场景与对象，以及 App 里的两个提示开关（memory/state.json；qj_scope_get 只给前两项）。
+
+struct MemoryScope: Codable, Equatable, Sendable {
+    static let daily = "daily"
+
+    static let dating = "dating"
+
+    static let work = "work"
+
+    var scene = MemoryScope.daily
+
+    var contactId: String?
+
+    /// 打字时提示。
+    var hints = true
+
+    /// 日子提醒。
+    var reminders = true
+
+    enum CodingKeys: String, CodingKey {
+        case scene, hints, reminders
+        case contactId = "contact_id"
+    }
+
+    /// 场景的中文名。
+    static func title(of scene: String) -> String {
+        switch scene {
+        case dating: "恋爱"
+        case work: "工作"
+        default: "日常"
+        }
+    }
+}
+
+extension MemoryScope {
+    /// 缺的字段按缺省（init 写在扩展里，成员逐一构造器才留得住）。
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
+        scene = try container.decodeIfPresent(String.self, forKey: .scene) ?? MemoryScope.daily
+        contactId = try container.decodeIfPresent(String.self, forKey: .contactId)
+        hints = try container.decodeIfPresent(Bool.self, forKey: .hints) ?? true
+        reminders = try container.decodeIfPresent(Bool.self, forKey: .reminders) ?? true
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemorySnapshot.swift`：
+
+```swift
+// App 整份读写的记忆数据：{"contacts","cards","state","broken"}，与桥的 MemorySnapshot 一一对应。
+
+struct MemorySnapshot: Codable, Equatable, Sendable {
+    var contacts: [MemoryContact] = []
+
+    /// 对象 id → 卡片。
+    var cards: [String: [MemoryCard]] = [:]
+
+    var state = MemoryScope()
+
+    /// 这次读时卡片文件坏了、已备份的对象；写回时桥不看。
+    var broken: [String] = []
+
+    enum CodingKeys: String, CodingKey {
+        case contacts, cards, state, broken
+    }
+}
+
+extension MemorySnapshot {
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
+        contacts = try container.decodeIfPresent([MemoryContact].self, forKey: .contacts) ?? []
+        cards = try container.decodeIfPresent([String: [MemoryCard]].self, forKey: .cards) ?? [:]
+        state = try container.decodeIfPresent(MemoryScope.self, forKey: .state) ?? MemoryScope()
+        broken = try container.decodeIfPresent([String].self, forKey: .broken) ?? []
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryHint.swift`：
+
+```swift
+// 提示行的一条：qj_memory_hint 的 JSON。
+
+struct MemoryHint: Decodable, Equatable, Sendable {
+    let cardId: String
+
+    let text: String
+
+    let reason: Reason
+
+    /// 对象还有别的卡（「展开」看得到）。
+    let more: Bool
+
+    enum Reason: String, Decodable, Sendable {
+        case match, today
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case text, reason, more
+        case cardId = "card_id"
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryFailure.swift`：
+
+```swift
+// 桥写记忆失败时返回的 JSON：{"code": "...", "message": "..."}。code 给界面分支，message 是给用户看的中文。
+
+import Foundation
+
+struct MemoryFailure: Equatable, Sendable {
+    let code: Code
+
+    let message: String
+
+    /// 与桥的 `MemoryError::code` 一一对应；认不得的值按 other。
+    enum Code: String, Decodable, Sendable {
+        case contactLimit = "contact_limit"
+        case invalid
+        case io
+        case other
+
+        init(from decoder: any Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Code(rawValue: raw) ?? .other
+        }
+    }
+
+    /// 给用户看的话：人数上限用固定文案，其余照桥给的。
+    var userMessage: String { code == .contactLimit ? "恋爱场景最多 8 个人" : message }
+
+    /// nil 表示成功；解析不了时整段当 message、code 为 other。
+    static func decode(_ json: String?) -> MemoryFailure? {
+        guard let json else { return nil }
+        struct Wire: Decodable {
+            let code: Code
+            let message: String
+        }
+        if let data = json.data(using: .utf8), let wire = try? JSONDecoder().decode(Wire.self, from: data) {
+            return MemoryFailure(code: wire.code, message: wire.message)
+        }
+        return MemoryFailure(code: .other, message: json)
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryDate.swift`：
+
+```swift
+// 记忆里的日期：yyyy-MM-dd，按北京时间（与桥的 LocalDate 一致）。
+
+import Foundation
+
+enum MemoryDate {
+    static let timeZone = TimeZone(identifier: "Asia/Shanghai") ?? TimeZone(secondsFromGMT: 8 * 3600)!
+
+    static var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar
+    }
+
+    static func parse(_ text: String) -> Date? { formatter().date(from: text) }
+
+    static func format(_ date: Date) -> String { formatter().string(from: date) }
+
+    /// 两个时刻之间隔了几个日历日（北京时间）。
+    static func daysBetween(_ from: Date, _ to: Date) -> Int {
+        calendar.dateComponents([.day], from: calendar.startOfDay(for: from), to: calendar.startOfDay(for: to))
+            .day ?? 0
+    }
+
+    /// 从今天到 `text` 那天还有几天，过去的是负数；日期写错时为 nil。
+    static func daysUntil(_ text: String, now: Date = Date()) -> Int? {
+        parse(text).map { daysBetween(now, $0) }
+    }
+
+    /// DateFormatter 不是 Sendable，每次现建。
+    private static func formatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryID.swift`：
+
+```swift
+// 新对象、新卡片的 id：16 字节随机数的小写十六进制，与桥的 new_id 同格式（桥写入时会校验）。
+
+import Foundation
+import Security
+
+enum MemoryID {
+    static func make() -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+            bytes = withUnsafeBytes(of: UUID().uuid) { Array($0) }
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryFiles.swift`：
+
+```swift
+// 经桥整份读写 memory/（qj_memory_read / qj_memory_write）。App 与键盘共用；键盘只读名单，写只在 App 里。
+
+import Foundation
+import QingjianBridge
+
+enum MemoryFiles {
+    /// 读 `userDirectory/memory/` 的全部数据；参数无效或解析不了时为 nil。
+    static func read(userDirectory: URL) -> MemorySnapshot? {
+        decode(take(userDirectory.path.withCString { qj_memory_read($0) }))
+    }
+
+    /// 整份写回；成功返回 nil。
+    static func write(_ snapshot: MemorySnapshot, userDirectory: URL) -> MemoryFailure? {
+        guard let data = try? JSONEncoder().encode(snapshot),
+              let json = String(data: data, encoding: .utf8)
+        else { return MemoryFailure(code: .invalid, message: "数据编码失败") }
+        let raw = userDirectory.path.withCString { dir in json.withCString { qj_memory_write(dir, $0) } }
+        return MemoryFailure.decode(take(raw))
+    }
+
+    /// 取走桥返回的字符串并释放。
+    static func take(_ raw: UnsafeMutablePointer<CChar>?) -> String? {
+        guard let raw else { return nil }
+        defer { qj_string_free(raw) }
+        return String(cString: raw)
+    }
+
+    static func decode<T: Decodable>(_ json: String?) -> T? {
+        guard let data = json?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+}
+```
+
+Create `cloud/ios/Shared/Memory/MemoryAvatar.swift`：
+
+```swift
+// 头像字：名字的第一个字放在强调色圆里（App 的列表、详情与键盘的对象卡共用）。
+
+import SwiftUI
+
+struct MemoryAvatar: View {
+    let name: String
+
+    var size: CGFloat = 40
+
+    var body: some View {
+        Text(name.first.map(String.init) ?? "?")
+            .font(.system(size: size * 0.45, weight: .semibold))
+            .foregroundStyle(Color.accentColor)
+            .frame(width: size, height: size)
+            .background(Circle().fill(Color.accentColor.opacity(0.15)))
+            .accessibilityHidden(true)
+    }
+}
+```
+
+- [ ] **Step 2: `Engine` 放宽可见性，加 `MemoryBridge.swift`**
+
+Modify `cloud/ios/Keyboard/Sources/Engine.swift`：
+- 第 8–9 行换成
+
+```swift
+    /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。MemoryBridge.swift 的扩展也用它。
+    nonisolated(unsafe) let session: OpaquePointer
+```
+
+- 第 119 行 `private func take(` 改成 `func take(`；第 125 行 `private static func withOptionalCString<T>(` 改成 `static func withOptionalCString<T>(`。
+
+Create `cloud/ios/Keyboard/Sources/MemoryBridge.swift`：
+
+```swift
+// 调桥的本地记忆接口（qj_scope_* / qj_memory_*）：Engine 的扩展，用同一个会话指针，只在主线程上用。
+
+import Foundation
+import QingjianBridge
+
+extension Engine {
+    /// 当前场景与对象；会话没有记忆目录时为 nil。
+    var scope: MemoryScope? { MemoryFiles.decode(take(qj_scope_get(session))) }
+
+    func setScope(scene: String, contactId: String?) {
+        scene.withCString { s in
+            Self.withOptionalCString(contactId) { qj_scope_set(session, s, $0) }
+        }
+    }
+
+    /// 提示行要显示的；私密输入、非恋爱场景、没选对象时为 nil。
+    var memoryHint: MemoryHint? { MemoryFiles.decode(take(qj_memory_hint(session))) }
+
+    /// 「知道了」：today 为真当天不再出，为假 10 分钟内不再出。
+    func dismissHint(_ cardId: String, today: Bool) {
+        cardId.withCString { qj_memory_dismiss(session, $0, today) }
+    }
+
+    /// 对象卡面板：今日相关最多 3 张。
+    func memoryCards(_ contactId: String) -> [MemoryCard] {
+        let raw = contactId.withCString { qj_memory_cards(session, $0) }
+        return MemoryFiles.decode(take(raw)) ?? []
+    }
+
+    /// 「记一笔」；成功返回 nil。
+    func memoryNote(_ contactId: String, text: String) -> MemoryFailure? {
+        let raw = contactId.withCString { c in text.withCString { qj_memory_note(session, c, $0) } }
+        return MemoryFailure.decode(take(raw))
+    }
+}
+```
+
+- [ ] **Step 3: 尺寸与面板种类**
+
+Modify `cloud/ios/Keyboard/Sources/KeyStyle.swift`：第 17 行 `static let candidateBarHeight: CGFloat = 50` 之后加：
+
+```swift
+
+    /// 候选栏上方记忆提示行的高度。
+    static let hintRowHeight: CGFloat = 34
+```
+
+Replace `cloud/ios/Keyboard/Sources/KeyboardPanel.swift`：
+
+```swift
+// 候选栏下面那块区域现在显示什么。
+
+enum KeyboardPanel: Hashable {
+    case keys
+
+    /// 点候选栏右端 ⌄ 展开的全部候选。
+    case candidates
+
+    case emoji
+
+    /// 点场景牌子打开的场景 / 对象选择。
+    case scope
+
+    /// 提示行「展开」打开的对象卡。
+    case contactCard
+}
+```
+
+- [ ] **Step 4: 键盘模型**
+
+Modify `cloud/ios/Keyboard/Sources/KeyboardModel.swift`：
+
+(a) 文件头第 4 行之后加一行：
+
+```swift
+// 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
+```
+
+(b) 第 25 行 `private(set) var privateField = false` 之后插入：
+
+```swift
+
+    /// 记忆的提示行：恋爱场景、选了对象、碰上卡片里的词或日子快到时有。
+    private(set) var hint: MemoryHint?
+
+    /// 当前场景与对象（只能用户自己切）。
+    private(set) var scope = MemoryScope()
+
+    /// App 里建的恋爱场景的人；开了完全访问才读得到 App Group。
+    private(set) var contacts: [MemoryContact] = []
+
+    /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
+    private(set) var noteDraft: String?
+
+    /// 对象卡面板里的卡片。
+    private(set) var panelCards: [MemoryCard] = []
+
+    /// 本机剪贴板里有没有文字（键盘出现时看一次；只看不读，不弹粘贴授权）。
+    private(set) var clipboardHasText = false
+
+    /// 开了完全访问：读 App Group 里的名单、「记一笔」读剪贴板都要它。控制器每次出现时设。
+    var fullAccess = false
+```
+
+(c) `replaceEngine`（第 56–65 行）换成：
+
+```swift
+    func replaceEngine(_ engine: Engine?) {
+        self.engine?.flush()
+        self.engine = engine
+        if privateField { engine?.setPrivate(true) }
+        let shown = EngineDisplay.afterReplace(hasEngine: engine != nil, preedit: preedit, candidates: candidates)
+        if shown.preedit != preedit { output?.setMarked(shown.preedit) }
+        preedit = shown.preedit
+        candidates = shown.candidates
+        refresh()
+        syncScope()
+    }
+```
+
+(d) `dismiss()`（第 161–167 行）换成：
+
+```swift
+    func dismiss() {
+        dismissRewrite()
+        noteDraft = nil
+        engine?.clear()
+        engine?.flush()
+        panel = .keys
+        refresh()
+    }
+```
+
+(e) `appear()`（第 170–174 行）换成：
+
+```swift
+    func appear() {
+        engine?.syncNow()
+        engine?.refreshClipboard()
+        checkPasteboard()
+        clipboardHasText = output?.pasteboardHasText ?? false
+        syncScope()
+    }
+```
+
+(f) `setPrivateField`（第 177–188 行）换成：
+
+```swift
+    func setPrivateField(_ value: Bool) {
+        guard value != privateField else { return }
+        privateField = value
+        engine?.setPrivate(value)
+        if value {
+            dismissRewrite()
+            clipOffer = nil
+            pasteboardChanged = false
+            noteDraft = nil
+        } else {
+            checkPasteboard()
+        }
+        refreshHint()
+    }
+```
+
+(g) `poll()`（第 239–257 行）开头的 `guard let engine else { return }` 之后插入：
+
+```swift
+        refreshHint()
+        // App 删了当前对象时桥会退回「恋爱 · 不指定」
+        if let next = engine.scope, next != scope {
+            scope = next
+            reloadContacts()
+        }
+```
+
+(h) `refresh()`（第 352–359 行）最后一行 `if !composing, panel == .candidates { panel = .keys }` 之后加 `refreshHint()`。
+
+(i) 在 `private func typeLetter(_ letter: Character) {`（第 284 行）之前插入：
+
+```swift
+    /// 当前对象（名单里找得到的）。
+    var currentContact: MemoryContact? {
+        guard let id = scope.contactId else { return nil }
+        return contacts.first { $0.id == id }
+    }
+
+    /// 「记一笔」：开了完全访问、剪贴板有字、选了对象、不在私密输入框。
+    var canNote: Bool { fullAccess && clipboardHasText && !privateField && currentContact != nil }
+
+    func openScopePicker() {
+        reloadContacts()
+        panel = .scope
+    }
+
+    /// 选场景与对象。选了对象或换到日常 / 工作就收起面板；换到恋爱还没选对象时留着接着选。
+    func chooseScope(scene: String, contactId: String?) {
+        guard let engine else { return }
+        engine.setScope(scene: scene, contactId: contactId)
+        scope = engine.scope ?? scope
+        refresh()
+        if scene != MemoryScope.dating || contactId != nil { panel = .keys }
+    }
+
+    func openContactCard() {
+        guard let id = scope.contactId else { return }
+        panelCards = engine?.memoryCards(id) ?? []
+        panel = .contactCard
+    }
+
+    /// 日子提醒的「知道了」：当天不再出。
+    func acknowledgeHint() {
+        guard let hint else { return }
+        engine?.dismissHint(hint.cardId, today: hint.reason == .today)
+        refreshHint()
+    }
+
+    /// 点「记一笔」：读剪贴板（可能弹系统的粘贴授权），显示确认条。
+    func startNote() {
+        guard canNote,
+              let text = output?.readPasteboard()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty
+        else { return }
+        noteDraft = text
+    }
+
+    func confirmNote() {
+        guard let text = noteDraft, let id = scope.contactId else { return }
+        noteDraft = nil
+        // 写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
+        _ = engine?.memoryNote(id, text: text)
+        refreshHint()
+    }
+
+    func cancelNote() {
+        noteDraft = nil
+    }
+
+    /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
+    private func syncScope() {
+        scope = engine?.scope ?? MemoryScope()
+        reloadContacts()
+        refreshHint()
+    }
+
+    private func reloadContacts() {
+        guard fullAccess, let directory = SharedStore.directory,
+              let snapshot = MemoryFiles.read(userDirectory: directory)
+        else {
+            contacts = []
+            return
+        }
+        contacts = snapshot.contacts.filter { $0.scene == MemoryScope.dating }
+    }
+
+    private func refreshHint() {
+        let next = privateField ? nil : engine?.memoryHint
+        if next != hint { hint = next }
+    }
+
+```
+
+- [ ] **Step 5: 提示行、牌子、选择面板、对象卡**
+
+Create `cloud/ios/Keyboard/Sources/HintRow.swift`：
+
+```swift
+// 候选栏上方的记忆提示：左边强调色圆点与提示文字，右边匹配提示是「展开」（键区换成对象卡），日子提醒是「知道了」。
+
+import SwiftUI
+
+struct HintRow: View {
+    let model: KeyboardModel
+
+    let hint: MemoryHint
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Color.accentColor)
+                .frame(width: 6, height: 6)
+                .padding(.leading, 12)
+            Text(hint.text)
+                .font(.system(size: 14))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .onKeyboardPress { model.openContactCard() }
+            Text(hint.reason == .today ? "知道了" : "展开")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 12)
+                .frame(maxHeight: .infinity)
+                .onKeyboardPress {
+                    if hint.reason == .today { model.acknowledgeHint() } else { model.openContactCard() }
+                }
+        }
+        .frame(height: KeyStyle.hintRowHeight)
+        .background(Color.accentColor.opacity(0.06))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("记忆提示：\(hint.text)")
+    }
+}
+```
+
+Create `cloud/ios/Keyboard/Sources/ScopeChip.swift`：
+
+```swift
+// 候选栏左侧的场景牌子：恋爱场景是强调色的「小美 · 恋爱」，日常 / 工作只是灰色场景名。点它打开选择面板。
+
+import SwiftUI
+
+struct ScopeChip: View {
+    let model: KeyboardModel
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 14, weight: dating ? .semibold : .regular))
+            .foregroundStyle(dating ? Color.accentColor : Color.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill((dating ? Color.accentColor : Color.secondary).opacity(0.12)))
+            .padding(.leading, 8)
+            .frame(maxHeight: .infinity)
+            .onKeyboardPress { model.openScopePicker() }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("场景：\(title)")
+    }
+
+    private var dating: Bool { model.scope.scene == MemoryScope.dating }
+
+    private var title: String {
+        guard dating, let contact = model.currentContact else {
+            return MemoryScope.title(of: model.scope.scene)
+        }
+        return "\(contact.name) · 恋爱"
+    }
+}
+```
+
+Create `cloud/ios/Keyboard/Sources/ScopePicker.swift`：
+
+```swift
+// 点牌子后键区换成的选择面板：场景三选一；恋爱场景再选对象（App 里建的，最多 8 个）或不指定。
+// 键盘扩展打不开 App，「新对象」只提示去 App 新建；没开完全访问时读不到 App Group 里的名单。
+
+import SwiftUI
+
+struct ScopePicker: View {
+    let model: KeyboardModel
+
+    @State private var showsNewContactTip = false
+
+    private static let scenes = [MemoryScope.daily, MemoryScope.dating, MemoryScope.work]
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 2) {
+                ForEach(Self.scenes, id: \.self) { scene in
+                    let selected = model.scope.scene == scene
+                    Text(MemoryScope.title(of: scene))
+                        .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(selected ? KeyStyle.keyFill : Color.clear))
+                        .onKeyboardPress {
+                            let keep = scene == model.scope.scene ? model.scope.contactId : nil
+                            model.chooseScope(scene: scene, contactId: keep)
+                        }
+                }
+            }
+            .padding(2)
+            .background(RoundedRectangle(cornerRadius: 9).fill(Color.secondary.opacity(0.15)))
+            if model.scope.scene == MemoryScope.dating { contacts }
+            Spacer(minLength: 0)
+            HStack {
+                Text("对象只能你自己切，键盘不知道你在和谁聊")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("收起")
+                    .font(.system(size: 15, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .frame(height: 32)
+                    .onKeyboardPress { model.closePanel() }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var contacts: some View {
+        if !model.fullAccess {
+            Text("开启完全访问后才能使用记忆")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 60)
+        } else {
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(model.contacts) { contact in
+                    cell(contact.name, selected: model.scope.contactId == contact.id) {
+                        model.chooseScope(scene: MemoryScope.dating, contactId: contact.id)
+                    }
+                }
+                cell("不指定", selected: model.scope.contactId == nil) {
+                    model.chooseScope(scene: MemoryScope.dating, contactId: nil)
+                    model.closePanel()
+                }
+                cell("＋ 新对象", selected: false) { showsNewContactTip = true }
+            }
+            if showsNewContactTip {
+                Text("在素笺 App 里新建")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+    }
+
+    private func cell(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Text(title)
+            .font(.system(size: 14))
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 8).fill(selected ? Color.accentColor.opacity(0.18) : KeyStyle.keyFill))
+            .foregroundStyle(selected ? Color.accentColor : Color.primary)
+            .onKeyboardPress(action)
+    }
+}
+```
+
+Create `cloud/ios/Keyboard/Sources/ContactCardPanel.swift`：
+
+```swift
+// 提示行「展开」后键区换成的对象卡：头像字、名字、认识几天、今日相关最多 3 张卡。键盘扩展打不开 App，全部记忆只提示去 App 看。
+
+import SwiftUI
+
+struct ContactCardPanel: View {
+    let model: KeyboardModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let contact = model.currentContact {
+                HStack(spacing: 10) {
+                    MemoryAvatar(name: contact.name, size: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(contact.name).font(.system(size: 17, weight: .semibold))
+                        Text("认识 \(contact.knownDays()) 天")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if model.panelCards.isEmpty {
+                    Text("还没有记下这个人的事")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(model.panelCards) { card in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(card.kind.title)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, alignment: .leading)
+                        Text(card.text)
+                            .font(.system(size: 15))
+                            .lineLimit(2)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Text("全部记忆在素笺 App 里")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("收起")
+                    .font(.system(size: 15, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .frame(height: 32)
+                    .onKeyboardPress { model.closePanel() }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+```
+
+- [ ] **Step 6: 键盘视图与候选栏**
+
+Replace `cloud/ios/Keyboard/Sources/KeyboardView.swift`：
+
+```swift
+// 整个键盘：提示行（有记忆提示时）+ 候选栏 + 键区（或展开的候选 / 表情 / 场景选择 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
+// 提示行出现时键盘高度加一行，高度约束在控制器里改（KeyboardViewController.syncHintRow）。
+
+import SwiftUI
+
+struct KeyboardView: View {
+    let model: KeyboardModel
+
+    /// 系统要求自带切换键（没有键盘下方的地球键）时，底行 😀 的位置换成地球键。
+    let showsGlobe: Bool
+
+    /// 键区高度：四行键加行距与上下留白，展开面板也占这么高，切换时键盘不跳。
+    static let keyAreaHeight = KeyStyle.keyHeight * 4 + KeyStyle.rowSpacing * 3 + KeyboardLayout.topPadding + 6
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let hint = model.hint {
+                HintRow(model: model, hint: hint)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            CandidateBar(model: model)
+            Group {
+                switch model.panel {
+                case .keys: keys
+                // 面板是控制器挂的 UIKit 视图（CandidatePanelView），这里留空占位
+                case .candidates: Color.clear
+                case .emoji: EmojiPanel(model: model)
+                case .scope: ScopePicker(model: model)
+                case .contactCard: ContactCardPanel(model: model)
+                }
+            }
+            .frame(height: Self.keyAreaHeight)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .animation(.easeOut(duration: 0.2), value: model.hint != nil)
+    }
+
+    private var keys: some View {
+        GeometryReader { geometry in
+            let slots = KeyboardLayout.slots(layer: model.layer, showsGlobe: showsGlobe, size: geometry.size)
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, slot in
+                    KeyButton(
+                        key: slot.key, model: model, insets: slot.insets,
+                        pressed: model.pressedSlots.contains(index))
+                        .frame(width: slot.cell.width, height: slot.cell.height)
+                        .position(x: slot.cell.midX, y: slot.cell.midY)
+                }
+            }
+        }
+    }
+}
+```
+
+Replace `cloud/ios/Keyboard/Sources/IdleBar.swift`：
+
+```swift
+// 没在组字时的候选栏：私密输入框只亮一把锁；有别的设备刚复制的文字就提示它；「记一笔」待确认时是确认条；
+// 否则左边是场景牌子与「✨ 润色」，右边是「记一笔」与「发到其他设备」。润色进行中整栏交给 RewriteBar。
+
+import SwiftUI
+
+struct IdleBar: View {
+    let model: KeyboardModel
+
+    var body: some View {
+        Group {
+            if model.privateField {
+                Label("隐私输入：不学习、不上传", systemImage: "lock.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            } else if let offer = model.clipOffer {
+                ClipOfferBar(model: model, offer: offer)
+            } else if let draft = model.noteDraft {
+                noteConfirm(draft)
+            } else if model.rewrite != .idle {
+                RewriteBar(model: model)
+            } else {
+                actions
+            }
+        }
+        .frame(height: KeyStyle.candidateBarHeight)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 0) {
+            ScopeChip(model: model)
+            if model.rewriteAvailable {
+                Label("润色", systemImage: "sparkles")
+                    .font(.system(size: 16))
+                    .padding(.horizontal, 12)
+                    .frame(maxHeight: .infinity)
+                    .onKeyboardTap { model.startRewrite() }
+            }
+            Spacer()
+            if model.canNote {
+                Label("记一笔", systemImage: "square.and.pencil")
+                    .font(.system(size: 15))
+                    .padding(.horizontal, 10)
+                    .frame(maxHeight: .infinity)
+                    .onKeyboardTap { model.startNote() }
+            }
+            if model.pasteboardChanged {
+                Label("发到其他设备", systemImage: "arrow.up.doc.on.clipboard")
+                    .font(.system(size: 15))
+                    .padding(.horizontal, 10)
+                    .frame(maxHeight: .infinity)
+                    .onKeyboardTap { model.pushPasteboard() }
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 40, height: KeyStyle.candidateBarHeight)
+                    .onKeyboardPress { model.dismissPasteboard() }
+                    .accessibilityLabel("不发送")
+            }
+        }
+    }
+
+    /// 「记一笔」的确认条：剪贴板里的字、「记到 {对象}」、「忽略」。
+    private func noteConfirm(_ draft: String) -> some View {
+        HStack(spacing: 8) {
+            Text(draft.replacingOccurrences(of: "\n", with: " "))
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.leading, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("记到 \(model.currentContact?.name ?? "")")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 10)
+                .frame(maxHeight: .infinity)
+                .onKeyboardPress { model.confirmNote() }
+            Text("忽略")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .padding(.trailing, 12)
+                .frame(maxHeight: .infinity)
+                .onKeyboardPress { model.cancelNote() }
+        }
+    }
+}
+```
+
+- [ ] **Step 7: 控制器：高度约束与触摸范围**
+
+Modify `cloud/ios/Keyboard/Sources/KeyboardViewController.swift`：
+
+(a) 第 26 行 `private var engineSignature = ""` 之后加：
+
+```swift
+
+    /// 钉在 inputView 上的键盘高度；提示行出现时加一行（见 `syncHintRow`）。
+    private var heightConstraint: NSLayoutConstraint?
+```
+
+(b) `viewDidLoad` 里 `mountTouchView()` 之后加一行 `syncHintRow()`。
+
+(c) `viewDidLayoutSubviews`（第 44–53 行）里的 `let keyArea = CGRect(…)` 换成：
+
+```swift
+        let keyArea = CGRect(
+            x: 0, y: hintInset + KeyStyle.candidateBarHeight, width: view.bounds.width,
+            height: KeyboardView.keyAreaHeight)
+```
+
+(d) `viewWillAppear` 里 `model.appear()` 之前加一行 `model.fullAccess = hasFullAccess`。
+
+(e) `mountKeyboard()` 里
+
+```swift
+        let height = view.heightAnchor.constraint(
+            equalToConstant: KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight)
+```
+
+换成
+
+```swift
+        let height = view.heightAnchor.constraint(equalToConstant: baseHeight)
+```
+
+并在 `NSLayoutConstraint.activate([…])` 之后加一行 `heightConstraint = height`。
+
+(f) `syncTouchView()`（第 215–232 行）换成：
+
+```swift
+    private func syncTouchView() {
+        let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+        let (layer, panel, composing, hinted) = withObservationTracking {
+            (model.layer, model.panel, model.composing, model.hint != nil)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncTouchView() }
+        }
+        let slots = panel == .keys
+            ? KeyboardLayout.slots(layer: layer, showsGlobe: needsInputModeSwitchKey, size: size)
+            : []
+        if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
+        touchView.slots = slots
+        let top = hinted ? KeyStyle.hintRowHeight : 0
+        touchView.chevron = composing
+            ? CGRect(
+                x: view.bounds.width - CandidateBar.chevronWidth, y: top,
+                width: CandidateBar.chevronWidth, height: KeyStyle.candidateBarHeight)
+            : nil
+    }
+```
+
+(g) 在 `syncPanel()` 之后加：
+
+```swift
+    /// 提示行出现 / 消失：键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在 viewDidLayoutSubviews / syncTouchView 里跟着下移。
+    private func syncHintRow() {
+        let visible = withObservationTracking {
+            model.hint != nil
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncHintRow() }
+        }
+        let height = baseHeight + (visible ? KeyStyle.hintRowHeight : 0)
+        guard let heightConstraint, heightConstraint.constant != height else { return }
+        heightConstraint.constant = height
+        view.setNeedsLayout()
+        UIView.animate(withDuration: 0.2) { [weak self] in
+            self?.view.layoutIfNeeded()
+        }
+    }
+
+    /// 没有提示行时的键盘高度：候选栏加键区。
+    private var baseHeight: CGFloat { KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight }
+
+    /// 提示行占掉的高度：键区与 ⌄ 往下挪这么多。
+    private var hintInset: CGFloat { model.hint == nil ? 0 : KeyStyle.hintRowHeight }
+```
+
+- [ ] **Step 8: 重编桥、生成工程、构建**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && scripts/build-bridge.sh && xcodegen generate && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' build 2>&1 | grep -E "error:|warning: .*Memory|BUILD" | tail -20`
+Expected: 没有 `error:`，最后 `** BUILD SUCCEEDED **`。（Swift 6 并发检查若报 `UIView.animate` 闭包捕获的问题，把闭包改成 `{ [weak self] in MainActor.assumeIsolated { self?.view.layoutIfNeeded() } }` 再编。）
+
+- [ ] **Step 9: 原有单元测试照过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "Executed|TEST (SUCCEEDED|FAILED)" | tail -3`
+Expected: `** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests` 照过）。
+
+- [ ] **Step 10: 模拟器里对照截图**
+
+App 的「键盘记住的事」在 Task 6 才有，这一步直接往模拟器的 App Group 里放样例数据（合成的，不是真实聊天）：
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios
+xcrun simctl boot "iPhone 17e" 2>/dev/null || true
+app=$(find ~/Library/Developer/Xcode/DerivedData -path "*Debug-iphonesimulator/QingjianCloud.app" -maxdepth 6 | head -1)
+xcrun simctl install booted "$app"
+xcrun simctl spawn booted defaults write .GlobalPreferences AppleKeyboards -array "app.qingjian.cloud.keyboard" "en_US@sw=QWERTY;hw=Automatic"
+group=$(xcrun simctl get_app_container booted app.qingjian.cloud group.app.qingjian.cloud)
+mem="$group/Library/Application Support/Qingjian/memory"
+id=0123456789abcdef0123456789abcdef
+mkdir -p "$mem/$id"
+today=$(TZ=Asia/Shanghai date +%F); tomorrow=$(TZ=Asia/Shanghai date -v+1d +%F)
+printf '[{"id":"%s","name":"小美","pronoun":"ta_f","scene":"dating","created_at":%s}]' "$id" "$(( $(date +%s) - 12*86400 ))" > "$mem/contacts.json"
+printf '[{"id":"fedcba9876543210fedcba9876543210","kind":"date","text":"生日","keywords":["生日"],"when":"%s","source":"manual","confirmed":true,"created_at":0,"touched_at":0},{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"preference","text":"不吃香菜，喜欢草莓蛋糕","keywords":["蛋糕","香菜"],"source":"manual","confirmed":true,"created_at":0,"touched_at":1}]' "$tomorrow" > "$mem/$id/cards.json"
+printf '{"scene":"dating","contact_id":"%s","hints":true,"reminders":true}' "$id" > "$mem/state.json"
+mkdir -p build/screenshots
+```
+
+然后在模拟器里手动操作并截图（「完全访问」要在 设置 → 通用 → 键盘 → 键盘 → 青简 里手动打开；每张截图用 `xcrun simctl io booted screenshot build/screenshots/<名字>.png`）：
+
+1. 打开 App 的试打框，弹出青简键盘：候选栏上方出现提示行「明天是她的生日」+「知道了」，键盘比平时高一行 → `task5-1a-reminder.png`。
+2. 点「知道了」：提示行收起、键盘高度回去 → `task5-1a-dismissed.png`。
+3. 看候选栏左侧牌子是强调色的「小美 · 恋爱」→ 点它：键区换成选择面板（三段场景、小美 / 不指定 / ＋ 新对象、底部那句话与「收起」）→ `task5-1c-picker.png`；点「＋ 新对象」出现「在素笺 App 里新建」。
+4. 选「日常」：面板收起，牌子变灰色「日常」→ `task5-1d-daily.png`；再切回恋爱、选小美。
+5. 打 `dangao` 选「蛋糕」：提示行出现「不吃香菜，喜欢草莓蛋糕」+「展开」→ 点「展开」：键区换成对象卡（头像「小」、小美、认识 13 天、两张卡、底部「全部记忆在素笺 App 里」「收起」）→ `task5-1b-card.png`。
+6. 在别处复制一段字，回到试打框：候选栏右侧出现「记一笔」→ 点它（模拟器会弹粘贴授权，允许）→ 确认条「记到 小美」/「忽略」→ `task5-2c-note.png`；点「记到 小美」后 `cat "$mem/$id/cards.json"` 里多了一张 `other` 卡。
+7. 关掉完全访问再弹键盘、点牌子：面板里显示「开启完全访问后才能使用记忆」→ `task5-1e-no-access.png`。
+8. 在「备忘录」这类输入框靠近屏幕底部的应用里打字，提示行出现时宿主输入框跟着上移、没被键盘挡住 → `task5-host.png`。
+
+Expected: 8 张截图都在 `cloud/ios/build/screenshots/`（`build/` 已在 `.gitignore`），结构与 01 的 1a–1e、05 的 2c 对得上（结构一致即可，视觉打磨留给子项目 3）。
+
+- [ ] **Step 11: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/ios/Shared/Memory cloud/ios/Keyboard/Sources
+git commit -m "feat(cloud): iOS 键盘加场景牌子、记忆提示行、对象卡与「记一笔」
+
+候选栏左侧牌子显示当前场景（恋爱时是对象名），点开在键区换成场景 / 对象选择；对象只能自己切，名单读 App Group 里的 memory/。
+有提示时候选栏上方多一行，键盘高度由控制器的约束加一行；日子提醒是「知道了」，匹配提示「展开」成对象卡。
+「记一笔」只在开了完全访问、剪贴板有字、选了对象时出现，确认后经 qj_memory_note 建卡。
+记忆的模型放 Shared/Memory，App 下一步共用。
+
+```
 
 ## Task 6：iOS App「键盘记住的事」
 
@@ -178,13 +5199,1315 @@ char *qj_memory_write(const char *user_dir, const char *json); // App 用：整�
 
 测试（`MemoryStoreTests`）：JSON 解码往返；`contact_limit` 映射；称呼文案四种。验收：模拟器截图对照 02 的 1a–1d、05 的 2g、2i。
 
+### 与大纲的差异
+
+1. **多一个 `App/Memory/CloudIntroView.swift`**：「懒得自己写？」指向的静态说明页（一个视图一个文件）。
+2. **模型在 `Shared/Memory/`（Task 5 已建）**，App 侧只有 `MemoryStore` 与页面。
+3. **两个提示开关存在 `state.json`，对所有人生效**（spec 的 `state.json` 只有一个「提示开关」，没有按人存的字段）；`ContactSettingsView` 里照放这两个开关，脚注写明「对所有人生效」。按人分开要改 spec 的数据结构，见文末决定点 3。
+4. **新建对象的「生日」写成「下一次生日」**：spec 的 `when` 是一个具体日期、没有按年重复，填出生日期永远不会提醒；在按年重复定下来之前，界面上让用户填下一次的日期（决定点 2）。
+5. **图标源文件在主检出 `/Users/liyuqing/sproot/qingjian/brand-sujian/icon/`**（本检出没有 `brand-sujian/`），拷进 `cloud/ios/App/Assets.xcassets/AppIcon.appiconset/`；`project.yml` 只加显示名与 `ASSETCATALOG_COMPILER_APPICON_NAME`，`.xcassets` 在 `App/` 目录里会被自动收录。
+6. 键盘扩展的显示名仍是「青简」（大纲只说 App 显示名），见文末决定点 7。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/ios/App/Memory/{MemoryStore,MemoryHomeView,WeekView,ContactDetailView,CardEditor,ContactEditor,ContactSettingsView,CloudIntroView}.swift`
+- Create: `cloud/ios/App/Assets.xcassets/Contents.json`、`cloud/ios/App/Assets.xcassets/AppIcon.appiconset/{Contents.json,ios-1024-light.png,ios-1024-dark.png,ios-1024-tinted.png}`
+- Create: `cloud/ios/Tests/MemoryStoreTests.swift`
+- Modify: `cloud/ios/App/SetupView.swift`（整份替换）、`cloud/ios/project.yml:35-41`
+
+- [ ] **Step 1: 写失败的测试**
+
+Create `cloud/ios/Tests/MemoryStoreTests.swift`：
+
+```swift
+// 记忆的 JSON 往返、桥的失败码映射、称呼与提醒文案，以及 App 侧的「今天 / 本周」挑卡。
+
+import Foundation
+import XCTest
+@testable import QingjianCloud
+
+@MainActor
+final class MemoryStoreTests: XCTestCase {
+    private let contactId = "0123456789abcdef0123456789abcdef"
+
+    private var sample: String {
+        """
+        {"contacts":[{"id":"\(contactId)","name":"小美","pronoun":"ta_f","scene":"dating","created_at":1791043200}],
+         "cards":{"\(contactId)":[{"id":"fedcba9876543210fedcba9876543210","kind":"date","text":"生日","keywords":["生日"],
+           "when":"2026-10-05","source":"manual","confirmed":true,"created_at":1791043200,"touched_at":1791043200}]},
+         "state":{"scene":"dating","contact_id":"\(contactId)","hints":true,"reminders":false},
+         "broken":[]}
+        """
+    }
+
+    func testSnapshotRoundTrips() throws {
+        let decoded = try JSONDecoder().decode(MemorySnapshot.self, from: Data(sample.utf8))
+        XCTAssertEqual(decoded.contacts.first?.pronoun, .taF)
+        XCTAssertEqual(decoded.contacts.first?.createdAt, 1_791_043_200)
+        XCTAssertEqual(decoded.cards[contactId]?.first?.kind, .date)
+        XCTAssertEqual(decoded.cards[contactId]?.first?.when, "2026-10-05")
+        XCTAssertEqual(decoded.state.contactId, contactId)
+        XCTAssertFalse(decoded.state.reminders)
+        let again = try JSONDecoder().decode(MemorySnapshot.self, from: JSONEncoder().encode(decoded))
+        XCTAssertEqual(again, decoded)
+    }
+
+    func testMissingFieldsFallBackToDefaults() throws {
+        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
+        XCTAssertEqual(scope.scene, MemoryScope.work)
+        XCTAssertTrue(scope.hints && scope.reminders)
+        let empty = try JSONDecoder().decode(MemorySnapshot.self, from: Data("{}".utf8))
+        XCTAssertEqual(empty, MemorySnapshot())
+    }
+
+    func testHintDecodes() throws {
+        let json = #"{"card_id":"fedcba9876543210fedcba9876543210","text":"明天是她的生日","reason":"today","more":true}"#
+        let hint = try JSONDecoder().decode(MemoryHint.self, from: Data(json.utf8))
+        XCTAssertEqual(hint.reason, .today)
+        XCTAssertTrue(hint.more)
+    }
+
+    func testContactLimitMapsToFixedMessage() {
+        let limit = MemoryFailure.decode(#"{"code":"contact_limit","message":"whatever"}"#)
+        XCTAssertEqual(limit?.code, .contactLimit)
+        XCTAssertEqual(limit?.userMessage, "恋爱场景最多 8 个人")
+        let io = MemoryFailure.decode(#"{"code":"io","message":"记忆文件写不进去，请重试"}"#)
+        XCTAssertEqual(io?.userMessage, "记忆文件写不进去，请重试")
+        XCTAssertEqual(MemoryFailure.decode(#"{"code":"new_code","message":"x"}"#)?.code, .other)
+        XCTAssertEqual(MemoryFailure.decode("不是 JSON")?.message, "不是 JSON")
+        XCTAssertNil(MemoryFailure.decode(nil))
+    }
+
+    func testPronounLabels() {
+        XCTAssertEqual(MemoryPronoun.ta.label(name: "小美"), "TA")
+        XCTAssertEqual(MemoryPronoun.taM.label(name: "小美"), "他")
+        XCTAssertEqual(MemoryPronoun.taF.label(name: "小美"), "她")
+        XCTAssertEqual(MemoryPronoun.name.label(name: "小美"), "小美")
+    }
+
+    func testReminderTextMatchesBridgeTemplate() {
+        let contact = MemoryContact(id: contactId, name: "小美", pronoun: .taF, scene: MemoryScope.dating, createdAt: 0)
+        let card = MemoryCard.new(kind: .date, text: "生日", when: nil, keywords: [])
+        XCTAssertEqual(card.reminderText(days: 0, contact: contact), "今天是她的生日")
+        XCTAssertEqual(card.reminderText(days: 1, contact: contact), "明天是她的生日")
+        XCTAssertEqual(card.reminderText(days: 3, contact: contact), "3 天后是她的生日")
+    }
+
+    func testUpcomingPicksDatesWithinRange() {
+        let store = MemoryStore()
+        let now = MemoryDate.parse("2026-10-04")!
+        var snapshot = MemorySnapshot()
+        snapshot.contacts = [MemoryContact(id: contactId, name: "小美", pronoun: .ta, scene: MemoryScope.dating, createdAt: 0)]
+        snapshot.cards[contactId] = [
+            MemoryCard.new(kind: .promise, text: "看电影", when: "2026-10-09", keywords: []),
+            MemoryCard.new(kind: .date, text: "生日", when: "2026-10-05", keywords: []),
+            MemoryCard.new(kind: .date, text: "纪念日", when: "2026-10-12", keywords: []),
+            MemoryCard.new(kind: .preference, text: "草莓", when: "2026-10-04", keywords: []),
+        ]
+        store.replace(with: snapshot)
+        XCTAssertEqual(store.upcoming(within: 3, now: now).map(\.card.text), ["生日"])
+        XCTAssertEqual(store.upcoming(within: 6, now: now).map(\.card.text), ["生日", "看电影"])
+        XCTAssertEqual(store.upcoming(within: 6, now: now).first?.text, "明天是TA的生日")
+    }
+
+    func testMemoryIDsAreBridgeFormat() {
+        let id = MemoryID.make()
+        XCTAssertEqual(id.count, 32)
+        XCTAssertTrue(id.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+    }
+}
+```
+
+- [ ] **Step 2: 跑测试看它失败**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && xcodegen generate && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "error:|TEST (SUCCEEDED|FAILED)" | head -5`
+Expected: 编译失败，`error: cannot find 'MemoryStore' in scope`（其余用到的 Shared 模型在 Task 5 已有）。
+
+- [ ] **Step 3: `MemoryStore`**
+
+Create `cloud/ios/App/Memory/MemoryStore.swift`：
+
+```swift
+// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/（qj_memory_read / qj_memory_write），改一处写一次。
+// 校验（恋爱场景最多 8 个人、日期格式）在桥里，写失败按 code 提示。目录设数据保护 complete：锁屏时谁都读不了。
+
+import Foundation
+import Observation
+
+@MainActor
+@Observable
+final class MemoryStore {
+    /// 「今天」「本周」里的一条：哪个人的哪张卡、还有几天。
+    struct Upcoming: Identifiable, Equatable {
+        let contact: MemoryContact
+
+        let card: MemoryCard
+
+        let days: Int
+
+        var id: String { card.id }
+
+        /// 「明天是她的生日」。
+        var text: String { card.reminderText(days: days, contact: contact) }
+
+        /// 「今天」「明天」「3 天后 · 10-07」。
+        var dayLabel: String {
+            switch days {
+            case 0: return "今天"
+            case 1: return "明天"
+            default: return "\(days) 天后 · \(card.when?.suffix(5) ?? "")"
+            }
+        }
+    }
+
+    static let contactLimit = 8
+
+    private(set) var snapshot = MemorySnapshot()
+
+    /// 要弹给用户的话（写失败、文件损坏）。
+    var message: String?
+
+    /// 记忆所在的学习数据目录（App Group 的 Qingjian/）；测试里换成临时目录。
+    @ObservationIgnored var directoryProvider: () -> URL? = { SharedStore.directory }
+
+    /// 恋爱场景的人。
+    var people: [MemoryContact] { snapshot.contacts.filter { $0.scene == MemoryScope.dating } }
+
+    func contact(_ id: String) -> MemoryContact? { snapshot.contacts.first { $0.id == id } }
+
+    func cards(of id: String) -> [MemoryCard] { snapshot.cards[id] ?? [] }
+
+    func reload() {
+        guard let directory = directoryProvider() else {
+            message = "这个安装包没有开通 App Group，记忆用不了"
+            return
+        }
+        Self.protect(directory.appendingPathComponent("memory", isDirectory: true))
+        guard let next = MemoryFiles.read(userDirectory: directory) else {
+            message = "记忆读不出来"
+            return
+        }
+        snapshot = next
+        if !next.broken.isEmpty { message = "这个人的记忆文件损坏，已备份" }
+    }
+
+    /// 测试用：不经桥直接换数据。
+    func replace(with snapshot: MemorySnapshot) {
+        self.snapshot = snapshot
+    }
+
+    /// 改一份再整份写回；写不进去时不改内存里的，弹原因。
+    @discardableResult
+    func update(_ change: (inout MemorySnapshot) -> Void) -> Bool {
+        guard let directory = directoryProvider() else { return false }
+        var next = snapshot
+        change(&next)
+        next.broken = []
+        if let failure = MemoryFiles.write(next, userDirectory: directory) {
+            message = failure.userMessage
+            return false
+        }
+        snapshot = next
+        return true
+    }
+
+    @discardableResult
+    func addContact(_ contact: MemoryContact, cards: [MemoryCard]) -> Bool {
+        update {
+            $0.contacts.append(contact)
+            $0.cards[contact.id] = cards
+        }
+    }
+
+    @discardableResult
+    func saveContact(_ contact: MemoryContact) -> Bool {
+        update { snapshot in
+            if let index = snapshot.contacts.firstIndex(where: { $0.id == contact.id }) {
+                snapshot.contacts[index] = contact
+            }
+        }
+    }
+
+    /// 忘掉这个人：从名单去掉，桥连目录（卡片与分区学习）一起删。
+    func forget(_ id: String) {
+        update {
+            $0.contacts.removeAll { $0.id == id }
+            $0.cards[id] = nil
+        }
+    }
+
+    @discardableResult
+    func saveCard(_ card: MemoryCard, for id: String) -> Bool {
+        update { snapshot in
+            var list = snapshot.cards[id] ?? []
+            if let index = list.firstIndex(where: { $0.id == card.id }) {
+                list[index] = card
+            } else {
+                list.append(card)
+            }
+            snapshot.cards[id] = list
+        }
+    }
+
+    func deleteCard(_ cardId: String, for id: String) {
+        update { $0.cards[id]?.removeAll { $0.id == cardId } }
+    }
+
+    func setHints(_ on: Bool) {
+        update { $0.state.hints = on }
+    }
+
+    func setReminders(_ on: Bool) {
+        update { $0.state.reminders = on }
+    }
+
+    /// 所有人今天到 `within` 天后的日子与约定，近的在前。
+    func upcoming(within days: Int, now: Date = Date()) -> [Upcoming] {
+        people.flatMap { contact in
+            cards(of: contact.id).compactMap { card -> Upcoming? in
+                guard let away = card.daysAway(now: now), (0...days).contains(away) else { return nil }
+                return Upcoming(contact: contact, card: card, days: away)
+            }
+        }
+        .sorted { ($0.days, $0.card.text) < ($1.days, $1.card.text) }
+    }
+
+    /// 导出为文本：名字、认识几天，按类分组的卡片。
+    func exportText(_ id: String) -> String {
+        guard let contact = contact(id) else { return "" }
+        var lines = ["\(contact.name)（认识 \(contact.knownDays()) 天）"]
+        for kind in MemoryCard.Kind.allCases {
+            let list = cards(of: id).filter { $0.kind == kind }
+            guard !list.isEmpty else { continue }
+            lines.append("")
+            lines.append(kind.title)
+            for card in list {
+                lines.append("· \(card.text)" + (card.when.map { " \($0)" } ?? ""))
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// 记忆目录：锁屏时谁都读不了（键盘只在解锁时用）。目录里新建的文件继承这一档。
+    private static func protect(_ directory: URL) {
+        let manager = FileManager.default
+        try? manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? manager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.path)
+    }
+}
+```
+
+- [ ] **Step 4: 跑测试看它通过**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "MemoryStoreTests|Executed|TEST (SUCCEEDED|FAILED)" | tail -12`
+Expected: `MemoryStoreTests` 8 个 `passed`，`** TEST SUCCEEDED **`。
+
+- [ ] **Step 5: 首页、本周、说明页**
+
+Create `cloud/ios/App/Memory/MemoryHomeView.swift`：
+
+```swift
+// 「键盘记住的事」首页（05 的 2i）：今天的提醒、恋爱场景的人（n / 8）、加一个人、「懒得自己写？」。
+
+import SwiftUI
+
+struct MemoryHomeView: View {
+    let store: MemoryStore
+
+    @State private var addingContact = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(store.upcoming(within: 3)) { item in
+                        NavigationLink(value: item.contact.id) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.text)
+                                Text(item.contact.name).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("都是你写的 · 只存在这台手机上")
+                } footer: {
+                    if store.upcoming(within: 3).isEmpty { Text("3 天内没有要记着的日子") }
+                }
+                Section {
+                    ForEach(store.people) { contact in
+                        NavigationLink(value: contact.id) {
+                            HStack(spacing: 12) {
+                                MemoryAvatar(name: contact.name, size: 36)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(contact.name)
+                                    Text("\(store.cards(of: contact.id).count) 条 · 认识 \(contact.knownDays()) 天")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    if store.people.count < MemoryStore.contactLimit {
+                        Button {
+                            addingContact = true
+                        } label: {
+                            Label("加一个人", systemImage: "plus")
+                        }
+                    }
+                } header: {
+                    Text("人 · \(store.people.count) / \(MemoryStore.contactLimit)")
+                }
+                Section {
+                    NavigationLink {
+                        CloudIntroView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("懒得自己写？").font(.subheadline.weight(.medium))
+                            Text("以后可以让素笺从你发出的话里自动整理").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .listRowBackground(Color(.secondarySystemBackground))
+                }
+            }
+            .navigationTitle("键盘记住的事")
+            .navigationDestination(for: String.self) { id in
+                ContactDetailView(store: store, contactId: id)
+            }
+            .sheet(isPresented: $addingContact) { ContactEditor(store: store) }
+            .task { store.reload() }
+            .alert(
+                store.message ?? "",
+                isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })
+            ) {
+                Button("好", role: .cancel) {}
+            }
+        }
+    }
+}
+```
+
+Create `cloud/ios/App/Memory/WeekView.swift`：
+
+```swift
+// 「本周」：所有人 7 天内（今天到 6 天后）的日子与约定，按日期排。
+
+import SwiftUI
+
+struct WeekView: View {
+    let store: MemoryStore
+
+    var body: some View {
+        NavigationStack {
+            List {
+                let items = store.upcoming(within: 6)
+                if items.isEmpty {
+                    Text("这 7 天没有记下的日子和约定").foregroundStyle(.secondary)
+                }
+                ForEach(items) { item in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.card.text)
+                            Text("\(item.contact.name) · \(item.card.kind.title)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(item.dayLabel).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("本周")
+            .task { store.reload() }
+        }
+    }
+}
+```
+
+Create `cloud/ios/App/Memory/CloudIntroView.swift`：
+
+```swift
+// 「懒得自己写？」点进来的说明页：云端记忆还没上线，这里只说明它会是什么样、现在的记忆在哪。
+
+import SwiftUI
+
+struct CloudIntroView: View {
+    var body: some View {
+        List {
+            Section("现在") {
+                Text("「键盘记住的事」全部是你自己写的，只存在这台手机上，不联网、不用登录。")
+            }
+            Section("以后") {
+                Text("开了云端记忆后，素笺会把你在选定场景里发出的话去掉手机号、地址这类信息后上传，每天整理成记忆卡，等你确认了才生效。")
+                Text("不开就永远不会上传；开了也随时可以停。")
+            }
+        }
+        .navigationTitle("云端记忆")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+```
+
+- [ ] **Step 6: 对象详情与卡片编辑**
+
+Create `cloud/ios/App/Memory/ContactDetailView.swift`：
+
+```swift
+// 对象详情（02 的 1b，没有「待确认」）：头像字、名字、认识几天，卡片按日子 / 约定 / 喜好 / 近况 / 其他分组；右上「设置」。
+
+import SwiftUI
+
+struct ContactDetailView: View {
+    let store: MemoryStore
+
+    let contactId: String
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var editing: MemoryCard?
+
+    @State private var adding = false
+
+    var body: some View {
+        List {
+            if let contact = store.contact(contactId) {
+                Section {
+                    HStack(spacing: 14) {
+                        MemoryAvatar(name: contact.name, size: 56)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(contact.name).font(.title2.weight(.semibold))
+                            Text("认识 \(contact.knownDays()) 天").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                ForEach(MemoryCard.Kind.allCases, id: \.self) { kind in
+                    let cards = store.cards(of: contactId).filter { $0.kind == kind }
+                    if !cards.isEmpty {
+                        Section(kind.title) {
+                            ForEach(cards) { card in
+                                Button {
+                                    editing = card
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(card.text).foregroundStyle(.primary)
+                                        if let when = card.when {
+                                            Text(when).font(.caption).foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Button {
+                        adding = true
+                    } label: {
+                        Label("记一条", systemImage: "plus")
+                    }
+                }
+            }
+        }
+        .navigationTitle(store.contact(contactId)?.name ?? "")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink("设置") { ContactSettingsView(store: store, contactId: contactId) }
+            }
+        }
+        .sheet(item: $editing) { card in CardEditor(store: store, contactId: contactId, card: card) }
+        .sheet(isPresented: $adding) { CardEditor(store: store, contactId: contactId, card: nil) }
+        // 在设置页里忘掉了这个人：回到首页
+        .onChange(of: store.contact(contactId) == nil) { _, gone in
+            if gone { dismiss() }
+        }
+    }
+}
+```
+
+Create `cloud/ios/App/Memory/CardEditor.swift`：
+
+```swift
+// 新建 / 编辑一张卡（02 的 1c）：写下来、是什么（五选一）、到哪天（日子与约定才有）、关键词、删掉这条。
+
+import SwiftUI
+
+struct CardEditor: View {
+    let store: MemoryStore
+
+    let contactId: String
+
+    /// nil 是新建。
+    let card: MemoryCard?
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var text = ""
+
+    @State private var kind = MemoryCard.Kind.other
+
+    @State private var when = Date()
+
+    @State private var keywords = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("写下来") {
+                    TextField("比如：她不吃香菜", text: $text, axis: .vertical).lineLimit(2...5)
+                }
+                Section("是什么") {
+                    Picker("是什么", selection: $kind) {
+                        ForEach(MemoryCard.Kind.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                if kind.hasDate {
+                    Section("到哪天") {
+                        DatePicker("日期", selection: $when, displayedComponents: .date)
+                            .environment(\.timeZone, MemoryDate.timeZone)
+                    }
+                }
+                Section {
+                    TextField("用逗号隔开，可以不写", text: $keywords)
+                } header: {
+                    Text("关键词")
+                } footer: {
+                    Text("打字时出现这些词，键盘会提示这一条；不写就按这条的内容自动找。")
+                }
+                if let card {
+                    Section {
+                        Button("删掉这条", role: .destructive) {
+                            store.deleteCard(card.id, for: contactId)
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .navigationTitle(card == nil ? "记一条" : "改一条")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { save() }
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear(perform: load)
+        }
+    }
+
+    private func load() {
+        guard let card else { return }
+        text = card.text
+        kind = card.kind
+        when = card.when.flatMap(MemoryDate.parse) ?? Date()
+        keywords = card.keywords.joined(separator: "，")
+    }
+
+    private func save() {
+        let words = keywords
+            .split(whereSeparator: { ",，、 ".contains($0) })
+            .map(String.init)
+        var next = card ?? MemoryCard.new(kind: kind, text: "", when: nil, keywords: [])
+        next.kind = kind
+        next.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        next.when = kind.hasDate ? MemoryDate.format(when) : nil
+        next.keywords = words
+        next.touchedAt = Int64(Date().timeIntervalSince1970)
+        if store.saveCard(next, for: contactId) { dismiss() }
+    }
+}
+```
+
+- [ ] **Step 7: 新建对象与对象设置**
+
+Create `cloud/ios/App/Memory/ContactEditor.swift`：
+
+```swift
+// 加一个人（05 的 2g）：名字或代号、称呼（他 / 她 / TA / 直接用名字，缺省 TA）、可以不填的几条已知的事。
+
+import SwiftUI
+
+struct ContactEditor: View {
+    let store: MemoryStore
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+
+    @State private var pronoun = MemoryPronoun.ta
+
+    @State private var hasBirthday = false
+
+    @State private var birthday = Date()
+
+    @State private var likes = ""
+
+    @State private var dislikes = ""
+
+    @State private var extra = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("名字或代号") {
+                    TextField("只存在这台手机上", text: $name)
+                }
+                Section("称呼") {
+                    Picker("称呼", selection: $pronoun) {
+                        ForEach(MemoryPronoun.choices, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section {
+                    Toggle("下一次生日", isOn: $hasBirthday)
+                    if hasBirthday {
+                        DatePicker("日期", selection: $birthday, displayedComponents: .date)
+                            .environment(\.timeZone, MemoryDate.timeZone)
+                    }
+                    TextField("喜欢", text: $likes)
+                    TextField("不喜欢", text: $dislikes)
+                    TextField("再写一条", text: $extra)
+                } header: {
+                    Text("已经知道的事（可以不填）")
+                }
+            }
+            .navigationTitle("加一个人")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { save() }.disabled(trimmed(name).isEmpty)
+                }
+            }
+        }
+    }
+
+    private func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func save() {
+        let contact = MemoryContact.new(name: trimmed(name), pronoun: pronoun)
+        var cards: [MemoryCard] = []
+        if hasBirthday {
+            cards.append(.new(kind: .date, text: "生日", when: MemoryDate.format(birthday), keywords: ["生日"]))
+        }
+        if !trimmed(likes).isEmpty {
+            cards.append(.new(kind: .preference, text: "喜欢\(trimmed(likes))", when: nil, keywords: []))
+        }
+        if !trimmed(dislikes).isEmpty {
+            cards.append(.new(kind: .preference, text: "不喜欢\(trimmed(dislikes))", when: nil, keywords: []))
+        }
+        if !trimmed(extra).isEmpty {
+            cards.append(.new(kind: .other, text: trimmed(extra), when: nil, keywords: []))
+        }
+        if store.addContact(contact, cards: cards) { dismiss() }
+    }
+}
+```
+
+Create `cloud/ios/App/Memory/ContactSettingsView.swift`：
+
+```swift
+// 对象设置（02 的 1d）：名字、称呼、两个提示开关（对所有人生效）、导出为文本、忘掉这个人（二次确认）。
+
+import SwiftUI
+
+struct ContactSettingsView: View {
+    let store: MemoryStore
+
+    let contactId: String
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+
+    @State private var confirmingForget = false
+
+    var body: some View {
+        Form {
+            if let contact = store.contact(contactId) {
+                Section("名字") {
+                    TextField("名字或代号", text: $name)
+                        .onSubmit { saveName(contact) }
+                }
+                Section("称呼") {
+                    Picker(
+                        "称呼",
+                        selection: Binding(
+                            get: { contact.pronoun },
+                            set: { pronoun in
+                                var next = contact
+                                next.pronoun = pronoun
+                                store.saveContact(next)
+                            })
+                    ) {
+                        ForEach(MemoryPronoun.choices, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section {
+                    Toggle(
+                        "打字时提示",
+                        isOn: Binding(get: { store.snapshot.state.hints }, set: { store.setHints($0) }))
+                    Toggle(
+                        "日子提醒",
+                        isOn: Binding(get: { store.snapshot.state.reminders }, set: { store.setReminders($0) }))
+                } footer: {
+                    Text("这两个开关对所有人生效。")
+                }
+                Section {
+                    ShareLink(item: store.exportText(contactId)) {
+                        Label("导出为文本", systemImage: "square.and.arrow.up")
+                    }
+                }
+                Section {
+                    Button("忘掉这个人", role: .destructive) { confirmingForget = true }
+                }
+                .confirmationDialog(
+                    "忘掉\(contact.name)？", isPresented: $confirmingForget, titleVisibility: .visible
+                ) {
+                    Button("忘掉", role: .destructive) {
+                        store.forget(contactId)
+                        dismiss()
+                    }
+                } message: {
+                    Text("\(contact.name)的所有记忆会从这台手机上删除，无法恢复")
+                }
+                .onDisappear { saveName(contact) }
+            }
+        }
+        .navigationTitle("设置")
+        .onAppear { name = store.contact(contactId)?.name ?? "" }
+    }
+
+    private func saveName(_ contact: MemoryContact) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != contact.name, store.contact(contactId) != nil else { return }
+        var next = contact
+        next.name = trimmed
+        store.saveContact(next)
+    }
+}
+```
+
+- [ ] **Step 8: 首页 Tab 化**
+
+Replace `cloud/ios/App/SetupView.swift`：
+
+```swift
+// 主 App 首页：三个 Tab。「记住的」与「本周」是键盘记住的事，「我」是原来的启用步骤、键盘设置与账号入口、试打框。
+
+import SwiftUI
+import UIKit
+
+struct SetupView: View {
+    @State private var draft = ""
+
+    @State private var store = SettingsStore()
+
+    @State private var account = AccountStore()
+
+    @State private var memory = MemoryStore()
+
+    var body: some View {
+        TabView {
+            MemoryHomeView(store: memory)
+                .tabItem { Label("记住的", systemImage: "heart.text.square") }
+            WeekView(store: memory)
+                .tabItem { Label("本周", systemImage: "calendar") }
+            me
+                .tabItem { Label("我", systemImage: "person.crop.circle") }
+        }
+    }
+
+    private var me: some View {
+        NavigationStack {
+            Form {
+                Section("启用键盘") {
+                    Label("打开「设置 → 通用 → 键盘 → 键盘」", systemImage: "1.circle")
+                    Label("点「添加新键盘…」，选「青简」", systemImage: "2.circle")
+                    Label("打字时长按地球键切到青简", systemImage: "3.circle")
+                    Button("打开设置") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
+                Section {
+                    if store.available {
+                        NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
+                        NavigationLink("账号") { AccountView(store: account) }
+                    } else {
+                        Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("设置")
+                } footer: {
+                    Text("与 Mac 版偏好设置是同一份，登录并打开同步后两边互通。")
+                }
+                Section {
+                    TextField("在这里试打", text: $draft, axis: .vertical)
+                        .lineLimit(3...8)
+                } header: {
+                    Text("试一试")
+                } footer: {
+                    Text("「完全访问」用于按键震动、键盘读你在这里记下的人与事，以及登录后连接服务器（大模型润色、剪贴板与学习数据同步）。不开也能正常打字；没登录时键盘不联网。")
+                }
+            }
+            .navigationTitle("我")
+        }
+    }
+}
+```
+
+- [ ] **Step 9: 图标与显示名**
+
+Run:
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios
+mkdir -p App/Assets.xcassets/AppIcon.appiconset
+cp /Users/liyuqing/sproot/qingjian/brand-sujian/icon/ios-1024-{light,dark,tinted}.png App/Assets.xcassets/AppIcon.appiconset/
+cat > App/Assets.xcassets/Contents.json <<'JSON'
+{
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+JSON
+cat > App/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+{
+  "images" : [
+    { "filename" : "ios-1024-light.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" },
+    {
+      "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ],
+      "filename" : "ios-1024-dark.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024"
+    },
+    {
+      "appearances" : [ { "appearance" : "luminosity", "value" : "tinted" } ],
+      "filename" : "ios-1024-tinted.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024"
+    }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+JSON
+file App/Assets.xcassets/AppIcon.appiconset/*.png
+```
+
+Expected: 三行 `PNG image data, 1024 x 1024, 8-bit/color RGB`（没有透明通道，App Store 要求）。
+
+Modify `cloud/ios/project.yml`：`QingjianCloud` target 里
+
+```yaml
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 青简
+```
+
+的 `CFBundleDisplayName: 青简` 改成 `CFBundleDisplayName: 素笺`；同一 target 的
+
+```yaml
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.qingjian.cloud
+```
+
+下面加一行 `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon`（与 `PRODUCT_BUNDLE_IDENTIFIER` 同缩进）。Keyboard target 的显示名不动。
+
+- [ ] **Step 10: 构建与全部测试**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios && scripts/build-bridge.sh && xcodegen generate && xcodebuild -scheme QingjianCloud -destination 'platform=iOS Simulator,name=iPhone 17e' test 2>&1 | grep -E "error:|Executed|TEST (SUCCEEDED|FAILED)" | tail -5`
+Expected: 没有 `error:`，`** TEST SUCCEEDED **`（`AccountDecodeTests`、`AccountStoreTests`、`MemoryStoreTests` 全过）。
+
+- [ ] **Step 11: 模拟器里对照截图**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline/cloud/ios
+app=$(find ~/Library/Developer/Xcode/DerivedData -path "*Debug-iphonesimulator/QingjianCloud.app" -maxdepth 6 | head -1)
+xcrun simctl install booted "$app" && xcrun simctl launch booted app.qingjian.cloud
+mkdir -p build/screenshots
+```
+
+手动操作，每步 `xcrun simctl io booted screenshot build/screenshots/<名字>.png`：
+
+1. 主屏图标是素笺的白纸折角、名字「素笺」→ `task6-icon.png`。
+2. 首页「键盘记住的事」：副标题、今天的提醒（Task 5 放的「明天是她的生日」）、「人 · 1 / 8」、加一个人、灰底「懒得自己写？」→ `task6-2i-home.png`；点「懒得自己写？」看说明页。
+3. 点「加一个人」：名字、称呼四选一（缺省 TA）、下一次生日 / 喜欢 / 不喜欢 / 再写一条 → `task6-2g-new.png`；填「阿杰」、称呼「他」、喜欢「篮球」，完成后列表变「人 · 2 / 8」。
+4. 点小美：按 日子 / 喜好 分组的卡片 → `task6-1b-detail.png`；点一张卡进编辑（02 的 1c）→ `task6-1c-editor.png`；把「是什么」切到「其他」时「到哪天」消失。
+5. 右上「设置」（02 的 1d）→ `task6-1d-settings.png`；点「导出为文本」出分享面板；点「忘掉这个人」出二次确认，文案「小美的所有记忆会从这台手机上删除，无法恢复」→ `task6-1d-forget.png`（点取消）。
+6. 「本周」Tab：7 天内的日子与约定 → `task6-week.png`。
+7. 用 `printf` 往 contacts.json 再塞到 8 个恋爱场景的人后回到首页，「加一个人」消失；再手动改文件塞第 9 个、在 App 里改任意一张卡，弹「恋爱场景最多 8 个人」→ `task6-limit.png`。
+8. 把某人的 `cards.json` 改成 `[{`，回到首页：弹「这个人的记忆文件损坏，已备份」，`memory/<id>/` 下有 `cards.json.broken-…` → `task6-broken.png`。
+9. 「我」Tab：原来的启用步骤、键盘设置、账号、试打框都在 → `task6-me.png`。
+
+Expected: 截图都在 `cloud/ios/build/screenshots/`，结构与 02 的 1a–1d、05 的 2g、2i 对得上（视觉打磨留给子项目 3）。
+
+- [ ] **Step 12: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/ios/App cloud/ios/Tests/MemoryStoreTests.swift cloud/ios/project.yml
+git commit -m "feat(cloud): iOS App 加「键盘记住的事」，显示名改素笺
+
+首页分三个 Tab：记住的（今天的提醒、恋爱场景的人 n / 8、加一个人、云端记忆说明）、本周（7 天内的日子与约定）、我（原来的设置与账号）。
+对象详情按日子 / 约定 / 喜好 / 近况 / 其他分组，卡片与对象的增删改经 qj_memory_write 整份写回，上限与日期由桥校验，失败按 code 提示。
+记忆目录设 FileProtectionType.complete；图标换成素笺定稿（亮、暗、着色）。两个提示开关存 state.json，对所有人生效。
+
+```
+
 ## Task 7：回放调参与文档
 
 - 用 `apps/cli` 回放一份输入日志，比较 `OVERLAY_WEIGHT` = 2 / 4 / 8 时恋爱场景对象常用词的首选命中，选定后写进常数与 `cloud/docs/design.md` 新增的「本地记忆」一节。
 - 更新 `cloud/docs/design.md`、`cloud/README.md`（功能清单）；`fork-patch.md` 写明本功能没有新增上游补丁。
+
+### 与大纲的差异
+
+1. **不用 `apps/cli`，改在桥里写回放 example**：`apps/cli` 的 `--replay`（`apps/cli/src/replay/mod.rs`）拿的是 CLI 自己装配的 `Engine`，学习器只能是 `--user-dict` 指定文件的 `FrequencyLearner`；`--tune` 能调的只有个人 n-gram 与纠错的常数（`lambda/k/cap/discount/transpose/…`），没有叠加倍数，也装不进 `ScopedLearner`（它在 `cloud/` 的独立 workspace 里，CLI 依赖它就是上游补丁）。
+   所以在 `cloud/crates/qingjian-cloud-bridge/examples/overlay_replay.rs` 里照 `apps/cli` 回放的做法（`set_input` → `query` → 看首选 → `commit` → `clear` / `break_chain`）自己跑，引擎装 `ScopedLearner::open_with_weight`（Task 1 已留的构造参数，只用于调参，不进产品配置）。
+2. **样本不用输入日志，用合成的选词序列**：仓库里没有可用的恋爱场景输入日志，也不能用真实用户数据。example 内置 24 个常见拼音探针，冷启动下每个探针的首选当「通用词」、同字数的下一个候选当「对象常用词」，序列完全确定、可复现：
+   日常场景每个通用词先选 W 次（全局层的底子，W 取 5 / 10 / 20 / 40 各跑一遍），切到恋爱 · 对象 A 后每轮把每个探针的对象词选一次、共 6 轮（每轮先看它是不是首选再上屏，所以第 r 轮量的是选过 r−1 次之后），最后切到对象 B 看通用词还剩多少是首选（场景层外溢）。
+3. **量化指标与展开时实测的结果**：A 列是第 1–6 轮「对象词就是首选」的比例；B 列是对象 B 下「通用词仍是首选」的比例（越高说明对象之间越不串）。
+   展开时在临时副本里（不动本检出）用 `data/generated` 的产品数据跑过一遍，24 个探针全部可用；封顶 92% 而不是 100%，是有两个探针的对象词在恋爱场景也压不过别的因素：
+
+   | W | k=2：A 第 1–6 轮，B | k=4：A 第 1–6 轮，B | k=8：A 第 1–6 轮，B |
+   |---|---|---|---|
+   | 5 | 0 / 4 / 92 / 92 / 92 / 92 %，B 8% | 0 / 92 / 92 / 92 / 92 / 92 %，B 8% | 0 / 92 / 92 / 92 / 92 / 92 %，B 8% |
+   | 10 | 0 / 0 / 4 / 92 / 92 / 92 %，B 8% | 0 / 0 / 92 / 92 / 92 / 92 %，B 8% | 0 / 92 / 92 / 92 / 92 / 92 %，B 8% |
+   | 20 | 0 / 0 / 0 / 4 / 4 / 4 %，B 96% | 0 / 0 / 4 / 92 / 92 / 92 %，B 8% | 0 / 0 / 92 / 92 / 92 / 92 %，B 8% |
+   | 40 | 0 / 0 / 0 / 0 / 4 / 4 %，B 96% | 0 / 0 / 0 / 4 / 4 / 4 %，B 96% | 0 / 0 / 0 / 92 / 92 / 92 %，B 8% |
+
+   结论：排序基本就是计数比大小——对象词在选过 n 次后超过全局里选过 W 次的通用词，条件约是 `2k·n > W`；场景层外溢到对象 B 的条件约是 `k·6 > W`。**权重本身没有「对」的值，取决于想让「在一个对象下选几次」压过「全局里选过多少次」。**
+   k=4 的含义：在一个对象下选 1 次抵全局 8 次；对一个全局里选过 20 次的词，第 4 次起换成对象的说法。
+4. **建议维持 spec 的 4，不改常数**；把上表与这条结论交审计会话定（文末决定点 6）。若审计改成别的值，只改 `OVERLAY_WEIGHT` 一处，测试里写的是 `K = ScopedLearner::OVERLAY_WEIGHT`，不用改测试。
+5. 多改一个 `cloud/ios/README.md`（加「本地记忆」一节）：它是 iOS 壳的使用说明，功能变了不改就过时。
+
+### 步骤
+
+**Files:**
+- Create: `cloud/crates/qingjian-cloud-bridge/examples/overlay_replay.rs`
+- Modify: `cloud/docs/design.md:262`（「## 分期」之前插一节）、`cloud/README.md:3`、`cloud/ios/README.md`（「## 已知问题」之前）、`cloud/docs/fork-patch.md:4`
+
+- [ ] **Step 1: 写回放 example**
+
+Create `cloud/crates/qingjian-cloud-bridge/examples/overlay_replay.rs`：
+
+```rust
+//! 叠加权重回放：用合成的选词序列比较 `ScopedLearner` 的叠加倍数取 2 / 4 / 8 时，恋爱场景里对象常用词多快成为首选（对象 A），
+//! 以及换到另一个对象时通用词还剩多少首选（场景层外溢，对象 B）。只在临时目录里学习，不读任何真实输入日志。
+//! 用法：`cargo run --release -p qingjian-cloud-bridge --example overlay_replay -- <含 dict.qj 与 lm.qj 的目录>`
+
+use std::path::{Path, PathBuf};
+
+use qingjian_cloud_bridge::ScopedLearner;
+use qingjian_cloud_proto::Scene;
+use qingjian_core::{Candidate, Engine};
+use qingjian_dictionary::Dictionary;
+use qingjian_lm::BigramModel;
+
+/// 探针：常见的、首选与次选都是常用词的拼音。冷启动下首选当「通用词」，同字数的下一个候选当「对象常用词」。
+const PROBES: [&str; 24] = [
+    "shishi",
+    "jiyi",
+    "shiyan",
+    "gongshi",
+    "jieshi",
+    "yuanyi",
+    "xiangxiang",
+    "liwu",
+    "shouji",
+    "dianying",
+    "jiankang",
+    "gongzuo",
+    "yiyi",
+    "shijian",
+    "zhuyi",
+    "chengshi",
+    "xinli",
+    "tiqian",
+    "baobei",
+    "xiexie",
+    "jinzhang",
+    "xiaoxin",
+    "shengqi",
+    "wanan",
+];
+
+/// 日常场景里每个通用词先选几次（全局层的底子），各跑一遍。
+const WARMUPS: [usize; 4] = [5, 10, 20, 40];
+
+/// 恋爱场景对象 A 下把对象词选几轮。
+const ROUNDS: usize = 6;
+
+const CONTACT_A: &str = "0123456789abcdef0123456789abcdef";
+
+const CONTACT_B: &str = "fedcba9876543210fedcba9876543210";
+
+/// 一个探针：拼音、通用词、对象词。
+type Probe = (String, String, String);
+
+fn main() {
+    let Some(data) = std::env::args().nth(1).map(PathBuf::from) else {
+        eprintln!("用法：overlay_replay <含 dict.qj 与 lm.qj 的目录>");
+        std::process::exit(2);
+    };
+    for warmup in WARMUPS {
+        println!();
+        println!("日常先选通用词 {warmup} 次，恋爱 · 对象 A 下选对象词 {ROUNDS} 轮，再看对象 B");
+        println!("| 权重 | 探针 | A 第 1–{ROUNDS} 轮对象词首选命中 | B 下通用词仍是首选 |");
+        println!("|---|---|---|---|");
+        for weight in [2, 4, 8] {
+            let (probes, rounds, kept) = run(&data, weight, warmup);
+            let rounds: Vec<String> = rounds
+                .iter()
+                .map(|rate| format!("{:.0}%", rate * 100.0))
+                .collect();
+            println!(
+                "| {weight} | {probes} | {} | {:.0}% |",
+                rounds.join(" / "),
+                kept * 100.0
+            );
+        }
+    }
+}
+
+/// 返回可用的探针数、A 每轮的命中率、B 的通用词保持率。
+fn run(data: &Path, weight: u32, warmup: usize) -> (usize, Vec<f64>, f64) {
+    let user =
+        std::env::temp_dir().join(format!("qj-overlay-replay-{weight}-{}", std::process::id()));
+    std::fs::remove_dir_all(&user).ok();
+    std::fs::create_dir_all(&user).expect("临时目录建不了");
+    let memory = user.join("memory");
+    let learner = ScopedLearner::open_with_weight(&user, &memory, Scene::Daily, None, weight);
+    let handle = learner.handle();
+    let dictionary = Dictionary::from_path(data.join("dict.qj")).expect("dict.qj 读不了");
+    let model = BigramModel::from_path(&data.join("lm.qj")).expect("lm.qj 读不了");
+    let mut engine = Engine::new(dictionary)
+        .with_learner(Box::new(learner))
+        .with_language_model(Box::new(model));
+
+    let probes: Vec<Probe> = PROBES
+        .iter()
+        .filter_map(|keys| probe(&mut engine, keys))
+        .collect();
+    for _ in 0..warmup {
+        for (keys, generic, _) in &probes {
+            choose(&mut engine, keys, generic);
+        }
+    }
+
+    handle.switch(Scene::Dating, Some(CONTACT_A));
+    engine.learner_mut();
+    let mut rounds = Vec::new();
+    for _ in 0..ROUNDS {
+        let hits = probes
+            .iter()
+            .filter(|(keys, _, personal)| choose(&mut engine, keys, personal))
+            .count();
+        rounds.push(hits as f64 / probes.len() as f64);
+    }
+
+    handle.switch(Scene::Dating, Some(CONTACT_B));
+    engine.learner_mut();
+    let kept = probes
+        .iter()
+        .filter(|(keys, generic, _)| top(&mut engine, keys).as_deref() == Some(generic.as_str()))
+        .count();
+    std::fs::remove_dir_all(&user).ok();
+    (probes.len(), rounds, kept as f64 / probes.len() as f64)
+}
+
+/// 冷启动下的首选与同字数的下一个候选；凑不出一对就不用这个探针。
+fn probe(engine: &mut Engine, keys: &str) -> Option<Probe> {
+    let items = candidates(engine, keys);
+    let generic = items.first()?.text.clone();
+    let len = generic.chars().count();
+    let personal = items
+        .iter()
+        .skip(1)
+        .find(|candidate| candidate.text.chars().count() == len)?
+        .text
+        .clone();
+    Some((keys.to_owned(), generic, personal))
+}
+
+fn candidates(engine: &mut Engine, keys: &str) -> Vec<Candidate> {
+    engine.set_input(keys);
+    let items = engine
+        .query()
+        .map(|query| query.candidates.items)
+        .unwrap_or_default();
+    engine.clear();
+    items
+}
+
+fn top(engine: &mut Engine, keys: &str) -> Option<String> {
+    candidates(engine, keys)
+        .into_iter()
+        .next()
+        .map(|candidate| candidate.text)
+}
+
+/// 输入 `keys`，看 `text` 是不是首选，再把它上屏（与 `apps/cli` 回放一样，上屏后断开上文）。
+fn choose(engine: &mut Engine, keys: &str, text: &str) -> bool {
+    engine.set_input(keys);
+    let items = engine
+        .query()
+        .map(|query| query.candidates.items)
+        .unwrap_or_default();
+    let hit = items
+        .first()
+        .is_some_and(|candidate| candidate.text == text);
+    if let Some(candidate) = items.iter().find(|candidate| candidate.text == text) {
+        engine.commit(candidate);
+    }
+    engine.clear();
+    engine.break_chain();
+    hit
+}
+```
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo clippy -p qingjian-cloud-bridge --all-targets -- -D warnings 2>&1 | tail -3`
+Expected: 末行 `Finished`，没有告警。
+
+- [ ] **Step 2: 跑回放**
+
+产品数据在 `/Users/liyuqing/sproot/qingjian-mainline/data/generated/`（没有就在仓库根跑 `tools/release/data-fetch.sh`）。
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo run --release -p qingjian-cloud-bridge --example overlay_replay -- /Users/liyuqing/sproot/qingjian-mainline/data/generated 2>/dev/null`
+Expected: 四张表（W = 5 / 10 / 20 / 40），每张三行、探针列是 24；数字应与「与大纲的差异」第 3 条的表一致（词库或语言模型换过版本时会略有出入）。整段输出存下来，下一步贴进文档、发给审计会话。
+
+- [ ] **Step 3: 选权重**
+
+把 Step 2 的四张表和「`2k·n > W`」这条结论发给审计会话「素笺输入法」，建议维持 4。
+- 审计维持 4（或还没回复）：常数不动，进 Step 4。
+- 审计定了别的值：改 `cloud/crates/qingjian-cloud-bridge/src/scope/scoped_learner.rs` 的 `pub const OVERLAY_WEIGHT: u32 = 4;`，并跑 `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo test -p qingjian-cloud-bridge scope`（Expected：8 个照过，测试按 `K` 写的）。
+
+- [ ] **Step 4: `cloud/docs/design.md` 加「本地记忆」一节**
+
+Modify `cloud/docs/design.md`：在第 262 行 `## 分期` 之前插入下面这段（`<回放表>` 换成 Step 2 打印的四张表，原样贴；`<权重>` 换成 Step 3 定下的值）：
+
+```markdown
+## 6. 本地记忆（素笺 2A）
+
+免费、不登录、不联网，先做 iOS。spec 在 `synon-ime` 仓库 `docs/superpowers/specs/2026-10-04-memory-design.md` 的「2A」；代码在 `qingjian-cloud-bridge` 的 `scope/`、`memory/`、`session/memory/`。
+
+- **数据**：学习数据目录下的 `memory/`（iOS 开了完全访问时就是 App Group 的 `Qingjian/memory/`）：`state.json`（当前场景、对象、两个提示开关）、`contacts.json`、`<对象 id>/cards.json`，
+  以及与全局层同构的分区学习 `<对象 id>/learning/user*.tsv`、`scene-<场景>/learning/user*.tsv`。对象 id 是 16 字节随机数的十六进制，名字只在 `contacts.json`。
+  写走同目录临时文件加改名（与 `cloud.toml` 共用 `write_atomic` 与进程内写锁）；解析不了的文件改名 `.broken-<秒>` 后按空处理，读不了的不改名、不覆盖；iOS 上目录是数据保护 `complete`。
+  App 经 `qj_memory_read/write` 整份读写；键盘只读，「记一笔」与当前场景除外，按修改时间重载。
+- **分区学习（`ScopedLearner`）**：恋爱场景读「全局 + k×场景 + k×对象」、写只进场景与对象层；日常与工作只用全局。用户词、个人 n-gram、英文词表返回引用没法叠加，一律走全局，
+  所以恋爱场景里新造的词、打出的句子会进全局的这三张表（排序仍由叠加的计数管住）。叠加层在 `Arc<Mutex<_>>` 里由会话的 `ScopeHandle` 换：
+  `Engine::learner_mut()` 只给 `&mut dyn Learner`，不加上游补丁就只能这样；换完调 `learner_mut()` 作废格子缓存。学习数据同步只认学习数据目录顶层的六个文件，分区层不上云。
+- **k = <权重>**：`examples/overlay_replay.rs` 用合成的选词序列回放（不读真实日志）。排序基本就是计数比大小：在一个对象下选 n 次的词，超过全局里选过 W 次的词的条件约是 `2k·n > W`，场景层外溢到别的对象约是 `k·（场景里选的次数）> W`；
+  权重没有「对」的值，取决于想让「对象下选几次」压过「全局里选过多少次」，按 spec 取 4（在一个对象下选 1 次抵全局 8 次）：
+
+  <回放表>
+
+- **提示**：每次 refresh 后拿最近上屏的 24 字加当前首选，去碰当前对象卡片的匹配词（关键词加语言模型切出的两字以上的词，去掉 100 个停用词）；命中词多、新改过的优先，
+  一直命中时接着显示，消失后 10 分钟内同一张不再出，「知道了」当天不出。切到对象时，日子与约定在今天到 3 天后的给一条提醒（北京时间），优先于匹配提示。
+  私密输入时上屏的字不进缓冲、不出提示；没有 `lm.qj` 时只靠关键词。
+- **C 接口**：带会话的 `qj_scope_set/get`、`qj_memory_hint/dismiss/cards/note`，App 用的 `qj_memory_read/write`；JSON 与失败码见 `qingjian_bridge.h`。
+- **已知限制**：没开完全访问时键盘读不到 App Group，对象与卡片用不了（场景分区学习照常，落在扩展容器）；「知道了」只记在键盘进程的内存里，进程被系统杀掉后当天会再出一次；
+  日子不按年重复（生日要填下一次的日期）；删词只删全局层；两个提示开关对所有人生效。
+
+```
+
+- [ ] **Step 5: `cloud/README.md`、`cloud/ios/README.md`、`fork-patch.md`**
+
+Modify `cloud/README.md` 第 3 行，在句末「支持 macOS 与 iOS。」之后接一句：
+
+```markdown
+iOS 上另有不登录、不联网也能用的本地记忆（素笺 2A）：按日常 / 恋爱 / 工作分开学习，恋爱场景再按对象分开，打字时按你写下的记忆卡提示，数据只在手机上。
+```
+
+Modify `cloud/ios/README.md`：在 `## 已知问题` 之前插入：
+
+```markdown
+## 本地记忆
+
+主 App 首页是「键盘记住的事」：恋爱场景最多 8 个人，每个人一组记忆卡（日子 / 约定 / 喜好 / 近况 / 其他），「本周」列出 7 天内的日子与约定，「我」里是原来的键盘设置与账号。
+数据在 App Group 的 `Qingjian/memory/`，经桥的 `qj_memory_read/write` 整份读写，目录设数据保护 `complete`；不登录、不联网。
+
+键盘：候选栏左侧的牌子是当前场景（恋爱时是对象名），点开在键区换成场景 / 对象选择——iOS 拿不到宿主应用，**对象只能自己切**。
+恋爱场景选了对象后，打字碰上卡片里的词或日子快到时，候选栏上方多一行提示（键盘高度加一行），「展开」看对象卡，「知道了」当天不再提醒。
+开了完全访问且剪贴板有字时有「记一笔」，把剪贴板的文字记到当前对象。没开完全访问时键盘读不到 App Group，记忆用不了（场景分开学习照常）。
+设计见 `cloud/docs/design.md` 的「本地记忆」一节。
+
+```
+
+Modify `cloud/docs/fork-patch.md`：第 4 行（「原则：新代码放新文件……」）之后加一段：
+
+```markdown
+
+素笺 2A 本地记忆（场景 / 对象分区学习、打字提示、记忆卡）全部在 `cloud/` 下，**没有新增上游补丁**：分区学习是桥里包着 `FrequencyLearner` 的 `ScopedLearner`，
+换层靠桥自己持有的 `ScopeHandle`（不改 `Learner` trait），提示挂在桥的上屏路径上；用到的 `qingjian_core::sentence::{Context, UserNgram, segment_text}` 与 `Engine::learner_mut()` 都是上游已公开的接口。
+```
+
+- [ ] **Step 6: 全量检查**
+
+Run: `cd /Users/liyuqing/sproot/qingjian-mainline/cloud && cargo fmt --all -- --check && cargo test -p qingjian-cloud-bridge 2>&1 | grep "test result" && cargo clippy --all-targets -- -D warnings 2>&1 | tail -2`
+Expected: fmt 没有输出；全部 `ok`；clippy 末行 `Finished`。
+
+- [ ] **Step 7: 提交**
+
+```bash
+cd /Users/liyuqing/sproot/qingjian-mainline
+git add cloud/crates/qingjian-cloud-bridge/examples/overlay_replay.rs cloud/docs/design.md cloud/README.md \
+  cloud/ios/README.md cloud/docs/fork-patch.md
+# 若 Step 3 经审计同意改了权重，再加上 cloud/crates/qingjian-cloud-bridge/src/scope/scoped_learner.rs
+git commit -m "docs(cloud): 本地记忆的设计与叠加权重回放
+
+apps/cli 的回放装不进 ScopedLearner（它在 cloud 的独立 workspace，CLI 依赖它就是上游补丁），在桥里写 overlay_replay example，用合成的选词序列比较 k=2/4/8。
+排序基本就是计数比大小（对象下选 n 次压过全局 W 次约需 2k·n > W），权重按审计的决定写进 design.md；README 与 iOS README 补本地记忆，fork-patch 写明没有新增上游补丁。
+
+```
 
 ## 提交与审计
 
 - 每个任务一个或几个提交，提交信息按仓库约定（`feat(cloud): …`）。
 - 每完成一个任务，把提交哈希、测试结果发给审计会话「素笺输入法」；Task 5、6 附模拟器截图路径。
 - 发现做不了或与 spec 冲突，先告诉审计会话，不自行改 spec。
+
+## 需要审计会话决定的点
+
+1. **删词（`forget` / `forget_english`）只删全局层**（大纲表格原样）。用户在恋爱场景里删一个词，场景层与对象层的计数还在，它在恋爱场景照样靠前，与「我要删掉它」的意图不符。
+   选项：A 照大纲只删全局；B 删全局并清当前打开的场景层与对象层里这个词（`Overlay::write(|l| l.forget(text))`，不碰没打开的别的对象目录）；C 遍历所有分区目录全删。**建议 B**：改动 5 行，不扫盘。
+2. **日子要不要按年重复**：spec 的 `when` 是 `YYYY-MM-DD`，没有重复规则；生日填出生日期永远不会提醒。本计划先按字面实现，App 里把「生日」写成「下一次生日」。
+   选项：A 维持现状；B `date` 类按年重复（只比月日，`promise` 一次性），`when` 格式不变；C 卡片加 `yearly: bool`。**建议 B**（数据结构不变，只改 `today` / `panel_cards` / Swift 的 `daysAway`）。
+3. **两个提示开关的范围**：spec 的 `state.json` 只有「提示开关」，大纲的对象设置页又有「打字时提示」「日子提醒」两个开关。本计划存成 `state.json` 的 `hints`、`reminders`，对所有人生效，设置页脚注写明。
+   选项：A 维持；B `Contact` 加 `hints`、`reminders`（缺省真），按人生效。**建议 A**，等有人要按人关再加。
+4. **「知道了」当天不再出的持久化**：现在只记在键盘进程内存里（`HintIndex.dismissed`），扩展被系统杀掉或换引擎后当天会再出一次。写进 `state.json` 会和 App 的整份写回打架。
+   选项：A 接受；B 键盘自己的文件 `memory/dismissed.json`（`{日期, 卡片 id 列表}`，App 不碰）。**建议 B**（小改动，下个迭代也行）。
+5. **恋爱场景打的句子进全局 n-gram**：spec 写明 `user_ngram` 一律读写全局、已知限制只提了新造的词。实际上恋爱场景的整句与连续选词都会记进全局 n-gram，影响日常 / 工作场景的整句。请确认接受（替代做法是恋爱场景不记转移，但恋爱场景自己的整句就学不到）。
+6. **叠加权重**：Task 7 的回放（展开时已实测，表在 Task 7「与大纲的差异」第 3 条）说明权重只是「对象下选 n 次 ≈ 全局 2k·n 次」的换算，没有客观最优。建议维持 spec 的 4；要更快换成对象的说法就取 8（代价是场景层更快外溢到别的对象）。
+7. **键盘扩展的显示名**：大纲只把 App 改成「素笺」，键盘在系统键盘列表里仍叫「青简」，App 里「点『添加新键盘…』，选『青简』」也没改。要不要一起改。
+8. **提示的两处语义请确认**：节流按「一直命中时接着显示，消失后 10 分钟内不再出」；`more` 按「当前对象多于 1 张卡」。
+
+## 不确定的地方（执行时留意）
+
+- `UIView.animate` 的闭包在 Swift 6 严格并发下能否直接捕获 `[weak self]`（取决于 SDK 是否把它标成 `@MainActor`）；Task 5 Step 8 给了退路写法。
+- 键盘扩展可见时改高度约束，系统多数情况下会跟着动画，个别宿主应用（全屏视频、游戏）可能不响应；只能真机看。
+- 展开时已在本检出的临时副本里（rsync 一份、不动本检出）按计划原文落了 Task 1–4 与 Task 7 的 Rust 代码：`cargo build/test/clippy -D warnings` 全过（桥的单元测试 50 个、`memory_ffi` 6 个），`rustfmt --check` 干净，回放 example 跑出了 Task 7 里的表。Swift 部分（Task 5、6）没有编译验证。
+- （已删除一条与事实不符的说明：展开时曾误记「`tests/session.rs::logs_only_when_connected` 在未改动的 `sujian` 上就失败」，实测它是通过的。）
+- 语言模型切卡片文字的效果（`segment_text` 对短句的切分）没量过；切得差时匹配主要靠关键词，App 的卡片编辑页已经提示「不写关键词就按内容自动找」。
+- Asset Catalog 里着色图标的 `appearances` 写法依赖 Xcode 16 以上；低版本 Xcode 会忽略暗色 / 着色两张。
+- `xcodebuild -scheme QingjianCloud … test` 依赖 Xcode 自动生成的 scheme 带上测试 target（账号计划里只用过 `build`）；若报「scheme 没有测试动作」，在 `project.yml` 顶层加 `schemes: QingjianCloud: { build: { targets: { QingjianCloud: all } }, test: { targets: [QingjianCloudTests] } }` 再 `xcodegen generate`。
+
+## 自查
+
+- **大纲每条都有步骤：**
+  - Task 1：`Scene` / `ScopedLearner` / `OVERLAY_WEIGHT` / `open` / 全部 22 个方法（Step 5，与「展开前核实」第 2 条的表一一对应）/ 五个指定测试（Step 1，外加计数类、坏 id、`ScopeState` 三个）/ `Context`、`UserNgram` 的核实（展开前核实第 1 条）/ clippy（Step 8）。
+  - Task 2：`MemoryStore` 七个方法（Step 6）/ serde 字段名与 spec 一致（Step 5）/ `getrandom` 16 字节 id（Step 1、5）/ 复用 `cloud_config` 原子写与写锁（Step 2）/ 坏文件改名 `.broken-<秒>` 加 `tracing::warn!`（Step 6 `read_json`）/ 数据保护在 Swift（Task 6 Step 3）/ 五类测试（Step 3：往返、8 个上限且日常不计、forget 删目录、坏 JSON、两个线程各 50 次）。
+  - Task 3：`Hint` / `HintReason` / `HintIndex::build` / `match_text` / `today` / `dismiss`（Step 5）/ 停用词表 100 个随代码提交（Step 3）/ 两字以上、排序、10 分钟、当天（Step 5）/ 0–3 天与四种称呼（Step 5）/ 北京时间（`LocalDate`，Task 2）/ 六类测试（Step 1）。
+  - Task 4：`Session::open` 用 `ScopedLearner`（Step 5）/ 四个上屏路径喂 24 字缓冲（Step 5）/ 8 个 C 函数（Step 6）与头文件（Step 7）/ `catch_unwind` 与空指针、非法 UTF-8（`with` 与 `path_arg`）/ `learner_mut()` 作废缓存、重建索引、写 `state.json`（Step 4 `set_scope` / `switch_layers`）/ 私密恒 NULL（`memory_hint`）/ 按修改时间重载（`poll_memory`）/ 五类测试加头文件核对（Step 1）。
+  - Task 5：牌子 / 选择面板 / 提示行（0.2 秒、高度加一行）/ `ContactCardPanel` / 「记一笔」/ 没开完全访问的提示（Step 1–7）/ 构建与截图对照（Step 8–10）。
+  - Task 6：首页、详情、`CardEditor`、`ContactEditor`、`ContactSettingsView`、`WeekView`、`MemoryStore`（Step 3–7）/ Tab 化（Step 8）/ 品牌名与三套图标（Step 9）/ 三类测试（Step 1，外加缺省字段、提示解码、提醒模板、本周挑卡、id 格式）/ 截图对照（Step 11）。
+  - Task 7：回放比较 2 / 4 / 8（Step 1–3，展开时已实测一遍）/ 写进常数与 design.md（Step 3–4）/ README 与 fork-patch（Step 5）。
+- **名字前后一致：** `ScopedLearner::{open, open_with_weight, handle, OVERLAY_WEIGHT}`、`ScopeHandle::switch`、`ScopeState { scene, contact_id, hints, reminders }`、`scene_name` / `parse_scene` / `is_contact_id` / `scene_learning_dir` / `contact_learning_dir` / `load_layer`；
+  `MemoryStore::{open, root, contacts, put_contact, forget_contact, cards, put_cards, state, put_state, snapshot, write_snapshot, stamp}`、`MemorySnapshot { contacts, cards, state, broken }`、`MemoryError::{ContactLimit, Invalid, Io}` 与 `code / message / to_json`、`LocalDate::{from_unix, today, from_ymd, parse, days_until, add_days, ymd}`；
+  `HintIndex::{build, match_text, today, dismiss}`、`Hint { card_id, text, reason, more }`、`RecentText::{push_str, text, clear}`、`panel_cards`、`reminder_text`；
+  `Session::{set_scope, scope, memory_hint, dismiss_hint, memory_cards, memory_note}` 与内部的 `note_committed / update_hint / rebuild_hints / poll_memory / switch_layers`；
+  Swift 的 `Engine.{scope, setScope, memoryHint, dismissHint, memoryCards, memoryNote}`、`KeyboardModel.{hint, scope, contacts, noteDraft, panelCards, clipboardHasText, fullAccess, currentContact, canNote, openScopePicker, chooseScope, openContactCard, acknowledgeHint, startNote, confirmNote, cancelNote}`、`MemoryStore.{snapshot, message, people, contact, cards(of:), reload, replace, update, addContact, saveContact, forget, saveCard, deleteCard, setHints, setReminders, upcoming(within:now:), exportText}`——各任务里的用法都按这里。
+- **没有占位：** 全文没有 TBD / TODO / 「类似 Task N」；Task 7 Step 4 的 `<回放表>`、`<权重>` 是执行时由 Step 2、3 的输出填的数据，不是待补的设计。
