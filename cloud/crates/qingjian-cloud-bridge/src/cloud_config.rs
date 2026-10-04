@@ -1,0 +1,124 @@
+//! 键盘连青简 Cloud 的配置（`cloud.toml`，在 App Group 里）：服务器地址、登录得到的会话令牌与四个功能开关。
+//! 地址构建时写进随包的种子；令牌只由登录写入（见 `account`），退出登录、删账号时清空；
+//! 开关跟着服务器上的同意记录走，缺省全关。没有这个文件、地址为空或没登录，键盘就完全离线。
+
+use std::path::Path;
+
+use qingjian_cloud_proto::{Consents, TOKEN_PREFIX};
+use serde::{Deserialize, Serialize};
+
+/// `cloud.toml` 里没写地址时用的服务器。
+pub const DEFAULT_SERVER: &str = "https://pinyin.synon.ai";
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CloudConfig {
+    /// 服务器地址，构建时写进随包的 `cloud.toml`。
+    pub server: String,
+
+    /// 登录得到的会话令牌（`sjt_` 开头）。旧版的设备令牌（`qjc_`）已作废，当没登录。
+    pub token: String,
+
+    /// 用服务器的大模型：润色，以及 `config.toml` 里 `[predict]` 开着时的云联想（服务器上的 `llm`）。
+    pub llm: bool,
+
+    /// 记输入日志并上传（服务器上的 `input_log`）。
+    pub logs: bool,
+
+    /// 与别的设备同步学习数据与 `config.toml`（服务器上的 `sync`）。
+    pub sync: bool,
+
+    /// 跨设备剪贴板（服务器上的 `clipboard`）。
+    pub clipboard: bool,
+}
+
+impl CloudConfig {
+    /// 键盘用：读不了、格式不对、没地址或没登录都当没配置，键盘照常离线用。
+    pub fn load(path: &Path) -> Option<Self> {
+        let config = Self::read(path)?;
+        (!config.server.trim().is_empty() && config.signed_in()).then_some(config)
+    }
+
+    /// 原样读出（没登录也读），读不了返回 `None`。
+    pub fn read(path: &Path) -> Option<Self> {
+        let text = std::fs::read_to_string(path).ok()?;
+        toml::from_str(&text)
+            .inspect_err(|error| tracing::warn!(%error, "cloud.toml 格式不对，按离线用"))
+            .ok()
+    }
+
+    pub fn signed_in(&self) -> bool {
+        self.token.trim().starts_with(TOKEN_PREFIX)
+    }
+
+    /// 去掉末尾的 `/`；没写地址时用 [`DEFAULT_SERVER`]。
+    pub fn server_or_default(&self) -> String {
+        let server = self.server.trim().trim_end_matches('/');
+        if server.is_empty() {
+            DEFAULT_SERVER.to_owned()
+        } else {
+            server.to_owned()
+        }
+    }
+
+    pub fn consents(&self) -> Consents {
+        Consents {
+            clipboard: self.clipboard,
+            sync: self.sync,
+            input_log: self.logs,
+            llm: self.llm,
+        }
+    }
+
+    pub fn set_consents(&mut self, consents: Consents) {
+        self.clipboard = consents.clipboard;
+        self.sync = consents.sync;
+        self.logs = consents.input_log;
+        self.llm = consents.llm;
+    }
+
+    /// 登录成功：写入地址、令牌与服务器上的开关。
+    pub fn store_session(
+        path: &Path,
+        server: &str,
+        token: &str,
+        consents: Consents,
+    ) -> Result<(), String> {
+        let mut config = Self::read(path).unwrap_or_default();
+        config.server = server.to_owned();
+        config.token = token.to_owned();
+        config.set_consents(consents);
+        config.save(path)
+    }
+
+    /// 服务器上的开关变了：只改开关，地址与令牌不动。
+    pub fn store_consents(path: &Path, consents: Consents) -> Result<(), String> {
+        let mut config = Self::read(path).unwrap_or_default();
+        config.set_consents(consents);
+        config.save(path)
+    }
+
+    /// 退出登录、删账号、令牌失效：清掉令牌与开关，地址留着。没有文件也算成功。
+    pub fn clear_session(path: &Path) -> Result<(), String> {
+        let Some(mut config) = Self::read(path) else {
+            return Ok(());
+        };
+        config.token.clear();
+        config.set_consents(Consents::default());
+        config.save(path)
+    }
+
+    /// 整份写回（这份文件只有这几项，不用保留注释）。
+    pub fn save(&self, path: &Path) -> Result<(), String> {
+        let text = toml::to_string(self).map_err(|e| e.to_string())?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(path, text).map_err(|e| e.to_string())
+    }
+
+    /// 大模型代理的接口地址（OpenAI 兼容，不含 `/chat/completions`）。
+    pub fn llm_base_url(&self) -> String {
+        format!("{}/v1", self.server_or_default())
+    }
+}

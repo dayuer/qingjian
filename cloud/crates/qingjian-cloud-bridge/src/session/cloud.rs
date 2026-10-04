@@ -27,17 +27,18 @@ impl Session {
                 user_dir.join("cloud/clipboard.json"),
             ));
         }
-        if let (true, Some(user_dir)) = (cloud.sync, &self.user_dir) {
+        // 学习数据与设置跟 `sync` 走，输入日志跟 `logs` 走：服务器上是两个独立的开关
+        if let (true, Some(user_dir)) = (cloud.sync || cloud.logs, &self.user_dir) {
             let started = DataSync::start(DataSyncConfig {
                 server: cloud.server.clone(),
                 token: cloud.token.clone(),
                 ime_dir: user_dir.clone(),
                 state_dir: user_dir.join("cloud"),
-                sync_learning: true,
+                sync_learning: cloud.sync,
                 // config.toml 与 Mac 同步（模糊音、短语、词库开关……）；输入日志上传给纠错闭环，别的设备的不下载
                 sync_logs: cloud.logs,
                 log_download_dir: None,
-                sync_config: true,
+                sync_config: cloud.sync,
             });
             match started {
                 Ok(sync) => self.data_sync = Some(sync),

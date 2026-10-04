@@ -3,6 +3,7 @@
 //! 头文件在 `include/qingjian_bridge.h`，改了这里的签名要同步改它。约定：
 //! 返回 `char *` 的函数交出所有权，调用方用 [`qj_string_free`] 释放；会话指针只在一个线程（主线程）上用。
 
+mod account;
 mod clipboard;
 mod cloud_config;
 mod entry;
@@ -16,8 +17,9 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
+pub use self::account::AccountStatus;
 pub use self::clipboard::{ClipOffer, Clipboard};
-pub use self::cloud_config::{CloudConfig, CloudStatus, CloudSwitches};
+pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::rewrite::{RewriteState, Rewriter};
@@ -443,41 +445,6 @@ pub unsafe extern "C" fn qj_settings_write(
     }
 }
 
-/// 读 `cloud.toml` 给设置页：服务器地址、配没配好与各开关的 JSON（[`CloudStatus`]），令牌不返回。
-///
-/// # Safety
-/// `path` 是有效的 UTF-8 C 字符串。
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_cloud_config_read(path: *const c_char) -> *mut c_char {
-    let Some(path) = (unsafe { path_arg(path) }) else {
-        return ptr::null_mut();
-    };
-    let config = CloudConfig::read(Path::new(path)).unwrap_or_default();
-    serde_json::to_string(&CloudStatus::of(&config)).map_or(ptr::null_mut(), |json| owned(&json))
-}
-
-/// 把设置页的开关（[`CloudSwitches`] 的 JSON）写回 `cloud.toml`，地址与令牌不动；成功返回空，失败返回原因。
-/// 键盘下次弹出时生效。
-///
-/// # Safety
-/// 两个参数都是有效的 UTF-8 C 字符串。
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_cloud_config_write(
-    path: *const c_char,
-    json: *const c_char,
-) -> *mut c_char {
-    let (Some(path), Some(json)) = (unsafe { path_arg(path) }, unsafe { path_arg(json) }) else {
-        return owned("参数无效");
-    };
-    let written = serde_json::from_str::<CloudSwitches>(json)
-        .map_err(|e| e.to_string())
-        .and_then(|switches| CloudConfig::save_switches(Path::new(path), switches));
-    match written {
-        Ok(()) => ptr::null_mut(),
-        Err(error) => owned(&error),
-    }
-}
-
 /// # Safety
 /// `text` 来自本库返回的 `char *` 且之后不再使用；可为空。
 #[unsafe(no_mangle)]
@@ -497,12 +464,12 @@ fn with<T>(session: *mut Session, fallback: T, f: impl FnOnce(&mut Session) -> T
 }
 
 /// 文字里不会有 NUL（候选与拼音都来自词库），万一有就截到 NUL 前。
-fn owned(text: &str) -> *mut c_char {
+pub(crate) fn owned(text: &str) -> *mut c_char {
     let text = text.split('\0').next().unwrap_or_default();
     CString::new(text).map_or(ptr::null_mut(), CString::into_raw)
 }
 
-unsafe fn path_arg<'a>(raw: *const c_char) -> Option<&'a str> {
+pub(crate) unsafe fn path_arg<'a>(raw: *const c_char) -> Option<&'a str> {
     if raw.is_null() {
         return None;
     }

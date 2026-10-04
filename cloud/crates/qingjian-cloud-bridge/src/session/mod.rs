@@ -75,10 +75,9 @@ impl Session {
                 Err(error) => tracing::warn!(%error, "语言模型加载失败，使用词频整句"),
             }
         }
-        // 只在连了青简 Cloud 且要上传时记日志：离线用户的输入不落任何日志
+        // 只在登录了且开了「上传输入日志」时记日志：离线或没开的用户，输入不落任何日志
         if let (Some(dir), Some(cloud)) = (user_dir, &cloud)
             && cloud.logs
-            && cloud.sync
         {
             engine =
                 engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
