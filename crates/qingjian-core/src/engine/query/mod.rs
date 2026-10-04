@@ -6,6 +6,7 @@ mod code;
 mod converting;
 mod english_tail;
 mod generating;
+pub(in crate::engine) mod left_context;
 mod lookup;
 mod modes;
 mod phonetic;

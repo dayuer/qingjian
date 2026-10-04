@@ -144,6 +144,8 @@ impl Engine {
         // `ba` 在「做了」后面出 吧、句首出 把
         let log_total = (self.total_frequency() as f64).max(1.0).ln();
         let letters = choice_key(scope, scope.len());
+        // 上下文：链上的上一个词，链空着就是宿主前文末尾的词（素笺分叉，见 query/left_context.rs）
+        let context = self.word_context();
         ranking::rank(&mut scored, MAX_CANDIDATES, |item| {
             let hit = &item.hit;
             // 纠错生效时覆盖的是纠正后的字母，换算回原串再查「这个输入串下选过什么」
@@ -156,7 +158,7 @@ impl Engine {
             let log_prob = sentence::transition_log_prob(
                 &*self.language_model,
                 self.personal(),
-                self.chain.context(),
+                context.context(),
                 hit.text,
                 sentence::fallback_log_prob(hit.frequency, log_total),
             );
