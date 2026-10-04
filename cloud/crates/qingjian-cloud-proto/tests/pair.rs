@@ -272,3 +272,12 @@ fn format_pair_code_inserts_the_hyphen() {
         "K7P2-9QXM"
     );
 }
+
+#[test]
+fn unknown_event_type_decodes_instead_of_failing_the_stream() {
+    let event: Event = serde_json::from_value(json!({
+        "seq": 0, "device": "iPhone", "at": 3, "type": "space_renamed", "name": "家里"
+    }))
+    .expect("不认识的事件类型要能解析，事件流才不会断");
+    assert_eq!(event.kind, EventKind::Unknown);
+}
