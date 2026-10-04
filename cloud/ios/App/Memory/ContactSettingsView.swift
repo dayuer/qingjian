@@ -1,7 +1,7 @@
-// 对象设置（02 的 1d）：名字、所在场景（只显示，不能改：换场景要忘掉再加）、称呼、这个人的两个提示开关（按人，只对 TA 生效）、
-// 导出记忆、忘掉这个人（.alert 确认一次，桥连对象目录一起删）。工作场景的人不出提示与提醒，开关下面写明。
+// 对象设置（02 的 1d）：名字与「在键盘上显示为」（代号，空着就显示名字）、所在场景（只显示，不能改：换场景要忘掉再加）、称呼、
+// 这个人的两个提示开关（按人，只对 TA 生效）、导出记忆、忘掉这个人（底部弹层确认一次，桥连对象目录一起删）。工作场景的人不出提示与提醒，开关下面写明。
 // 每一项改了就交给后台写；写的时候界面先按改后的显示（pending），存不上就弹回 store 里的原样并弹原因。
-// 「忘掉」等确认框收起后才执行：在按钮回调里直接写，失败提示会撞上确认框的收起动画弹不出来（"already presenting"），变成静默失败。
+// 「忘掉」等弹层收起后（.sheet 的 onDismiss）才执行：在按钮回调里直接写，失败提示会撞上弹层的收起动画弹不出来（"already presenting"），变成静默失败。
 
 import SwiftUI
 
@@ -12,12 +12,15 @@ struct ContactSettingsView: View {
 
     @State private var name = ""
 
+    @State private var displayName = ""
+
     @State private var confirmingForget = false
+
+    /// 弹层里点了「忘掉」，等它收起后执行。
+    @State private var forgetChosen = false
 
     /// 正在保存的这一版；保存结束后清掉，回到读 store。
     @State private var pending: MemoryContact?
-
-    /// 确认框里点了「忘掉」，等它收起后执行。
 
     var body: some View {
         Form {
@@ -29,29 +32,42 @@ struct ContactSettingsView: View {
                     .disabled(!store.canEdit || store.saving)
             }
         }
-        .alert("忘掉\(store.contact(contactId)?.name ?? "")？", isPresented: $confirmingForget) {
-            // 在按钮的 action 里起写入：alert 此时已决定收起，写入是异步的，失败提示等写完才置，不靠猜动画时长
-            Button("忘掉", role: .destructive) { Task { await store.forget(contactId) } }
-            Button("再想想", role: .cancel) {}
-        } message: {
-            Text("\(store.contact(contactId)?.name ?? "")的所有记忆会从这台手机上删除，无法恢复")
+        .sheet(isPresented: $confirmingForget, onDismiss: forgetIfChosen) {
+            if let contact = store.contact(contactId) {
+                ForgetContactSheet(
+                    name: contact.name, knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count
+                ) { forgetChosen = true }
+            }
         }
         // 成功后首页看到名单变了，会把这个人的详情与设置页一起退掉（MemoryHomeView）
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { name = store.contact(contactId)?.name ?? "" }
-        .onDisappear { saveName() }
+        .onAppear {
+            name = store.contact(contactId)?.name ?? ""
+            displayName = store.contact(contactId)?.displayName ?? ""
+        }
+        .onDisappear { saveTexts() }
     }
 
     @ViewBuilder
     private func sections(_ contact: MemoryContact) -> some View {
         Section {
-            TextField("名字或代号", text: $name)
-                .onSubmit { saveName() }
-        } header: {
-            Text("名字")
+            LabeledContent("名字") {
+                TextField("名字", text: $name)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit { saveTexts() }
+            }
+            LabeledContent("在键盘上显示为") {
+                TextField(name.isEmpty ? contact.name : name, text: $displayName)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit { saveTexts() }
+                    .onChange(of: displayName) { _, value in
+                        let clamped = String(value.prefix(MemoryDetailText.maxDisplayNameChars))
+                        if clamped != value { displayName = clamped }
+                    }
+            }
         } footer: {
-            Text("名字只保存在这台手机上。")
+            Text("名字只保存在这台手机上。键盘上可以改用代号。")
         }
         Section {
             LabeledContent("所在场景", value: MemoryScope.title(of: contact.scene))
@@ -104,22 +120,34 @@ struct ContactSettingsView: View {
             })
     }
 
-    private func saveName() {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// 名字与代号一起收拾、一起写：分两次写的话，第二次读到的还是旧名字，会把第一次改的盖掉。
+    /// 名字空着就退回原来的；代号空着或和名字一样就不存（键盘上显示名字）。
+    private func saveTexts() {
         guard var next = store.contact(contactId) else { return }
-        guard !trimmed.isEmpty else {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
             name = next.name
-            return
+        } else {
+            next.name = trimmed
         }
-        guard trimmed != next.name else { return }
-        next.name = trimmed
+        next.displayName = MemoryDetailText.displayName(displayName, name: next.name)
+        guard next != store.contact(contactId) else { return }
         save(next)
+    }
+
+    private func forgetIfChosen() {
+        guard forgetChosen else { return }
+        forgetChosen = false
+        Task { await store.forget(contactId) }
     }
 
     private func save(_ next: MemoryContact) {
         pending = next
         Task {
-            if !(await store.saveContact(next)) { name = store.contact(contactId)?.name ?? next.name }
+            if !(await store.saveContact(next)) {
+                name = store.contact(contactId)?.name ?? next.name
+                displayName = store.contact(contactId)?.displayName ?? ""
+            }
             pending = nil
         }
     }
