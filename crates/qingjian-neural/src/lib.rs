@@ -7,6 +7,7 @@
 //! 缺省 CPU；`metal` feature 走 Apple GPU。
 
 mod config;
+mod continuation;
 mod core_scorer;
 mod error;
 mod model;

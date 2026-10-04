@@ -91,6 +91,19 @@ fn run() -> Result<(), CliError> {
         print!("{report}");
         return Ok(());
     }
+    if !args.eval_continuation.is_empty() {
+        let path = args.neural.as_ref().expect("required by clap");
+        let scorer = qingjian_neural::CharScorer::load(path)?;
+        if scorer.vocab().sep().is_some() {
+            return Err(qingjian_neural::NeuralError::Corrupt(
+                "--eval-continuation expects Hanzhang Zhiwei (a character LM without <sep>)",
+            )
+            .into());
+        }
+        let report = eval::continuation::run(&scorer, &args.eval_continuation)?;
+        print!("{report}");
+        return Ok(());
+    }
     if let Some(path) = &args.eval_context {
         let report = eval::context::run(
             &mut engine,
