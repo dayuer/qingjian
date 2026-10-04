@@ -6,10 +6,13 @@
 
 import Foundation
 import Observation
+import os
 
 @MainActor
 @Observable
 final class KeyboardModel {
+    private static let log = Logger(subsystem: "app.qingjian.cloud.keyboard", category: "memory")
+
     private(set) var preedit = ""
 
     private(set) var candidates: [CandidateItem] = []
@@ -394,7 +397,11 @@ final class KeyboardModel {
         guard let text = noteDraft, let id = scope.contactId else { return }
         noteDraft = nil
         // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
-        if engine?.memoryNote(id, text: text) == nil {
+        let failure = engine?.memoryNote(id, text: text)
+        // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记卡片文字
+        let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
+        Self.log.info("记一笔 \(outcome, privacy: .public)")
+        if failure == nil {
             noteDone = true
             noteDoneTask?.cancel()
             noteDoneTask = Task { @MainActor [weak self] in
