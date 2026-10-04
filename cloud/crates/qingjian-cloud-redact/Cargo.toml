@@ -1,0 +1,16 @@
+[package]
+name = "qingjian-cloud-redact"
+description = "素笺素材的规则层脱敏：手机号、座机、证件号、卡号、邮箱、链接、地址；客户端与服务端共用"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+regex = "1.13.1"
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
