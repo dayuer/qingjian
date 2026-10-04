@@ -69,6 +69,7 @@ pub fn has_date(kind: CardKind) -> bool {
 
 /// 当前对象必须在名单上、且是当前场景的人，否则退回不指定；`last` 里去掉不在名单上（被忘掉了）或场景对不上的人，
 /// 再记下当前场景的这次选择（不指定就去掉这个场景的记录）。旧 state.json 没有 `last`，当前的恋爱对象就这样补进去。
+/// `used` 里不在名单上的人也去掉。
 pub(crate) fn sanitized_scope(mut state: ScopeState, contacts: &[Contact]) -> ScopeState {
     let belongs = |id: &str, scene: Scene| contacts.iter().any(|c| c.id == id && c.scene == scene);
     if !state
@@ -79,6 +80,9 @@ pub(crate) fn sanitized_scope(mut state: ScopeState, contacts: &[Contact]) -> Sc
         state.contact_id = None;
     }
     state.last.retain(|scene, id| belongs(id, *scene));
+    state
+        .used
+        .retain(|id, _| contacts.iter().any(|c| &c.id == id));
     match &state.contact_id {
         Some(id) => {
             state.last.insert(state.scene, id.clone());

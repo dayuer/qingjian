@@ -271,9 +271,11 @@ fn scope_state_defaults() {
         scene: Scene::Daily,
         contact_id: Some(A.to_owned()),
         last: [(Scene::Daily, A.to_owned()), (Scene::Dating, B.to_owned())].into(),
+        used: [(A.to_owned(), 1_791_043_200)].into(),
     };
     let json = serde_json::to_value(&state).unwrap();
     assert_eq!(json["last"]["dating"], B, "last 按场景名存");
+    assert_eq!(json["used"][A], 1_791_043_200);
     assert_eq!(serde_json::from_value::<ScopeState>(json).unwrap(), state);
 }
 

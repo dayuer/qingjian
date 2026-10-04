@@ -152,6 +152,12 @@ fn switching_scene_without_a_contact_returns_to_the_last_pick() {
     assert_eq!(scope["contact_id"], Value::Null, "工作还没选过人");
     assert_eq!(scope["last"]["dating"], DATING);
     assert_eq!(scope["last"]["daily"], DAILY);
+    assert!(
+        scope["used"][DAILY]
+            .as_i64()
+            .is_some_and(|at| at > 1_700_000_000),
+        "选中时记下了时间：{scope}"
+    );
     set_scope(session, "dating", None);
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],

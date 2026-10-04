@@ -1,4 +1,4 @@
-//! `memory/state.json`：键盘当前的场景与对象，以及各场景上次选的人（键盘写，App 不改）。提示开关在各个对象上（`Contact`），不在这里。
+//! `memory/state.json`：键盘当前的场景与对象、各场景上次选的人、各人上次被选的时间（键盘写，App 不改）。提示开关在各个对象上（`Contact`），不在这里。
 
 use std::collections::BTreeMap;
 
@@ -15,6 +15,9 @@ pub struct ScopeState {
 
     /// 各场景上次选的人：切场景不指定人时回到这里记的。旧文件没有这个字段，读时由 `sanitized_scope` 按当前对象补上。
     pub last: BTreeMap<Scene, String>,
+
+    /// 对象 id → 上次在键盘里选中这个人的 Unix 秒（选择面板的「今天 / 3 天前」）；旧文件没有时为空。
+    pub used: BTreeMap<String, i64>,
 }
 
 impl Default for ScopeState {
@@ -23,6 +26,7 @@ impl Default for ScopeState {
             scene: Scene::Daily,
             contact_id: None,
             last: BTreeMap::new(),
+            used: BTreeMap::new(),
         }
     }
 }

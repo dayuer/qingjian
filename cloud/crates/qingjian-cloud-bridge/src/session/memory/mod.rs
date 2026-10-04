@@ -32,7 +32,7 @@ impl Session {
             return;
         };
         let mut deferred = false;
-        let next = match memory.store.update_scope(scene, pick) {
+        let next = match memory.store.update_scope(scene, pick, now_unix()) {
             Ok(state) => {
                 memory.pending.take_scope();
                 state
@@ -226,7 +226,7 @@ impl Session {
                 .1
                 .clone()
                 .map_or(ContactPick::Nobody, ContactPick::Contact);
-            match memory.store.update_scope(scope.0, &pick) {
+            match memory.store.update_scope(scope.0, &pick, now_unix()) {
                 Ok(state) => {
                     moved = state.scene != memory.state.scene
                         || state.contact_id != memory.state.contact_id;
