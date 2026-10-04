@@ -9,6 +9,7 @@ use qingjian_core::sentence::SentenceScorer;
 use qingjian_neural::{CharScorer, NeuralError, P2cScorer};
 
 mod rescore_monitor;
+mod word_model;
 
 pub(super) use rescore_monitor::RescoreMonitor;
 
@@ -18,6 +19,8 @@ impl Host {
     /// 在后台线程加载模型并预热（第一次前向要编译 Metal 内核，几百毫秒），加载完由 [`Self::attach_loaded_model`] 接上。
     /// 没有模型文件就什么都不做。
     pub(super) fn load_local_model(&mut self) {
+        // 知微（素笺）：按 `[model] scorers` 加载或卸掉，与通变各管各的
+        self.load_word_model();
         if self.model_loader.is_some() || self.engine.has_sentence_scorer() {
             return;
         }
@@ -70,15 +73,20 @@ impl Host {
 
     /// 加载线程有结果了就接到 Engine 上；每次查询和加载定时器都会看一眼，不阻塞。
     pub fn attach_loaded_model(&mut self) {
+        let word_loading = self.attach_loaded_word_model();
         let Some(rx) = &self.model_loader else {
-            self.rescore.stop_watching();
+            if !word_loading {
+                self.rescore.stop_watching();
+            }
             return;
         };
         match rx.try_recv() {
             Ok(Ok(scorer)) => {
                 self.engine.set_async_sentence_scorer(Some(scorer));
                 self.model_loader = None;
-                self.rescore.stop_watching();
+                if !word_loading {
+                    self.rescore.stop_watching();
+                }
                 // 模型上线了：日志里补一条会话信息，之后的条目知道重排开着
                 let version = self.version.clone();
                 self.engine.log_session(&version, "macos");
@@ -87,12 +95,16 @@ impl Host {
             Ok(Err(error)) => {
                 tracing::warn!(%error, "本地模型加载失败，不重排");
                 self.model_loader = None;
-                self.rescore.stop_watching();
+                if !word_loading {
+                    self.rescore.stop_watching();
+                }
             }
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {
                 self.model_loader = None;
-                self.rescore.stop_watching();
+                if !word_loading {
+                    self.rescore.stop_watching();
+                }
             }
         }
     }
@@ -115,6 +127,7 @@ impl Host {
 
     /// 卸掉模型（配置关掉）。
     pub(super) fn unload_local_model(&mut self) {
+        self.unload_word_model();
         self.model_loader = None;
         self.engine.set_async_sentence_scorer(None);
         self.rescore.stop_watching();

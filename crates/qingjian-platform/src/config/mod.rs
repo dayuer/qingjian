@@ -11,6 +11,7 @@ mod model;
 mod modifiers;
 mod preedit_mode;
 mod scheme;
+mod scorer_set;
 mod shift_letter;
 mod shortcut;
 mod status_bar;
@@ -45,6 +46,7 @@ pub use model::LocalModelConfig;
 pub use modifiers::Modifiers;
 pub use preedit_mode::PreeditMode;
 pub use scheme::{Scheme, scheme_label};
+pub use scorer_set::ScorerSet;
 pub use shift_letter::ShiftLetter;
 pub use shortcut::ShortcutConfig;
 pub use status_bar::StatusBarConfig;
@@ -308,6 +310,8 @@ disabled = []
 [model]
 # 本地整句模型：随包的小模型在本机给整句候选重新排序，全程离线；停顿后几十毫秒生效。关掉只用词库统计
 enabled = true
+# 加载哪几个模型：both = 通变（整句）+ 知微（按前文排词、本地续写）；tongbian = 只有通变
+scorers = "both"
 
 [predict]
 # 云联想：把光标附近的文本发到下面的接口，让模型补全整句 / 联想下文。默认关闭。
@@ -622,6 +626,14 @@ fn write_file(path: &Path, text: &str) -> Result<(), ConfigError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn model_scorers_parse_and_default_to_both() {
+        let config: Config = toml::from_str("[model]\nscorers = \"tongbian\"\n").unwrap();
+        assert_eq!(config.model.scorers, ScorerSet::Tongbian);
+        assert!(config.model.enabled);
+        assert_eq!(Config::default().model.scorers, ScorerSet::Both);
+    }
 
     #[test]
     fn template_parses_to_defaults() {

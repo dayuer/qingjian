@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::ScorerSet;
+
 /// 配置文件 `[model]` 分节：本地整句模型的开关。
 ///
 /// 随包的字级小模型在本机给整句候选重新排序，全程离线、不联网，与云联想互不影响（本地先出、云端到了另占它自己的格）。
@@ -9,10 +11,16 @@ use serde::{Deserialize, Serialize};
 pub struct LocalModelConfig {
     /// 开着就加载模型、给整句重排。
     pub enabled: bool,
+
+    /// 加载哪几个模型（素笺分叉）。
+    pub scorers: ScorerSet,
 }
 
 impl Default for LocalModelConfig {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            enabled: true,
+            scorers: ScorerSet::default(),
+        }
     }
 }
