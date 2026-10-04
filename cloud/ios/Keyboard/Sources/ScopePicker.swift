@@ -2,13 +2,16 @@
 // 下面 4 列格子是本场景的人（副文字是上次用的时间，选中的灰绿描边、头像换灰绿底；工作场景用中性色）、「不指定」与「新对象 n/8」。
 // 人少时照设计稿竖排格子，多了换横排矮格子（ScopeDisplay.cellStyle）。「新对象」在提示行的位置打名字直接建在当前场景
 // （KeyboardModel.startNamingContact；设计稿写的是跳 App，用户要在键盘里建），称呼先按 TA，详细的在 App 里补。
-// 没开完全访问时读不到 App Group 里的名单，也不让切场景，面板里只有一句说明与「去开启」；桥不知道有没有完全访问，这道门在 Swift 侧。
+// 没开完全访问时读不到 App Group 里的名单，也不让切场景，面板里只有一句说明与「去开启」（点了在面板里展开设置路径，不跳转）；桥不知道有没有完全访问，这道门在 Swift 侧。
 // 「完成」在工具栏右端（IdleBar.panelBar）。
 
 import SwiftUI
 
 struct ScopePicker: View {
     let model: KeyboardModel
+
+    /// 没开完全访问时点了「去开启」，展开设置路径；再点收起。
+    @State private var showsPath = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
 
@@ -25,19 +28,26 @@ struct ScopePicker: View {
             Spacer(minLength: 0)
             Text(ScopeDisplay.needsFullAccessText)
                 .font(.system(size: 15))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(style.explanation.color)
+                .multilineTextAlignment(.center)
             Text("去开启")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(style.buttonText.color)
                 .padding(.horizontal, 14)
                 .frame(height: 32)
                 .overlay(Capsule().stroke(style.buttonStroke.color, lineWidth: 1))
-                .onKeyboardPress { model.showNotice(ScopeDisplay.enableFullAccessNotice) }
-            Text(model.notice ?? " ")
-                .font(.system(size: 12))
-                .foregroundStyle(style.notice.color)
+                .onKeyboardPress { showsPath.toggle() }
+                .accessibilityAddTraits(.isButton)
+            // 不跳转：键盘扩展打不开系统设置，也不许借响应链打开 App，只展开路径文字；占位保持高度不跳。
+            Text(ScopeDisplay.fullAccessPath)
+                .font(.system(size: 13))
+                .foregroundStyle(style.path.color)
+                .multilineTextAlignment(.center)
+                .opacity(showsPath ? 1 : 0)
+                .accessibilityHidden(!showsPath)
             Spacer(minLength: 0)
         }
+        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
     }
 

@@ -6,14 +6,25 @@ import XCTest
 
 final class NoFullAccessStyleTests: XCTestCase {
     func testNoFullAccessScreenHasNoAccent() {
-        XCTAssertFalse(NoFullAccessStyle.standard.roles.contains(.accent))
+        let roles = NoFullAccessStyle.standard.roles
+        XCTAssertFalse(roles.contains(.accent))
+        XCTAssertFalse(roles.contains { $0.isAccent }, "这一屏与对象无关，灰绿三档一个都不能用")
     }
 
     func testButtonIsOutlinedWithNeutralColors() {
         let style = NoFullAccessStyle.standard
         XCTAssertEqual(style.closeText, .ink)
+        XCTAssertEqual(style.explanation, .ink2)
         XCTAssertEqual(style.buttonText, .ink)
         XCTAssertEqual(style.buttonStroke, .ink2)
+        XCTAssertEqual(style.path, .ink)
+    }
+
+    /// 审核指南 4.4.1：不开完全访问时只给说明，「去开启」只展开文字路径（键盘扩展不能跳设置、不能借响应链开 App）。
+    func testNoFullAccessTexts() {
+        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
+        XCTAssertEqual(ScopeDisplay.needsFullAccessText, "开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上")
+        XCTAssertEqual(ScopeDisplay.fullAccessPath, "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问")
     }
 
     func testAccentOnlyOnElementsThatStandForAPerson() {
