@@ -6,6 +6,7 @@
 //! `句子\t拼音\t上文` 三列文件；后者保证不同时间、不同分支比的是同一份句子。
 //! 每句独立：不上屏、不学习，只把这句在原文里的上文写进输入历史给整句转换用。
 
+pub mod context;
 pub mod coverage;
 mod extract;
 pub mod generate;

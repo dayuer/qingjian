@@ -43,20 +43,33 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && ln -s /Users/liyuqing/s
 
 ### 评测命令
 
+CLI 缺省读用户的 `config.toml`，里面云联想开着、密钥在输入法进程的 .env 里，CLI 拿不到就退出；评测用一份关掉云联想的副本
+（其余项与用户一致：模糊音、方案、词库开关）：
+
+```bash
+python3 -c "import re,os;s=open(os.path.expanduser('~/Library/Application Support/Qingjian/config.toml'),encoding='utf-8').read();m=re.search(r'(?ms)^\[predict\]\n.*?(?=^\[|\Z)',s);sec=re.sub(r'(?m)^enabled\s*=\s*true','enabled = false',m.group(0));open('/tmp/eval-config.toml','w',encoding='utf-8').write(s[:m.start()]+sec+s[m.end():])"
+```
+
 两套配置都跑：**产品配置**（素笺缺省 `scorers = "both"`：通变排整句 + 知微排词；Task 4 之前还没有 `--word-model`，就只带通变）
 与**对照**（只用通变 = 上游行为）。门槛按产品配置的数字算，对照一起报。
 
-产品配置（Task 4 起加 `--word-model data/models/hanzhang-zhiwei`，之前去掉这一段）：
+产品配置（Task 4 起加 `--word-model data/models/hanzhang-zhiwei`，之前去掉这一段；zsh 不按空格拆变量，参数要写全）：
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian --word-model data/models/hanzhang-zhiwei" && cargo run --release -p qingjian-cli -- $M --eval-context cloud/data/eval/context-pairs.tsv && cargo run --release -p qingjian-cli -- $M --eval-text data/eval/sentences.tsv --misses 0 && cargo run --release -p qingjian-cli -- $M --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0
+cd /Users/liyuqing/sproot/qingjian-context-prediction && for e in "--eval-context cloud/data/eval/context-pairs.tsv" "--eval-text data/eval/sentences.tsv --misses 0" "--replay data/eval/input-log-2026-10-04.jsonl --misses 0"; do eval cargo run --release -q -p qingjian-cli -- --config /tmp/eval-config.toml --neural data/models/hanzhang-tongbian --neural-async --word-model data/models/hanzhang-zhiwei $e; done
 ```
 
 对照（只用通变）：
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian" && cargo run --release -p qingjian-cli -- $M --eval-context cloud/data/eval/context-pairs.tsv && cargo run --release -p qingjian-cli -- $M --eval-text data/eval/sentences.tsv --misses 0 && cargo run --release -p qingjian-cli -- $M --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0
+cd /Users/liyuqing/sproot/qingjian-context-prediction && for e in "--eval-context cloud/data/eval/context-pairs.tsv" "--eval-text data/eval/sentences.tsv --misses 0" "--replay data/eval/input-log-2026-10-04.jsonl --misses 0"; do eval cargo run --release -q -p qingjian-cli -- --config /tmp/eval-config.toml --neural data/models/hanzhang-tongbian --neural-async $e; done
 ```
+
+回放用的输入日志是活的（输入法一直在写），Task 1 冻结了一份到 `data/eval/input-log-2026-10-04.jsonl`（gitignore 的 data/ 下，只在本机），
+之后每个任务都比这一份。
+
+模型都用 `--neural-async`（壳里的接法）：报告里「按键同步部分」只算第一次 `query()`，模型在后台、`settle` 等它回来再查一次；
+同步接法会把模型几十毫秒算进 p99，与壳不符。`--replay` 现在也像 `--eval-text` 一样等异步重排（Task 1 加的）。
 
 门槛（产品配置）：`--eval-context` 有前文首选比基线 **≥ +15 个百分点**；`--eval-text` 首选、`--replay` 「词」首选比基线**下降不超过 0.5 个百分点**；
 `--replay` 与 `--eval-context` 报的**按键同步部分 p99** 不超过基线 +1 ms。任何一项越线：停下，把数字发给审计会话「素笺输入法」，不往下做。
@@ -73,7 +86,7 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && carg
 
 | 任务 | `--eval-context` 有前文 / 无前文 | `--eval-text` 首选 / 字准确率 | `--replay` 词 / 整句 首选 | 同步 p50 / p99 ms（replay） | 备注 |
 |---|---|---|---|---|---|
-| 基线（Task 1） | | | | | |
+| 基线（Task 1，2026-10-04，只有通变） | 40.3% / 40.3% | 37.2% / 78.9% | 87.7% / 72.7% | eval-context 0.1 / 0.6；replay 0.3 / 1.8 | 404 对；期望不在候选 0；连跑两次一致 |
 | Task 2 前文进词级排序 | | | | | |
 | Task 3 choice 改加分 β= | | | | | |
 | Task 4 知微词级重排 λ_w= | | | | | |
@@ -995,6 +1008,8 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo clippy -p qingjia
 - [ ] **Step 8：评测（产品配置 = 对照 = 只有通变）**
 
 跑「评测命令」里对照那条，填 Task 2 行。看「期望不在候选」与没命中例子，是评测集问题就改评测集（单独一个 `test(cli)` 提交）。门槛越线就停下报告。
+**验收另加一条（审计定）**：`--eval-context-details` 里「我现在 → 又想」这类期望是整句（不是词库词）的对，有前文时要命中——前文进了 Viterbi 起点后
+最优路径该变成「又 + 想」，整句候选按现有规则排到最前。把这些对在 details 里挑出来逐条看，没命中的列进报告。
 
 - [ ] **Step 9：记 fork-patch、提交**
 
@@ -1260,7 +1275,7 @@ Expected: 全绿。
 - [ ] **Step 7：扫 β（`--replay` 必须不降）**
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && M="--neural data/models/hanzhang-tongbian" && for b in 0.5 1 2 4; do echo "== choice=$b"; cargo run --release -p qingjian-cli -- $M --tune choice=$b --replay "$HOME/Library/Application Support/Qingjian/input-log.jsonl" --misses 0 | grep '^词'; cargo run --release -p qingjian-cli -- $M --tune choice=$b --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
+cd /Users/liyuqing/sproot/qingjian-context-prediction && for b in 0.5 1 2 4; do echo "== choice=$b"; cargo run --release -q -p qingjian-cli -- --config /tmp/eval-config.toml --neural data/models/hanzhang-tongbian --neural-async --tune choice=$b --replay data/eval/input-log-2026-10-04.jsonl --misses 0 | grep '^词'; cargo run --release -q -p qingjian-cli -- --config /tmp/eval-config.toml --neural data/models/hanzhang-tongbian --neural-async --tune choice=$b --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
 ```
 
 只在 `--replay` 词首选 **≥ 基线**的 β 里挑 `--eval-context` 最好的，写进 `CHOICE_BONUS`；一个都不满足就停下，把四组数字发审计。
@@ -1818,7 +1833,7 @@ Expected: 打出候选，日志有「知微词级重排已启用」。
 - [ ] **Step 9：扫 λ_w**
 
 ```bash
-cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; do echo "== word-weight=$w"; cargo run --release -p qingjian-cli -- --neural data/models/hanzhang-tongbian --word-model data/models/hanzhang-zhiwei --word-weight $w --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
+cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; do echo "== word-weight=$w"; cargo run --release -p qingjian-cli -- --neural data/models/hanzhang-tongbian --neural-async --word-model data/models/hanzhang-zhiwei --word-weight $w --eval-context cloud/data/eval/context-pairs.tsv | grep 对数; done
 ```
 
 取最好的写进 `WORD_NEURAL_WEIGHT`：
