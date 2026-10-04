@@ -37,11 +37,7 @@ impl AccountStatus {
         }
         match Client::new(&status.server, &config.token).account() {
             Ok(account) => {
-                if account.consents != config.consents()
-                    && let Err(reason) = CloudConfig::store_consents(path, account.consents)
-                {
-                    tracing::warn!(%reason, "开关写回 cloud.toml 失败");
-                }
+                super::apply_server_consents(path, account.consents);
                 status.consents = account.consents;
                 status.identities = account.identities;
                 status.sessions = account.sessions;
