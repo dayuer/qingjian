@@ -110,7 +110,6 @@ pub fn convert_with(
         positions,
         keep_partial,
         1,
-        Context::START,
         model,
         personal,
         weight,
@@ -122,21 +121,18 @@ pub fn convert_with(
 }
 
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
-/// `start` 是第一个词的上文（句首给 [`Context::START`]；素笺让宿主前文从这里进来）。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_paths(
     dictionaries: &[&Dictionary],
     positions: &[Vec<SyllablePattern<'_>>],
     keep_partial: bool,
     k: usize,
-    start: Context<'_>,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
 ) -> Vec<Conversion> {
-    let first = start;
     let Some((last, head)) = positions.split_last() else {
         return Vec::new();
     };
@@ -195,16 +191,11 @@ pub fn convert_paths(
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
-                    best_predecessor(&nodes, start, &hit.text, first, model, personal, fallback);
+                    best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
                 let previous = &nodes[start][back];
                 let penalty = previous.penalty + hit.penalty;
-                let static_previous = if start > 0 {
-                    Some(previous.text.as_str())
-                } else {
-                    first.previous
-                };
                 let static_step = model
-                    .log_prob(static_previous, &hit.text)
+                    .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
                     .unwrap_or(fallback);
                 let static_score = previous.static_score + static_step;
                 nodes[end].push(Node {
@@ -226,7 +217,6 @@ pub fn convert_paths(
                 &nodes,
                 start,
                 text,
-                first,
                 &NoModel,
                 Personal::NONE,
                 UNKNOWN_LOG_PROB,
@@ -355,13 +345,10 @@ fn span_candidates(
 
 /// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
 /// 转移概率先问静态模型（不认识就用词库兜底值），再与个人 n-gram 插值；前二词是前驱自己的前驱（回指）。
-/// 第一个词的上文是 `first`（句首或宿主前文末尾的词）。
-#[allow(clippy::too_many_arguments)]
 fn best_predecessor(
     nodes: &[Vec<Node>],
     start: usize,
     word: &str,
-    first: Context<'_>,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
     fallback: f64,
@@ -369,7 +356,7 @@ fn best_predecessor(
     let mut best = (f64::NEG_INFINITY, 0);
     for (index, previous) in nodes[start].iter().enumerate() {
         let context = if start == 0 {
-            first
+            Context::START
         } else {
             Context {
                 previous: Some(previous.text.as_str()),
