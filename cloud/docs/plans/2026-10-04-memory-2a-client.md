@@ -4,7 +4,12 @@
 > 本文件是审计会话给出的**任务大纲**：接口、文件、测试与验收已定死。执行前由客户端会话用 writing-plans 把每个任务展开成逐步的代码与命令（写在本文件各任务下），展开后先发审计会话审一遍再动手。
 > **完成状态（2026-10-04 收尾，`sujian` 1927f4a 之后）：** Task 1–6 已完成：`ScopedLearner`（`OVERLAY_WEIGHT = 4`）、`MemoryStore`（flock + 每对象 rev）、`HintIndex`、Session 与 C 接口、iOS 键盘、iOS App「键盘记住的事」（2655129 等，读写在后台 actor，失败一律有中文提示，数据保护 completeUntilFirstUserAuthentication）。
 > Task 7 只做了文档：本计划已按代码修订；**回放 example（`examples/overlay_replay.rs`）没有提交**，下面 Task 7 的数字是展开时在临时副本里跑的，`OVERLAY_WEIGHT` 仍是 4、未按回放复核；`cloud/docs/design.md`「本地记忆」一节与 `cloud/README.md` 功能清单**未写**。
-> 真机：键盘不开完全访问时能否读到 App 写的卡片（决定完全访问方案）、App 与键盘并发写（Debug「连续保存 20 次」）待用户真机结果。接着做时从 Task 7 的回放 example 起。
+> 真机：App 与键盘并发写（Debug「连续保存 20 次」）待用户真机结果。接着做时从 Task 7 的回放 example 起。
+> **完全访问方案（2026-10-04 真机定）：** 没开完全访问时键盘读不到 App 写进 App Group 的卡片。所以记忆功能（对象、提示行、对象卡、记一笔）要求开完全访问；不开时素笺就是普通输入法，打字照常（满足审核指南 4.4.1：不开完全访问也能用基本功能）。
+> **Task 8（未开始）：没开完全访问时的说明与引导。**
+> - 键盘：没开完全访问时点牌子，显示「开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上」与「去开启」。键盘扩展打不开系统设置、也不许用 responder chain 打开 App，所以「去开启」只展开路径说明（设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问），不跳转。
+> - App：首页「记住的」与首次引导写明同一段话；能从 App 里用 `UIApplication.openSettingsURLString` 跳到素笺的设置页。
+> - 设计稿 05 的 2c、2d 文案由审计会话改，落地时以改后的稿为准；文案进 `ScopeDisplay` / App 的 Wording，单测锁住。
 > **真机并发验证（待做）：** `QJ_CONFIG=Debug cloud/ios/scripts/install-device.sh` 装 Debug 包；App 里对象详情最底下「调试 · 连续保存 20 次」（只在 `#if DEBUG`）。
 > 步骤：开完全访问 → 复制一段字 → 备忘录里用素笺选「恋爱 · 某人」，出现「记到 某人」先别点 → 回 App 点「连续保存 20 次」→ 立刻回备忘录，每复制一段新字点一次「记到」→ 回 App 等脚注「完成 20 次，失败 N 次」。
 > 核对：`idevicesyslog -m 'save #' -m '记一笔'` 看两边笔数，出现一次 `lockBusy=true` 或 `conflicts>0` 即算碰到并发；`xcrun devicectl device copy from --domain-type appGroupDataContainer --domain-identifier group.app.qingjian.cloud --source "Library/Application Support/Qingjian/memory"` 拷回 cards.json，20 张压测卡与键盘记的笔一张不少、rev 单调递增。验完装回 Release。
