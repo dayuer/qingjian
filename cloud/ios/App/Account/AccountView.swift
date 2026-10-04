@@ -24,7 +24,7 @@ struct AccountView: View {
                 Section {
                     LabeledContent("服务器", value: state.server)
                 } footer: {
-                    Text("没登录时键盘完全离线。登录后的功能要在系统设置里给青简打开「允许完全访问」才能联网。")
+                    Text("没登录时键盘完全离线。登录后的功能要在系统设置里给素笺打开「允许完全访问」才能联网。")
                 }
             } else {
                 ProgressView()

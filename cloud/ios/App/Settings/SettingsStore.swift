@@ -1,5 +1,5 @@
 // 设置页的状态：从 App Group 里的 config.toml 读出，改一项写一次。
-// 键盘每次轮询按修改时间重读 config.toml；同一个文件经青简 Cloud 与 Mac 同步，所以打开设置页时重读一遍。
+// 键盘每次轮询按修改时间重读 config.toml；同一个文件经素笺云 与 Mac 同步，所以打开设置页时重读一遍。
 
 import Foundation
 import Observation

@@ -40,7 +40,7 @@ enum ScopeDisplay {
     static func cardFooter(count: Int) -> String { "只显示与今天有关的 \(count) 条" }
 
     /// 键盘扩展没有官方办法打开容器 App，点了只给提示。
-    static let allMemoryNotice = "在素笺 App 里查看全部记忆"
+    static let allMemoryNotice = "打开素笺 App → 记住的"
 
-    static let enableFullAccessNotice = "在素笺 App 里按引导开启完全访问"
+    static let enableFullAccessNotice = "打开素笺 App，按引导开启完全访问"
 }

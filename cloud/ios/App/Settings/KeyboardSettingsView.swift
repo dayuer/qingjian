@@ -1,5 +1,5 @@
 // 键盘设置：拼音方案、模糊音、繁体、全角标点、学习、领域词库、自定义短语。
-// 与 Mac 偏好设置里的同名项写同一个 config.toml，开了青简 Cloud 同步时两边互通。
+// 与 Mac 偏好设置里的同名项写同一个 config.toml，开了素笺云 同步时两边互通。
 
 import SwiftUI
 
@@ -43,7 +43,7 @@ struct KeyboardSettingsView: View {
             Toggle("学习输入习惯", isOn: binding(\.learning))
             Toggle("云联想", isOn: binding(\.cloudPrediction))
         } footer: {
-            Text("关掉学习后不再记新词与词频，已学到的保留。云联想经青简 Cloud 让大模型补候选与整句，和 Mac 是同一个开关。")
+            Text("关掉学习后不再记新词与词频，已学到的保留。云联想经素笺云 让大模型补候选与整句，和 Mac 是同一个开关。")
         }
         if !settings.domains.isEmpty {
             Section("领域词库") {

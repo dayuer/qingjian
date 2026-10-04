@@ -15,8 +15,8 @@ struct SetupView: View {
             Form {
                 Section("启用键盘") {
                     Label("打开「设置 → 通用 → 键盘 → 键盘」", systemImage: "1.circle")
-                    Label("点「添加新键盘…」，选「青简」", systemImage: "2.circle")
-                    Label("打字时长按地球键切到青简", systemImage: "3.circle")
+                    Label("点「添加新键盘…」，选「素笺」", systemImage: "2.circle")
+                    Label("打字时长按地球键切到素笺", systemImage: "3.circle")
                     Button("打开设置") {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
@@ -44,7 +44,7 @@ struct SetupView: View {
                     Text("「完全访问」用于按键震动，以及登录后连接服务器（大模型润色、剪贴板与学习数据同步）。不开也能正常打字；没登录时键盘不联网。")
                 }
             }
-            .navigationTitle("青简")
+            .navigationTitle("素笺")
         }
     }
 }

@@ -1,4 +1,4 @@
-// 主 App 与键盘共用的 App Group 目录：config.toml（设置页写、键盘读、经青简 Cloud 与 Mac 同步）、
+// 主 App 与键盘共用的 App Group 目录：config.toml（设置页写、键盘读、经素笺云 与 Mac 同步）、
 // cloud.toml（连接配置），开了完全访问时学习数据也放这里（没开时键盘写不了共享目录，学习数据留在扩展自己的容器）。
 
 import Foundation

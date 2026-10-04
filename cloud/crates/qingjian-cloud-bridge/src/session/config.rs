@@ -81,7 +81,7 @@ impl Session {
                 ..predict.clone()
             }),
             (true, PredictProvider::Qingjian, _) => {
-                tracing::info!("云联想要青简 Cloud，这台设备没配置或关了大模型");
+                tracing::info!("云联想要素笺云，这台设备没配置或关了大模型");
                 None
             }
         };

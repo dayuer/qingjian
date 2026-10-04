@@ -1,4 +1,4 @@
-// 青简引擎的 Swift 包装：持有 Rust 桥的会话指针，把 C 字符串转成 String。只在主线程上用。
+// 素笺引擎的 Swift 包装：持有 Rust 桥的会话指针，把 C 字符串转成 String。只在主线程上用。
 
 import Foundation
 import QingjianBridge

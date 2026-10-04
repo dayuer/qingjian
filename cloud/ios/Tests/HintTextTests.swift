@@ -84,7 +84,7 @@ final class HintTextTests: XCTestCase {
         XCTAssertEqual(ScopeDisplay.newContactSubtitle(count: 3), "3 / 8")
         XCTAssertEqual(ScopeDisplay.maxContacts, 8)
         XCTAssertEqual(ScopeDisplay.noScopeSubtitle, "只用场景")
-        XCTAssertEqual(ScopeDisplay.allMemoryNotice, "在素笺 App 里查看全部记忆")
-        XCTAssertEqual(ScopeDisplay.enableFullAccessNotice, "在素笺 App 里按引导开启完全访问")
+        XCTAssertEqual(ScopeDisplay.allMemoryNotice, "打开素笺 App → 记住的")
+        XCTAssertEqual(ScopeDisplay.enableFullAccessNotice, "打开素笺 App，按引导开启完全访问")
     }
 }
