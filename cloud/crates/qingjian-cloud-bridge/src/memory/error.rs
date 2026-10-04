@@ -2,13 +2,16 @@
 
 use thiserror::Error;
 
+use qingjian_cloud_proto::Scene;
+
 use super::MAX_CONTACTS;
+use crate::scope::scene_label;
 
 #[derive(Debug, Error)]
 pub enum MemoryError {
-    /// 恋爱场景的对象超过上限。
-    #[error("too many contacts in the dating scene")]
-    ContactLimit,
+    /// 这个场景的对象超过上限（每个场景各自计数）。
+    #[error("too many contacts in the {0:?} scene")]
+    ContactLimit(Scene),
 
     /// 数据不合格；里面是给用户看的原因。
     #[error("invalid memory data")]
@@ -30,7 +33,7 @@ impl MemoryError {
     /// `contact_limit` / `invalid` / `conflict` / `lock_timeout` / `io`，与头文件里写的一致。
     pub fn code(&self) -> &'static str {
         match self {
-            Self::ContactLimit => "contact_limit",
+            Self::ContactLimit(_) => "contact_limit",
             Self::Invalid(_) => "invalid",
             Self::Conflict => "conflict",
             Self::LockTimeout => "lock_timeout",
@@ -40,7 +43,7 @@ impl MemoryError {
 
     pub fn message(&self) -> String {
         match self {
-            Self::ContactLimit => format!("恋爱场景最多 {MAX_CONTACTS} 个人"),
+            Self::ContactLimit(scene) => format!("{}最多 {MAX_CONTACTS} 个人", scene_label(*scene)),
             Self::Invalid(reason) => (*reason).to_owned(),
             Self::Conflict => "记忆刚在键盘里改过，已重新读取".to_owned(),
             Self::LockTimeout => "记忆正被另一处使用，稍后再试".to_owned(),

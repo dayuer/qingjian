@@ -15,43 +15,40 @@ use super::Session;
 use crate::entry::Entry;
 use crate::memory::{
     Card, Contact, Hint, LocalDate, MemoryError, Pronoun, new_id, now_unix, panel_cards,
-    sanitized_scope,
+    sanitized_scope, scope_with,
 };
-use crate::scope::{ScopeState, is_contact_id};
+use crate::scope::{ContactPick, ScopeState, is_contact_id};
 
 use self::pending::PendingNote;
 
 pub(super) use self::live::LiveMemory;
 
 impl Session {
-    /// 切场景与对象：交给 `MemoryStore::update_scope` 在锁里重读 `state.json` 与名单，只改这两个字段。
-    /// 非恋爱场景、磁盘名单上没有的对象都当不指定。读写失败（开机后还没解锁过）就不切，记日志；
-    /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次）稍后重试。
-    pub fn set_scope(&mut self, scene: Scene, contact: Option<&str>) {
+    /// 切场景与对象：交给 `MemoryStore::update_scope` 在锁里重读 `state.json` 与名单，按 `pick` 定对象
+    /// （`Last` 回到这个场景上次选的人）。不是这个场景的人、磁盘名单上没有的对象都当不指定。读写失败（开机后还没解锁过）就不切，记日志；
+    /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次，存的是按内存算好的对象）稍后重试。
+    pub fn set_scope(&mut self, scene: Scene, pick: &ContactPick) {
         let Some(memory) = self.memory.as_mut() else {
             return;
         };
         let mut deferred = false;
-        let next = match memory.store.update_scope(scene, contact) {
+        let next = match memory.store.update_scope(scene, pick) {
             Ok(state) => {
                 memory.pending.take_scope();
                 state
             }
             Err(MemoryError::LockTimeout) => {
                 deferred = true;
-                memory.pending.set_scope(scene, contact.map(str::to_owned));
-                let wanted = ScopeState {
-                    scene,
-                    contact_id: contact.map(str::to_owned),
-                };
-                sanitized_scope(wanted, &memory.contacts)
+                let wanted = scope_with(memory.state.clone(), scene, pick, &memory.contacts);
+                memory.pending.set_scope(scene, wanted.contact_id.clone());
+                wanted
             }
             Err(error) => {
                 tracing::warn!(%error, "切场景没写进 state.json，不切");
                 return;
             }
         };
-        let moved = next != memory.state;
+        let moved = next.scene != memory.state.scene || next.contact_id != memory.state.contact_id;
         memory.state = next;
         if moved {
             self.switch_layers(deferred);
@@ -64,13 +61,13 @@ impl Session {
     }
 
     /// 提示行要显示的：日子提醒优先，其次是匹配提示，各按当前对象的两个开关。
-    /// 私密输入、非恋爱场景、没选对象时没有。
+    /// 私密输入、工作场景、没选对象时没有。
     pub fn memory_hint(&self) -> Option<&Hint> {
         if self.engine.is_private() {
             return None;
         }
         let memory = self.memory.as_ref()?;
-        if !memory.has_contact() {
+        if !memory.shows_hints() {
             return None;
         }
         let contact = memory.contact()?;
@@ -165,12 +162,13 @@ impl Session {
         Ok(())
     }
 
-    /// 键盘里新建一个恋爱场景的对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录；
-    /// 键盘只等 200 毫秒的锁，拿不到就报 `LockTimeout` 让用户再点一次（新建是一次性的确认，不进待办）。
+    /// 键盘里在 `scene` 新建一个对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录，
+    /// 这个场景满 8 个时报 `ContactLimit(scene)`；键盘只等 200 毫秒的锁，拿不到就报 `LockTimeout` 让用户再点一次（新建是一次性的确认，不进待办）。
     pub fn memory_add_contact(
         &mut self,
         name: &str,
         pronoun: Pronoun,
+        scene: Scene,
     ) -> Result<String, MemoryError> {
         let Some(memory) = self.memory.as_mut() else {
             return Err(MemoryError::Invalid("这个键盘没有记忆目录"));
@@ -184,7 +182,7 @@ impl Session {
             id: id.clone(),
             name: name.to_owned(),
             pronoun,
-            scene: Scene::Dating,
+            scene,
             created_at: now_unix(),
             hint_on: true,
             remind_on: true,
@@ -224,9 +222,14 @@ impl Session {
         }
         let mut moved = false;
         if !blocked && let Some(scope) = memory.pending.take_scope() {
-            match memory.store.update_scope(scope.0, scope.1.as_deref()) {
+            let pick = scope
+                .1
+                .clone()
+                .map_or(ContactPick::Nobody, ContactPick::Contact);
+            match memory.store.update_scope(scope.0, &pick) {
                 Ok(state) => {
-                    moved = state != memory.state;
+                    moved = state.scene != memory.state.scene
+                        || state.contact_id != memory.state.contact_id;
                     memory.state = state;
                 }
                 Err(error @ (MemoryError::LockTimeout | MemoryError::Io(_))) => {
@@ -281,7 +284,7 @@ impl Session {
             return;
         };
         let hint_on = memory.contact().is_some_and(|contact| contact.hint_on);
-        if private || !memory.has_contact() || !hint_on {
+        if private || !memory.shows_hints() || !hint_on {
             memory.current = None;
             return;
         }
@@ -307,7 +310,7 @@ impl Session {
     }
 
     /// `Session::poll` 开头调：`memory/` 下的文件被 App 改了（修改时间变了）就重读，读不了的留着原来的；
-    /// 当前对象被删时退回「恋爱 · 不指定」。换了叠加层（候选重排过）返回 true。
+    /// 当前对象被删时退回这个场景的不指定。换了叠加层（候选重排过）返回 true。
     pub(super) fn poll_memory(&mut self) -> bool {
         let rescoped = self.retry_pending();
         let Some(memory) = self.memory.as_mut() else {
@@ -330,7 +333,7 @@ impl Session {
             }
         };
         let next = sanitized_scope(disk, &memory.contacts);
-        let moved = next != memory.state;
+        let moved = next.scene != memory.state.scene || next.contact_id != memory.state.contact_id;
         memory.state = next;
         if moved {
             self.switch_layers(false);

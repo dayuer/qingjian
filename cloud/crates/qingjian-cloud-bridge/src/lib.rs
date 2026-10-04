@@ -31,8 +31,8 @@ pub use self::memory::{
 };
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
-    ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id, parse_scene,
-    scene_learning_dir, scene_name,
+    ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
+    parse_scene, scene_label, scene_learning_dir, scene_name,
 };
 pub use self::session::Session;
 pub use self::settings::{DomainSetting, SchemeOption, Settings};

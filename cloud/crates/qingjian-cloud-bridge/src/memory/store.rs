@@ -16,10 +16,10 @@ use serde::de::DeserializeOwned;
 
 use super::{
     Card, CardsFile, Contact, DismissedFile, LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError,
-    MemorySnapshot, now_unix, sanitized_scope,
+    MemorySnapshot, now_unix, sanitized_scope, scope_with,
 };
 use crate::cloud_config::write_atomic;
-use crate::scope::{ScopeState, is_contact_id};
+use crate::scope::{ContactPick, ScopeState, is_contact_id};
 
 const CONTACTS_FILE: &str = "contacts.json";
 
@@ -111,12 +111,13 @@ impl MemoryStore {
         Ok(read_json(&self.state_path())?.0)
     }
 
-    /// 加一个对象或改已有的（同 id）。恋爱场景超过 [`MAX_CONTACTS`] 个返回 [`MemoryError::ContactLimit`]。
+    /// 加一个对象或改已有的（同 id，场景不能改）。这个场景超过 [`MAX_CONTACTS`] 个返回 [`MemoryError::ContactLimit`]。
     /// 对象目录在这里建，别处写卡片都不建目录。
     pub fn put_contact(&self, contact: Contact) -> Result<(), MemoryError> {
         validate_contacts(std::slice::from_ref(&contact))?;
         let _lock = self.lock()?;
         let mut contacts = self.read_contacts()?;
+        check_scenes_kept(&contacts, std::slice::from_ref(&contact))?;
         let id = contact.id.clone();
         match contacts.iter_mut().find(|c| c.id == contact.id) {
             Some(existing) => *existing = contact,
@@ -170,18 +171,17 @@ impl MemoryStore {
         Ok(card)
     }
 
-    /// 键盘切场景与对象：在锁里重读 `state.json` 与名单，只改这两个字段；对象不在磁盘名单上或不是恋爱场景就当不指定。
+    /// 键盘切场景与对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象（`Last` 回到这个场景上次选的人）；
+    /// 对象不在磁盘名单上或不是这个场景的人就当不指定。
     pub fn update_scope(
         &self,
         scene: Scene,
-        contact_id: Option<&str>,
+        pick: &ContactPick,
     ) -> Result<ScopeState, MemoryError> {
         let _lock = self.lock()?;
         let contacts = self.read_contacts()?;
-        let (mut state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        state.scene = scene;
-        state.contact_id = contact_id.map(str::to_owned);
-        let state = sanitized_scope(state, &contacts);
+        let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
+        let state = scope_with(state, scene, pick, &contacts);
         write_json(&self.state_path(), &state)?;
         Ok(state)
     }
@@ -206,7 +206,7 @@ impl MemoryStore {
         Ok(snapshot)
     }
 
-    /// App 整份写回。先校验；锁里逐个比修订号，磁盘上比快照新（键盘这期间改过）就整份不写、返回 [`MemoryError::Conflict`]；
+    /// App 整份写回。先校验（已有的人不能换场景）；锁里逐个比修订号，磁盘上比快照新（键盘这期间改过）就整份不写、返回 [`MemoryError::Conflict`]；
     /// 名单上没了的人连目录一起删；只重写卡片有变化的对象（修订号加一）；`state` 不采纳，当前对象被删了就置空。
     pub fn write_snapshot(&self, snapshot: &MemorySnapshot) -> Result<(), MemoryError> {
         validate_contacts(&snapshot.contacts)?;
@@ -219,6 +219,7 @@ impl MemoryStore {
         }
         let _lock = self.lock()?;
         let old = self.read_contacts()?;
+        check_scenes_kept(&old, &snapshot.contacts)?;
         let mut changed = Vec::new();
         for (id, cards) in &snapshot.cards {
             let (disk, _) = self.read_cards(id)?;
@@ -420,10 +421,23 @@ fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
+/// 每个场景各自最多 [`MAX_CONTACTS`] 个，互不相通。
 fn check_limit(contacts: &[Contact]) -> Result<(), MemoryError> {
-    let dating = contacts.iter().filter(|c| c.scene == Scene::Dating).count();
-    if dating > MAX_CONTACTS {
-        return Err(MemoryError::ContactLimit);
+    for scene in [Scene::Dating, Scene::Daily, Scene::Work] {
+        if contacts.iter().filter(|c| c.scene == scene).count() > MAX_CONTACTS {
+            return Err(MemoryError::ContactLimit(scene));
+        }
+    }
+    Ok(())
+}
+
+/// 对象建好后不能换场景：分区学习与卡片都按场景走，要换就忘掉再建。
+fn check_scenes_kept(old: &[Contact], new: &[Contact]) -> Result<(), MemoryError> {
+    let moved = new
+        .iter()
+        .any(|n| old.iter().any(|o| o.id == n.id && o.scene != n.scene));
+    if moved {
+        return Err(MemoryError::Invalid("换场景需要忘掉后重新加"));
     }
     Ok(())
 }

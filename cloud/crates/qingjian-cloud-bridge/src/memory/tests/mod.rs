@@ -2,6 +2,7 @@
 
 mod date;
 mod hint;
+mod scene;
 mod store;
 mod sync;
 
@@ -10,6 +11,7 @@ use std::path::PathBuf;
 use qingjian_cloud_proto::{CardKind, CardSource, Scene};
 
 use crate::memory::{Card, Contact, Pronoun};
+use crate::scope::ContactPick;
 
 fn temp_dir(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("qj-memory-{name}-{}", std::process::id()));
@@ -21,6 +23,11 @@ fn temp_dir(name: &str) -> PathBuf {
 /// 第 `n` 个样例 id（32 位十六进制）。
 fn id(n: u32) -> String {
     format!("{n:032x}")
+}
+
+/// 指定第 `n` 个样例对象。
+fn pick(n: u32) -> ContactPick {
+    ContactPick::Contact(id(n))
 }
 
 fn contact(n: u32, scene: Scene) -> Contact {

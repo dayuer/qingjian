@@ -99,9 +99,9 @@ impl LiveMemory {
         (learner, memory)
     }
 
-    /// 只在恋爱场景、选了对象时出提示（私密输入由会话另挡）。
-    pub(super) fn has_contact(&self) -> bool {
-        self.state.scene == Scene::Dating && self.contact().is_some()
+    /// 恋爱与日常选了对象时出提示与日子提醒；工作场景的人只做分区学习，卡片只在 App 里看（私密输入由会话另挡）。
+    pub(super) fn shows_hints(&self) -> bool {
+        self.state.scene != Scene::Work && self.contact().is_some()
     }
 
     pub(super) fn contact(&self) -> Option<&Contact> {

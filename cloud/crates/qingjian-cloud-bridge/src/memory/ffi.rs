@@ -7,12 +7,14 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
+use qingjian_cloud_proto::Scene;
+
 use super::{MemoryError, MemorySnapshot, MemoryStore};
-use crate::scope::{parse_scene, scene_name};
+use crate::scope::{ContactPick, parse_scene, scene_name};
 use crate::session::Session;
 use crate::{owned, path_arg, with};
 
-/// 切场景与对象；`contact_id` 可为空（不指定）。场景认不得时什么都不做。
+/// 切场景与对象：`contact_id` 为空指针时回到这个场景上次选的人，为空字符串时明确不指定。场景认不得时什么都不做。
 ///
 /// # Safety
 /// `session` 来自 `qj_session_open` 且未释放；`scene` 为有效 UTF-8 C 字符串，`contact_id` 为空或同上。
@@ -25,11 +27,11 @@ pub unsafe extern "C" fn qj_scope_set(
     let Some(scene) = (unsafe { path_arg(scene) }).and_then(parse_scene) else {
         return;
     };
-    let contact = unsafe { path_arg(contact_id) }.map(str::to_owned);
-    with(session, (), |s| s.set_scope(scene, contact.as_deref()));
+    let pick = ContactPick::from_arg(unsafe { path_arg(contact_id) });
+    with(session, (), |s| s.set_scope(scene, &pick));
 }
 
-/// `{"scene":"dating","contact_id":"…"|null}`；没有记忆的会话返回空指针。
+/// `{"scene":"dating","contact_id":"…"|null,"last":{"daily":"…",…}}`；没有记忆的会话返回空指针。
 ///
 /// # Safety
 /// 同 [`qj_scope_set`]。
@@ -40,6 +42,7 @@ pub unsafe extern "C" fn qj_scope_get(session: *mut Session) -> *mut c_char {
             let json = serde_json::json!({
                 "scene": scene_name(state.scene),
                 "contact_id": state.contact_id,
+                "last": state.last,
             });
             owned(&json.to_string())
         })
@@ -132,17 +135,18 @@ pub unsafe extern "C" fn qj_memory_note(
     }
 }
 
-/// 键盘里新建一个恋爱场景的对象。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
-/// （`contact_limit`：恋爱场景已满 8 个；`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
-/// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`。
+/// 键盘里在 `scene` 新建一个对象。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
+/// （`contact_limit`：这个场景已满 8 个；`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
+/// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`；`scene` 为空指针或认不得时用会话当前的场景。
 ///
 /// # Safety
-/// 同 [`qj_scope_set`]；`name` 为有效 UTF-8 C 字符串，`pronoun` 可为空指针。
+/// 同 [`qj_scope_set`]；`name` 为有效 UTF-8 C 字符串，`pronoun`、`scene` 可为空指针。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_memory_add_contact(
     session: *mut Session,
     name: *const c_char,
     pronoun: *const c_char,
+    scene: *const c_char,
 ) -> *mut c_char {
     let Some(name) = (unsafe { path_arg(name) }).map(str::to_owned) else {
         return owned(&MemoryError::Invalid("参数无效").to_json());
@@ -150,8 +154,10 @@ pub unsafe extern "C" fn qj_memory_add_contact(
     let pronoun = unsafe { path_arg(pronoun) }
         .and_then(|text| serde_json::from_value(serde_json::Value::String(text.to_owned())).ok())
         .unwrap_or_default();
+    let scene = unsafe { path_arg(scene) }.and_then(parse_scene);
     let added = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
-        s.memory_add_contact(&name, pronoun)
+        let scene = scene.unwrap_or_else(|| s.scope().map_or(Scene::Daily, |state| state.scene));
+        s.memory_add_contact(&name, pronoun, scene)
     });
     match added {
         Ok(id) => owned(&serde_json::json!({ "id": id }).to_string()),

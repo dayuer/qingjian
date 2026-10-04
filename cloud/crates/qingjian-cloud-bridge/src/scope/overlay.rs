@@ -1,4 +1,5 @@
-//! 当前生效的叠加层：只在恋爱场景有；场景层必有，对象层看选没选对象。
+//! 当前生效的叠加层。恋爱场景开场景层（选了对象再开对象层），写只进叠加层；
+//! 日常与工作只在选了对象时开对象层（不开场景层），写时全局与对象层都写。
 
 use std::path::Path;
 
@@ -13,27 +14,35 @@ pub struct Overlay {
     scene: Option<FrequencyLearner>,
 
     contact: Option<FrequencyLearner>,
+
+    /// 写只进叠加层、不碰全局（恋爱场景）。
+    exclusive: bool,
 }
 
 impl Overlay {
-    /// 日常与工作没有叠加层；恋爱场景开场景层，给了合格的对象 id、且对象目录还在时再开对象层。
+    /// 给了合格的对象 id、且对象目录还在时才开对象层。
     /// 对象目录只由建对象时创建，这里不建：忘掉的人不会因为键盘还选着它而被重新建出来。
     pub fn open(memory_dir: &Path, scene: Scene, contact: Option<&str>) -> Self {
-        if scene != Scene::Dating {
-            return Self::default();
-        }
         let contact = contact
             .filter(|id| is_contact_id(id) && memory_dir.join(id).is_dir())
             .map(|id| load_layer(&contact_learning_dir(memory_dir, id)));
+        if scene != Scene::Dating {
+            return Self {
+                scene: None,
+                contact,
+                exclusive: false,
+            };
+        }
         Self {
             scene: Some(load_layer(&scene_learning_dir(memory_dir, scene))),
             contact,
+            exclusive: true,
         }
     }
 
-    /// 有叠加层（恋爱场景）时，写只进叠加层。
-    pub fn active(&self) -> bool {
-        self.scene.is_some()
+    /// 写只进叠加层（恋爱场景）；为假时全局也写。
+    pub fn exclusive(&self) -> bool {
+        self.exclusive
     }
 
     /// 各叠加层的计数乘 `weight` 再相加。
