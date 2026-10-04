@@ -56,6 +56,13 @@ char *qj_memory_extract(QjSession *session, const char *contact_id, const char *
 char *qj_memory_save_draft(QjSession *session, const char *contact_id, const char *draft, const char *resolution);
 ```
 
+## 审计补充（2026-10-05，审过）
+
+- **内存**：地名表只在第一次抽取时加载，不进按键路径、不在键盘启动时加载。加载前后在日志里打 `task_info` 的 `phys_footprint`（真机 Release），数字写进「评测记录」；增量超过 8 MB 就不整表进内存，改成按首字分桶，或直接在 `.qj` 的 `entries` 上二分查找。
+- **时延**：从拿到剪贴板文本到出抽取结果，真机 Release 下 p99 不超过 30 ms（首次含地名表加载的那一次单独记）；数字写进「评测记录」。
+- **数据**：评测集只用合成句子；用户真机上的卡片、剪贴板内容不进仓库。另附一组「用户本机复测」步骤（用户在自己手机上复制几段话走 1e → 1e-2），结果只记数字（出条数、识别对的项数、误报项数）。
+- **顺序**：Task 9 做完、截图交审计员之后再开 Task 10。
+
 ## 文件结构
 
 - 桥（`cloud/crates/qingjian-cloud-bridge/src/`）：
