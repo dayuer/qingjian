@@ -3,15 +3,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::backoff::retry_delay;
 use super::{Backoff, Shared};
 use crate::ClientError;
 use crate::supervise::{Exit, supervise};
 
 /// 队列空时多久醒一次检查是否该退出。
 const IDLE: Duration = Duration::from_secs(30);
-
-/// 令牌被拒或服务器上没开剪贴板后多久再试；队列留着，不丢。
-const UNAUTHORIZED_RETRY: Duration = Duration::from_secs(300);
 
 pub fn spawn(shared: Arc<Shared>) {
     std::thread::Builder::new()
@@ -59,12 +57,17 @@ fn run(shared: &Shared) {
                     tracing::warn!(%error, "离线队列更新失败");
                 }
             }
+            // 服务器上关了剪贴板说明用户撤回了同意：攒着的明文不留，重新打开时也不补传
+            Err(error @ ClientError::Forbidden(_)) => {
+                shared.set_error(&error);
+                if let Err(error) = shared.outbox().clear() {
+                    tracing::warn!(%error, "离线队列清空失败");
+                }
+                delay = retry_delay(&error, &mut backoff);
+            }
             Err(error) => {
                 shared.set_error(&error);
-                delay = match error {
-                    ClientError::Unauthorized | ClientError::Forbidden(_) => UNAUTHORIZED_RETRY,
-                    _ => backoff.next_delay(),
-                };
+                delay = retry_delay(&error, &mut backoff);
             }
         }
     }

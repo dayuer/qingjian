@@ -12,6 +12,8 @@ mod outbox;
 mod sse_reader;
 mod supervise;
 mod sync_state;
+#[cfg(test)]
+mod test_support;
 
 pub use client::Client;
 pub use clipboard_sync::{ClipboardSync, Incoming, Status, SyncConfig};
