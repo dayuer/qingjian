@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 把 qingjian-cloud-bridge 编成真机 + 模拟器的静态库，打成 Frameworks/QingjianBridge.xcframework，
-# 再把产品数据（dict.qj、lm.qj、领域词库）与青简 Cloud 配置（cloud.local.toml，可选）拷进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
-# 用法：scripts/build-bridge.sh [--debug]；数据目录默认取仓库根的 data/generated，可用 QINGJIAN_DATA 覆盖。
+# 再把产品数据（dict.qj、lm.qj、领域词库）与只写了服务器地址的 cloud.toml 放进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
+# 用法：scripts/build-bridge.sh [--debug]；数据目录默认取仓库根的 data/generated，可用 QINGJIAN_DATA 覆盖；服务器地址缺省 https://pinyin.synon.ai，可用 QJ_SERVER 覆盖。
 set -euo pipefail
 
 ios_dir="$(cd "$(dirname "$0")/.." && pwd)"
@@ -59,12 +59,14 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
-# 青简 Cloud 的连接配置（服务器地址 + 这台设备的令牌）：本机文件，不进仓库；只作首次启动的种子，
-# 之后以 App Group 里的 cloud.toml 为准（主 App 设置页可改）
-if [[ -f "$ios_dir/cloud.local.toml" ]]; then
-  cmp -s "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml" \
-    || install -m 644 "$ios_dir/cloud.local.toml" "$ios_dir/Keyboard/Data/cloud.toml"
+# 青简 Cloud 只在构建时定服务器地址；令牌由主 App 的账号页登录后写进 App Group 的 cloud.toml，不进安装包。
+# 随包的这份只作种子：主 App 第一次打开时拷进 App Group
+server="${QJ_SERVER:-https://pinyin.synon.ai}"
+seed="$ios_dir/Keyboard/Data/cloud.toml"
+printf 'server = "%s"\n' "$server" > "$seed.tmp"
+if cmp -s "$seed.tmp" "$seed"; then
+  rm "$seed.tmp"
 else
-  rm -f "$ios_dir/Keyboard/Data/cloud.toml"
+  mv "$seed.tmp" "$seed"
 fi
 echo "QingjianBridge.xcframework（$profile）与产品数据已就绪"

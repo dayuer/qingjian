@@ -1,14 +1,15 @@
-# 复制成 cloud.local.toml（不进仓库）填好，构建时会拷进键盘。没有这个文件键盘完全离线。
-# 令牌每台设备一个，在服务器上生成：qingjian-cloud device add iphone
+# App Group 里 cloud.toml 的样子（键盘与主 App 共用，由桥读写）。不用复制、不用手填：
+# 构建脚本只往安装包里写 server（环境变量 QJ_SERVER 可换地址），主 App 第一次打开时拷进 App Group；
+# 账号页登录后由桥写入 token 与四个开关，退出登录、删账号时清掉。
 
 server = "https://pinyin.synon.ai"
-token = ""
 
+# 以下由账号页按服务器上的开关写入，缺省全关
+# 跨设备剪贴板
+clipboard = false
+# 与 Mac 等设备同步学习数据与设置
+sync = false
+# 记输入日志并上传，服务器据此纠错、补热词、调词频
+logs = false
 # 用服务器的大模型：润色，以及键盘设置里开了「云联想」时组字补候选
-llm = true
-
-# 记输入日志并上传，服务器上的纠错闭环靠它纠正词语、补热词、调词频
-logs = true
-
-# 与 Mac 等设备同步学习数据（词频、用户词、个人 n-gram 等）
-sync = true
+llm = false

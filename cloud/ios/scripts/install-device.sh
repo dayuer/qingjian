@@ -20,8 +20,10 @@ xcodebuild -project QingjianCloud.xcodeproj -scheme QingjianCloud -configuration
   -allowProvisioningUpdates DEVELOPMENT_TEAM="$team" build -quiet
 
 app=build/device/Build/Products/Release-iphoneos/QingjianCloud.app
-if [[ -f cloud.local.toml && ! -f "$app/PlugIns/Keyboard.appex/Data/cloud.toml" ]]; then
-  echo "包里没有 cloud.toml，装上也连不了青简 Cloud" >&2
+seed="$app/PlugIns/Keyboard.appex/Data/cloud.toml"
+[[ -f "$seed" ]] || { echo "包里没有 cloud.toml，账号页不知道连哪台服务器" >&2; exit 1; }
+if grep -q '^token' "$seed"; then
+  echo "包里的 cloud.toml 带着令牌，不能装出去（令牌只由账号页登录写入）" >&2
   exit 1
 fi
 codesign -d --entitlements - "$app/PlugIns/Keyboard.appex" 2>/dev/null | grep -q group.app.qingjian.cloud \
