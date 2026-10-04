@@ -2,7 +2,9 @@
 
 use qingjian_cloud_proto::{
     Account, AppleClient, AppleSignIn, Consents, Device, EmailVerify, Feature, HandoffExchange,
-    HandoffGrant, IdentityInfo, Platform, PutConsent, SessionGrant, SessionInfo, TOKEN_PREFIX,
+    HandoffGrant, IdentityInfo, LOGIN_CALLBACK_SCHEME, PATH_ACCOUNT, PATH_AUTH_APPLE,
+    PATH_AUTH_EMAIL_START, PATH_AUTH_EMAIL_VERIFY, PATH_AUTH_HANDOFF, PATH_CONSENTS, PATH_LOGIN,
+    PATH_SESSIONS, Platform, PutConsent, SessionGrant, SessionInfo, TOKEN_PREFIX,
 };
 use serde_json::json;
 
@@ -140,6 +142,15 @@ fn consents_default_off_and_follow_feature() {
     for feature in Feature::ALL {
         assert!(!consents.get(feature));
     }
+    for feature in Feature::ALL {
+        let mut only = Consents::default();
+        only.set(feature, true);
+        let value = serde_json::to_value(only).unwrap();
+        for other in Feature::ALL {
+            assert_eq!(value[other.as_str()], json!(other == feature));
+            assert_eq!(only.get(other), other == feature);
+        }
+    }
     consents.set(Feature::InputLog, true);
     assert!(consents.input_log && consents.get(Feature::InputLog));
     assert_eq!(
@@ -185,4 +196,35 @@ fn account_round_trips_with_null_fields() {
 #[test]
 fn token_prefix_is_sujian() {
     assert_eq!(TOKEN_PREFIX, "sjt_");
+}
+
+#[test]
+fn constants_match_the_contract() {
+    assert_eq!(PATH_AUTH_APPLE, "/v1/auth/apple");
+    assert_eq!(PATH_AUTH_EMAIL_START, "/v1/auth/email/start");
+    assert_eq!(PATH_AUTH_EMAIL_VERIFY, "/v1/auth/email/verify");
+    assert_eq!(PATH_AUTH_HANDOFF, "/v1/auth/handoff");
+    assert_eq!(PATH_ACCOUNT, "/v1/account");
+    assert_eq!(PATH_SESSIONS, "/v1/sessions");
+    assert_eq!(PATH_CONSENTS, "/v1/consents");
+    assert_eq!(PATH_LOGIN, "/login");
+    assert_eq!(LOGIN_CALLBACK_SCHEME, "sujian");
+}
+
+#[test]
+fn unknown_fields_from_a_newer_server_are_ignored() {
+    let account: Account = serde_json::from_value(json!({
+        "extra": 1,
+        "identities": [],
+        "sessions": [{
+            "id": 1, "name": "n", "platform": "macos", "created_at": 1,
+            "last_seen": null, "current": false, "os_version": "x"
+        }],
+        "consents": { "clipboard": true, "future": true }
+    }))
+    .unwrap();
+    assert!(account.consents.clipboard);
+    assert!(!account.consents.sync && !account.consents.input_log && !account.consents.llm);
+    let partial: Consents = serde_json::from_value(json!({ "clipboard": true })).unwrap();
+    assert!(partial.clipboard && !partial.sync && !partial.input_log && !partial.llm);
 }
