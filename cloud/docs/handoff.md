@@ -104,6 +104,20 @@ tools/release/data-fetch.sh && cargo build --release -p qingjian-cli
 QINGJIAN_CLI=$PWD/target/release/qingjian-cli QINGJIAN_DATA=$PWD/data/generated cargo test --manifest-path cloud/Cargo.toml -p qingjian-cloud-tuner
 ```
 
+## 排着、等用户叫开工的
+
+### iOS 换套装 ID（2026-10-04 定，未开始）
+
+App `sujian.synon.ai`、键盘 `sujian.synon.ai.keyboard`，已由审计会话用 ASC API 在团队 L9YRXEKYN2 下注册，两者都开了 App Groups；App Store 的 App 记录要用户在网页上建（API 不支持新建）。
+
+- `cloud/ios/project.yml`：`bundleIdPrefix` 与三个 `PRODUCT_BUNDLE_IDENTIFIER` 改成 `sujian.synon.ai` / `.keyboard` / `.tests`；两份 entitlements 与 project.yml 里的 App Group 改成 `group.sujian.synon.ai`。
+- 写死 group id 的地方收成一个常量：现在只在 Swift 的 `Shared/SharedStore.swift`（`groupIdentifier`），桥由 Swift 传目录、Rust 里没有写死；`scripts/install-device.sh` 的 App Group 检查与 `process launch` 的 bundle id 跟着改，README 里的 id 同步。
+- 钥匙串访问组：目前没有用（`git grep -i keychain` 为空），以后加时用 `$(AppIdentifierPrefix)sujian.synon.ai`。
+- 日志 subsystem（`app.qingjian.cloud` / `.keyboard`）与 `MemoryWorker` 的队列名一起换成新前缀，保持一致。
+- 服务端：Sign in with Apple 核对 `identity_token` 的 `aud`（project.yml 注释写的是 `app.qingjian.cloud`），synon-ime 的 Apple 配置要同步改成 `sujian.synon.ai`，先和服务端会话对。
+- 改完用 Xcode 自动签名（`-allowProvisioningUpdates`）建 App Group 与描述文件，再用 `install-device.sh` 装真机。
+- 手机上旧的 `app.qingjian.cloud` 只有开发数据，迁移不了；换 ID 后是另一个 App，让用户手动删掉旧的（连同设置里旧的键盘条目）。
+
 ## 用户提过、还没排期的
 
 - 微信输入法截图里的功能：符号自动补全、自动编号、中英 / 中数自动加空格、`;` `'` 选第 2 / 3 个候选、翻页 `-` `=`、Mac 单击 Shift 切中英（上游 #291）、按应用默认英文。都要改输入法，做成小补丁。
