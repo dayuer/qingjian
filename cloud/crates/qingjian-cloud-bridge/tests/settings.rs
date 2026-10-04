@@ -24,6 +24,7 @@ fn round_trips_and_keeps_other_settings() {
     settings.scheme = "xiaohe".into();
     settings.traditional = true;
     settings.fuzzy.z_zh = true;
+    settings.cloud_prediction = true;
     settings.phrases = vec![CustomPhrase {
         code: "dz".into(),
         text: "北京市海淀区".into(),
@@ -36,6 +37,7 @@ fn round_trips_and_keeps_other_settings() {
     assert_eq!(read.scheme, "xiaohe");
     assert!(read.traditional);
     assert!(read.fuzzy.z_zh);
+    assert!(read.cloud_prediction);
     assert_eq!(read.phrases, settings.phrases);
     let text = std::fs::read_to_string(&config).unwrap();
     assert!(text.contains("# 我的注释"));
@@ -66,7 +68,7 @@ fn cloud_config_saves_incomplete_values() {
     let path = dir.join("cloud.toml");
     let config = CloudConfig {
         server: "https://example.com".into(),
-        candidates: true,
+        logs: false,
         ..CloudConfig::default()
     };
     config.save(&path).unwrap();

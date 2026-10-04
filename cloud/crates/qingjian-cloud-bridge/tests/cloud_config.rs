@@ -18,7 +18,6 @@ fn load(text: &str) -> Option<CloudConfig> {
 fn full_config_turns_everything_on() {
     let config = load("server = \"https://pinyin.synon.ai/\"\ntoken = \"t\"\n").unwrap();
     assert!(config.llm && config.sync && config.logs);
-    assert!(!config.candidates, "大模型补候选缺省关");
     assert_eq!(config.llm_base_url(), "https://pinyin.synon.ai/v1");
 }
 

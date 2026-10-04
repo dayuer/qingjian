@@ -17,7 +17,8 @@ struct KeyboardView: View {
             Group {
                 switch model.panel {
                 case .keys: keys
-                case .candidates: CandidatePanel(model: model)
+                // 面板是控制器挂的 UIKit 视图（CandidatePanelView），这里留空占位
+                case .candidates: Color.clear
                 case .emoji: EmojiPanel(model: model)
                 }
             }

@@ -8,8 +8,6 @@ use super::CloudConfig;
 pub struct CloudSwitches {
     pub llm: bool,
 
-    pub candidates: bool,
-
     pub logs: bool,
 
     pub sync: bool,
@@ -21,7 +19,6 @@ impl CloudSwitches {
     pub fn of(config: &CloudConfig) -> Self {
         Self {
             llm: config.llm,
-            candidates: config.candidates,
             logs: config.logs,
             sync: config.sync,
             clipboard: config.clipboard,
@@ -31,7 +28,6 @@ impl CloudSwitches {
     /// 只改开关，服务器地址与令牌保持原样。
     pub fn apply_to(self, config: &mut CloudConfig) {
         config.llm = self.llm;
-        config.candidates = self.candidates;
         config.logs = self.logs;
         config.sync = self.sync;
         config.clipboard = self.clipboard;

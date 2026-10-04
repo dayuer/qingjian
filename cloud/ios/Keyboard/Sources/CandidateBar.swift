@@ -6,7 +6,8 @@ import SwiftUI
 struct CandidateBar: View {
     let model: KeyboardModel
 
-    private let chevronWidth: CGFloat = 48
+    /// ⌄ 的宽度；它的触摸由 KeyTouchView 收（SwiftUI 手势在这里常吞短点击），这里只画。
+    static let chevronWidth: CGFloat = 48
 
     var body: some View {
         if model.composing {
@@ -32,7 +33,7 @@ struct CandidateBar: View {
             // 滚出可视区的候选仍会抢点击，裁掉；右边给 ⌄ 让出位置
             .clipped()
             .contentShape(Rectangle())
-            .padding(.trailing, model.composing ? chevronWidth : 0)
+            .padding(.trailing, model.composing ? Self.chevronWidth : 0)
             // 拼音变了候选从头显示
             .onChange(of: model.preedit) {
                 proxy.scrollTo(0, anchor: .leading)
@@ -50,9 +51,8 @@ struct CandidateBar: View {
             Image(systemName: model.panel == .candidates ? "chevron.up" : "chevron.down")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(.primary)
-                .frame(width: chevronWidth - 1, height: KeyStyle.candidateBarHeight)
+                .frame(width: Self.chevronWidth - 1, height: KeyStyle.candidateBarHeight)
         }
-        .onKeyboardPress { model.toggleCandidatePanel() }
         .zIndex(1)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)

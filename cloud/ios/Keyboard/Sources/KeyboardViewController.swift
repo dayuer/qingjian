@@ -16,6 +16,9 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 键区的触摸层（SwiftUI 只画键）；展开候选或表情面板时藏起来。
     private let touchView = KeyTouchView()
 
+    /// 展开的候选面板（UIKit，见 `syncPanel`）。
+    private let panelView = CandidatePanelView()
+
     /// 键盘可见期间每 0.25 秒一次：大模型候选、润色结果、别的设备的学习数据都靠它取回。
     private var pollTimer: Timer?
 
@@ -40,9 +43,13 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        touchView.frame = CGRect(
+        let keyArea = CGRect(
             x: 0, y: KeyStyle.candidateBarHeight, width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+        touchView.frame = view.bounds
+        touchView.keyArea = keyArea
+        panelView.frame = keyArea
         syncTouchView()
+        syncPanel()
     }
 
     /// 屏幕左右边缘的触摸会被系统边缘手势压住（a、l 慢半拍或丢）：要我们先处理。iOS 在视图切换时会重置，所以 viewWillAppear 再要一次。
@@ -184,21 +191,43 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             guard index < touchView.slots.count else { return }
             model.release(slot: index, key: touchView.slots[index].key, cancelled: cancelled)
         }
+        touchView.onChevron = { model.toggleCandidatePanel() }
+        // 面板在触摸层下面：展开时触摸层不认键区的触摸，面板自己收
+        panelView.onSelect = { model.selectCandidate($0) }
+        view.addSubview(panelView)
         view.addSubview(touchView)
     }
 
-    /// 格子与 SwiftUI 画键用同一个 KeyboardLayout.slots；切层、开关面板时重算，并盯着下一次变化。
+    /// 格子与 SwiftUI 画键用同一个 KeyboardLayout.slots；切层、开关面板、开始 / 结束组字时重算，并盯着下一次变化。
+    /// 展开面板时格子清空（面板自己收触摸），⌄ 照常归触摸层，这样才收得起来。
     private func syncTouchView() {
         let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
-        let (layer, panel) = withObservationTracking {
-            (model.layer, model.panel)
+        let (layer, panel, composing) = withObservationTracking {
+            (model.layer, model.panel, model.composing)
         } onChange: { [weak self] in
             Task { @MainActor in self?.syncTouchView() }
         }
-        touchView.isHidden = panel != .keys
-        let slots = KeyboardLayout.slots(layer: layer, showsGlobe: needsInputModeSwitchKey, size: size)
+        let slots = panel == .keys
+            ? KeyboardLayout.slots(layer: layer, showsGlobe: needsInputModeSwitchKey, size: size)
+            : []
         if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
         touchView.slots = slots
+        touchView.chevron = composing
+            ? CGRect(
+                x: view.bounds.width - CandidateBar.chevronWidth, y: 0,
+                width: CandidateBar.chevronWidth, height: KeyStyle.candidateBarHeight)
+            : nil
+    }
+
+    /// 展开的候选面板是 UIKit 的（SwiftUI 的 ScrollView 在键盘扩展里滑不动）：候选变了就刷新，没展开就藏着。
+    private func syncPanel() {
+        let (panel, candidates) = withObservationTracking {
+            (model.panel, model.candidates)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncPanel() }
+        }
+        panelView.isHidden = panel != .candidates
+        panelView.candidates = candidates
     }
 
     private var currentSignature: String {

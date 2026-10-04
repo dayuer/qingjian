@@ -34,6 +34,9 @@ pub struct Settings {
 
     pub learning: bool,
 
+    /// 云联想（`[predict] enabled`，与 Mac 同一个开关）；iOS 上固定走青简 Cloud 的代理。
+    pub cloud_prediction: bool,
+
     pub domains: Vec<DomainSetting>,
 
     pub phrases: Vec<CustomPhrase>,
@@ -73,6 +76,7 @@ impl Settings {
             traditional: config.general.traditional,
             full_width_punctuation: config.general.full_width_punctuation,
             learning: config.general.learning,
+            cloud_prediction: config.predict.enabled,
             domains,
             phrases: config.custom_phrases,
         }
@@ -94,6 +98,7 @@ impl Settings {
             settings.full_width_punctuation,
         )?;
         set_bool("general", "learning", settings.learning)?;
+        set_bool("predict", "enabled", settings.cloud_prediction)?;
         let fuzzy = serde_json::to_value(settings.fuzzy).map_err(|e| e.to_string())?;
         if let Some(rules) = fuzzy.as_object() {
             for (key, value) in rules {

@@ -1,11 +1,10 @@
-//! 会话里与青简 Cloud 有关的部分：大模型联想（结果插在首选之后，不抢空格要上屏的那个）、
+//! 会话里与青简 Cloud 有关的部分：大模型联想的结果（插在首选之后，不抢空格要上屏的那个；预测器按 `[predict]` 在 `config.rs` 里建）、
 //! 润色、学习数据同步（`DataSync` 与 Mac 端同一套基线 + 增量 + 收件箱，收件箱在这里合并）。
 
 use std::io::ErrorKind;
 
 use qingjian_cloud_client::{Client, DataSync, DataSyncConfig, INBOX};
 use qingjian_core::{Candidate, SurroundingText};
-use qingjian_predict::{CloudPredictor, PredictConfig};
 
 use super::Session;
 use crate::clipboard::{ClipOffer, Clipboard};
@@ -18,18 +17,6 @@ const CLOUD_POSITION: usize = 1;
 
 impl Session {
     pub(super) fn connect(&mut self, cloud: &CloudConfig) {
-        if cloud.llm && cloud.candidates {
-            let config = PredictConfig {
-                enabled: true,
-                base_url: cloud.llm_base_url(),
-                api_key: Some(cloud.token.clone()),
-                ..PredictConfig::default()
-            };
-            match CloudPredictor::new(&config) {
-                Ok(predictor) => self.engine.set_predictor(Box::new(predictor)),
-                Err(error) => tracing::warn!(%error, "大模型联想启动失败"),
-            }
-        }
         if cloud.llm {
             self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
         }
@@ -146,9 +133,8 @@ impl Session {
             position += 1;
             inserted = true;
         };
-        if let Some(sentence) = prediction.sentence {
-            insert(&mut self.entries, Entry::Sentence(sentence));
-        }
+        // 整句补全在配置里已关（`sentence: false`）；万一服务器还是给了，手机上也不要：候选栏放不下，用户要的是词
+        let _ = prediction.sentence;
         for word in prediction.words {
             let candidate: Candidate = word.into_candidate();
             insert(&mut self.entries, Entry::Cloud(candidate));

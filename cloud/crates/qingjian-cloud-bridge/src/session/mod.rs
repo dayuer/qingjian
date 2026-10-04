@@ -49,6 +49,9 @@ pub struct Session {
 
     /// 随包领域词库所在目录（`Data/dicts`）。
     dicts_dir: PathBuf,
+
+    /// 青简 Cloud 的连接配置；云联想选青简 Cloud 时端点从这里来。离线为 `None`。
+    cloud: Option<CloudConfig>,
 }
 
 impl Session {
@@ -94,6 +97,7 @@ impl Session {
                 .or_else(|| user_dir.map(|dir| dir.join("config.toml"))),
             config_modified: None,
             dicts_dir: data_dir.join("dicts"),
+            cloud: cloud.clone(),
         };
         session.reload_config();
         if let Some(cloud) = cloud {
