@@ -22,7 +22,7 @@ pub(super) use self::live::LiveMemory;
 
 impl Session {
     /// 切场景与对象：交给 `MemoryStore::update_scope` 在锁里重读 `state.json` 与名单，只改这两个字段。
-    /// 非恋爱场景、磁盘名单上没有的对象都当不指定。读写失败（锁屏）就不切，记日志；
+    /// 非恋爱场景、磁盘名单上没有的对象都当不指定。读写失败（开机后还没解锁过）就不切，记日志；
     /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次）稍后重试。
     pub fn set_scope(&mut self, scene: Scene, contact: Option<&str>) {
         let Some(memory) = self.memory.as_mut() else {

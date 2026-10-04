@@ -88,7 +88,7 @@ char *qj_account_delete(const char *path);
 // 本地记忆（素笺 2A）：场景、对象、打字提示、对象卡、「记一笔」。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。
 // scene 取 daily / dating / work；contact_id 是 32 位十六进制，可为 NULL（不指定）；非恋爱场景、磁盘名单上没有的对象都当不指定。
-// 切换时在锁里重读 memory/state.json、只改场景与对象再写回；锁屏读不了就不切。候选按新的分区学习重排。
+// 切换时在锁里重读 memory/state.json、只改场景与对象再写回；开机后还没解锁过、读不了就不切。候选按新的分区学习重排。
 // 键盘只等 200 毫秒的锁：拿不到时内存里照切，写盘进待办（只留最新一次），下次按键、qj_poll、qj_flush 时补写。
 void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
 // {"scene":"dating","contact_id":"…"|null}
@@ -103,7 +103,7 @@ void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
 // 键盘内对象卡面板：今日相关最多 3 张卡的 JSON 数组。
 char *qj_memory_cards(QjSession *session, const char *contact_id);
 // 「记一笔」：给磁盘名单上的对象建一张 other 卡。成功返回 NULL，失败返回 {"code","message"}
-// （invalid：没有这个人、没有文字或超过 200 字；io：卡片读不了，例如锁屏，此时什么都不写）。
+// （invalid：没有这个人、没有文字或超过 200 字；io：卡片读不了，例如开机后还没解锁过，此时什么都不写）。
 // 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在内存待办里
 // （最多 32 条，满了丢最旧的），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
 char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);

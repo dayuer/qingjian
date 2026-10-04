@@ -132,7 +132,7 @@ pub unsafe extern "C" fn qj_memory_note(
     }
 }
 
-/// App 用：整份读出 `{"contacts","cards","revs","state","broken"}`；参数无效或有文件读不了（锁屏）时返回空指针。
+/// App 用：整份读出 `{"contacts","cards","revs","state","broken"}`；参数无效或有文件读不了（开机后还没解锁过）时返回空指针。
 ///
 /// # Safety
 /// `user_dir` 为有效 UTF-8 C 字符串。

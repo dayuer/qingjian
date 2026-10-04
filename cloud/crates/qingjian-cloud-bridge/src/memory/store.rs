@@ -1,7 +1,7 @@
 //! `memory/` 下的文件：`contacts.json`、`state.json`、`dismissed.json`、`<对象 id>/cards.json`。
 //! App 与键盘是两个进程，都会读-改-写，所以每个操作都在 `memory/.lock` 的文件锁（flock）里完成，读也在锁里；
 //! 写走 `cloud_config::write_atomic`（同目录临时文件加改名），而且不建父目录：对象目录只在建对象时创建。
-//! 解析不了的文件改名为 `<文件>.broken-<unix 秒>` 再按空处理；读不了的（锁屏时数据保护、权限）不改名，读-改-写直接报错，
+//! 解析不了的文件改名为 `<文件>.broken-<unix 秒>` 再按空处理；读不了的（开机后还没解锁过时的数据保护、权限）不改名，读-改-写直接报错，
 //! 不拿空表覆盖真文件。只读的 `contacts()` / `cards()` / `state()` 读不了时给空，只给显示用，不能接着写。
 
 use std::collections::{BTreeMap, HashMap, HashSet};
