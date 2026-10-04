@@ -71,9 +71,9 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && for e in "--eval-contex
 模型都用 `--neural-async`（壳里的接法）：报告里「按键同步部分」只算第一次 `query()`，模型在后台、`settle` 等它回来再查一次；
 同步接法会把模型几十毫秒算进 p99，与壳不符。`--replay` 现在也像 `--eval-text` 一样等异步重排（Task 1 加的）。
 
-门槛（产品配置）：`--eval-context` 有前文首选比基线 **≥ +15 个百分点**；`--eval-text` 首选、`--replay` 「词」首选比基线**下降不超过 0.5 个百分点**；
+门槛（产品配置）：`--eval-context` 有前文首选比基线 **≥ +15 个百分点**；`--eval-text` 首选比基线**下降不超过 0.5 个百分点**；`--replay` 「词」首选**不降**；`--replay` 整句首选**下降不超过 1 句（0.6 个百分点，共 165 句）**（审计定）；
 `--replay` 与 `--eval-context` 报的**按键同步部分 p99**：同一台机器上连跑 3 次取中位数，与同样方法测的基线中位数比，不超过 +1 ms
-（单次 p99 随机器负载浮动，审计那边测到 1.0 ms、这边 0.6 ms，与 +1 ms 同量级，所以不用单次）。每个任务的评测都跑 3 次（`/tmp/eval3.sh` 里那个循环）。任何一项越线：停下，把数字发给审计会话「素笺输入法」，不往下做。
+（单次 p99 随机器负载浮动，审计那边测到 1.0 ms、这边 0.6 ms，与 +1 ms 同量级，所以不用单次）。每个任务的评测都跑 3 次（`cloud/scripts/context-eval.sh`）。任何一项越线：停下，把数字发给审计会话「素笺输入法」，不往下做。
 
 每个任务完成的检查：
 
@@ -88,12 +88,30 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && carg
 | 任务 | `--eval-context` 有前文 / 无前文 | `--eval-text` 首选 / 字准确率 | `--replay` 词 / 整句 首选 | 同步 p50 / p99 ms（replay） | 备注 |
 |---|---|---|---|---|---|
 | 基线（Task 1，2026-10-04，只有通变） | 40.3% / 40.3% | 37.2% / 78.9% | 87.7% / 72.7% | 中位数：eval-context 0.1 / 0.5；replay 0.3 / 1.8（3 次：0.6,0.5,0.5 与 1.8,1.7,1.8） | 404 对；期望不在候选 0；连跑一致 |
-| Task 2 前文进词级排序（只有通变） | 62.4% / 40.3%（+22.0pp） | 37.1% / 78.9%（首选 −0.1） | 87.8% / 70.9%（词 +0.1，整句 −1.8） | 中位数：eval-context 0.1 / 0.5；replay 0.3 / 1.8 | 整句 −1.8pp 待审计裁决；8 对有前文反而丢（见下） |
+| Task 2 前文进词级排序（只有通变，变体 b） | 62.9% / 40.3%（+22.5pp） | 37.2% / 78.9%（首选 +0.0） | 87.7% / 72.7%（与基线相同） | 中位数：eval-context 0.1 / 0.6；replay 0.3 / 1.9（基线 0.5 / 1.8，差 +0.1，门槛 +1） | 整句首词不看前文；变体对比见下；最终代码复跑与矩阵里的 (b) 一致 |
 | Task 3 choice 改加分 β= | | | | | |
 | Task 4 知微词级重排 λ_w= | | | | | |
 | Task 5 `tongbian` 对照 | 与对照列逐字相同 | | | | 内存：both / tongbian MB（真人量） |
 | Task 6 续写 τ= | 显示率 / 代理精度 / p50 / p90 | | | | |
 | Task 7 真机 | TextEdit 显示 / 接受 __ / 10；聊天应用 __ / 10（真人） | | | | |
+
+### Task 2 变体对比（整句 Viterbi 首词怎么用前文，2026-10-04，对照配置，各跑 3 次）
+
+| 变体 | eval-context 有前文 | eval-text 首选 | replay 词 | replay 整句 | replay 同步 p99（中位） |
+|---|---|---|---|---|---|
+| (a) 词级与首词都用前文 | 62.4% | 37.1% | 87.8% | 70.9%（−1.8pp） | 1.9 |
+| **(b) 只词级用前文，首词仍 START（采用）** | **62.9%** | 37.2% | 87.7% | **72.7%（±0）** | 1.8 |
+| (c1) 首词前文与 START 按 0.3:0.7 插值 | 63.1% | 37.2% | 87.6%（词降 1 句，不合格） | 72.1% | 1.9 |
+| (c2) 首词前文与 START 按 0.5:0.5 插值 | 63.1% | 37.1% | 87.6%（词降 1 句，不合格） | 71.5% | 1.9 |
+
+取舍规则（审计定）：eval-context ≥ +15pp、eval-text 首选降 ≤ 0.5pp、replay 词不降的前提下，选 replay 整句降幅最小的。只有 (b) 满足「词不降」且整句不降。
+(a) 掉的整句：发布到、识别到、是一下、条用、同步该、又饿（后三个多半是用户误选），变好 的出你、热词、是用。
+代价：整句首词不看前文，「汽车 → 油箱」这类要等 Task 4 的知微兜（见 Task 4 验收）。
+
+**有前文反而丢的 8 对**（(a) 时的记录，Task 4 之后再看一次，仍丢就列为知微也救不回的）：
+shichang(股票→市场 变 时长)、tongshi(我们→同时 变 同事)、yishi(他→一时 变 意识)、jili(这个数字很→吉利 变 激励)、
+zhongshi(一家→中式 变 中是)、fayan(伤口→发炎 变 发言)、sheji(产品→设计 变 涉及)、shengji(系统→升级 变 省级)。
+这是静态 bigram 的噪声（股票→时长 这类）；(b) 下的名单在 Task 4 之前重新列一次。
 
 ---
 
@@ -597,15 +615,13 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo fmt --all && git 
 
 ---
 
-## Task 2：宿主前文进词级排序与整句首词
+## Task 2：宿主前文进词级排序（整句首词不用，见下）
 
 **Files:**
 - Create: `crates/qingjian-core/src/engine/query/left_context.rs`
 - Create: `crates/qingjian-core/src/engine/tests/context_fork.rs`
 - Modify: `crates/qingjian-core/src/engine/query/mod.rs:5-13`（`mod left_context;`）
 - Modify: `crates/qingjian-core/src/engine/query/phonetic.rs:145-164`
-- Modify: `crates/qingjian-core/src/engine/query/converting.rs:205-215`
-- Modify: `crates/qingjian-core/src/sentence/viterbi.rs:52-125`（`convert_paths` 加 `start` 参数）、`:348-374`（`best_predecessor`）
 - Modify: `crates/qingjian-core/src/engine/tests/mod.rs:3-17`（`mod context_fork;`）
 - Modify: `apps/macos/src/imk/controller/display.rs:11-25`（第一键总是读前文，私密不读）
 - Modify: `cloud/docs/fork-patch.md`
@@ -872,103 +888,10 @@ impl Engine {
         });
 ```
 
-- [ ] **Step 5：`viterbi.rs` 首词带上文**
+- [ ] **Step 5：整句 Viterbi 首词不改（变体 b）**
 
-`convert_paths` 签名在 `k: usize,` 后加一个参数，函数体第一行把它改名（循环变量也叫 `start`）：
-
-```rust
-/// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
-/// `start` 是第一个词的上文（句首给 [`Context::START`]；素笺让宿主前文从这里进来）。
-#[allow(clippy::too_many_arguments)]
-pub fn convert_paths(
-    dictionaries: &[&Dictionary],
-    positions: &[Vec<SyllablePattern<'_>>],
-    keep_partial: bool,
-    k: usize,
-    start: Context<'_>,
-    model: &dyn LanguageModel,
-    personal: Personal<'_>,
-    weight: impl Fn(&str) -> u32,
-    cost: impl Fn(usize, &str) -> f64,
-    cache: &mut SpanCache,
-) -> Vec<Conversion> {
-    let first = start;
-```
-
-`convert_with` 里的调用在 `1,` 后补 `Context::START,`。
-
-循环里两处（原 `best_predecessor(&nodes, start, &hit.text, model, personal, fallback)` 与 `static_step`）改成：
-
-```rust
-                let (score, back) =
-                    best_predecessor(&nodes, start, &hit.text, first, model, personal, fallback);
-                let previous = &nodes[start][back];
-                let penalty = previous.penalty + hit.penalty;
-                let static_previous = if start > 0 {
-                    Some(previous.text.as_str())
-                } else {
-                    first.previous
-                };
-                let static_step = model
-                    .log_prob(static_previous, &hit.text)
-                    .unwrap_or(fallback);
-```
-
-占位音节那一处同样在 `text,` 后传 `first,`。`best_predecessor` 加参数并在 `start == 0` 时用它：
-
-```rust
-/// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
-/// 转移概率先问静态模型（不认识就用词库兜底值），再与个人 n-gram 插值；前二词是前驱自己的前驱（回指）。
-/// 第一个词的上文是 `first`（句首或宿主前文末尾的词）。
-#[allow(clippy::too_many_arguments)]
-fn best_predecessor(
-    nodes: &[Vec<Node>],
-    start: usize,
-    word: &str,
-    first: Context<'_>,
-    model: &dyn LanguageModel,
-    personal: Personal<'_>,
-    fallback: f64,
-) -> (f64, usize) {
-    let mut best = (f64::NEG_INFINITY, 0);
-    for (index, previous) in nodes[start].iter().enumerate() {
-        let context = if start == 0 {
-            first
-        } else {
-            Context {
-                previous: Some(previous.text.as_str()),
-                earlier: (previous.start > 0)
-                    .then(|| nodes[previous.start][previous.back].text.as_str()),
-            }
-        };
-        let score = previous.score + transition_log_prob(model, personal, context, word, fallback);
-        if score > best.0 {
-            best = (score, index);
-        }
-    }
-    best
-}
-```
-
-`converting.rs` 的 `sentence_paths` 调用：
-
-```rust
-        let context = self.word_context();
-        let mut paths = sentence::convert_paths(
-            &dictionaries,
-            &expanded.positions(),
-            whole,
-            k,
-            context.context(),
-            &*self.language_model,
-            self.personal(),
-            |text| self.learner.weight(text),
-            |index, syllable| expanded.cost(index, syllable),
-            &mut self.span_cache.borrow_mut(),
-        );
-```
-
-格子缓存 `SpanCache` 只缓存每格的词，与上文无关，不用清。
+先试过让首词也看前文（变体 a）：`--replay` 整句 72.7% → 70.9%（−3 句），按审计规则对比 (a)(b)(c) 后选 (b)——前文只给词级排序，
+`viterbi.rs`、`converting.rs` 不动（代码在提交 fea3246，之后一个提交撤掉了它）。对比表见上面「Task 2 变体对比」。
 
 - [ ] **Step 6：跑测试**
 
@@ -1018,8 +941,6 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && cargo clippy -p qingjia
 | `crates/qingjian-core/src/engine/query/left_context.rs` | 新文件 | 前文末尾 8 字 → `Context`；`Engine::word_context`（链优先，私密不看） |
 | `crates/qingjian-core/src/engine/query/mod.rs` | 加 1 行 | `mod left_context;` |
 | `crates/qingjian-core/src/engine/query/phonetic.rs` | 改 2 行 | 词级排序的上下文改用 `word_context()` |
-| `crates/qingjian-core/src/engine/query/converting.rs` | 加 2 行 | `convert_paths` 传首词上文 |
-| `crates/qingjian-core/src/sentence/viterbi.rs` | 加 1 个参数 | `convert_paths` / `best_predecessor` 的 `start` / `first`：首词上文 |
 | `crates/qingjian-core/src/engine/tests/context_fork.rs`、`tests/mod.rs` | 新文件、加 1 行 | 测试 |
 | `apps/macos/src/imk/controller/display.rs` | 改 4 行 | 第一键总是读应用前文（私密不读），不再只在有模型时读 |
 ```
@@ -1846,6 +1767,9 @@ cd /Users/liyuqing/sproot/qingjian-context-prediction && for w in 0.3 0.5 0.8; d
 | 0.8 | |
 
 - [ ] **Step 10：评测（产品配置从这里起带 `--word-model`；对照一起跑）、按键 p99、fork-patch、提交**
+
+  **验收另加（审计定）**：有前文「汽车」时 `youxiang` 的**油箱必须是第一**（用户截图里的原例，Task 2 把整句首词排除后要靠知微兑现）；
+  `--eval-context-details` 里列出这一对和「我现在 → 又想」的结果；Task 2 记下的 8 对「有前文反而丢」再看一次。
 
 两条评测命令都跑，填 Task 4 行；`--replay` 与 `--eval-context` 报的同步 p99 比基线不超过 +1 ms（异步接法下查询不等模型，差的只是取档与查缓存）。
 超了就停下报告。

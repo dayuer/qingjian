@@ -118,7 +118,8 @@ fn the_commit_chain_wins_over_host_context() {
 }
 
 #[test]
-fn the_first_word_of_a_sentence_sees_the_context() {
+fn the_sentence_first_word_ignores_the_context() {
+    // 整句首词仍按句首算：前文只给词级排序。让首词也看前文会让 --replay 整句少 3 句（见计划文件 Task 2）
     let mut engine = context_engine();
     let sentence_of = |engine: &mut Engine| {
         engine.set_input("youxiangfasong");
@@ -137,5 +138,5 @@ fn the_first_word_of_a_sentence_sees_the_context() {
     };
     assert_eq!(sentence_of(&mut engine), "邮箱发送");
     engine.history_mut().record("汽车");
-    assert_eq!(sentence_of(&mut engine), "油箱发送");
+    assert_eq!(sentence_of(&mut engine), "邮箱发送");
 }

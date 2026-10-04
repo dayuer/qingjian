@@ -170,6 +170,12 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/cli/src/args.rs` | 加 2 个参数 | `--eval-context`、`--eval-context-details` |
 | `apps/cli/src/main.rs` | 加 1 行 mod、1 个分支 | 分派 |
 | `apps/cli/src/replay/mod.rs`、`report.rs` | 加约 12 行、1 个字段 | 回放报按键同步 p50 / p99；`--neural-async` 时像 `--eval-text` 一样等重排再查一次 |
+| `crates/qingjian-core/src/engine/query/left_context.rs` | 新文件 | 前文末尾 8 字 → `Context`；`Engine::word_context`（链优先，私密不看） |
+| `crates/qingjian-core/src/engine/query/mod.rs` | 加 1 行 | `mod left_context;` |
+| `crates/qingjian-core/src/engine/query/phonetic.rs` | 改 2 行 | 词级排序的上下文改用 `word_context()`；整句首词不看前文（变体对比见计划文件） |
+| `crates/qingjian-core/src/engine/tests/context_fork.rs`、`tests/mod.rs` | 新文件、加 1 行 | 测试 |
+| `apps/macos/src/imk/controller/display.rs` | 改 4 行 | 第一键总是读应用前文（私密不读），不再只在有模型时读 |
+| `apps/macos/src/host/model/mod.rs` | 删 1 个方法 | `model_loading` 不再有人用 |
 
 ## 合并上游时
 

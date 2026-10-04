@@ -202,13 +202,11 @@ impl Engine {
         } else {
             want
         };
-        let context = self.word_context();
         let mut paths = sentence::convert_paths(
             &dictionaries,
             &expanded.positions(),
             whole,
             k,
-            context.context(),
             &*self.language_model,
             self.personal(),
             |text| self.learner.weight(text),
