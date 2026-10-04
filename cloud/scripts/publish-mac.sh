@@ -29,7 +29,7 @@ cd "$root"
 base="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/macos/Cargo.toml | head -1)"
 version="${base%%-*}-local.$(git rev-list --count HEAD)"
 case "$(uname -m)" in arm64) cpu=arm64 ;; x86_64) cpu=x86_64 ;; *) echo "不认识的架构" >&2; exit 1 ;; esac
-file="qingjian-$version-macos-$cpu.pkg"
+file="sujian-$version-macos-$cpu.pkg"
 staging="$root/target/publish"
 rm -rf "$staging" && mkdir -p "$staging"
 

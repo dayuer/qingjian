@@ -154,6 +154,7 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/macos/Info.plist`、`scripts/{bundle,uninstall}.sh`、`pkg/scripts/postinstall` | 包名改 Sujian.app | `CFBundleDisplayName` 与文件名主干一致为 `Sujian`（访达才换成本地化名）；安装与卸载顺手清改名前的 `Qingjian.app`（同 bundle id）；`--install` 后注销构建目录那份 |
 | `apps/macos/Info.plist`、`scripts/bundle.sh` | 菜单图标改回 PDF | 四个图标键指向 `qingjian-menu.pdf`，源自 `cloud/brand/icon/macos-menu.pdf`（线框白纸，22×16pt）；位图 tiff 时 `TISIconIsTemplate` 不生效，深色菜单栏上仍是黑的 |
 | `apps/macos/scripts/bundle.sh` | 构建目录改 `target/macos.noindex/` | Spotlight 不进 .noindex，LaunchServices 不登记构建出的同 id 包，免得系统切换时拉起它、出现两个进程；`--install --register` 用已安装那份注册，最后查只有它在跑 |
+| `apps/macos/scripts/bundle.sh`、`tools/release/releases_json.py`、`docs/user/getting-started/install.md` | 安装包名改 sujian- | 成品 `sujian-<版本>-macos-<arch>.pkg`；版本列表两种前缀都认 |
 | `apps/macos/src/preferences/{pages/about.rs,pages/mod.rs,mod.rs,setting/mod.rs}`、`host/settings.rs` | 删「官网」按钮 | 去掉 `WEBSITE_URL`、`Setting::OpenWebsite` 与分发（上游官网会误导）；素笺有官网后再加回 |
 | `apps/macos/pkg/resources/{welcome,conclusion}.html`、`README.md` | 改 | 安装器页面不写路径，改「卸载方法见 README」；README 卸载一节补路径清单 |
 

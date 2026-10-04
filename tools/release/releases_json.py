@@ -61,8 +61,8 @@ SCHEMA_VERSION = 1
 # 安装包文件名 → 平台、架构说明（给人看）、CPU（给程序比对）；不匹配的附件不进列表。
 # 0.1.3 起文件名是 qingjian-<版本>-<平台>-<cpu>[-setup].<扩展名>，后三条认 0.1.2 及更早的旧名。
 ASSET_KINDS = [
-    (re.compile(r"^qingjian-.+-macos-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
-    (re.compile(r"^qingjian-.+-macos-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
+    (re.compile(r"^(?:qingjian|sujian)-.+-macos-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),
+    (re.compile(r"^(?:qingjian|sujian)-.+-macos-x86_64\.pkg$"), "macos", "Intel", "x86_64"),
     (re.compile(r"^qingjian-.+-windows-x86_64-setup\.exe$"), "windows", "x64", "x86_64"),
     (re.compile(r"^qingjian-.+-linux-x86_64\.tar\.gz$"), "linux", "x64", "x86_64"),
     (re.compile(r"^Qingjian-.+-arm64\.pkg$"), "macos", "Apple Silicon", "arm64"),

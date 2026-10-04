@@ -8,7 +8,7 @@ description: macOS 与 Windows 的安装步骤：系统要求、安装包、首�
 
 **系统要求**：macOS 13 或更新。Apple Silicon 与 Intel 各有一个安装包；不确定机型时，点左上角  → 「关于本机」，查看「芯片」一行。
 
-1. 下载 `qingjian-<版本>-macos-arm64.pkg`（Apple Silicon）或 `qingjian-<版本>-macos-x86_64.pkg`（Intel），双击安装，需要管理员密码。
+1. 下载 `sujian-<版本>-macos-arm64.pkg`（Apple Silicon）或 `sujian-<版本>-macos-x86_64.pkg`（Intel），双击安装，需要管理员密码。
 2. 测试版尚无 Apple 开发者签名，首次打开会被系统拦截：到「系统设置 → 隐私与安全性」，在底部点「仍要打开」，再安装一次。
 3. 安装完成后，输入法菜单中出现「青简」。
 
