@@ -10,30 +10,33 @@ enum AccountBridge {
     }
 
     static func signInApple(
-        _ file: URL, identityToken: String, authorizationCode: String, nonce: String, device: String
+        _ file: URL, identityToken: String, authorizationCode: String, nonce: String, device: String,
+        crossBorderConsented: Bool
     ) -> AccountFailure? {
         take(file.path.withCString { f in
             identityToken.withCString { t in
                 authorizationCode.withCString { c in
                     nonce.withCString { n in
-                        device.withCString { qj_account_sign_in_apple(f, t, c, n, $0) }
+                        device.withCString { qj_account_sign_in_apple(f, t, c, n, $0, crossBorderConsented) }
                     }
                 }
             }
         })
     }
 
-    static func emailStart(_ file: URL, email: String) -> AccountFailure? {
+    static func emailStart(_ file: URL, email: String, crossBorderConsented: Bool) -> AccountFailure? {
         take(file.path.withCString { f in
-            email.withCString { qj_account_email_start(f, $0) }
+            email.withCString { qj_account_email_start(f, $0, crossBorderConsented) }
         })
     }
 
-    static func emailVerify(_ file: URL, email: String, code: String, device: String) -> AccountFailure? {
+    static func emailVerify(
+        _ file: URL, email: String, code: String, device: String, crossBorderConsented: Bool
+    ) -> AccountFailure? {
         take(file.path.withCString { f in
             email.withCString { e in
                 code.withCString { c in
-                    device.withCString { qj_account_email_verify(f, e, c, $0) }
+                    device.withCString { qj_account_email_verify(f, e, c, $0, crossBorderConsented) }
                 }
             }
         })

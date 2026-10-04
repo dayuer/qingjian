@@ -90,9 +90,15 @@ final class AccountFailureTests: XCTestCase {
         XCTAssertEqual(reaction(.lockedToday, .email), .lockEmail)
         XCTAssertEqual(reaction(.unauthorized), .signOutLocally)
         for code: AccountFailure.Code in [
-            .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .other,
+            .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .consentRequired, .other,
         ] {
             XCTAssertEqual(reaction(code), .showMessage, "\(code)")
         }
+    }
+
+    func testConsentRequiredDecodes() {
+        let failure = AccountFailure.decode(#"{"code":"consent_required","message":"请先勾选同意，才能继续登录"}"#)
+        XCTAssertEqual(failure?.code, .consentRequired)
+        XCTAssertEqual(AccountFailure.Code.allCases.count, 11)
     }
 }

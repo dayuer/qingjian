@@ -40,6 +40,24 @@ final class AccountStoreTests: XCTestCase {
         XCTAssertFalse(store.busy)
     }
 
+    func testCanSignIn() {
+        XCTAssertTrue(AccountStore.canSignIn(consent: true, busy: false))
+        XCTAssertFalse(AccountStore.canSignIn(consent: false, busy: false))
+        XCTAssertFalse(AccountStore.canSignIn(consent: true, busy: true))
+        XCTAssertFalse(AccountStore.canSignIn(consent: false, busy: true))
+    }
+
+    func testCanSignInWithEmail() {
+        XCTAssertTrue(AccountStore.canSignInWithEmail(consent: true, busy: false, locked: false))
+        XCTAssertFalse(AccountStore.canSignInWithEmail(consent: true, busy: false, locked: true))
+        XCTAssertFalse(AccountStore.canSignInWithEmail(consent: false, busy: false, locked: false))
+        XCTAssertFalse(AccountStore.canSignInWithEmail(consent: true, busy: true, locked: false))
+    }
+
+    func testConsentDefaultsOff() {
+        XCTAssertFalse(AccountStore().crossBorderConsent)
+    }
+
     func testEmailIsTrimmed() {
         XCTAssertEqual(AccountStore.normalized(email: "  a@b.c \n"), "a@b.c")
     }
