@@ -214,6 +214,10 @@ impl Host {
             updates.poll(&self.settings.config().update);
         }
         self.sync_update();
+        // 分叉补丁：青简 Cloud 换账号清了输入日志，丢掉写入端缓冲里旧账号的输入并重开
+        if qingjian_cloud_mac::take_input_log_reset() {
+            self.reset_input_log_after_account_switch();
+        }
         // 分叉补丁：「青简 Cloud」子菜单
         if let Some(mtm) = objc2::MainThreadMarker::new() {
             self.menu.sync_cloud_agent(mtm);

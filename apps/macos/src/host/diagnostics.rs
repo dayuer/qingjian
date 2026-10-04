@@ -97,14 +97,22 @@ impl Host {
         }
     }
 
-    pub(super) fn clear_input_log(&mut self) {
+    /// 清空输入日志文件并按开关重开：先换掉写入端（它丢出来时会把缓冲里的几条刷进文件），再清空。
+    fn truncate_and_reopen_input_log(&mut self) -> std::io::Result<()> {
         let Some(path) = Self::input_log_path() else {
-            return;
+            return Ok(());
         };
         self.engine.set_input_logger(Box::new(NoInputLogger));
-        match InputLog::clear(&path) {
+        let result = InputLog::clear(&path);
+        let enabled = self.input_log_enabled.unwrap_or(false);
+        self.open_input_log(enabled);
+        result
+    }
+
+    pub(super) fn clear_input_log(&mut self) {
+        match self.truncate_and_reopen_input_log() {
             Ok(()) => {
-                tracing::info!(path = %path.display(), "输入日志已清空");
+                tracing::info!("输入日志已清空");
                 self.preferences.set_status("输入日志已清空");
             }
             Err(error) => {
@@ -112,8 +120,13 @@ impl Host {
                 self.preferences.set_status("输入日志清空失败，见日志");
             }
         }
-        let enabled = self.input_log_enabled.unwrap_or(false);
-        self.open_input_log(enabled);
+    }
+
+    /// 分叉补丁：青简 Cloud 换账号时已经把日志文件截断了，这里再丢掉写入端缓冲里旧账号的输入并重开。
+    pub(super) fn reset_input_log_after_account_switch(&mut self) {
+        if let Err(error) = self.truncate_and_reopen_input_log() {
+            tracing::warn!(%error, "换账号后输入日志清空失败");
+        }
     }
 }
 

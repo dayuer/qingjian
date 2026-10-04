@@ -14,7 +14,7 @@ impl Host {
             PredictProvider::Custom => Ok(predict.clone()),
             PredictProvider::Qingjian => {
                 let endpoint = qingjian_cloud_mac::llm_endpoint().ok_or_else(|| {
-                    "青简 Cloud 还没配置：在菜单栏「中☁ → 青简 Cloud ›」里填服务器地址与设备令牌".to_owned()
+                    "青简 Cloud 还没用上：在菜单栏「中☁ → 青简 Cloud ›」里登录并打开「大模型（云联想）」".to_owned()
                 })?;
                 Ok(PredictConfig {
                     base_url: endpoint.base_url,
