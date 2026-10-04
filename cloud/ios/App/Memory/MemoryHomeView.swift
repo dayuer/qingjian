@@ -1,5 +1,5 @@
-// 「键盘记住的事」首页（05 的 2i）：副标题、3 天内的提醒卡（恋爱与日常的人）、按场景分组的人（恋爱、日常、工作，各自 n / 8，
-// 每组下面「加一个人」，从哪组点进去就建在哪个场景；工作组的头像用中性色）、底部灰底「懒得自己写？」。
+// 「键盘记住的事」首页（05 的 2i），挂在「记得」Tab：顶上「本周」入口（T5 并进首页前的过渡）、副标题、3 天内的提醒卡（恋爱与日常的人）、
+// 按场景分组的人（恋爱、日常、工作，各自 n / 8，每组下面「加一个人」，从哪组点进去就建在哪个场景；工作组的头像用中性色）、底部灰底「懒得自己写？」。
 // 读不出来时顶上常驻原因（MemoryFailureBanner），不让列表静默地空着。
 
 import SwiftUI
@@ -15,6 +15,9 @@ struct MemoryHomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    NavigationLink("本周") { WeekView(store: store) }
+                }
                 Section {
                     if let error = store.loadError {
                         MemoryFailureBanner(text: error) { Task { await store.reload() } }
