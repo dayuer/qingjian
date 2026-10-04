@@ -4,15 +4,18 @@ struct NoFullAccessStyle: Equatable {
     /// 候选栏右端的「收起」。
     let closeText: ColorRole
 
+    /// 「开启完全访问后才能用记忆……」那句说明。
+    let explanation: ColorRole
+
     /// 「去开启」描边按钮的文字与描边。
     let buttonText: ColorRole
 
     let buttonStroke: ColorRole
 
-    /// 点按钮后的一行提示。
-    let notice: ColorRole
+    /// 点「去开启」后展开的设置路径。
+    let path: ColorRole
 
-    static let standard = NoFullAccessStyle(closeText: .ink, buttonText: .ink, buttonStroke: .ink2, notice: .ink2)
+    static let standard = NoFullAccessStyle(closeText: .ink, explanation: .ink2, buttonText: .ink, buttonStroke: .ink2, path: .ink)
 
-    var roles: [ColorRole] { [closeText, buttonText, buttonStroke, notice] }
+    var roles: [ColorRole] { [closeText, explanation, buttonText, buttonStroke, path] }
 }

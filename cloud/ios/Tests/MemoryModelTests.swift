@@ -195,7 +195,6 @@ final class MemoryModelTests: XCTestCase {
     func testPickerNeedsFullAccess() {
         XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
         XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: true), .picker)
-        XCTAssertEqual(ScopeDisplay.needsFullAccessText, "开启完全访问后才能使用记忆")
     }
 
     func testCanNoteNeedsEverything() {

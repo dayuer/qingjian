@@ -33,7 +33,10 @@ enum ScopeDisplay {
     /// 没开完全访问读不到 App Group 里的记忆，也不让切场景（桥不知道有没有完全访问，这道门在 Swift 侧）。
     static func pickerMode(fullAccess: Bool) -> PickerMode { fullAccess ? .picker : .needsFullAccess }
 
-    static let needsFullAccessText = "开启完全访问后才能使用记忆"
+    static let needsFullAccessText = "开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上"
+
+    /// 「去开启」在面板里展开的路径。键盘扩展打不开系统设置，也不许借响应链打开 App，只能给文字。
+    static let fullAccessPath = "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问"
 
     /// 选择面板的格子：一行放得下（连「不指定」「新对象」不超过 4 格）时照设计稿竖排（头像在上）；
     /// 再多竖排的格子两行就超出键区高度，换成横排的矮格子（最多 10 格三行），免得键区里要滚动（键盘扩展里 SwiftUI 的滚动不可靠）。
@@ -85,6 +88,4 @@ enum ScopeDisplay {
 
     /// 键盘扩展没有官方办法打开容器 App，点了只给提示。
     static let allMemoryNotice = "打开素笺 App → 记住的"
-
-    static let enableFullAccessNotice = "打开素笺 App，按引导开启完全访问"
 }
