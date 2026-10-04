@@ -1,5 +1,5 @@
 #!/bin/sh
-# 卸载青简：删掉输入法本体（系统级 /Library 与用户级 ~/Library 两处都看），加 --purge 连学习数据、配置、日志一起删。
+# 卸载素笺：删掉输入法本体（系统级 /Library 与用户级 ~/Library 两处都看），加 --purge 连学习数据、配置、日志一起删。
 # 这个脚本会打进 .app 的 Resources 里，装了 pkg 的用户直接运行它。
 set -u
 purge=0
@@ -23,4 +23,4 @@ if [ "$purge" = 1 ]; then
 else
     echo "保留了 ~/Library/Application Support/Qingjian（学习数据、配置）与 ~/Library/Logs/Qingjian；要一起删请加 --purge"
 fi
-echo "已卸载。输入法列表里的「青简」条目会在注销再登录后消失。"
+echo "已卸载。输入法列表里的「素笺」条目会在注销再登录后消失。"

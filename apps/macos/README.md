@@ -10,7 +10,7 @@ apps/macos/scripts/bundle.sh --install
 ```
 
 打包到 `target/Qingjian.app` 并装到 `~/Library/Input Methods/`，杀掉旧进程；切换一次输入法就会拉起新的。
-首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「青简」，列表里没有就注销再登录。
+首次要在「系统设置 → 键盘 → 输入法 → 编辑 → +」的简体中文下添加「素笺」，列表里没有就注销再登录。
 日志在 `~/Library/Logs/Qingjian/`，用户数据与 `config.toml` 在 `~/Library/Application Support/Qingjian/`。
 
 ## 分发 pkg
