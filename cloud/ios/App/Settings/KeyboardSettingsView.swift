@@ -35,13 +35,18 @@ struct KeyboardSettingsView: View {
         Section("模糊音") {
             ForEach(FuzzyOptions.rows, id: \.label) { row in
                 Toggle(row.label, isOn: binding(Self.fuzzy.appending(path: row.path)))
+                    .tint(ColorUsage.appToggle.role.color)
             }
         }
         Section {
             Toggle("繁体输出", isOn: binding(\.traditional))
+                .tint(ColorUsage.appToggle.role.color)
             Toggle("中文标点用全角", isOn: binding(\.fullWidthPunctuation))
+                .tint(ColorUsage.appToggle.role.color)
             Toggle("学习输入习惯", isOn: binding(\.learning))
+                .tint(ColorUsage.appToggle.role.color)
             Toggle("云联想", isOn: binding(\.cloudPrediction))
+                .tint(ColorUsage.appToggle.role.color)
         } footer: {
             Text("关掉学习后不再记新词与词频，已学到的保留。云联想经素笺云 让大模型补候选与整句，和 Mac 是同一个开关。")
         }
@@ -49,6 +54,7 @@ struct KeyboardSettingsView: View {
             Section("领域词库") {
                 ForEach(settings.domains.indices, id: \.self) { index in
                     Toggle(settings.domains[index].label, isOn: binding(\.domains[index].enabled))
+                        .tint(ColorUsage.appToggle.role.color)
                 }
             }
         }

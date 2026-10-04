@@ -16,9 +16,11 @@ final class NoFullAccessStyleTests: XCTestCase {
     }
 
     func testAccentOnlyOnElementsThatStandForAPerson() {
-        let accent = Set(ColorUsage.allCases.filter { $0.role == .accent })
+        let accent = Set(ColorUsage.allCases.filter { $0.role.isAccent })
         XCTAssertEqual(
-            accent, [.chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard])
+            accent,
+            [.chip, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
+             .appToggle])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
@@ -33,6 +35,14 @@ final class NoFullAccessStyleTests: XCTestCase {
         for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner] {
             XCTAssertEqual(usage.role, .ink, "\(usage)")
         }
-        XCTAssertEqual(ColorUsage.reminderCard.role, .accent)
+        XCTAssertEqual(ColorUsage.reminderCard.role, .accentSoft)
+        XCTAssertEqual(ColorUsage.reminderDay.role, .accent)
+    }
+
+    /// App 的开关照设计稿 .toggle 用灰绿实底（浅 #C0E7C6、深 #34563B），是「控件中性色」的例外，那条只管键盘面板。
+    func testAppTogglesUseAccentFill() {
+        XCTAssertEqual(ColorUsage.appToggle.role, .accentFill)
+        XCTAssertEqual(Theme.accent.light.hex, 0xC0E7C6)
+        XCTAssertEqual(Theme.accent.dark.hex, 0x34563B)
     }
 }

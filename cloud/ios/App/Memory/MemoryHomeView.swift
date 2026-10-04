@@ -15,11 +15,16 @@ struct MemoryHomeView: View {
             List {
                 Section {
                     if let error = store.loadError {
-                        MemoryFailureBanner(text: error) { store.reload() }
+                        MemoryFailureBanner(text: error) { Task { await store.reload() } }
+                    } else if !store.loaded {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text(MemoryStore.Wording.loading).foregroundStyle(.secondary)
+                        }
                     }
                     ForEach(store.upcoming(within: 3)) { item in
                         NavigationLink(value: MemoryRoute.contact(item.contact.id)) { reminderRow(item) }
-                            .listRowBackground(Theme.accentSoft.color)
+                            .listRowBackground(ColorUsage.reminderCard.role.color)
                     }
                 } header: {
                     Text("都是你写的 · 只存在这台手机上").textCase(nil)
@@ -77,8 +82,7 @@ struct MemoryHomeView: View {
                 path.removeAll { !ids.contains($0.contactId) }
             }
             .sheet(isPresented: $addingContact) { ContactEditor(store: store) }
-            .task { store.reload() }
-            .refreshable { store.reload() }
+            .refreshable { await store.reload() }
         }
     }
 
@@ -86,7 +90,7 @@ struct MemoryHomeView: View {
         HStack(spacing: 14) {
             Text(item.shortDay)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.accentInk.color)
+                .foregroundStyle(ColorUsage.reminderDay.role.color)
                 .frame(minWidth: 40, alignment: .leading)
             Text(item.title)
         }
