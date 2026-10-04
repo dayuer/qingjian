@@ -39,6 +39,10 @@
    （不要给 `DataSync` 的 Drop 加阻塞式 join：键盘扩展在主线程释放引擎，卡几秒用户能感觉到。）
 6. **没开「完全访问」时，学习数据与进度在键盘扩展自己的容器里**，桥只清 App Group 里的 `cloud/`。当时键盘没有网络、没有进度可清；之后用户开了完全访问，旧容器里的进度不会被清。边缘情况，Task 4 不处理，在 `cloud/ios/README.md`（Task 6）里写一句已知限制。
 7. **`cloud.toml` 新增 `user_id` 字段**（Task 3 修订）：用来区分「同一账号重登」与「换账号」，只有换账号才清整个 `cloud/` 进度。Mac 的 `config.toml` 同理要存 `user_id`（Task 5）并按同样规则判断：同账号重登保留进度，换账号清进度；`SessionGrant.user_id` 就是依据。
+8. **换账号与删号时必须连输入日志一起删（Task 5 的 Mac，Task 3 的 iOS 已做）。** 输入日志本体（Mac 是输入法数据目录里的 `input-log.jsonl`）不在同步进度目录里，只删进度的话上传偏移没了，
+   新账号打开「上传输入日志」后会从头把旧账号期间的全部明文输入传上去（跨账号泄露）。Task 5 里 Mac 的 `reset_sync_state` 在「换账号」与「删号」时都要删输入日志文件及其轮转副本，
+   并写测试：A 记了日志、换成 B 登录并打开 logs，B 名下收不到 A 的任何一行（至少验证文件被删、偏移状态被删）。Mac 本任务没有删号入口，换账号路径必须做。
+9. **失败要带错误代号，界面按代号分支。** iOS 桥已把失败返回成 `{"code","message"}`；Mac 菜单没有输入框，但 `locked_today` 要提示「今天验证失败次数过多，请明天再试，或改用 Apple 登录」，`unauthorized` 要回到未登录，`forbidden` 把对应开关显示为关，这些在 Task 5 里按 `ClientError` 的变体（`AuthFailed`、`LockedToday`、`Unauthorized`、`Forbidden`、`RateLimited`、`NotConfigured`）分支，文案与 iOS 桥一致（复用 `qingjian-cloud-bridge` 的文案函数不现实，因为 Mac 不依赖桥，就在 Mac 的 `account/mod.rs` 里写同样的几句）。
 
 ---
 
