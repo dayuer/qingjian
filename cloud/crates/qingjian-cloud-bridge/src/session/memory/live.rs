@@ -1,0 +1,148 @@
+//! 会话里的本地记忆状态：当前场景与对象、换层把手、名单、当前对象的卡片与提示索引、最近上屏的字、两条提示。
+//! 键盘只读记忆文件（「记一笔」「知道了」与当前场景除外），App 改了按修改时间重载（见 `Session::poll_memory`）。
+//! 读不了（锁屏时数据保护挡住）就留着内存里原来的，不当成空；
+//! 写时拿不到文件锁（键盘只等 200 毫秒）的「记一笔」与切场景先放进内存待办，之后重试（见 `pending`）。
+
+use std::collections::HashSet;
+use std::path::Path;
+use std::time::SystemTime;
+
+use qingjian_cloud_proto::Scene;
+
+use super::pending::PendingWrites;
+use crate::memory::{
+    Card, Contact, Hint, HintIndex, KEYBOARD_LOCK_TIMEOUT, LocalDate, MemoryStore, RecentText,
+    sanitized_scope,
+};
+use crate::scope::{ScopeHandle, ScopeState, ScopedLearner};
+
+pub(crate) struct LiveMemory {
+    pub(super) store: MemoryStore,
+
+    pub(super) handle: ScopeHandle,
+
+    pub(super) state: ScopeState,
+
+    pub(super) contacts: Vec<Contact>,
+
+    /// 当前对象的卡片；没选对象时为空。
+    pub(super) cards: Vec<Card>,
+
+    pub(super) hints: HintIndex,
+
+    pub(super) recent: RecentText,
+
+    /// 切到对象时算出的日子提醒，优先于匹配提示；「知道了」后清掉。
+    pub(super) today: Option<Hint>,
+
+    /// 最近一次 refresh 匹配到的提示。
+    pub(super) current: Option<Hint>,
+
+    /// `contacts.json`、`state.json`、当前对象 `cards.json` 上次读时的修改时间。
+    pub(super) stamp: [Option<SystemTime>; 3],
+
+    /// 拿不到锁、等着重试的写入。
+    pub(super) pending: PendingWrites,
+
+    /// 换了对象但卡片还没读进来（当时拿不到锁或读不了）：先当没有卡，refresh 时补读。
+    pub(super) cards_stale: bool,
+}
+
+impl LiveMemory {
+    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前场景开分区学习器，读入「知道了」的记录。
+    /// 提示索引由会话随后建（要用引擎的语言模型切词）。
+    pub(in crate::session) fn open(user_dir: &Path) -> (ScopedLearner, Self) {
+        let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);
+        let contacts = store.contacts();
+        let state = sanitized_scope(store.state(), &contacts);
+        let learner = ScopedLearner::open(
+            user_dir,
+            store.root(),
+            state.scene,
+            state.contact_id.as_deref(),
+        );
+        let handle = learner.handle();
+        let cards = state
+            .contact_id
+            .as_deref()
+            .map(|id| store.cards(id))
+            .unwrap_or_default();
+        let known: HashSet<String> = store
+            .snapshot()
+            .map(|snapshot| {
+                snapshot
+                    .cards
+                    .into_values()
+                    .flatten()
+                    .map(|card| card.id)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut hints = HintIndex::default();
+        hints.set_dismissed(store.dismissed(LocalDate::today(), &known));
+        let stamp = store.stamp(state.contact_id.as_deref());
+        let memory = Self {
+            store,
+            handle,
+            state,
+            contacts,
+            cards,
+            hints,
+            recent: RecentText::default(),
+            today: None,
+            current: None,
+            stamp,
+            pending: PendingWrites::default(),
+            cards_stale: false,
+        };
+        (learner, memory)
+    }
+
+    /// 只在恋爱场景、选了对象时出提示（私密输入由会话另挡）。
+    pub(super) fn has_contact(&self) -> bool {
+        self.state.scene == Scene::Dating && self.contact().is_some()
+    }
+
+    pub(super) fn contact(&self) -> Option<&Contact> {
+        let id = self.state.contact_id.as_deref()?;
+        self.contacts.iter().find(|c| c.id == id)
+    }
+
+    /// 重读名单；读不了时留着原来的。
+    pub(super) fn reload_contacts(&mut self) {
+        match self.store.try_contacts() {
+            Ok(contacts) => self.contacts = contacts,
+            Err(error) => tracing::warn!(%error, "名单读不了，先用原来的"),
+        }
+    }
+
+    /// 重读当前对象的卡片与修改时间（换对象、「记一笔」、App 改了之后）；读不了时留着原来的，返回是否读成了。
+    pub(super) fn reload_cards(&mut self) -> bool {
+        let id = self.state.contact_id.clone();
+        let loaded = match id.as_deref().map(|id| self.store.try_cards(id)) {
+            None => {
+                self.cards.clear();
+                true
+            }
+            Some(Ok(cards)) => {
+                self.cards = cards;
+                true
+            }
+            Some(Err(error)) => {
+                tracing::warn!(%error, "卡片读不了，先用原来的");
+                false
+            }
+        };
+        self.stamp = self.store.stamp(id.as_deref());
+        if loaded {
+            self.cards_stale = false;
+        }
+        loaded
+    }
+
+    /// 最近上屏的字与正在显示的匹配提示都清掉（键盘收起、换了输入框、换了对象）。
+    pub(super) fn forget_context(&mut self) {
+        self.recent.clear();
+        self.current = None;
+    }
+}

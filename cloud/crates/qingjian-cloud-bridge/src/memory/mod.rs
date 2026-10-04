@@ -8,6 +8,7 @@ mod cards_file;
 mod contact;
 mod dismissed_file;
 mod error;
+mod ffi;
 mod hint;
 mod local_date;
 mod pronoun;
