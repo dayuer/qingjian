@@ -124,6 +124,9 @@ NSTimer（输入法自己的定时器失焦就停）与后台线程，入口都�
 | `apps/macos/src/host/settings.rs` | 加几行 | 子菜单动作转给 `qingjian_cloud_mac::perform`，之后重套配置（重新加载了 Cloud 配置的话云联想要换端点）；`[predict] provider` 的保存 |
 | `apps/macos/src/host/config/predict.rs` | 新文件 | 云联想生效的配置：`provider = qingjian` 时地址与令牌来自 `qingjian_cloud_mac::llm_endpoint()` |
 | `apps/macos/src/preferences/pages/cloud.rs` | 改 | 「服务」弹出菜单：青简 Cloud / 自定义接口，后者才显示地址、模型、密钥 |
+| `apps/macos/src/host/config/mod.rs` | 加 4 行 | `tick()` 里问 `qingjian_cloud_mac::take_input_log_reset()`，换账号清了输入日志后丢掉写入端缓冲里旧账号的输入并重开 |
+| `apps/macos/src/host/diagnostics.rs` | 重构 + 加 7 行 | 「清空输入日志」拆出 `truncate_and_reopen_input_log`，新增 `reset_input_log_after_account_switch` 复用它 |
+| `apps/macos/src/host/config/predict.rs`、`apps/macos/src/preferences/pages/cloud.rs` | 各改 1 段文案 | 提示改成「登录并打开「大模型（云联想）」」，不再说填服务器地址与设备令牌（只改字符串） |
 | `apps/macos/src/app/logging/mod.rs` | 改 1 行 | debug 级别下把 ureq 压到 info |
 | `apps/macos/pkg/scripts/postinstall` | 加 8 行 | 清掉旧版单独装的 `QingjianCloud.app` 与登录项 |
 

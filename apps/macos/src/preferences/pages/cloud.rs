@@ -97,7 +97,7 @@ impl CloudPage {
         note(
             layout,
             mtm,
-            "青简 Cloud 用菜单栏「中☁ → 青简 Cloud ›」里配好的服务器与设备令牌，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
+            "青简 Cloud 用菜单栏「中☁ → 青简 Cloud ›」里的登录账号：先登录并打开「大模型（云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
         );
         let base_url = text_field(mtm, Setting::BaseUrl, target);
         let base_url_caption = row_control(layout, mtm, "接口地址", &base_url);
