@@ -18,7 +18,7 @@ struct RewriteBar: View {
             case .ready(_, let result):
                 Text(result)
                     .font(.system(size: 17))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .truncationMode(.head)
                     .padding(.leading, 12)

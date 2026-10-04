@@ -13,7 +13,7 @@ struct ClipOfferBar: View {
             Text(offer.device).font(.system(size: 13)).foregroundStyle(.secondary)
             Text(offer.text.replacingOccurrences(of: "\n", with: " "))
                 .font(.system(size: 17))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.ink)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 .onKeyboardTap { model.insertClip() }
