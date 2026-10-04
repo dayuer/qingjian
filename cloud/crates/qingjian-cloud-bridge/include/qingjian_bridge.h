@@ -107,6 +107,9 @@ char *qj_memory_cards(QjSession *session, const char *contact_id);
 // 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在内存待办里
 // （最多 32 条，满了丢最旧的），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
 char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);
+// 键盘里新建一个恋爱场景的对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（contact_limit：已满 8 个；
+// lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta。
+char *qj_memory_add_contact(QjSession *session, const char *name, const char *pronoun);
 // App 用，user_dir 是 App Group 里的 Qingjian 目录（记忆在它下面的 memory/）。read 返回
 // {"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}（revs 是各对象卡片的修订号；broken 是卡片文件损坏、
 // 已备份的对象；参数无效或有文件读不了时为 NULL）。

@@ -13,7 +13,10 @@ use qingjian_core::sentence::{LanguageModel, segment_text};
 
 use super::Session;
 use crate::entry::Entry;
-use crate::memory::{Card, Hint, LocalDate, MemoryError, now_unix, panel_cards, sanitized_scope};
+use crate::memory::{
+    Card, Contact, Hint, LocalDate, MemoryError, Pronoun, new_id, now_unix, panel_cards,
+    sanitized_scope,
+};
 use crate::scope::{ScopeState, is_contact_id};
 
 use self::pending::PendingNote;
@@ -160,6 +163,34 @@ impl Session {
             self.rebuild_hints();
         }
         Ok(())
+    }
+
+    /// 键盘里新建一个恋爱场景的对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录；
+    /// 键盘只等 200 毫秒的锁，拿不到就报 `LockTimeout` 让用户再点一次（新建是一次性的确认，不进待办）。
+    pub fn memory_add_contact(
+        &mut self,
+        name: &str,
+        pronoun: Pronoun,
+    ) -> Result<String, MemoryError> {
+        let Some(memory) = self.memory.as_mut() else {
+            return Err(MemoryError::Invalid("这个键盘没有记忆目录"));
+        };
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(MemoryError::Invalid("名字不能是空的"));
+        }
+        let id = new_id()?;
+        memory.store.put_contact(Contact {
+            id: id.clone(),
+            name: name.to_owned(),
+            pronoun,
+            scene: Scene::Dating,
+            created_at: now_unix(),
+            hint_on: true,
+            remind_on: true,
+        })?;
+        memory.reload_contacts();
+        Ok(id)
     }
 
     /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写（成功才出队，被拒绝的丢掉），再补写最新一次切场景，
