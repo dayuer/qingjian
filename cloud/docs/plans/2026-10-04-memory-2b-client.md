@@ -3,6 +3,9 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > 本文件是审计会话给出的**任务大纲**：接口、文件、测试与验收已定死。执行前由客户端会话用 writing-plans 把每个任务展开成逐步的代码与命令，展开后先发审计会话审一遍再动手。
 
+> **2026-10-05：场景改成用户自建的分组后，这份计划里「按场景开记录 / 分场景开关 / 恋爱场景」的说法全部作废**，
+> 要改成按对象（选了人 / 没选人）与场景列表重写。见 [场景改成用户可管理](2026-10-05-scene-management.md)。
+
 **Goal:** 在用户开了记录的场景里，把发出的话与「记一笔」规则脱敏后上传；键盘始终看得见「记录中」，可暂停；App 有分场景开关与单独同意页。
 
 **Architecture:** proto 加 2B 类型；新 crate `qingjian-cloud-redact`（规则层脱敏，客户端与服务端共用同一份代码与测试向量）；`qingjian-cloud-client` 加 `MemorySync`（与 `InputLogSync` 同构的离线队列）；桥在上屏路径聚合「一次发送」交给 `MemorySync`；iOS 加标记、暂停、同意页、场景开关。
@@ -80,10 +83,11 @@ impl MemorySync {
 **Files:** Create `cloud/crates/qingjian-cloud-bridge/src/memory/sent.rs`；Modify `session/mod.rs`（上屏路径）、`memory/store.rs`（新建 / 删除对象时调 `register_contact` / `delete_contact`，失败排进 `MemorySync` 的待办）、`memory/ffi.rs`、`cloud_config.rs`（`[memory] record_daily / record_dating / record_work`，缺省 false / false / false；`paused_until`）、头文件。
 
 - 「一次发送」：上屏的文字累积到缓冲，遇到回车上屏（`take_raw` 的换行或宿主发送）或 30 秒无新上屏时封口，生成一条 `MemoryItem{kind: Sent}`。
-- 上传条件（全部满足）：已登录；`consents.memory`；当前场景的 `record_*` 为真；`paused_until` 已过；不在私密输入；恋爱场景选了对象时带 `contact_id`，日常场景 `contact_id = null`，恋爱「不指定」不上传。
+- 上传条件（全部满足）：已登录；`consents.memory`；**（2026-10-05 作废：`record_*` 按场景开关）**；`paused_until` 已过；不在私密输入；~~恋爱场景选了对象时带 `contact_id`，日常场景 `contact_id = null`，恋爱「不指定」不上传~~ → 改成「选了对象就带 `contact_id`，没选就不带」。
 - `qj_memory_note` 在满足条件时额外 `enqueue` 一条 `kind: Note`。
 - 新 C 接口：`qj_memory_pause(minutes)`、`qj_memory_recording() -> char*`（`{"recording":bool,"paused_until":…|null,"scene":…}`，键盘画标记用）。
-- 2A 的对象新建遇到 `ContactLimit`（云端 30 天内删过的仍占名额）：App 提示「恋爱场景最多 8 个人（最近 30 天删除的也算）」。
+- ~~2A 的对象新建遇到 `ContactLimit`（云端 30 天内删过的仍占名额）：App 提示「恋爱场景最多 8 个人（最近 30 天删除的也算）」。~~
+  **2026-10-05 作废**：人数不限了（每个场景可以置顶 4 个）。
 - 测试：封口的两种边界；五个条件逐一不满足时不入队；暂停期间不入队；`note` 双写；对象新建离线时登记进待办、恢复后补登记。
 
 ## Task 5：iOS 键盘「记录中」
@@ -98,9 +102,9 @@ impl MemorySync {
 
 **Files:** Create `cloud/ios/App/Memory/RecordingConsentView.swift`、`RecordingSettingsSection.swift`；Modify 「我」页（Account 区）。
 
-- 同意页（05 的 2f）：标题「在哪些场景里记？」；日常 / 恋爱 / 工作三个开关（缺省只开恋爱）；「交给谁处理」一节显示 `processor().name`，带单独的勾选框「同意交给 {name} 整理」，说明「先抹去姓名、电话、地址等再发送；对方不保存、不拿来训练。整理完原文即删」；「永远不记」「随时可以停」两段；勾选前「同意并开始记录」不可用。`name` 为空时整页显示「云端记忆还在准备中」，不可开启。
+- 同意页（05 的 2f）：标题「在哪些场景里记？」；~~日常 / 恋爱 / 工作三个开关（缺省只开恋爱）~~ → **2026-10-05 起按用户自建的场景列表生成**；「交给谁处理」一节显示 `processor().name`，带单独的勾选框「同意交给 {name} 整理」，说明「先抹去姓名、电话、地址等再发送；对方不保存、不拿来训练。整理完原文即删」；「永远不记」「随时可以停」两段；勾选前「同意并开始记录」不可用。`name` 为空时整页显示「云端记忆还在准备中」，不可开启。
 - 同意后：`put_consent(memory, true)` 成功才写本地 `record_*`；失败按错误代号提示。
-- 「我」页：「在哪些场景里记」三个开关；「交给谁处理：{name} · 已同意」；「撤回同意并删除云端数据」→ `put_consent(memory, false)` 并清本地队列与 `record_*`。
+- 「我」页：「在哪些场景里记」~~三个开关~~（按场景列表生成）；「交给谁处理：{name} · 已同意」；「撤回同意并删除云端数据」→ `put_consent(memory, false)` 并清本地队列与 `record_*`。
 - 测试（Swift）：同意按钮可用性；`name` 为空的分支；撤回后本地开关全关。验收：截图对照 05 的 2f、2j。
 
 ## Task 7：文档
