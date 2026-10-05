@@ -10,14 +10,14 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
-use qingjian_cloud_proto::{MAX_CARD_KEYWORDS, MAX_CARD_TEXT_CHARS};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use super::validate::{adopt_unknown_scenes, check_pinned, validate_cards, validate_contacts};
 use super::{
     Card, CardsFile, Contact, DEFAULT_SCENE_ID, DEFAULT_SCENE_NAME, DismissedFile, LocalDate,
-    MAX_DISPLAY_NAME_CHARS, MAX_PINNED, MEMORY_DIR, MemoryError, MemorySnapshot, Scene, now_unix,
-    sanitized_scope, scope_with, validate_scenes,
+    MEMORY_DIR, MemoryError, MemorySnapshot, Scene, now_unix, sanitized_scope, scope_with,
+    validate_scenes,
 };
 use crate::cloud_config::write_atomic;
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
@@ -41,11 +41,6 @@ pub const DEFAULT_LOCK_TIMEOUT: Duration = Duration::from_secs(2);
 pub const KEYBOARD_LOCK_TIMEOUT: Duration = Duration::from_millis(200);
 
 const LOCK_RETRY: Duration = Duration::from_millis(5);
-
-/// 一个关键词至少、至多几个字（spec 对云端卡关键词的校验，手写卡一并按它）。
-const MIN_KEYWORD_CHARS: usize = 2;
-
-const MAX_KEYWORD_CHARS: usize = 8;
 
 /// 「知道了」的记录留多少天。
 const DISMISSED_KEEP_DAYS: i64 = 30;
@@ -104,14 +99,15 @@ impl MemoryStore {
         self.read_scenes()
     }
 
-    /// 加一个场景或改已有的（同 id 改名）。名字重复不拦——两个叫「家人」的分组是用户自己的事；
-    /// 一个都不剩时报错（见 [`validate_scenes`]）。
+    /// 加一个场景或改已有的（同 id 只改名，建的时间不动）。名字重复不拦——两个叫「家人」的分组是用户自己的事；
+    /// 一个都不剩时报错（见 [`validate_scenes`]）。只写 `scenes.json`：不碰卡片，所以也不校验卡片
+    /// （哪张卡不合格都不该挡住改场景名）。
     pub fn put_scene(&self, scene: Scene) -> Result<(), MemoryError> {
         let scene = scene.normalized();
         let _lock = self.lock()?;
         let mut scenes = self.read_scenes()?;
         match scenes.iter_mut().find(|s| s.id == scene.id) {
-            Some(existing) => *existing = scene,
+            Some(existing) => existing.name = scene.name,
             None => scenes.push(scene),
         }
         validate_scenes(&scenes)?;
@@ -139,7 +135,8 @@ impl MemoryStore {
         }
         check_pinned(&contacts, &scenes)?;
         write_json(&self.contacts_path(), &contacts)?;
-        write_json(&self.scenes_path(), &scenes)
+        write_json(&self.scenes_path(), &scenes)?;
+        self.fix_state(&scenes, &contacts)
     }
 
     /// 一个人的卡片；读不了时为空（只给显示用）。
@@ -202,9 +199,13 @@ impl MemoryStore {
         if !is_contact_id(contact_id) {
             return Err(MemoryError::Invalid("对象编号不对"));
         }
-        validate_cards(cards)?;
         let _lock = self.lock()?;
-        self.require_contact(contact_id)?;
+        let contacts = self.read_contacts()?;
+        let owner = contacts
+            .iter()
+            .find(|c| c.id == contact_id)
+            .ok_or(MemoryError::Invalid("名单上没有这个人"))?;
+        validate_cards(owner, cards)?;
         let (file, _) = self.read_cards(contact_id)?;
         self.write_cards(contact_id, file.rev + 1, cards)
     }
@@ -277,10 +278,11 @@ impl MemoryStore {
         adopt_unknown_scenes(&mut contacts, &scenes);
         check_pinned(&contacts, &scenes)?;
         for (id, cards) in &snapshot.cards {
-            if !contacts.iter().any(|c| &c.id == id) {
-                return Err(MemoryError::Invalid("卡片对不上人"));
-            }
-            validate_cards(cards)?;
+            let owner = contacts
+                .iter()
+                .find(|c| &c.id == id)
+                .ok_or(MemoryError::Invalid("卡片对不上人"))?;
+            validate_cards(owner, cards)?;
         }
         let _lock = self.lock()?;
         let old = self.read_contacts()?;
@@ -311,13 +313,18 @@ impl MemoryStore {
             write_json(&self.scenes_path(), &scenes)?;
         }
         write_json(&self.contacts_path(), &contacts)?;
+        self.fix_state(&scenes, &contacts)
+    }
+
+    /// 名单或场景变了之后理顺 `state.json`：当前对象不在了就置空，当前场景没了就回默认场景；没变不写。调用方已拿着锁。
+    fn fix_state(&self, scenes: &[Scene], contacts: &[Contact]) -> Result<(), MemoryError> {
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        let mut fixed = sanitized_scope(state.clone(), &contacts);
+        let mut fixed = sanitized_scope(state.clone(), contacts);
         if !scenes.iter().any(|scene| scene.id == fixed.scene)
             && let Some(first) = scenes.first()
         {
             fixed.scene.clone_from(&first.id);
-            fixed = sanitized_scope(fixed, &contacts);
+            fixed = sanitized_scope(fixed, contacts);
         }
         if fixed != state {
             write_json(&self.state_path(), &fixed)?;
@@ -597,89 +604,4 @@ fn remove_dir(dir: &Path) -> Result<(), MemoryError> {
 
 fn modified(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
-}
-
-/// 一个场景里最多 [`MAX_PINNED`] 个置顶。
-fn check_pinned(contacts: &[Contact], scenes: &[Scene]) -> Result<(), MemoryError> {
-    for scene in scenes {
-        let pinned = contacts
-            .iter()
-            .filter(|c| c.scene == scene.id && c.pinned_at.is_some())
-            .count();
-        if pinned > MAX_PINNED {
-            return Err(MemoryError::PinLimit);
-        }
-    }
-    Ok(())
-}
-
-/// 人所在的场景不在名册上（旧版本的键盘还写着 `dating` 之类）就归到默认场景（列表里第一个），不报错：
-/// 新旧版本并存时旧键盘写回的老场景 id 不该让整份写失败。换了分组，置顶不带过去。
-fn adopt_unknown_scenes(contacts: &mut [Contact], scenes: &[Scene]) {
-    let Some(fallback) = scenes.first().map(|scene| scene.id.clone()) else {
-        return;
-    };
-    for contact in contacts {
-        if !scenes.iter().any(|scene| scene.id == contact.scene) {
-            contact.scene.clone_from(&fallback);
-            contact.pinned_at = None;
-        }
-    }
-}
-
-fn validate_contacts(contacts: &[Contact]) -> Result<(), MemoryError> {
-    let mut seen = HashSet::new();
-    for contact in contacts {
-        if !is_contact_id(&contact.id) {
-            return Err(MemoryError::Invalid("对象编号不对"));
-        }
-        if contact.name.trim().is_empty() {
-            return Err(MemoryError::Invalid("名字不能是空的"));
-        }
-        if contact
-            .display_name
-            .as_deref()
-            .is_some_and(|name| name.trim().chars().count() > MAX_DISPLAY_NAME_CHARS)
-        {
-            return Err(MemoryError::Invalid("键盘上的代号最多 12 个字"));
-        }
-        if !seen.insert(contact.id.as_str()) {
-            return Err(MemoryError::Invalid("同一个人出现了两次"));
-        }
-    }
-    Ok(())
-}
-
-fn validate_cards(cards: &[Card]) -> Result<(), MemoryError> {
-    let mut seen = HashSet::new();
-    for card in cards {
-        if !is_contact_id(&card.id) {
-            return Err(MemoryError::Invalid("卡片编号不对"));
-        }
-        if card.text.trim().is_empty() {
-            return Err(MemoryError::Invalid("卡片内容不能是空的"));
-        }
-        if card.text.chars().count() > MAX_CARD_TEXT_CHARS {
-            return Err(MemoryError::Invalid("一张卡最多 200 个字"));
-        }
-        if card.keywords.len() > MAX_CARD_KEYWORDS {
-            return Err(MemoryError::Invalid("关键词最多 8 个"));
-        }
-        if card.keywords.iter().any(|keyword| {
-            !(MIN_KEYWORD_CHARS..=MAX_KEYWORD_CHARS).contains(&keyword.trim().chars().count())
-        }) {
-            return Err(MemoryError::Invalid("每个关键词要 2 到 8 个字"));
-        }
-        if card
-            .when
-            .as_deref()
-            .is_some_and(|when| LocalDate::parse(when).is_none())
-        {
-            return Err(MemoryError::Invalid("日期要写成 2026-10-04 这样"));
-        }
-        if !seen.insert(card.id.as_str()) {
-            return Err(MemoryError::Invalid("同一张卡片出现了两次"));
-        }
-    }
-    Ok(())
 }

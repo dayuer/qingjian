@@ -33,7 +33,7 @@
 | 删场景时里面的人 | **自动挪到默认场景** |
 | 已有数据 | **一律归并成一个「日常」** |
 | 键盘选择面板 | 只摆置顶与最常用的几个，不提供看全部（其余在 App 里切） |
-| 分区学习 | 场景不再分区；**按人隔离**（2026-10-05 用户定，审计意见）：选了人时只写这个人的对象层，不写全局、不记个人 n-gram；没选人（「不指定」）才写全局 |
+| 分区学习 | 场景不再分区；**按人隔离**（2026-10-05 用户定，审计意见）：选了人时只写这个人的对象层，不写全局、不记个人 n-gram；没选人（「不指定」）才写全局。**新造的中文词（`learn_word`）与个人英文词（`learn_english`）也按人隔离**（2026-10-05 审计补报）：选了人只进对象层，候选里是全局 + 这个人的，换人或「不指定」后看不到 |
 | 上传同意 | **全局一个开关**，不分场景（2026-10-05 用户定，补上审计留的「未定」） |
 | 工作场景的「安静」 | **不做单独区分**（2026-10-05 用户定）：场景全是用户自定义的名字，行为一模一样，没有「安静场景」这种类型 |
 | 服务端素材的 `scene` 字段 | 交给服务端处理，客户端这边写了一份材料：[素材的 scene 字段](../specs/memory-scene-field.md) |
@@ -114,6 +114,11 @@
 - [ ] FFI 与头文件：`qj_scope_set` 的 scene 参数语义从「三选一」改成「场景 id，认不得就用默认」；
   `qj_memory_add_contact` 的兜底从 `Scene::Daily` 改成 `DEFAULT_SCENE_ID`。
 - [ ] 测试：选了人时打的词不出现在「不指定」与其他人的候选里（隔离）；没选人时写全局；换人后前一个人的词不出现。
+- [x] 新造词也按人隔离（2026-10-05 补）：`learn_word` / `learn_english` 选了人只写对象层。对象层锁在 `Mutex` 里借不出引用，
+  `ScopedLearner` 存一份对象层用户词与英文词的快照（`scope/snapshot.rs`），经上游补丁的 `Learner::scoped_user_words` / `scoped_user_english`
+  与全局那份一起查；快照只在换人（会话 `switch_layers` 调 `learner_mut().scope_changed()`）、造词、删这个人的词之后重建，不随按键重建。
+  快照记着叠加层的代数，换了人还没重建时一律当没有，换人后第一次查词不会看到上一个人的词。测试 `scope/tests.rs` 的
+  `new_words_made_for_someone_stay_with_them` 等五条（在 `Engine` 上断言候选）。
 - [ ] 测试：`scope/tests.rs` 里 `dating_writes_do_not_reach_work` / `daily_and_work_share_global` /
   `dating_does_not_write_transitions` 这类按场景分岔的用例删掉或改成「所有场景一致」；
   `memory/tests/scene.rs`、`tests/memory_scene_ffi.rs` 按新模型重写。

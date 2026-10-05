@@ -14,6 +14,17 @@ pub enum MemoryError {
     #[error("invalid memory data")]
     Invalid(&'static str),
 
+    /// 一张卡不合格：`contact` 是这个人的名字，`card` 是卡片开头几个字，`reason` 同 [`Self::Invalid`]。
+    /// 单独一种是为了报错能指到卡上——用户可能是在做别的事（改人、改场景）时撞上一张旧的坏卡。
+    #[error("invalid memory card")]
+    InvalidCard {
+        contact: String,
+
+        card: String,
+
+        reason: &'static str,
+    },
+
     /// App 拿来写回的快照比磁盘上的旧（这期间别处改过卡片）：重读、合并后再写。
     #[error("memory changed since it was read")]
     Conflict,
@@ -36,7 +47,7 @@ impl MemoryError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::PinLimit => "pin_limit",
-            Self::Invalid(_) => "invalid",
+            Self::Invalid(_) | Self::InvalidCard { .. } => "invalid",
             Self::Conflict => "conflict",
             Self::MaterialLimit { .. } => "material_limit",
             Self::LockTimeout => "lock_timeout",
@@ -48,6 +59,11 @@ impl MemoryError {
         match self {
             Self::PinLimit => format!("一个场景最多置顶 {MAX_PINNED} 个人"),
             Self::Invalid(reason) => (*reason).to_owned(),
+            Self::InvalidCard {
+                contact,
+                card,
+                reason,
+            } => format!("{contact}的卡「{card}」：{reason}"),
             Self::Conflict => "记忆刚有更新，请再点一次".to_owned(),
             Self::MaterialLimit { remaining: 0, .. } => {
                 format!("这个人还有 {MAX_UNPROCESSED_MATERIALS} 条没整理，先去 App 里看看")

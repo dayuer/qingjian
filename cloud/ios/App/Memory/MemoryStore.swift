@@ -179,7 +179,7 @@ final class MemoryStore {
                 ? "场景名不能是空的" : Wording.sceneNameTooLong()
             return false
         }
-        return await update { $0.scenes.append(MemoryScene.new(name: trimmed)) }
+        return await editScene(.put(MemoryScene.new(name: trimmed)))
     }
 
     @discardableResult
@@ -190,14 +190,12 @@ final class MemoryStore {
                 ? "场景名不能是空的" : Wording.sceneNameTooLong()
             return false
         }
-        return await update { snapshot in
-            if let index = snapshot.scenes.firstIndex(where: { $0.id == id }) {
-                snapshot.scenes[index].name = trimmed
-            }
-        }
+        guard var scene = snapshot.scenes.first(where: { $0.id == id }) else { return false }
+        scene.name = trimmed
+        return await editScene(.put(scene))
     }
 
-    /// 删一个场景：里面的人挪到默认场景（列表里第一个）、置顶一并取消（桥那边一样）。
+    /// 删一个场景：里面的人挪到默认场景（列表里第一个）、置顶一并取消（桥里做）。
     /// 只剩一个场景不让删——桥也会拒（至少要留一个场景）。
     @discardableResult
     func deleteScene(id: String) async -> Bool {
@@ -205,14 +203,32 @@ final class MemoryStore {
             message = "至少要留一个场景"
             return false
         }
-        return await update { snapshot in
-            snapshot.scenes.removeAll { $0.id == id }
-            let fallback = snapshot.scenes.first?.id ?? id
-            for index in snapshot.contacts.indices where snapshot.contacts[index].scene == id {
-                snapshot.contacts[index].scene = fallback
-                snapshot.contacts[index].pinnedAt = nil
-            }
+        return await editScene(.delete(id))
+    }
+
+    /// 场景的增删改名单独走桥的场景接口（只写 scenes.json 与人的分组），不走整份快照写：整份写要校验每张卡、
+    /// 比每个人的修订号，一张不相干的坏卡或键盘刚记的一笔都会让改场景名失败。写完按磁盘重读。
+    private func editScene(_ edit: SceneEdit) async -> Bool {
+        guard !saving else { return false }
+        guard let directory = directory() else {
+            loadError = Wording.noAppGroup
+            message = Wording.noAppGroup
+            return false
         }
+        guard canEdit else {
+            message = loadError ?? Wording.unreadable
+            return false
+        }
+        saving = true
+        saveGeneration += 1
+        let (failure, latest) = await worker.editScene(directory, edit)
+        saving = false
+        if let latest { apply(latest) }
+        if let failure {
+            message = Wording.failed(failure)
+            return false
+        }
+        return true
     }
 
     @discardableResult

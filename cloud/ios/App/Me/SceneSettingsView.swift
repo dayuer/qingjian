@@ -39,9 +39,10 @@ struct SceneSettingsView: View {
                         store.scenes.count <= 1
                             ? "至少要留一个场景。"
                             : MemoryStore.Wording.sceneHasPeople(
-                                people, fallback: store.defaultScene?.name ?? ""))
+                                people, fallback: fallbackName))
                 }
-                .confirmationDialog("删掉「\(scene.name)」？", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                // 用 .alert 不用 confirmationDialog：iOS 26 上后者是气泡，「算了」不显示（同素材的「删除」）
+                .alert("删掉「\(scene.name)」？", isPresented: $confirmingDelete) {
                     Button("删掉", role: .destructive) {
                         // 删成了就退回「我」页；还留着的话（比如桥拒了）留在原页看提示
                         Task {
@@ -53,7 +54,7 @@ struct SceneSettingsView: View {
                     Text(
                         people == 0
                             ? "这个场景里没有人。"
-                            : "里面的 \(people) 个人会挪到「\(store.defaultScene?.name ?? "")」。")
+                            : "里面的 \(people) 个人会挪到「\(fallbackName)」。")
                 }
             } else {
                 Text("这个场景没有了").foregroundStyle(.secondary)
@@ -72,5 +73,10 @@ struct SceneSettingsView: View {
 
     private var people: Int {
         SceneGroup.people(in: sceneId, from: store.snapshot.contacts).count
+    }
+
+    /// 删掉这个场景后人挪去的场景名（删的是默认场景时是下一个）。
+    private var fallbackName: String {
+        MemoryScene.fallback(in: store.snapshot.scenes, deleting: sceneId)?.name ?? ""
     }
 }

@@ -207,7 +207,7 @@ impl qingjian_core::Learner for ScopedLearner { /* 全部方法，见下表 */ }
 |---|---|
 | `weight`、`choice_weight`、`raw_count`、`typo_count` | 全局 + 4×场景 + 4×对象（恋爱场景才有后两层） |
 | `record`、`record_choice`、`record_raw`、`record_typo` 及对应 `unrecord*` | 恋爱：场景 + 对象；日常 / 工作：全局 |
-| `learn_word`、`user_words`、`learn_english`、`user_english`、`record_transition`、`unrecord_transition`、`user_ngram`、`forget*`、`merge_remote` | 一律全局 |
+| `learn_word`、`user_words`、`learn_english`、`user_english`、`record_transition`、`unrecord_transition`、`user_ngram`、`forget*`、`merge_remote` | 一律全局（**已被取代**：2026-10-05 起按人隔离，新造词与个人英文词选了人只进对象层，见 [场景计划](2026-10-05-scene-management.md)） |
 | `flush` | 三层都刷 |
 
 测试（`scope/tests.rs`，用临时目录，不需要产品数据）：
@@ -9349,7 +9349,7 @@ Modify `cloud/docs/design.md`：在第 262 行 `## 分期` 之前插入下面这
   解析不了的文件改名 `.broken-<秒>` 后按空处理；读不了的（锁屏时数据保护）不改名，读-改-写直接报错，键盘内存里的名单与卡片保留原来的。iOS 上 `memory/` 第一次递归设数据保护 `completeUntilFirstUserAuthentication`（不用 `complete`：锁屏通知里回复时键盘要读卡片）。
   键盘切场景、「记一笔」都在锁里按磁盘上的 `state` 与名单读-改-写；App 改了按修改时间重载，App 回到前台时也重读。
 - **分区学习（`ScopedLearner`）**：恋爱场景读「全局 + k×场景 + k×对象」、写只进场景与对象层；日常与工作只用全局。用户词、个人 n-gram、英文词表返回引用没法叠加，一律读全局，
-  恋爱场景里新造的词、个人英文词会进全局（排序仍由叠加的计数管住）；**恋爱场景不记词序列转移**（个人 n-gram），暧昧的话不会在工作场景的整句里冒出来，代价是恋爱场景的句子不帮整句学习。
+  恋爱场景里新造的词、个人英文词会进全局（排序仍由叠加的计数管住；**2026-10-05 起改为按人隔离，新造词也只进这个人的对象层**，见场景计划）；**恋爱场景不记词序列转移**（个人 n-gram），暧昧的话不会在工作场景的整句里冒出来，代价是恋爱场景的句子不帮整句学习。
   删词连当前打开的场景层与对象层一起删；「忘掉这个人」删整个对象目录（含它的分区学习）。叠加层在 `Arc<Mutex<_>>` 里由会话的 `ScopeHandle` 换：
   `Engine::learner_mut()` 只给 `&mut dyn Learner`，不加上游补丁就只能这样；换完调 `learner_mut()` 作废格子缓存。学习数据同步只认学习数据目录顶层的六个文件，分区层不上云。
 - **k = 4**（审计会话 2026-10-04 定）：`examples/overlay_replay.rs` 用合成的选词序列回放（不读真实日志）。排序基本就是计数比大小：在一个对象下选 n 次的词，超过全局里选过 W 次的词的条件约是 `k·n > W`

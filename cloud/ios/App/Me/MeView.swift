@@ -65,7 +65,10 @@ struct MeView: View {
                             .listRowBackground(Color.clear)
                     }
                 }
+                .contentMargins(.bottom, RootTab.listBottomMargin, for: .scrollContent)
             }
+            // 标题条与 Form 同一种底（分组灰）：标题在 Form 外面，不设的话浅色模式下标题是白底、下面是灰底
+            .background(Color(.systemGroupedBackground))
             .sheet(isPresented: $addingScene) {
                 SceneNameSheet(title: "加一个场景", name: "") { name in
                     Task { await memory.addScene(name: name) }

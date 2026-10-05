@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{MemoryKind, Scene};
+use crate::MemoryKind;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemoryItem {
@@ -12,7 +12,8 @@ pub struct MemoryItem {
     /// 对象的 id；不为空时必须已登记。
     pub contact_id: Option<String>,
 
-    pub scene: Scene,
+    /// 场景 id（用户自建，见桥的 `memory/scene.rs`）；老客户端写的 `daily` / `dating` / `work` 照样收。
+    pub scene: String,
 
     pub kind: MemoryKind,
 

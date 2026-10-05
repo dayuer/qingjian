@@ -22,6 +22,12 @@ struct MemoryScene: Codable, Identifiable, Hashable, Sendable {
     static let maxPinned = 4
 
     /// 新建一个场景；id 用与对象同一套的随机 32 位十六进制。
+    /// 删掉 `id` 这个场景后，里面的人挪去哪：剩下的第一个（与桥的 `MemoryStore::delete_scene` 一致）。
+    /// 删的正好是默认场景（第一个）时就是第二个，不能写成被删的自己。
+    static func fallback(in scenes: [MemoryScene], deleting id: String) -> MemoryScene? {
+        scenes.first { $0.id != id }
+    }
+
     static func new(name: String) -> MemoryScene {
         MemoryScene(
             id: MemoryID.make(), name: name,

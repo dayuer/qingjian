@@ -501,6 +501,10 @@ impl Engine {
         if let Some(user) = self.learner.user_words() {
             all.push(user);
         }
+        // 分叉补丁：MutedLearner 不转发它（上游文件不动），直接问里面那个
+        if let Some(scoped) = self.learner.inner().scoped_user_words() {
+            all.push(scoped);
+        }
         all
     }
 
