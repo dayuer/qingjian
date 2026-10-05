@@ -10,10 +10,14 @@ enum NoteEntry: Equatable {
 
     case compose
 
+    /// 剪贴板有字、但不像是要记的东西（验证码、地址、链接）：**什么都不出**，也不提示「未识别」（设计稿 1e）。
+    case ignore
+
     static func decide(clipboard: String?, lastHandledDigest: String?) -> NoteEntry {
         guard let text = clipboard.map(trimmed), !text.isEmpty, digest(text) != lastHandledDigest else {
             return .compose
         }
+        guard NoteWorth.isMemorable(text) else { return .ignore }
         let pieces = ClipMessages.split(text)
         return pieces.isEmpty ? .compose : .clipboard(pieces)
     }
