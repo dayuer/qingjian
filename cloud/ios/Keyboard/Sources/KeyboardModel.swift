@@ -43,7 +43,11 @@ final class KeyboardModel {
     private(set) var quickOpen = false
 
     /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
-    private(set) var noteDraft: String?
+    /// 刚记下了几张（toast「记下了 n 条」）。
+    private(set) var noteDoneCount = 0
+
+    /// 确认条里待记的几张卡（剪贴板拆出来的）；nil 时不出确认条。
+    private(set) var noteDraft: [String]?
 
     /// 「记一笔」刚记下：确认条换成一行「记下了」，2 秒后消失。
     private(set) var noteDone = false
@@ -449,9 +453,8 @@ final class KeyboardModel {
         let clipboard = sink.pasteboardHasText && changeCount != Self.handledNoteChangeCount
             ? sink.readPasteboard() : nil
         switch NoteEntry.decide(clipboard: clipboard, lastHandledDigest: Self.handledNoteDigest) {
-        case .clipboard(let text):
-            // 一张卡最多 200 字（桥也会校验），长的剪贴板截掉后面的，确认条里看得到截后的样子
-            noteDraft = text
+        case .clipboard(let cards):
+            noteDraft = cards
             noteSource = clipboard.map { (NoteEntry.digest($0), changeCount) }
         case .compose:
             beginComposedNote()
@@ -459,10 +462,10 @@ final class KeyboardModel {
     }
 
     func confirmNote() {
-        guard let text = noteDraft else { return }
+        guard let cards = noteDraft else { return }
         noteDraft = nil
         markNoteSourceHandled()
-        saveNote(text)
+        saveNote(cards)
     }
 
     /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。
@@ -483,7 +486,7 @@ final class KeyboardModel {
             return
         }
         endComposedNote()
-        saveNote(composer.text)
+        saveNote([composer.text])
     }
 
     /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
@@ -545,14 +548,20 @@ final class KeyboardModel {
         namingError = nil
     }
 
-    private func saveNote(_ text: String) {
+    /// 一张张记下（每张走一次 qj_memory_note，拿不到锁的进桥的待办）；记下了几张显示在 toast 里。
+    private func saveNote(_ cards: [String]) {
         guard let id = scope.contactId else { return }
-        // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
-        let failure = engine?.memoryNote(id, text: text)
-        // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记卡片文字
-        let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
-        Self.log.info("记一笔 \(outcome, privacy: .public)")
-        if failure == nil {
+        var saved = 0
+        for text in cards {
+            // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
+            let failure = engine?.memoryNote(id, text: text)
+            // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记卡片文字
+            let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
+            Self.log.info("记一笔 \(outcome, privacy: .public)")
+            if failure == nil { saved += 1 }
+        }
+        if saved > 0 {
+            noteDoneCount = saved
             noteDone = true
             noteDoneTask?.cancel()
             noteDoneTask = Task { @MainActor [weak self] in
