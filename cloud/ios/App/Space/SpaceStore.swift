@@ -35,6 +35,11 @@ final class SpaceStore {
     /// 这个安装包没有开通 App Group 时的说法，页面上也显示它。
     nonisolated static let noGroup = "这个安装包没有开通 App Group，云服务用不了"
 
+    /// 进这两页时清掉上一次留下的提示：两页共用一个 store，上一步的失败不该跟到下一步。
+    func clearMessage() {
+        message = nil
+    }
+
     /// 读一次本机的登录状态（只读文件，不联网）。
     func refresh() {
         guard let file = fileProvider() else {
