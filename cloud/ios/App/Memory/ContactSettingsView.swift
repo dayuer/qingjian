@@ -101,6 +101,16 @@ struct ContactSettingsView: View {
         } footer: {
             Text(store.saving ? MemoryStore.Wording.saving : MemoryStore.Wording.switchesNote(contact))
         }
+        if !store.skills.isEmpty {
+            Section {
+                Picker("改写用哪个技能", selection: skillBinding(contact)) {
+                    Text("用默认").tag(String?.none)
+                    ForEach(store.skills) { Text($0.name).tag(String?.some($0.id)) }
+                }
+            } footer: {
+                Text("在键盘上按一下就能改；这里选的是跟这个人说话时默认用哪个。")
+            }
+        }
         Section {
             ShareLink(item: store.exportText(contactId)) {
                 Label("导出记忆", systemImage: "square.and.arrow.up")
@@ -129,6 +139,17 @@ struct ContactSettingsView: View {
                 } else {
                     next.pinnedAt = nil
                 }
+                save(next)
+            })
+    }
+
+    /// 改写技能：nil 是「用默认」（设置里那个）；选了就写回这个人。
+    private func skillBinding(_ contact: MemoryContact) -> Binding<String?> {
+        Binding(
+            get: { (pending ?? store.contact(contactId) ?? contact).skill },
+            set: { value in
+                guard var next = store.contact(contactId) else { return }
+                next.skill = value
                 save(next)
             })
     }
