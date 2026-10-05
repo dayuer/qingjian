@@ -34,13 +34,4 @@ enum ColorRole: Equatable {
 
     /// 灰绿三档之一。
     var isAccent: Bool { self == .accent || self == .accentFill || self == .accentSoft }
-
-    /// 换成中性色：文字档变 ink2，两种底变中性浅底，本来就中性的不变。
-    var neutralized: ColorRole {
-        switch self {
-        case .accent: .ink2
-        case .accentFill, .accentSoft: .neutralSoft
-        default: self
-        }
-    }
 }
