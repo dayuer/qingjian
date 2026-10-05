@@ -48,11 +48,11 @@ final class ContactsShots: XCTestCase {
         wait()
         shot("02-2b-expanded-other")
 
-        // 右上角「+」：先选建在哪个场景
+        // 右上角「+」：直接开建人页
         app.buttons["addContact"].tap()
         wait()
         shot("02-2b-add")
-        app.staticTexts["通讯录"].firstMatch.tap()  // 收起菜单
+        app.buttons["取消"].firstMatch.tap()  // 关掉建人页
         wait()
 
         // 搜索

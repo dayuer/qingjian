@@ -1,5 +1,4 @@
 //! `contacts.json` 的一项：一个对象。名字只在这里，目录名用随机 id。两个提示开关按人设置，旧文件里没有时按开。
-//! `scene` 是所属场景的 id（见 `memory/scene.rs`），`pinned_at` 是他在这个分组里被置顶的时间。
 //! 代号 `display_name` 是键盘上显示的称呼（牌子、格子、提示文字都用 [`Contact::chip_name`]），App 里照旧显示名字。
 
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,7 @@ use super::Pronoun;
 /// 代号最多几个字（与键盘里起名字的上限一致）。
 pub const MAX_DISPLAY_NAME_CHARS: usize = 12;
 
-/// 一个场景里最多几个置顶（键盘的选择面板先摆他们）。
+/// 全局最多几个置顶（键盘列人时先摆他们）。
 pub const MAX_PINNED: usize = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,13 +27,14 @@ pub struct Contact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial: Option<String>,
 
+    /// 这个人改写时用哪个技能（技能包 id）；`None` = 用设置里的默认。旧文件没有这个字段。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill: Option<String>,
+
     #[serde(default)]
     pub pronoun: Pronoun,
 
-    /// 所属场景的 id（`scenes.json` 里的一项）；场景只是分组，人换场景不受限。
-    pub scene: String,
-
-    /// 置顶的时间（Unix 秒）：键盘的选择面板先摆置顶的人，同一场景最多 [`MAX_PINNED`] 个；`None` 就是没置顶。
+    /// 置顶的时间（Unix 秒）：键盘列人时先摆置顶的人，全局最多 [`MAX_PINNED`] 个；`None` 就是没置顶。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pinned_at: Option<i64>,
 

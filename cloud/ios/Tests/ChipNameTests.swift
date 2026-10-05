@@ -13,7 +13,7 @@ final class ChipNameTests: XCTestCase {
     }
 
     func testOldFileDecodesWithoutDisplayNameAndRoundTrips() throws {
-        let old = #"{"id":"a","name":"小美","pronoun":"ta_f","scene":"dating","created_at":0}"#
+        let old = #"{"id":"a","name":"小美","pronoun":"ta_f","created_at":0}"#
         var contact = try JSONDecoder().decode(MemoryContact.self, from: Data(old.utf8))
         XCTAssertNil(contact.displayName)
         XCTAssertEqual(contact.chipName, "小美")

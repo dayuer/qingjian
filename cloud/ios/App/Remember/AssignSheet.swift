@@ -1,4 +1,4 @@
-// 「补上」：把无主素材里的一条归给某个人。按场景分组列出本机已有的人，点谁就归到谁名下。
+// 「补上」：把无主素材里的一条归给某个人。平铺列出本机已有的人，点谁就归到谁名下。
 // 一个人都没有时给一句提示（先去通讯录加一个人）。
 
 import SwiftUI
@@ -28,28 +28,24 @@ struct AssignSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                ForEach(store.groups) { group in
-                    if !group.people.isEmpty {
-                        Section(group.name) {
-                            ForEach(group.people) { contact in
-                                Button {
-                                    Task {
-                                        if await store.assign(material.clientId, to: contact.id) {
-                                            onPicked()
-                                            dismiss()
-                                        }
-                                    }
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        MemoryAvatar(
-                                            name: contact.name, size: 34)
-                                        Text(contact.name).foregroundStyle(Theme.ink)
-                                        Spacer()
-                                    }
+                Section {
+                    ForEach(store.people) { contact in
+                        Button {
+                            Task {
+                                if await store.assign(material.clientId, to: contact.id) {
+                                    onPicked()
+                                    dismiss()
                                 }
-                                .disabled(store.saving)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                MemoryAvatar(
+                                    name: contact.name, size: 34)
+                                Text(contact.name).foregroundStyle(Theme.ink)
+                                Spacer()
                             }
                         }
+                        .disabled(store.saving)
                     }
                 }
             }

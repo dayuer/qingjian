@@ -1,6 +1,6 @@
 //! 一次键盘会话：持有 Engine，每次缓冲变化后重查一遍候选缓存起来，给 C ABI 按下标取。
 //! 配了青简 Cloud 时还挂着大模型联想、润色与学习数据同步（见 `cloud.rs`）；
-//! 有学习数据目录时挂着本地记忆：场景 / 对象分区学习与打字提示（见 `memory/`）。
+//! 有学习数据目录时挂着本地记忆：对象叠加层与打字提示（见 `memory/`）。
 
 mod cloud;
 mod config;
@@ -21,7 +21,7 @@ use crate::clipboard::Clipboard;
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
 use crate::error::BridgeError;
-use crate::rewrite::Rewriter;
+use crate::rewrite::{Rewriter, Skill};
 
 /// 候选栏是横向滚动的一行，再多也翻不到，截断省得每键复制几百个候选。
 const MAX_CANDIDATES: usize = 120;
@@ -44,6 +44,9 @@ pub struct Session {
     data_sync: Option<DataSync>,
 
     rewriter: Option<Rewriter>,
+
+    /// 随包的改写技能；`data_dir/skills` 里读一次。空的话改写整个不出现。
+    skills: Vec<Skill>,
 
     clipboard: Option<Clipboard>,
 
@@ -101,6 +104,11 @@ impl Session {
             engine =
                 engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
         }
+        // 技能包随包走（`Data/skills`），会话打开时读一次；打包漏了它改写就整个用不了，这里记一条显眼的
+        let skills = crate::rewrite::load_skills(&data_dir.join("skills"));
+        if skills.is_empty() && cloud.as_ref().is_some_and(|cloud| cloud.llm) {
+            tracing::error!("没有技能包，改写用不了（assets/skills 没打进包？）");
+        }
         let mut session = Self {
             engine,
             entries: Vec::new(),
@@ -109,6 +117,7 @@ impl Session {
             context: None,
             data_sync: None,
             rewriter: None,
+            skills,
             clipboard: None,
             config_path: config
                 .map(Path::to_path_buf)

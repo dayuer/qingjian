@@ -8,26 +8,24 @@ use qingjian_cloud_proto::{
 use serde_json::json;
 
 #[test]
-fn scene_is_a_free_id_and_old_names_still_parse() {
-    // 场景改成用户自建后只是一个 id；老客户端发的三个固定名照样能解。
-    for old in ["daily", "dating", "work"] {
-        let registration: ContactRegistration =
-            serde_json::from_value(json!({ "scene": old })).unwrap();
-        assert_eq!(registration.scene, old);
-        let item: MemoryItem = serde_json::from_value(json!({
-            "client_id": "c1", "contact_id": null, "scene": old, "kind": "note",
-            "text": "她不吃香菜", "at": 1_760_000_000
-        }))
-        .unwrap();
-        assert_eq!(item.scene, old);
-    }
-    let hex = "0f3a9c2be4d1477f8a6b5c0d9e8f7a61";
-    let registration: ContactRegistration =
-        serde_json::from_value(json!({ "scene": hex })).unwrap();
-    assert_eq!(
-        serde_json::to_value(&registration).unwrap(),
-        json!({ "scene": hex })
-    );
+fn memory_item_carries_no_scene() {
+    let item = MemoryItem {
+        client_id: "c1".to_owned(),
+        contact_id: None,
+        scene: None,
+        kind: MemoryKind::Note,
+        text: "想去厦门".to_owned(),
+        at: 1_791_043_200,
+    };
+    let json = serde_json::to_value(&item).unwrap();
+    assert!(json.get("scene").is_none(), "客户端不填就不该出现：{json}");
+
+    // 服务端回来的老数据带 scene 也读得进（忽略）
+    let old: MemoryItem = serde_json::from_str(
+        r#"{"client_id":"c1","contact_id":null,"scene":"dating","kind":"note","text":"x","at":1}"#,
+    )
+    .unwrap();
+    assert_eq!(old.scene.as_deref(), Some("dating"));
 }
 
 #[test]
@@ -50,9 +48,9 @@ fn kind_is_lowercase() {
 fn memory_push_matches_the_spec_example() {
     let value = json!({
         "items": [
-            { "client_id": "c1", "contact_id": "k1", "scene": "dating", "kind": "sent",
+            { "client_id": "c1", "contact_id": "k1", "kind": "sent",
               "text": "晚上一起吃饭吗", "at": 1_760_000_000 },
-            { "client_id": "c2", "contact_id": null, "scene": "daily", "kind": "note",
+            { "client_id": "c2", "contact_id": null, "kind": "note",
               "text": "她不吃香菜", "at": 1_760_000_100 }
         ]
     });
@@ -63,7 +61,7 @@ fn memory_push_matches_the_spec_example() {
         MemoryItem {
             client_id: "c1".to_owned(),
             contact_id: Some("k1".to_owned()),
-            scene: "dating".to_owned(),
+            scene: None,
             kind: MemoryKind::Sent,
             text: "晚上一起吃饭吗".to_owned(),
             at: 1_760_000_000,
@@ -86,13 +84,13 @@ fn responses_and_registration_round_trip() {
     let old: MemoryAccepted = serde_json::from_value(json!({ "accepted": 3 })).unwrap();
     assert_eq!((old.accepted, old.skipped), (3, 0));
 
-    let registration: ContactRegistration =
-        serde_json::from_value(json!({ "scene": "dating" })).unwrap();
-    assert_eq!(registration.scene, "dating");
-    assert_eq!(
-        serde_json::to_value(&registration).unwrap(),
-        json!({ "scene": "dating" })
-    );
+    // 客户端不填场景：请求体是空对象，反序列化不带 scene 的也收得下
+    let registration: ContactRegistration = serde_json::from_value(json!({})).unwrap();
+    assert_eq!(registration.scene, None);
+    assert_eq!(serde_json::to_value(&registration).unwrap(), json!({}));
+    // 老客户端登记时带的 scene 照旧读得进
+    let old: ContactRegistration = serde_json::from_value(json!({ "scene": "dating" })).unwrap();
+    assert_eq!(old.scene.as_deref(), Some("dating"));
 
     let processor: ProcessorInfo =
         serde_json::from_value(json!({ "name": "某供应商", "zero_retention": true })).unwrap();

@@ -1,4 +1,4 @@
-// 整个键盘：提示行（恋爱、日常选了人有提示，或记一笔条、手写条时才有）+ 候选栏 + 键区（或展开的候选 / 表情 / 场景选择 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
+// 整个键盘：提示行（选了人有提示，或有记一笔 / 手写 / 起名字的输入条时才在）+ 候选栏 + 键区（或展开的候选 / 表情 / 对象卡）。键的位置与触摸范围由 KeyboardLayout 算；
 // 提示行出现与收起时键盘高度加减一行，高度约束在控制器里改（KeyboardViewController.syncHintRow）。
 // 对象卡打开时不画提示行（设计稿 1b：顶上是工具栏），那一行的高度给对象卡，键盘总高不变、宿主不跳。
 
@@ -34,7 +34,6 @@ struct KeyboardView: View {
                 // 面板是控制器挂的 UIKit 视图（CandidatePanelView），这里留空占位
                 case .candidates: Color.clear
                 case .emoji: EmojiPanel(model: model)
-                case .scope: ScopePicker(model: model)
                 case .contactCard: ContactCardPanel(model: model)
                 case .draft: DraftPanel(model: model)
                 case .conflict: ConflictPanel(model: model)

@@ -1,7 +1,7 @@
-//! 会话里的本地记忆状态：当前场景与对象、换层把手、名单、当前对象的卡片与提示索引、最近上屏的字、两条提示。
-//! 键盘只读记忆文件（「记一笔」「知道了」与当前场景除外），App 改了按修改时间重载（见 `Session::poll_memory`）。
+//! 会话里的本地记忆状态：当前对象、换层把手、名单、当前对象的卡片与提示索引、最近上屏的字、两条提示。
+//! 键盘只读记忆文件（「记一笔」「知道了」与当前对象除外），App 改了按修改时间重载（见 `Session::poll_memory`）。
 //! 读不了（开机后还没解锁过、数据保护挡住）就留着内存里原来的，不当成空；
-//! 写时拿不到文件锁（键盘只等 200 毫秒）的「记一笔」与切场景先放进内存待办，之后重试（见 `pending`）。
+//! 写时拿不到文件锁（键盘只等 200 毫秒）的「记一笔」与切人先放进内存待办，之后重试（见 `pending`）。
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -47,7 +47,7 @@ pub(crate) struct LiveMemory {
 }
 
 impl LiveMemory {
-    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前场景开分区学习器，读入「知道了」的记录。
+    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前选中的人开分区学习器，读入「知道了」的记录。
     /// 提示索引由会话随后建（要用引擎的语言模型切词）。
     pub(in crate::session) fn open(user_dir: &Path) -> (ScopedLearner, Self) {
         let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);

@@ -40,15 +40,8 @@ actor MemoryWorker {
         backend.assign(directory, clientId, contactId)
     }
 
-    /// 场景的增删改名：只写场景（与人的分组），不走整份写，所以一张不相干的坏卡、键盘刚改过的卡都挡不住它。
-    /// 写完重读一遍交回去（成败都读：失败时也让界面跟上磁盘）。
-    func editScene(_ directory: URL, _ edit: SceneEdit) -> (failure: MemoryFailure?, latest: MemorySnapshot?) {
-        let failure = switch edit {
-        case .put(let scene): backend.putScene(directory, scene)
-        case .delete(let id): backend.deleteScene(directory, id)
-        }
-        return (failure, backend.read(directory))
-    }
+    /// 随包的改写技能（App 包里的 skills/）；读不出为空。
+    func skills() -> [Skill] { backend.skills() }
 
     /// 写 `next`；conflict 时重读、三方合并后再写，最多三轮。写成功后重读一遍拿新的修订号。`contactId` 只给日志用。
     /// `forgetting` 是这次要忘掉的人：写失败后重读，若那人还在名单上但卡片已经没了，就报 `forgetPartial`。

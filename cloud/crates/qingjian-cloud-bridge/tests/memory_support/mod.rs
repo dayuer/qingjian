@@ -1,5 +1,5 @@
 //! 本地记忆 C 接口测试共用：按 C 签名声明导出函数、临时目录（只有样例词库 `assets/sample/dict.tsv`，按内容认格式，起名 dict.qj 也能读）、
-//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs`、`memory_scene_ffi.rs` 与 `memory_materials_ffi.rs` 各用一部分，所以关掉未使用的告警。
+//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs` 与 `memory_materials_ffi.rs` 各用一部分，所以关掉未使用的告警。
 #![allow(dead_code)]
 
 use std::ffi::{CStr, CString, c_char};
@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 // Session 在 C 侧是不透明指针，这里只传地址
 #[allow(improper_ctypes)]
 unsafe extern "C" {
-    pub fn qj_scope_set(session: *mut Session, scene: *const c_char, contact_id: *const c_char);
+    pub fn qj_scope_set(session: *mut Session, contact_id: *const c_char);
     pub fn qj_scope_get(session: *mut Session) -> *mut c_char;
     pub fn qj_reset_context(session: *mut Session);
     pub fn qj_memory_hint(session: *mut Session) -> *mut c_char;
@@ -29,7 +29,6 @@ unsafe extern "C" {
         session: *mut Session,
         name: *const c_char,
         pronoun: *const c_char,
-        scene: *const c_char,
     ) -> *mut c_char;
     pub fn qj_memory_dropped(session: *mut Session) -> *mut c_char;
     pub fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
@@ -50,6 +49,15 @@ unsafe extern "C" {
         user_dir: *const c_char,
         client_id: *const c_char,
         contact_id: *const c_char,
+    ) -> *mut c_char;
+    pub fn qj_memory_contact_skill(
+        user_dir: *const c_char,
+        contact_id: *const c_char,
+    ) -> *mut c_char;
+    pub fn qj_memory_contact_skill_set(
+        user_dir: *const c_char,
+        contact_id: *const c_char,
+        skill_id: *const c_char,
     ) -> *mut c_char;
 }
 
@@ -76,7 +84,7 @@ pub fn c(text: &str) -> CString {
     CString::new(text).unwrap()
 }
 
-/// 临时的数据目录（只有样例词库）与学习数据目录。
+/// 临时的数据目录（样例词库与随包技能包）与学习数据目录。
 pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join(format!("qj-memory-ffi-{name}-{}", std::process::id()));
     std::fs::remove_dir_all(&root).ok();
@@ -84,12 +92,18 @@ pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     let user = root.join("user");
     std::fs::create_dir_all(&data).unwrap();
     std::fs::create_dir_all(&user).unwrap();
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/dict.tsv");
-    std::fs::copy(sample, data.join("dict.qj")).unwrap();
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets");
+    std::fs::copy(assets.join("sample/dict.tsv"), data.join("dict.qj")).unwrap();
+    // 技能包：桥从 data_dir/skills 读，打包时由 scripts/build-bridge.sh 拷进去
+    let skills = data.join("skills");
+    std::fs::create_dir_all(&skills).unwrap();
+    for entry in std::fs::read_dir(assets.join("skills")).unwrap().flatten() {
+        std::fs::copy(entry.path(), skills.join(entry.file_name())).unwrap();
+    }
     (data, user)
 }
 
-/// 经 `qj_memory_write` 放两个场景、一个「恋爱」里的对象与一张带关键词「生日」的卡。
+/// 经 `qj_memory_write` 放一个对象与一张带关键词「生日」的卡。
 pub fn seed(user: &Path) {
     let mut cards = serde_json::Map::new();
     cards.insert(
@@ -101,10 +115,8 @@ pub fn seed(user: &Path) {
         }]),
     );
     let snapshot = json!({
-        "scenes": scenes(),
-        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "scene": "dating", "created_at": 1_791_043_200}],
+        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "created_at": 1_791_043_200}],
         "cards": cards,
-        "state": {"scene": "daily", "contact_id": null}
     });
     let dir = c(user.to_str().unwrap());
     let text = c(&snapshot.to_string());
@@ -119,15 +131,6 @@ pub fn note(session: *mut Session, contact: &str, text: &str) -> Option<String> 
     let contact = c(contact);
     let text = c(text);
     take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr(), ptr::null()) })
-}
-
-/// 整份写回要带的场景（分组）那一项；空的不收，多数用例用这三个。
-pub fn scenes() -> serde_json::Value {
-    json!([
-        {"id": "daily", "name": "日常", "created_at": 1},
-        {"id": "dating", "name": "恋爱", "created_at": 1},
-        {"id": "work", "name": "工作", "created_at": 1},
-    ])
 }
 
 /// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。
@@ -156,12 +159,11 @@ pub fn open(data: &Path, user: Option<&Path>) -> *mut Session {
     session
 }
 
-/// `contact` 为 `None` 时传空指针（回到这个场景上次选的人），`Some("")` 是明确不指定。
-pub fn set_scope(session: *mut Session, scene: &str, contact: Option<&str>) {
-    let scene = c(scene);
+/// 切当前对象；`None` 是空指针（保持现在选的人不变），`Some("")` 是不指定，其余是对象 id。
+pub fn set_contact(session: *mut Session, contact: Option<&str>) {
     let contact = contact.map(c);
     let contact_ptr = contact.as_ref().map_or(ptr::null(), |id| id.as_ptr());
-    unsafe { qj_scope_set(session, scene.as_ptr(), contact_ptr) };
+    unsafe { qj_scope_set(session, contact_ptr) };
 }
 
 pub fn type_and_commit(session: *mut Session, keys: &str) -> String {
