@@ -15,7 +15,7 @@ pub enum MemoryError {
     Invalid(&'static str),
 
     /// 一张卡不合格：`contact` 是这个人的名字，`card` 是卡片开头几个字，`reason` 同 [`Self::Invalid`]。
-    /// 单独一种是为了报错能指到卡上——用户可能是在做别的事（改人、改场景）时撞上一张旧的坏卡。
+    /// 单独一种是为了报错能指到卡上——用户可能是在做别的事（比如改人）时撞上一张旧的坏卡。
     #[error("invalid memory card")]
     InvalidCard {
         contact: String,

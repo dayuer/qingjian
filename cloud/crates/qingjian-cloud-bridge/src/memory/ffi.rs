@@ -14,19 +14,15 @@ use crate::scope::ContactPick;
 use crate::session::{DroppedNotes, Session};
 use crate::{owned, path_arg, with};
 
-/// 切当前对象：`contact_id` 为空指针时保持现在选的人不变（幂等），为空字符串时明确不指定。
-/// 名单上没有的对象当不指定。`_scene` 是上一版留下的场景参数，这一版已经不看它。
+/// 切当前对象：`contact_id` 为 NULL 时保持现在选的人不变（幂等），为空字符串时明确不指定。
+/// 名单上没有的对象当不指定；切到了某人时记下时间（列人时按沟通情况排用）。
 ///
 /// # Safety
-/// `session` 来自 `qj_session_open` 且未释放；`_scene` 为空或有效 UTF-8 C 字符串，`contact_id` 为空或同上。
+/// `session` 来自 `qj_session_open` 且未释放；`contact_id` 为空或有效 UTF-8 C 字符串。
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_scope_set(
-    session: *mut Session,
-    _scene: *const c_char,
-    contact_id: *const c_char,
-) {
+pub unsafe extern "C" fn qj_scope_set(session: *mut Session, contact_id: *const c_char) {
     let pick = ContactPick::from_arg(unsafe { path_arg(contact_id) });
-    with(session, (), |s| s.set_scope(&pick));
+    with(session, (), |s| s.set_contact(&pick));
 }
 
 /// `{"contact_id":"…"|null,"used":{"<id>":秒,…}}`；没有记忆的会话返回空指针。
@@ -301,19 +297,17 @@ pub unsafe extern "C" fn qj_memory_assign_material(
     }
 }
 
-/// 键盘里新建一个对象。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
+/// 键盘里新建一个对象（名字与称呼，称呼由 App 里改）。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
 /// （`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
 /// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`。
-/// `_scene` 是上一版留下的场景参数，这一版已经不看它。
 ///
 /// # Safety
-/// 同 [`qj_scope_set`]；`name` 为有效 UTF-8 C 字符串，`pronoun`、`_scene` 可为空指针。
+/// 同 [`qj_scope_set`]；`name` 为有效 UTF-8 C 字符串，`pronoun` 可为空指针。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_memory_add_contact(
     session: *mut Session,
     name: *const c_char,
     pronoun: *const c_char,
-    _scene: *const c_char,
 ) -> *mut c_char {
     let Some(name) = (unsafe { path_arg(name) }).map(str::to_owned) else {
         return owned(&MemoryError::Invalid("参数无效").to_json());

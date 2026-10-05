@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 // Session 在 C 侧是不透明指针，这里只传地址
 #[allow(improper_ctypes)]
 unsafe extern "C" {
-    pub fn qj_scope_set(session: *mut Session, scene: *const c_char, contact_id: *const c_char);
+    pub fn qj_scope_set(session: *mut Session, contact_id: *const c_char);
     pub fn qj_scope_get(session: *mut Session) -> *mut c_char;
     pub fn qj_reset_context(session: *mut Session);
     pub fn qj_memory_hint(session: *mut Session) -> *mut c_char;
@@ -29,7 +29,6 @@ unsafe extern "C" {
         session: *mut Session,
         name: *const c_char,
         pronoun: *const c_char,
-        scene: *const c_char,
     ) -> *mut c_char;
     pub fn qj_memory_dropped(session: *mut Session) -> *mut c_char;
     pub fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
@@ -145,12 +144,11 @@ pub fn open(data: &Path, user: Option<&Path>) -> *mut Session {
     session
 }
 
-/// `contact` 为 `None` 时传空指针（保持现在选的人不变），`Some("")` 是明确不指定。
-pub fn set_scope(session: *mut Session, scene: &str, contact: Option<&str>) {
-    let scene = c(scene);
+/// 切当前对象；`None` 是空指针（保持现在选的人不变），`Some("")` 是不指定，其余是对象 id。
+pub fn set_contact(session: *mut Session, contact: Option<&str>) {
     let contact = contact.map(c);
     let contact_ptr = contact.as_ref().map_or(ptr::null(), |id| id.as_ptr());
-    unsafe { qj_scope_set(session, scene.as_ptr(), contact_ptr) };
+    unsafe { qj_scope_set(session, contact_ptr) };
 }
 
 pub fn type_and_commit(session: *mut Session, keys: &str) -> String {
