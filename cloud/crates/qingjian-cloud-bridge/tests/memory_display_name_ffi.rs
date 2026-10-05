@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use memory_support::{
     CONTACT, c, dirs, json_of, open, qj_memory_add_contact, qj_memory_hint, qj_memory_read,
-    qj_memory_write, scenes, seed, set_scope, take,
+    qj_memory_write, seed, set_contact, take,
 };
 
 fn read(user: &Path) -> Value {
@@ -61,8 +61,7 @@ fn keyboard_added_contact_has_no_display_name() {
     seed(&user);
     let session = open(&data, Some(&user));
     let name = c("阿杰");
-    let added =
-        json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null(), ptr::null()) });
+    let added = json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null()) });
     unsafe { qj_session_free(session) };
     let id = added["id"].as_str().expect("建好了");
     let snapshot = read(&user);
@@ -89,14 +88,13 @@ fn reminder_uses_display_name_instead_of_name() {
         }]),
     );
     let snapshot = json!({
-        "scenes": scenes(),
         "contacts": [{"id": CONTACT, "name": "小美", "display_name": "阿美", "pronoun": "name",
-                      "scene": "dating", "created_at": 1_791_043_200}],
+                      "created_at": 1_791_043_200}],
         "cards": cards,
     });
     assert_eq!(write(&user, &snapshot), None);
     let session = open(&data, Some(&user));
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     let hint = json_of(unsafe { qj_memory_hint(session) });
     unsafe { qj_session_free(session) };
     assert_eq!(hint["reason"], "today");

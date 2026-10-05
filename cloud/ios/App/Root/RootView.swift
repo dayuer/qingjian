@@ -58,7 +58,7 @@ struct RootView: View {
         switch tab {
         case .remember: RememberView(store: memory)
         case .contacts: ContactsView(store: memory)
-        case .me: MeView(replayOnboarding: { showsOnboarding = true }, memory: memory)
+        case .me: MeView(replayOnboarding: { showsOnboarding = true })
         }
     }
 

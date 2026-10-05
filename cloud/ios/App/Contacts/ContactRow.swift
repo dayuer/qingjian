@@ -1,4 +1,4 @@
-// 通讯录的一行（设计稿 02 的 2b）：17pt 名字、13pt 灰字场景、行尾灰绿的事件提示，行下一条 0.5pt 细线。
+// 通讯录的一行（设计稿 02 的 2b）：17pt 名字、行尾灰绿的事件提示，行下一条 0.5pt 细线。
 // 点一下在下面**展开**这个人的几张记忆卡（2026-10-05 定的「通栏列表 + 行内展开」：通讯录也要能看见记着的事，
 // 不用另翻一页），展开区末尾一行进对象详情——那里才是改卡、看全部的地方。再点一行收起。
 
@@ -6,9 +6,6 @@ import SwiftUI
 
 struct ContactRow: View {
     let contact: MemoryContact
-
-    /// 这个人所在场景的名字（用户自己起的，App 从 MemoryScene 取）。
-    let sceneName: String
 
     /// 行尾提示（「明天生日」）；没有就留空。
     let note: String?
@@ -36,9 +33,6 @@ struct ContactRow: View {
             Text(contact.name)
                 .font(AppFont.font(size: 17))
                 .foregroundStyle(Theme.ink)
-            Text(sceneName)
-                .font(AppFont.font(size: 13))
-                .foregroundStyle(Theme.ink3)
             Spacer(minLength: 8)
             if let note {
                 Text(note)

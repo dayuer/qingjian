@@ -37,7 +37,7 @@ final class OnboardingTests: XCTestCase {
 
     /// 已经有对象的老用户不打扰。
     func testHiddenWhenContactsExist() {
-        let contact = MemoryContact.new(name: "小美", pronoun: .taF, scene: "dating")
+        let contact = MemoryContact.new(name: "小美", pronoun: .taF)
         XCTAssertFalse(OnboardingGate.shouldShow(done: false, contacts: [contact]))
     }
 

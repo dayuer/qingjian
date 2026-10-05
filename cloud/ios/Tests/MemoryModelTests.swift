@@ -5,7 +5,7 @@ import XCTest
 
 final class MemoryModelTests: XCTestCase {
     private func contact(_ name: String = "小美") -> MemoryContact {
-        MemoryContact.new(name: name, pronoun: .taF, scene: "daily")
+        MemoryContact.new(name: name, pronoun: .taF)
     }
 
     private func date(_ text: String) throws -> Date { try XCTUnwrap(MemoryDate.parse(text)) }
@@ -41,13 +41,13 @@ final class MemoryModelTests: XCTestCase {
     // MARK: 桥的 JSON
 
     func testContactDecodesWithDefaultsForOldFiles() throws {
-        let json = #"{"id":"0123456789abcdef0123456789abcdef","name":"小美","pronoun":"ta_f","scene":"dating","created_at":100}"#
+        let json = #"{"id":"0123456789abcdef0123456789abcdef","name":"小美","pronoun":"ta_f","created_at":100}"#
         let contact = try JSONDecoder().decode(MemoryContact.self, from: Data(json.utf8))
         XCTAssertEqual(contact.name, "小美")
         XCTAssertEqual(contact.pronoun, .taF)
         XCTAssertTrue(contact.hintOn)
         XCTAssertTrue(contact.remindOn)
-        let off = #"{"id":"a","name":"b","scene":"dating","created_at":1,"hint_on":false,"remind_on":false}"#
+        let off = #"{"id":"a","name":"b","created_at":1,"hint_on":false,"remind_on":false}"#
         let decoded = try JSONDecoder().decode(MemoryContact.self, from: Data(off.utf8))
         XCTAssertFalse(decoded.hintOn)
         XCTAssertFalse(decoded.remindOn)
@@ -76,24 +76,25 @@ final class MemoryModelTests: XCTestCase {
 
     func testSnapshotDecodesFromBridge() throws {
         let json = """
-        {"contacts":[{"id":"a","name":"小美","pronoun":"ta_f","scene":"dating","created_at":1}],
+        {"contacts":[{"id":"a","name":"小美","pronoun":"ta_f","created_at":1}],
          "cards":{"a":[{"id":"c","kind":"other","text":"x","created_at":1,"touched_at":1}]},
-         "revs":{"a":3},"state":{"scene":"dating","contact_id":"a"},"broken":["b"]}
+         "revs":{"a":3},"state":{"contact_id":"a"},"broken":["b"]}
         """
         let snapshot = try JSONDecoder().decode(MemorySnapshot.self, from: Data(json.utf8))
         XCTAssertEqual(snapshot.contacts.count, 1)
         XCTAssertEqual(snapshot.cards["a"]?.count, 1)
         XCTAssertEqual(snapshot.revs["a"], 3)
-        XCTAssertEqual(snapshot.state, MemoryScope(scene: "dating", contactId: "a"))
+        XCTAssertEqual(snapshot.state, MemoryScope(contactId: "a"))
         XCTAssertEqual(snapshot.broken, ["b"])
         let empty = try JSONDecoder().decode(MemorySnapshot.self, from: Data("{}".utf8))
         XCTAssertEqual(empty, MemorySnapshot())
     }
 
     func testScopeDecodes() throws {
-        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
-        XCTAssertEqual(scope, MemoryScope(scene: "work", contactId: nil))
-        XCTAssertEqual(MemoryScene(id: "a", name: "家人", createdAt: 1).name, "家人", "场景名就是用户起的那串字")
+        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"contact_id":null}"#.utf8))
+        XCTAssertEqual(scope, MemoryScope(contactId: nil), "缺字段按缺省")
+        let used = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"used":{"a":1791043200}}"#.utf8))
+        XCTAssertEqual(used.used, ["a": 1_791_043_200])
     }
 
     func testHintDecodes() throws {
@@ -163,7 +164,7 @@ final class MemoryModelTests: XCTestCase {
         var person = contact()
         XCTAssertEqual(person.knownDays(), 1)
         person = MemoryContact(
-            id: "a", name: "小美", pronoun: .ta, scene: "dating",
+            id: "a", name: "小美", pronoun: .ta,
             createdAt: Int64(Date().timeIntervalSince1970) - 12 * 86400)
         XCTAssertEqual(person.knownDays(), 13)
     }
@@ -175,9 +176,9 @@ final class MemoryModelTests: XCTestCase {
         XCTAssertNotEqual(id, MemoryID.make())
     }
 
-    // MARK: 提示行、牌子、面板
+    // MARK: 提示行、牌子
 
-    func testHintRowForEveryScene() {
+    func testHintRow() {
         XCTAssertTrue(ScopeDisplay.hasHintRow(hasContact: true, hasHint: true, hasNoteBar: false))
         XCTAssertFalse(
             ScopeDisplay.hasHintRow(hasContact: true, hasHint: false, hasNoteBar: false),
@@ -190,15 +191,9 @@ final class MemoryModelTests: XCTestCase {
             ScopeDisplay.hasHintRow(hasContact: false, hasHint: false, hasNoteBar: true), "没选人也能起名字")
     }
 
-    func testChipHalves() {
-        XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
+    func testChipPerson() {
         XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
         XCTAssertEqual(ScopeDisplay.chipPerson(nil), "不指定")
-    }
-
-    func testPickerNeedsFullAccess() {
-        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
-        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: true), .picker)
     }
 
     func testCanNoteNeedsEverything() {

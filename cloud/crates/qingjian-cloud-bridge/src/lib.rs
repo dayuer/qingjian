@@ -25,13 +25,12 @@ pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::memory::{
-    CONTACT_PLACEHOLDER, Card, CloudState, Consent, Contact, DEFAULT_LOCK_TIMEOUT,
-    DEFAULT_SCENE_ID, DEFAULT_SCENE_NAME, Hint, HintIndex, HintReason, KEYBOARD_LOCK_TIMEOUT,
-    LocalDate, MAX_DISPLAY_NAME_CHARS, MAX_PINNED, MAX_SCENE_NAME_CHARS, MAX_UNPROCESSED_MATERIALS,
-    MEMORY_DIR, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore,
-    PROCESSED_KEEP_DAYS, Pronoun, RECENT_CHARS, RecentText, Scene, UploadDecision, days_away,
-    has_date, is_scene_id, mask_contact_names, new_id, now_unix, panel_cards, reminder_text,
-    should_upload, split_note, unprocessed, validate_scenes,
+    CONTACT_PLACEHOLDER, Card, CloudState, Consent, Contact, DEFAULT_LOCK_TIMEOUT, Hint, HintIndex,
+    HintReason, KEYBOARD_LOCK_TIMEOUT, LocalDate, MAX_DISPLAY_NAME_CHARS, MAX_PINNED,
+    MAX_UNPROCESSED_MATERIALS, MEMORY_DIR, Material, MaterialSource, MemoryError, MemorySnapshot,
+    MemoryStore, PROCESSED_KEEP_DAYS, Pronoun, RECENT_CHARS, RecentText, UploadDecision, days_away,
+    has_date, mask_contact_names, new_id, now_unix, panel_cards, reminder_text, should_upload,
+    split_note, unprocessed,
 };
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
@@ -293,7 +292,7 @@ pub unsafe extern "C" fn qj_sync_now(session: *mut Session) {
     with(session, (), |s| s.sync_now());
 }
 
-/// 润色能不能用（配了青简 Cloud 且开了大模型）。
+/// 润色能不能用（配了青简 Cloud、开了大模型且包里有技能包）。
 ///
 /// # Safety
 /// 同 [`qj_push`]。
@@ -302,23 +301,51 @@ pub unsafe extern "C" fn qj_rewrite_available(session: *mut Session) -> bool {
     with(session, false, |s| s.rewriter().is_some())
 }
 
-/// 开始润色 `text`；之前没回来的那次作废。
+/// 可用的改写技能：`[{"id","name","summary"}]`，按 `order` 排；一个都没有或会话无效时返回空指针。
+/// 提示词不下发到壳里（壳只用来显示名字）；用了哪个技能由键盘自己算，桥不回传。
 ///
 /// # Safety
-/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串。
+/// 同 [`qj_push`]。
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_rewrite_start(session: *mut Session, text: *const c_char) {
+pub unsafe extern "C" fn qj_rewrite_skills(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        let skills = s.rewrite_skills();
+        if skills.is_empty() {
+            return ptr::null_mut();
+        }
+        let list: Vec<serde_json::Value> = skills
+            .iter()
+            .map(|skill| {
+                serde_json::json!({"id": skill.id, "name": skill.name, "summary": skill.summary})
+            })
+            .collect();
+        owned(&serde_json::Value::Array(list).to_string())
+    })
+}
+
+/// 开始润色 `text`；之前没回来的那次作废。`skill_id` 为空指针或认不得时用当前生效的那个
+/// （选中的人的技能 → 设置里的默认 → 列表第一个）。
+///
+/// # Safety
+/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串，`skill_id` 为空或同上。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_start(
+    session: *mut Session,
+    text: *const c_char,
+    skill_id: *const c_char,
+) {
     let Some(text) = (unsafe { path_arg(text) }).map(str::to_owned) else {
         return;
     };
+    let skill = unsafe { path_arg(skill_id) }.map(str::to_owned);
     with(session, (), |s| {
         if let Some(rewriter) = s.rewriter() {
-            rewriter.start(&text);
+            rewriter.start(&text, skill.as_deref());
         }
     });
 }
 
-/// 0 空闲、1 等待中、2 结果就绪（用 [`qj_rewrite_take`] 取）、3 失败。
+/// 0 空闲、1 等待中、2 结果就绪（用 [`qj_rewrite_take`] 取）、3 失败、4 模型给的不合用（已丢掉）。
 ///
 /// # Safety
 /// 同 [`qj_push`]。
@@ -351,6 +378,59 @@ pub unsafe extern "C" fn qj_rewrite_cancel(session: *mut Session) {
             rewriter.cancel();
         }
     });
+}
+
+/// 改写用的全局默认技能：`{"skill":"polish"}`。会话无效、这个会话没有配置文件（打开时没给学习数据目录）
+/// 时为 NULL；文件里存的不是合法技能编号时静默回退成缺省 [`rewrite::DEFAULT_SKILL_ID`]、不报错——
+/// 读不是用户刚做的动作，不该弹错（写坏的值由 [`qj_rewrite_default_set`] 在写的时候拦住）。
+/// 与主 App 设置页的 `rewrite_skill` 是 `config.toml` 里的同一项，只是键盘直接读写、不整份过一遍设置。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_default(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        let Some(path) = s.config_path() else {
+            return ptr::null_mut();
+        };
+        let skill = settings::rewrite_skill(path);
+        let skill = if rewrite::is_skill_id(&skill) {
+            skill
+        } else {
+            rewrite::DEFAULT_SKILL_ID.to_owned()
+        };
+        owned(&serde_json::json!({ "skill": skill }).to_string())
+    })
+}
+
+/// 改改写用的全局默认技能（`skill_id` 为空指针 = 回到缺省 [`rewrite::DEFAULT_SKILL_ID`]）：成功返回 NULL，
+/// 失败 `{"code","message"}`。只校验 id 的形状，不校验这个技能现在在不在（技能包随版本增删，
+/// 认不得的 id 由壳回退）；写进去只动 `[rewrite] skill` 这一项，配置文件里别的不碰。
+///
+/// # Safety
+/// 同 [`qj_push`]；`skill_id` 为空指针或有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_default_set(
+    session: *mut Session,
+    skill_id: *const c_char,
+) -> *mut c_char {
+    let skill = match unsafe { path_arg(skill_id) } {
+        Some(id) if !rewrite::is_skill_id(id) => {
+            return owned(&MemoryError::Invalid("技能编号不对").to_json());
+        }
+        Some(id) => id.to_owned(),
+        None => rewrite::DEFAULT_SKILL_ID.to_owned(),
+    };
+    let written = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
+        let Some(path) = s.config_path() else {
+            return Err(MemoryError::Invalid("这个键盘没有配置文件"));
+        };
+        settings::set_rewrite_skill(path, &skill)
+    });
+    match written {
+        Ok(()) => ptr::null_mut(),
+        Err(error) => owned(&error.to_json()),
+    }
 }
 
 /// 焦点在验证码、密码、信用卡号这类输入框时设 true：不学习、不记日志、不发云端，剪贴板与润色也停。

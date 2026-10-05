@@ -11,7 +11,7 @@ final class MilestonesTests: XCTestCase {
     /// 建在 `daysAgo` 天前的对象；`now` 固定成 2026-10-04。
     private func contact(daysAgo: Int, name: String = "小美") -> MemoryContact {
         MemoryContact(
-            id: name, name: name, pronoun: .taF, scene: "dating",
+            id: name, name: name, pronoun: .taF,
             createdAt: now - Int64(daysAgo) * day)
     }
 

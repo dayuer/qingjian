@@ -24,7 +24,7 @@ final class CandidateStyleTests: XCTestCase {
             "首选是云候选时，强调色仍然优先")
     }
 
-    /// 工作场景、「不指定」时 accent 为假，首选只加粗、不上强调色。
+    /// 「不指定」时 accent 为假，首选只加粗、不上强调色。
     func testNonAccentedFirstCandidateKeepsTheNormalColor() {
         XCTAssertEqual(
             CandidateStyle.role(highlighted: true, accent: false, cloud: false), .ink)
