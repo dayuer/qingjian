@@ -8,7 +8,7 @@ use objc2_app_kit::{
     NSWindowLevel, NSWindowStyleMask,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize};
-use qingjian_platform::{CandidateRenderer, LayoutMode, ThemeMode};
+use qingjian_platform::{CandidateRenderer, ThemeMode};
 
 use super::frame::Frame;
 use super::theme::Theme;
@@ -112,11 +112,6 @@ impl CandidateWindow {
         let appearance = name.and_then(NSAppearance::appearanceNamed);
         self.panel.setAppearance(appearance.as_deref());
         self.appearance = appearance;
-    }
-
-    /// 竖排 / 横排。下一帧生效。
-    pub fn set_layout(&self, layout: LayoutMode) {
-        self.view.set_layout(layout);
     }
 
     /// 素笺渲染器 / 系统绘制。下一帧生效。

@@ -67,9 +67,9 @@ impl Host {
         }
     }
 
-    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）而且排布是横排。
+    /// 横排矩阵这套按键是否生效：开关开着（`[general] horizontal_grid`）。
     pub fn grid_keys(&self) -> bool {
-        self.horizontal_grid && self.layout == LayoutMode::Horizontal
+        self.horizontal_grid
     }
 
     /// 新一轮候选：每页格数取配置与窗口能画的行数中较小者，云端槽位数取配置。

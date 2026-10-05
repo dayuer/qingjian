@@ -3,7 +3,7 @@
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton};
-use qingjian_platform::{CandidateRenderer, Config, LayoutMode, PreeditMode, ThemeMode};
+use qingjian_platform::{CandidateRenderer, Config, PreeditMode, ThemeMode};
 
 use crate::candidates::available_families;
 use crate::preferences::controls::{checkbox, note, row_checkbox, row_popup, select, set_checked};
@@ -15,9 +15,6 @@ use crate::preferences::target::PreferencesTarget;
 pub struct CandidatesPage {
     /// 外观：跟随系统 / 浅色 / 深色。
     theme: Retained<NSPopUpButton>,
-
-    /// 竖排 / 横排。
-    layout_mode: Retained<NSPopUpButton>,
 
     /// 横排时上 / 下键展开成多行矩阵。
     horizontal_grid: Retained<NSButton>,
@@ -39,11 +36,6 @@ impl CandidatesPage {
             .map(|t| t.label().to_owned())
             .collect();
         let theme = row_popup(layout, mtm, "外观", &theme_titles, Setting::Theme, target);
-        let layout_titles: Vec<String> = LayoutMode::ALL
-            .iter()
-            .map(|l| l.label().to_owned())
-            .collect();
-        let layout_mode = row_popup(layout, mtm, "排布", &layout_titles, Setting::Layout, target);
         note(layout, mtm, "横排时只给高亮的候选显示译词。");
         let horizontal_grid = checkbox(
             mtm,
@@ -95,7 +87,6 @@ impl CandidatesPage {
         );
         Self {
             theme,
-            layout_mode,
             horizontal_grid,
             renderer,
             font,
@@ -109,13 +100,7 @@ impl CandidatesPage {
             &self.theme,
             ThemeMode::ALL.iter().position(|t| *t == general.theme),
         );
-        select(
-            &self.layout_mode,
-            LayoutMode::ALL.iter().position(|l| *l == general.layout),
-        );
         set_checked(&self.horizontal_grid, general.horizontal_grid);
-        self.horizontal_grid
-            .setEnabled(general.layout == LayoutMode::Horizontal);
         select(
             &self.renderer,
             CandidateRenderer::ALL

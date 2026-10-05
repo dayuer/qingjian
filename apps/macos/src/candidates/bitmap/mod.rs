@@ -12,7 +12,6 @@ use objc2::AnyThread;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSBitmapImageRep, NSCalibratedRGBColorSpace, NSCompositingOperation, NSImage};
 use objc2_foundation::{NSPoint, NSRect, NSSize};
-use qingjian_platform::LayoutMode;
 use qingjian_render::{FontLibrary, Layout, Renderer, Theme, UiFont};
 
 use super::frame::Frame;
@@ -70,7 +69,7 @@ impl BitmapPainter {
             renderer: Renderer::new(library),
             image: None,
             frame: qingjian_render::Frame::default(),
-            layout: Layout::Vertical,
+            layout: Layout::Horizontal,
             dark: false,
             scale: 2.0,
             size: NSSize::ZERO,
@@ -78,18 +77,9 @@ impl BitmapPainter {
     }
 
     /// 记下新一帧并画好，返回窗口该有的尺寸（点）。
-    pub fn set_frame(
-        &mut self,
-        frame: &Frame,
-        layout: LayoutMode,
-        dark: bool,
-        scale: f32,
-    ) -> NSSize {
+    pub fn set_frame(&mut self, frame: &Frame, dark: bool, scale: f32) -> NSSize {
         self.frame = convert::frame(frame);
-        self.layout = match layout {
-            LayoutMode::Vertical => Layout::Vertical,
-            LayoutMode::Horizontal => Layout::Horizontal,
-        };
+        self.layout = Layout::Horizontal;
         self.dark = dark;
         self.scale = scale;
         self.repaint();

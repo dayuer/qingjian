@@ -1,11 +1,11 @@
-//! 候选窗口的内容视图：自绘顶部拼音行与若干候选，竖排一行一个、横排排成一行，一项高亮。
+//! 候选窗口的内容视图：自绘顶部拼音行与若干候选，横排排成一行，一项高亮。
 //!
 //! 有两条画法：缺省交给 `qingjian-render` 出位图再贴（[`BitmapPainter`]），配置 `[general] renderer = "system"`
 //! 走下面用 AppKit 逐项绘制的旧路径（过渡期的退路，渲染器稳定一个版本后删）。
 
 mod matrix;
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -18,7 +18,7 @@ use objc2_app_kit::{
 use objc2_foundation::{
     NSArray, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize, NSString,
 };
-use qingjian_platform::{CandidateRenderer, LayoutMode};
+use qingjian_platform::CandidateRenderer;
 
 use super::bitmap::BitmapPainter;
 use super::cloud_icon::CloudIcon;
@@ -32,9 +32,6 @@ use super::theme::Theme;
 pub struct Ivars {
     /// 当前显示的一帧。
     frame: RefCell<Frame>,
-
-    /// 竖排 / 横排。
-    layout: Cell<LayoutMode>,
 
     /// 云联想的小云朵。
     cloud: CloudIcon,
@@ -73,14 +70,6 @@ const HIGHLIGHT_INSET: f64 = 5.0;
 /// `NSUnderlineStyleSingle`：删除线用单线。
 const STRIKE_SINGLE: isize = 1;
 
-/// 竖排的列宽与行高。
-struct Columns {
-    index_width: f64,
-    text_width: f64,
-    annotation_width: f64,
-    row_height: f64,
-}
-
 /// 横排时每一项的尺寸。
 struct Item {
     index_width: f64,
@@ -117,7 +106,6 @@ impl CandidateView {
         let cloud = CloudIcon::new(&theme.cloud_color, CLOUD_SIZE);
         let this = mtm.alloc::<Self>().set_ivars(Ivars {
             frame: RefCell::new(Frame::default()),
-            layout: Cell::new(LayoutMode::default()),
             cloud,
             theme,
             bitmap: RefCell::new(None),
@@ -179,21 +167,12 @@ impl CandidateView {
         &self.ivars().theme
     }
 
-    pub fn set_layout(&self, layout: LayoutMode) {
-        self.ivars().layout.set(layout);
-    }
-
     /// 更新内容并返回需要的窗口尺寸。
     pub fn set_frame(&self, frame: &Frame) -> NSSize {
         *self.ivars().frame.borrow_mut() = frame.clone();
         self.setNeedsDisplay(true);
         if let Some(bitmap) = &mut *self.ivars().bitmap.borrow_mut() {
-            return bitmap.set_frame(
-                frame,
-                self.ivars().layout.get(),
-                self.is_dark(),
-                self.backing_scale(),
-            );
+            return bitmap.set_frame(frame, self.is_dark(), self.backing_scale());
         }
         self.preferred_size()
     }
@@ -202,10 +181,10 @@ impl CandidateView {
         let theme = self.theme();
         let frame = self.ivars().frame.borrow();
         let (top_width, top_height) = self.top_line_size(&frame);
-        let (body_width, body_height) = match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.vertical_size(&frame),
-            LayoutMode::Horizontal if frame.columns > 0 => self.matrix_size(&frame),
-            LayoutMode::Horizontal => self.horizontal_size(&frame),
+        let (body_width, body_height) = if frame.columns > 0 {
+            self.matrix_size(&frame)
+        } else {
+            self.horizontal_size(&frame)
         };
         let width = top_width.max(body_width);
         NSSize::new(
@@ -235,22 +214,6 @@ impl CandidateView {
             width += self.measure(text, &theme.annotation_font).width;
         }
         (width, line_height + theme.row_padding * 2.0)
-    }
-
-    fn vertical_size(&self, frame: &Frame) -> (f64, f64) {
-        let theme = self.theme();
-        let columns = self.columns(&frame.rows);
-        let mut width = columns.index_width + theme.column_gap + columns.text_width;
-        if columns.annotation_width > 0.0 {
-            width += theme.column_gap + columns.annotation_width;
-        }
-        let mut height = columns.row_height * frame.rows.len() as f64;
-        if let Some(footer) = frame.footer.as_deref() {
-            let footer_size = self.measure(footer, &theme.index_font);
-            width = width.max(footer_size.width);
-            height += footer_size.height + theme.row_padding;
-        }
-        (width, height)
     }
 
     fn horizontal_size(&self, frame: &Frame) -> (f64, f64) {
@@ -324,35 +287,6 @@ impl CandidateView {
         self.cloud_width()
     }
 
-    fn columns(&self, rows: &[Row]) -> Columns {
-        let theme = self.theme();
-        let mut columns = Columns {
-            index_width: 0.0,
-            text_width: 0.0,
-            annotation_width: 0.0,
-            row_height: 0.0,
-        };
-        for row in rows {
-            let index = self.measure(&row.index, &theme.index_font);
-            let mut text = self.measure(&row.text, &theme.text_font);
-            if row.cloud {
-                text.width += self.cloud_width();
-            }
-            let annotation: f64 = row
-                .annotation
-                .iter()
-                .map(|(s, _)| self.measure(s, &theme.annotation_font).width)
-                .sum();
-            columns.index_width = columns.index_width.max(index.width);
-            columns.text_width = columns.text_width.max(text.width);
-            columns.annotation_width = columns.annotation_width.max(annotation);
-            columns.row_height = columns
-                .row_height
-                .max(text.height + theme.row_padding * 2.0);
-        }
-        columns
-    }
-
     /// 横排各项的尺寸与统一行高。
     fn items(&self, rows: &[Row]) -> (Vec<Item>, f64) {
         let theme = self.theme();
@@ -391,10 +325,10 @@ impl CandidateView {
 
         let mut y = theme.padding;
         y += self.draw_top_line(&frame, y);
-        match self.ivars().layout.get() {
-            LayoutMode::Vertical => self.draw_vertical(&frame, y, bounds),
-            LayoutMode::Horizontal if frame.columns > 0 => self.draw_matrix(&frame, y, bounds),
-            LayoutMode::Horizontal => self.draw_horizontal(&frame, y, bounds),
+        if frame.columns > 0 {
+            self.draw_matrix(&frame, y, bounds);
+        } else {
+            self.draw_horizontal(&frame, y, bounds);
         }
     }
 
@@ -449,55 +383,6 @@ impl CandidateView {
             NSSize::new(CARET_WIDTH, line_height),
         ));
         cursor_x - x + CARET_WIDTH
-    }
-
-    fn draw_vertical(&self, frame: &Frame, mut y: f64, bounds: NSRect) {
-        let theme = self.theme();
-        let columns = self.columns(&frame.rows);
-        let text_x = theme.padding + columns.index_width + theme.column_gap;
-        let annotation_x = text_x + columns.text_width + theme.column_gap;
-        for (i, row) in frame.rows.iter().enumerate() {
-            if i == frame.highlighted {
-                let rect = NSRect::new(
-                    NSPoint::new(theme.padding / 2.0, y),
-                    NSSize::new(bounds.size.width - theme.padding, columns.row_height),
-                );
-                self.fill_highlight(rect);
-            }
-            // 各列底部对齐到候选词基线附近：小字往下挪一点
-            let text_size = self.measure(&row.text, &theme.text_font);
-            let baseline = y + theme.row_padding;
-            let small_offset = self.small_offset(text_size.height);
-            self.draw_text(
-                &row.index,
-                &theme.index_font,
-                &theme.index_color,
-                baseline + small_offset,
-                theme.padding,
-            );
-            self.draw_word(row, text_x, baseline, text_size.height);
-            let mut x = annotation_x;
-            for (segment, tone) in &row.annotation {
-                x += self.draw_text(
-                    segment,
-                    &theme.annotation_font,
-                    self.tone_color(*tone),
-                    baseline + small_offset,
-                    x,
-                );
-            }
-            y += columns.row_height;
-        }
-        if let Some(footer) = frame.footer.as_deref() {
-            let size = self.measure(footer, &theme.index_font);
-            self.draw_text(
-                footer,
-                &theme.index_font,
-                &theme.index_color,
-                y + theme.row_padding,
-                bounds.size.width - theme.padding - size.width,
-            );
-        }
     }
 
     /// 横排：候选排成一行，高亮那个下面单独一行译文，页码在行尾。

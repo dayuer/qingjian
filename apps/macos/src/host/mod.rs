@@ -31,8 +31,8 @@ use qingjian_lm::BigramModel;
 use qingjian_platform::extra_dictionaries;
 use qingjian_platform::{
     AppsConfig, CandidateRenderer, DEFAULT_ENGLISH_CANDIDATES_OFF, DictionariesConfig,
-    GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LayoutMode, LocalModelConfig, LogLevel,
-    Modifiers, PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
+    GeneralConfig, KeyCombo, LEARNING_LANGUAGE_OFF, LocalModelConfig, LogLevel, Modifiers,
+    PAGE_KEY_OPTIONS, PreeditMode, Scheme, ShortcutConfig, ThemeMode, UpdateChannel,
 };
 use qingjian_predict::{
     CloudGlossFiller, CloudPredictor, ConnectionTest, PredictConfig, PredictError,
@@ -133,9 +133,6 @@ pub struct Host {
 
     /// 组句中的拼音显示在行内、候选窗口还是两处。
     pub preedit_mode: PreeditMode,
-
-    /// 候选窗口竖排 / 横排（配置 `[general] layout`）。
-    pub layout: LayoutMode,
 
     /// 横排时上下键展开成矩阵的开关（配置 `[general] horizontal_grid`，缺省关）。
     pub horizontal_grid: bool,

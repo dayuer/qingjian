@@ -205,11 +205,6 @@ impl Host {
                 let font = if font == DEFAULT_FONT_LABEL { "" } else { font };
                 self.settings.set_value("general", "font", font);
             }
-            (Setting::Layout, SettingValue::Index(index)) => {
-                if let Some(layout) = LayoutMode::ALL.get(index) {
-                    self.settings.set_value("general", "layout", layout.key());
-                }
-            }
             (Setting::HorizontalGrid, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "horizontal_grid", on);
             }

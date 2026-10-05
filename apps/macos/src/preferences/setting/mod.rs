@@ -110,9 +110,6 @@ pub enum Setting {
     /// 「在编辑器中打开配置文件」按钮。
     OpenConfigFile,
 
-    /// `[general] layout`，弹出菜单 竖排 / 横排。
-    Layout,
-
     /// `[general] preedit`，弹出菜单。
     Preedit,
 
@@ -217,7 +214,6 @@ impl Setting {
             Self::Model => 9,
             Self::ApiKey => 10,
             Self::OpenConfigFile => 11,
-            Self::Layout => 12,
             Self::Preedit => 13,
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
@@ -285,7 +281,6 @@ impl Setting {
             9 => Self::Model,
             10 => Self::ApiKey,
             11 => Self::OpenConfigFile,
-            12 => Self::Layout,
             13 => Self::Preedit,
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
@@ -369,7 +364,6 @@ mod tests {
             Setting::Model,
             Setting::ApiKey,
             Setting::OpenConfigFile,
-            Setting::Layout,
             Setting::Preedit,
             Setting::EnglishCandidates,
             Setting::TranslationKeys,

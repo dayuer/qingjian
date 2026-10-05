@@ -12,6 +12,8 @@ Core 不动逻辑，只改 platform 的默认值；Windows / Linux 行为不变�
 - `horizontal_grid` 开着：保持现状（单行先展开矩阵、在矩阵里换行）。
 - 没开（默认单行）：改走 `turn_page(delta)`——`↑` 上一页、`↓` 下一页，照常记
   `engine.note_page_turn()`（Core 输入日志的翻页信号）。
+- 实施修正：算式（`↑`/`↓` 加 Space 选第二项）与英文模式（`↑`/`↓` 移动高亮）是既有按键依赖，
+  这两个模式保留 `move_highlight`，不翻页。
 - 已在首页按 `↑` / 末页按 `↓`：不动、不重画。翻页后高亮落新页第一个候选（`turn_page` 现有语义）。
 - 单行模式因此失去「上下键移高亮」；数字键直选不受影响。
 
@@ -43,8 +45,9 @@ mac 壳删干净竖排路径：
 
 ## 测试与验证
 
-- 单测：`apps/macos/src/host/session.rs` 补「单行上下键翻页」用例；删竖排相关 view 测试；
-  `qingjian-platform` config 测试改默认值断言。
+- 单测：`turn_page` 的语义已有 `host/session.rs` 的 `paging_follows_the_layout` 覆盖，控制器
+  glue 无 IMK 运行时测不了，靠真机验证；竖排路径在 view / bitmap / preferences 无独立测试，
+  删除由编译与 clippy 兜底；`qingjian-platform` config 测试改默认值断言。
 - `cargo test -p qingjian-macos -p qingjian-platform` 与全 workspace 测试过。
 - 真机：`apps/macos/scripts/bundle.sh --install` 后在 TextEdit 敲拼音，验证 `↑`/`↓` 翻一整页、
   设置页无布局菜单、学习语言默认「关」。
