@@ -325,7 +325,7 @@ struct RememberView: View {
         days.indices.contains(selectedDay) ? days[selectedDay] : days[0]
     }
 
-    /// 功勋路显示的人：最近在键盘里被选中过的那个人（state 的 used 最新），没有就按场景顺序取第一个人。
+    /// 功勋路显示的人：最近在键盘里被选中过的那个人（state 的 used 最新），没有就取名单上的第一个人。
     private var milestoneContact: MemoryContact? {
         let contacts = store.snapshot.contacts
         guard !contacts.isEmpty else { return nil }
@@ -336,10 +336,6 @@ struct RememberView: View {
                 return (contact, stamp)
             }
             .max { $0.1 < $1.1 }
-        if let latest { return latest.0 }
-        for scene in store.scenes {
-            if let person = contacts.first(where: { $0.scene == scene.id }) { return person }
-        }
-        return contacts.first
+        return latest?.0 ?? contacts.first
     }
 }

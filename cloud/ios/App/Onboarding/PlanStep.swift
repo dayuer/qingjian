@@ -17,7 +17,7 @@ struct PlanStep: View {
     /// 价格是设计稿的占位，订阅走苹果内购，定价后再改。
     static let cloudPrice = "¥ — / 月"
 
-    static let cloudItems = ["你开启的场景里，键盘自己记、每天整理", "每周一张「这周记住了什么」，你确认", "选中文字一键改写", "换手机记忆还在"]
+    static let cloudItems = ["键盘在聊天里自己记、每天整理", "每周一张「这周记住了什么」，你确认", "选中文字一键改写", "换手机记忆还在"]
 
     static let useFree = "先用免费版"
 
