@@ -1,6 +1,10 @@
 //! 润色：把光标前的一段话经服务器的大模型代理改得更通顺，后台线程发请求，主线程轮询结果。
 //! 同一时间只认最新一次：用户又点了润色或开始打字，旧请求回来也丢掉。
 
+// TODO(Task 4/5/6)：技能包先落文件、调用方后接（会话读目录、C 接口查 id）。
+// 在那之前整块没有引用方，先用这两个 allow 挡住 lint；接上后连同 re-export 的 allow 一起去掉。
+#[allow(dead_code)]
+mod skill;
 mod state;
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,6 +13,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use qingjian_cloud_client::Client;
 use serde_json::{Value, json};
 
+#[allow(unused_imports)]
+pub use self::skill::{DEFAULT_SKILL_ID, MAX_NAME_CHARS, Skill, is_skill_id, load_skills};
 pub use self::state::RewriteState;
 
 const PROMPT: &str = "你是中文写作助手。把用户给的这段文字改得更通顺自然：修正错别字、语病和标点，\
