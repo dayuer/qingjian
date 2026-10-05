@@ -1234,4 +1234,15 @@ git commit -m "docs(cloud): 开通云服务的流程与截图走查"
 
 ## 执行记录
 
-（执行时在下面记实际做法、与计划的偏差、跑出来的数字。）
+2026-10-06 执行完，八个 Task 各一个提交（`9ddbbc5` → `2b147f3`，加桥那个 `d4f8a34`）。
+
+- **测试**：iOS `QingjianCloudTests` 248 条全过（原来 227，新增 21）；cloud 侧 338 条全过，`clippy -D warnings` 与 `fmt --check` 干净。
+- **偏差一**：`BridgeFailure` 得加 `Error` 才能当 `Result` 的失败类型；`AccountStore.reaction` 与
+  `AccountDecodeTests` 里对 `Code` 的穷尽写法跟着补了两个新 case。
+- **偏差二**：`CreateSpaceView` 底下多了一个「已经有素笺云服务了？用匹配码加入」的入口——
+  计划里 `JoinSpaceView` 没有进水口，不给一个的话新设备走不到那一页。
+- **偏差三**：计划里 `SpaceStore.noGroupMessage` 是个静态属性，Swift 6 下 `@MainActor` 类的静态属性
+  在 `nonisolated` 处引用不了，改成 `nonisolated static let noGroup`。
+- **偏差四**：`PairBridge` 与 `SpaceStore` 的泛型都要 `Sendable`（结果要跨 `Task.detached` 回来）。
+- **没做**：模拟器截图走查（Task 9 Step 1/2）——要一台专用模拟器与四屏截图，还没跑；出码页、设备页、
+  找回方式、2f 同意页按文首的范围表切给别的任务。
