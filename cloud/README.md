@@ -15,7 +15,7 @@
 |---|---|
 | [crates/qingjian-cloud-mac/](crates/qingjian-cloud-mac/) | Mac 端：链进输入法进程的同步模块；[使用与验收清单](crates/qingjian-cloud-mac/README.md) |
 | [ios/](ios/) | iOS 主 App + 键盘扩展：本地引擎、26 键全拼，键位照 iOS 自带简体拼音；[构建与已知问题](ios/README.md) |
-| [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用；`qingjian-cloud-bridge` 把上游 Engine 包成 C ABI 给 iOS 键盘 |
+| [crates/](crates/) | 协议类型与客户端（离线队列、SSE、重连），各平台共用；`qingjian-cloud-bridge` 把上游 Engine 包成 C ABI 给 iOS 键盘；本地整句模型（含章·通变）经 `qj_load_model` 异步加载、接 Engine 的重打分，键盘余量低于 8MB 自动卸载（`qj_available_memory_mb`） |
 
 账号与多租户的设计见 [docs/design.md](docs/design.md) 的「鉴权」与「已知限制」；Mac 对 `apps/macos` 的分叉改动清单见 [docs/fork-patch.md](docs/fork-patch.md)。
 
