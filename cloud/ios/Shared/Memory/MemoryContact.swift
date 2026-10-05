@@ -1,5 +1,5 @@
 // 记忆里的一个人（contacts.json 的一项）。名字只在这里，对象目录名用随机 id。两个提示开关按人设置，旧文件没有时按开。
-// `scene` 是所属场景的 id（用户自建的分组，见 MemoryScene）；`pinnedAt` 是他在这个分组里被置顶的时间。
+// `pinnedAt` 是他被置顶的时间（全局最多 4 个）。
 // 键盘上画出来的称呼一律用 `chipName`（代号优先），App 里照旧显示 `name`；Tests/KeyboardNameGuardTests 守着键盘源码不直接读 `.name`。
 
 import Foundation
@@ -18,10 +18,7 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
 
     var pronoun: MemoryPronoun
 
-    /// 所属场景（分组）的 id；场景只是分组，人换场景不受限。
-    var scene: String
-
-    /// 置顶的时间（Unix 秒）：键盘的选择面板先摆置顶的人，同一场景最多 4 个；nil 就是没置顶。
+    /// 置顶的时间（Unix 秒）：键盘上先摆置顶的人，全局最多 4 个；nil 就是没置顶。
     var pinnedAt: Int64?
 
     let createdAt: Int64
@@ -33,7 +30,7 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
     var remindOn = true
 
     enum CodingKeys: String, CodingKey {
-        case id, name, initial, pronoun, scene
+        case id, name, initial, pronoun
         case displayName = "display_name"
         case pinnedAt = "pinned_at"
         case createdAt = "created_at"
@@ -41,10 +38,10 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
         case remindOn = "remind_on"
     }
 
-    /// `scene` 这个分组里的新对象；建好后可以换场景（场景只是分组）。
-    static func new(name: String, pronoun: MemoryPronoun, scene: String) -> MemoryContact {
+    /// 新对象：id 用随机 32 位十六进制（对象目录名就是它）。
+    static func new(name: String, pronoun: MemoryPronoun) -> MemoryContact {
         MemoryContact(
-            id: MemoryID.make(), name: name, pronoun: pronoun, scene: scene,
+            id: MemoryID.make(), name: name, pronoun: pronoun,
             createdAt: Int64(Date().timeIntervalSince1970))
     }
 
@@ -72,7 +69,6 @@ extension MemoryContact {
             displayName: try container.decodeIfPresent(String.self, forKey: .displayName),
             initial: try container.decodeIfPresent(String.self, forKey: .initial),
             pronoun: try container.decodeIfPresent(MemoryPronoun.self, forKey: .pronoun) ?? .ta,
-            scene: try container.decode(String.self, forKey: .scene),
             pinnedAt: try container.decodeIfPresent(Int64.self, forKey: .pinnedAt),
             createdAt: try container.decode(Int64.self, forKey: .createdAt),
             hintOn: try container.decodeIfPresent(Bool.self, forKey: .hintOn) ?? true,

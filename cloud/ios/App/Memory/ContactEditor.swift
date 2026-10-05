@@ -1,4 +1,4 @@
-// 加一个人（05 的 2g），建在首页点进来的那一组的场景里（建好后不能换）。弹层里照设计稿排：大标题「想记得谁？」、名字或代号、「只保存在这台手机上。」、
+// 加一个人（05 的 2g）。弹层里照设计稿排：大标题「想记得谁？」、名字或代号、「只保存在这台手机上。」、
 // 提示里怎么称呼（他 / 她 / TA / 直接用名字，缺省 TA）、可以跳过的几件已知的事、底部大按钮「好了」。
 // 生日就叫「生日」，日子按年重复，填出生日期也会每年提醒。保存在后台做，期间按钮换成「正在保存」；存不上时弹层不关、填的留着。
 
@@ -6,9 +6,6 @@ import SwiftUI
 
 struct ContactEditor: View {
     let store: MemoryStore
-
-    /// 建在哪个场景（分组）的 id；调用方从 MemoryScene 里挑一个传进来。
-    let scene: String
 
     @Environment(\.dismiss) private var dismiss
 
@@ -51,7 +48,7 @@ struct ContactEditor: View {
                     .contentShape(Rectangle())
                     .onTapGesture { nameFocused = true }
                     .padding(.top, 8)
-                Text("加在「\(store.sceneName(of: scene))」里 · 只保存在这台手机上。")
+                Text("只保存在这台手机上。")
                     .font(AppFont.font(size: 12.5))
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
@@ -149,7 +146,7 @@ struct ContactEditor: View {
     }
 
     private func save() {
-        let contact = MemoryContact.new(name: trimmed(name), pronoun: pronoun, scene: scene)
+        let contact = MemoryContact.new(name: trimmed(name), pronoun: pronoun)
         var cards: [MemoryCard] = []
         if hasBirthday {
             cards.append(.new(kind: .date, text: "生日", when: MemoryDate.format(birthday), keywords: ["生日"]))

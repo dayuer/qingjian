@@ -4,17 +4,15 @@ import Foundation
 import QingjianBridge
 
 extension Engine {
-    /// 当前场景与对象；会话没有记忆目录时为 nil。
+    /// 当前对象与各人上次被选中的时间；会话没有记忆目录时为 nil。
     var scope: MemoryScope? { MemoryFiles.decode(take(qj_scope_get(session))) }
 
-    /// 切场景与对象：`.last` 回到这个场景上次选的人（桥记在 state.json 的 last 里），`.nobody` 明确不指定。
-    func setScope(scene: String, pick: ScopePick) {
-        scene.withCString { s in
-            Self.withOptionalCString(pick.argument) { qj_scope_set(session, s, $0) }
-        }
+    /// 切当前对象：`.keep` 保持现在选的人不变（幂等），`.nobody` 明确不指定。
+    func setScope(pick: ScopePick) {
+        Self.withOptionalCString(pick.argument) { qj_scope_set(session, $0) }
     }
 
-    /// 提示行要显示的；私密输入、工作场景、没选对象时为 nil。
+    /// 提示行要显示的；私密输入或没选对象时为 nil。
     var memoryHint: MemoryHint? { MemoryFiles.decode(take(qj_memory_hint(session))) }
 
     /// 「知道了」：today 为真当天不再出，为假 10 分钟内不再出。
@@ -44,9 +42,9 @@ extension Engine {
     /// 拿不到锁排队的记一笔，补写时被拒绝的条数（按原因）；取一次桥就清零，没有时为 nil。
     func memoryDropped() -> DroppedNotes? { MemoryFiles.decode(take(qj_memory_dropped(session))) }
 
-    /// 键盘里在 `scene` 新建一个对象，称呼先按 TA（App 里能改）；建好返回 id，这个场景满 8 个时失败（文案带场景名）。
-    func addContact(name: String, scene: String) -> Result<String, MemoryFailure> {
-        let raw = name.withCString { n in scene.withCString { qj_memory_add_contact(session, n, nil, $0) } }
+    /// 键盘里新建一个对象，称呼先按 TA（App 里能改）；建好返回 id，名字为空时失败。
+    func addContact(name: String) -> Result<String, MemoryFailure> {
+        let raw = name.withCString { qj_memory_add_contact(session, $0, nil) }
         return ContactAdd.parse(take(raw))
     }
 }

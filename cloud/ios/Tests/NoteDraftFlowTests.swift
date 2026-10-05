@@ -39,7 +39,7 @@ final class NoteDraftFlowTests: XCTestCase {
     func testConflictNamesTheCurrentContactByChipName() {
         let contact = MemoryContact(
             id: "0123456789abcdef0123456789abcdef", name: "王大明", displayName: "阿明", pronoun: .ta,
-            scene: "daily", createdAt: 0)
+            createdAt: 0)
         var flow = opened
         flow.save(contactName: contact.chipName)
         XCTAssertEqual(flow.conflict?.contactName, "阿明", "代号优先")
