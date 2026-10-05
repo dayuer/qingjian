@@ -46,6 +46,10 @@ enum ScopeDisplay {
 
     static let needsFullAccessText = "开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上"
 
+    /// 没开完全访问时牌子上的说明：**改写与记忆都要它**——iOS 键盘扩展没开就没有网络，
+    /// 改写要请求服务器，按下去必然失败，所以那颗按钮也并进这个说明入口。
+    static let needsFullAccessForRewrite = "改写和记忆都要开完全访问。开了也不会上传你没让它上传的内容。"
+
     /// 「去开启」在工具栏里展开的路径。键盘扩展打不开系统设置，也不许借响应链打开 App，只能给文字。
     static let fullAccessPath = "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问"
 
