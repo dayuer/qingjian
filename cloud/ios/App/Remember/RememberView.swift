@@ -24,17 +24,20 @@ struct RememberView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                    statusRow
-                    WeekStrip(days: days, selected: $selectedDay)
+            VStack(spacing: 0) {
+                // 标题、状态行与日历条都钉住不滚：设计稿里它们在 `.scroll` 外面，只有下面几节滚
+                header
+                statusRow
+                WeekStrip(days: days, selected: $selectedDay)
+                ScrollView {
                     sections
+                        .padding(.bottom, 24)
                 }
-                .padding(.bottom, 24)
+                // 下拉刷新挂在滚动的那一块上：挂外层的话拉到的是固定区，刷不出来
+                .refreshable { await store.reload() }
             }
             .background(Color(.systemBackground))
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: MemoryRoute.self) { route in
                 switch route {
                 case .contact(let id): ContactDetailView(store: store, contactId: id)
@@ -45,7 +48,6 @@ struct RememberView: View {
             .onChange(of: store.snapshot.contacts.map(\.id)) { _, ids in
                 path.removeAll { !ids.contains($0.contactId) }
             }
-            .refreshable { await store.reload() }
             .sheet(isPresented: $writingNote) { QuickNoteSheet(store: store) }
             .sheet(item: $assigningMaterial) { material in
                 AssignSheet(store: store, material: material, onPicked: { assigningMaterial = nil })
