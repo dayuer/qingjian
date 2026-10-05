@@ -78,46 +78,33 @@ pub fn has_date(kind: CardKind) -> bool {
     matches!(kind, CardKind::Date | CardKind::Promise)
 }
 
-/// 当前对象必须在名单上、且是当前场景的人，否则退回不指定；`last` 里去掉不在名单上（被忘掉了）或场景对不上的人，
-/// 再记下当前场景的这次选择（不指定就去掉这个场景的记录）。旧 state.json 没有 `last`，当前的恋爱对象就这样补进去。
-/// `used` 里不在名单上的人也去掉。
+/// 当前对象必须在名单上，否则退回不指定；`used` 里不在名单上的人也去掉。
 pub(crate) fn sanitized_scope(mut state: ScopeState, contacts: &[Contact]) -> ScopeState {
-    let belongs = |id: &str, scene: &str| contacts.iter().any(|c| c.id == id && c.scene == scene);
     if !state
         .contact_id
         .as_deref()
-        .is_some_and(|id| belongs(id, &state.scene))
+        .is_some_and(|id| contacts.iter().any(|c| c.id == id))
     {
         state.contact_id = None;
     }
-    state.last.retain(|scene, id| belongs(id, scene));
     state
         .used
         .retain(|id, _| contacts.iter().any(|c| &c.id == id));
-    match &state.contact_id {
-        Some(id) => {
-            state.last.insert(state.scene.clone(), id.clone());
-        }
-        None => {
-            state.last.remove(&state.scene);
-        }
-    }
     state
 }
 
-/// 切到 `scene`：先把旧状态理顺（旧文件的 `last` 在这一步补上），再按 `pick` 定对象，`Last` 取这个场景上次选的人。
+/// 按 `pick` 定当前对象。
 pub(crate) fn scope_with(
     state: ScopeState,
-    scene: &str,
     pick: &ContactPick,
     contacts: &[Contact],
 ) -> ScopeState {
     let mut state = sanitized_scope(state, contacts);
     state.contact_id = match pick {
-        ContactPick::Last => state.last.get(scene).cloned(),
+        // 保持现在选的人：sanitize 完直接回去（原来靠 `state.last`，场景去掉后没有「上次」了）
+        ContactPick::Keep => return state,
         ContactPick::Nobody => None,
         ContactPick::Contact(id) => Some(id.clone()),
     };
-    state.scene = scene.to_owned();
     sanitized_scope(state, contacts)
 }

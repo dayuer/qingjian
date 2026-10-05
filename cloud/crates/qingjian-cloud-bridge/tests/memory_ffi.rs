@@ -1,5 +1,5 @@
 //! 本地记忆的 C 接口：按 C 签名直接调，不需要产品数据。最后一个测试核对头文件与导出符号逐个一致。
-//! 每个场景各一组人的部分在 `memory_scene_ffi.rs`，「记一笔」素材在 `memory_materials_ffi.rs`。
+//! 「记一笔」素材在 `memory_materials_ffi.rs`。
 
 mod memory_support;
 
@@ -12,45 +12,43 @@ use qingjian_cloud_bridge::{qj_flush, qj_poll, qj_push, qj_session_free, qj_set_
 use serde_json::{Value, json};
 
 use memory_support::{
-    CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_cards,
-    qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete, qj_memory_materials,
-    qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context, qj_scope_get, qj_scope_set,
-    scenes, seed, set_scope, take, type_and_commit,
+    CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_add_contact,
+    qj_memory_cards, qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete,
+    qj_memory_materials, qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context,
+    qj_scope_get, qj_scope_set, scenes, seed, set_scope, take, type_and_commit,
 };
 
 #[test]
-fn scope_set_round_trips() {
+fn scope_set_round_trips_without_scenes() {
     let (data, user) = dirs("scope");
     seed(&user);
     let session = open(&data, Some(&user));
     let scope = json_of(unsafe { qj_scope_get(session) });
-    assert_eq!(scope["scene"], "daily");
     assert_eq!(scope["contact_id"], Value::Null);
+    assert!(scope.get("scene").is_none(), "没有场景了：{scope}");
+    assert!(scope.get("last").is_none(), "没有 last 了：{scope}");
 
     set_scope(session, "dating", Some(CONTACT));
-    let scope = json_of(unsafe { qj_scope_get(session) });
-    assert_eq!(scope["scene"], "dating");
-    assert_eq!(scope["contact_id"], CONTACT);
-    unsafe { qj_session_free(session) };
-
-    // 写进了 state.json，下次打开还在
-    let session = open(&data, Some(&user));
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
         CONTACT
     );
-    set_scope(session, "work", Some(CONTACT));
-    let scope = json_of(unsafe { qj_scope_get(session) });
-    assert_eq!(scope["scene"], "work");
-    assert_eq!(scope["contact_id"], Value::Null, "不是这个场景的人当不指定");
-    // 场景 id 现在由用户自己起，只挡格式不合法的（大写、带斜杠）；正常的 id 认，哪怕名册上还没有
-    set_scope(session, "../x", None);
-    set_scope(session, "Party", None);
+
+    // 空指针 = 保持现在选的人不变（幂等）
+    set_scope(session, "dating", None);
     assert_eq!(
-        json_of(unsafe { qj_scope_get(session) })["scene"],
-        "work",
-        "不合格式的场景 id 不动"
+        json_of(unsafe { qj_scope_get(session) })["contact_id"],
+        CONTACT
     );
+
+    // 空字符串 = 明确不指定
+    set_scope(session, "dating", Some(""));
+    assert_eq!(
+        json_of(unsafe { qj_scope_get(session) })["contact_id"],
+        Value::Null
+    );
+
+    // 名单上没有的对象当不指定
     set_scope(session, "dating", Some("ffffffffffffffffffffffffffffffff"));
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
@@ -268,14 +266,13 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
         "每次最多等 200 毫秒：{elapsed:?}"
     );
     let scope = json_of(unsafe { qj_scope_get(session) });
-    assert_eq!(scope["scene"], "dating", "内存里照切");
-    assert_eq!(scope["contact_id"], CONTACT);
+    assert_eq!(scope["contact_id"], CONTACT, "内存里照切");
     // 磁盘上还没写，轮询也不能把刚切的读回旧的
     assert!(
         !user.join("memory/state.json").exists() || {
             !std::fs::read_to_string(user.join("memory/state.json"))
                 .unwrap()
-                .contains("dating")
+                .contains(CONTACT)
         }
     );
     unsafe { qj_poll(session) };
@@ -289,8 +286,75 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
     let state: Value =
         serde_json::from_str(&std::fs::read_to_string(user.join("memory/state.json")).unwrap())
             .unwrap();
-    assert_eq!(state["scene"], "dating", "待办只留最后一次，补写成功");
-    assert_eq!(state["contact_id"], CONTACT);
+    assert_eq!(state["contact_id"], CONTACT, "待办只留最后一条，补写成功");
+    unsafe { qj_session_free(session) };
+}
+
+#[test]
+fn keyboard_adds_contacts_without_a_cap() {
+    let (data, user) = dirs("add-limit");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    for n in 0..12 {
+        let name = c(&format!("日常{n}"));
+        let added = json_of(unsafe {
+            qj_memory_add_contact(session, name.as_ptr(), ptr::null(), ptr::null())
+        });
+        assert!(added["id"].is_string(), "第 {n} 个应当建得了：{added}");
+    }
+    unsafe { qj_session_free(session) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    assert_eq!(
+        snapshot["contacts"].as_array().unwrap().len(),
+        13,
+        "12 个新的 + 种子那 1 个"
+    );
+}
+
+/// 学习数据目录或某层目录下的 `user.tsv` 里有没有这个词。
+fn learned(dir: &Path, word: &str) -> bool {
+    std::fs::read_to_string(dir.join("user.tsv")).is_ok_and(|text| text.contains(word))
+}
+
+#[test]
+fn learning_is_isolated_per_person() {
+    let (data, user) = dirs("learn-per-person");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    let name = c("妈妈");
+    let second =
+        json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null(), ptr::null()) })
+            ["id"]
+            .as_str()
+            .expect("建好返回 id")
+            .to_owned();
+    let memory = user.join("memory");
+
+    // 选了人：只写这个人的对象层，不碰全局
+    set_scope(session, "daily", Some(CONTACT));
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    unsafe { qj_flush(session) };
+    assert!(
+        learned(&memory.join(CONTACT).join("learning"), "生日"),
+        "写对象层"
+    );
+    assert!(!learned(&user, "生日"), "选了人不写全局");
+
+    // 换个人：他的层还是空的，上一个人学的没串过来
+    set_scope(session, "work", Some(&second));
+    assert!(
+        !learned(&memory.join(&second).join("learning"), "生日"),
+        "别人学的不串过来"
+    );
+    unsafe { qj_session_free(session) };
+
+    // 不指定：写全局
+    let session = open(&data, Some(&user));
+    set_scope(session, "daily", Some(""));
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    unsafe { qj_flush(session) };
+    assert!(learned(&user, "生日"), "不指定写全局");
     unsafe { qj_session_free(session) };
 }
 

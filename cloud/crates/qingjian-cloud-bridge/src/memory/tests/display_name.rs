@@ -20,7 +20,7 @@ fn old_contacts_without_display_name_read_as_none_and_stay_absent() {
 fn display_name_round_trips_through_the_store() {
     let user = temp_dir("display-round-trip");
     let store = open_with_scenes(&user);
-    let mut named = contact(1, "dating");
+    let mut named = contact(1);
     named.display_name = Some(" 阿美 ".to_owned());
     store
         .write_snapshot(&MemorySnapshot {
@@ -48,7 +48,7 @@ fn display_name_round_trips_through_the_store() {
 fn blank_display_name_counts_as_none() {
     let user = temp_dir("display-blank");
     let store = open_with_scenes(&user);
-    let mut blank = contact(1, "dating");
+    let mut blank = contact(1);
     blank.display_name = Some(" \u{3000} ".to_owned());
     assert_eq!(blank.chip_name(), "人1", "全是空白时键盘显示名字");
     store.put_contact(blank).unwrap();
@@ -62,10 +62,10 @@ fn blank_display_name_counts_as_none() {
 fn display_name_over_twelve_chars_is_rejected() {
     let user = temp_dir("display-long");
     let store = open_with_scenes(&user);
-    let mut ok = contact(1, "dating");
+    let mut ok = contact(1);
     ok.display_name = Some("一二三四五六七八九十一二".to_owned());
     store.put_contact(ok).unwrap();
-    let mut long = contact(2, "dating");
+    let mut long = contact(2);
     long.display_name = Some("一二三四五六七八九十一二三".to_owned());
     assert!(matches!(
         store.put_contact(long.clone()),
@@ -84,7 +84,7 @@ fn display_name_over_twelve_chars_is_rejected() {
 
 #[test]
 fn chip_name_prefers_display_name() {
-    let mut person = contact(1, "dating");
+    let mut person = contact(1);
     assert_eq!(person.chip_name(), "人1");
     person.display_name = Some("阿美".to_owned());
     assert_eq!(person.chip_name(), "阿美");
