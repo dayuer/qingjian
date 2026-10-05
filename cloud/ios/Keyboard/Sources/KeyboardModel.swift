@@ -49,8 +49,8 @@ final class KeyboardModel {
     /// 随包的改写技能（键盘起来、换引擎时各读一次，运行中不变）。
     private(set) var rewriteSkills: [Skill] = []
 
-    /// 改写用的全局默认技能（config.toml 的 `rewrite_skill`）；读不出来时按桥的缺省（`polish`）。
-    private(set) var defaultRewriteSkill = "polish"
+    /// 改写用的全局默认技能（设置里的 `[rewrite] skill`）；读不出来时按缺省（`polish`）。
+    private(set) var defaultRewriteSkill = RewriteDefault.fallbackSkill
 
     /// 点了工具栏那颗技能按钮：露出 / 收起技能排（与 `showsFullAccessNote` 一样的观察状态）。
     private(set) var showsRewriteSkills = false
@@ -166,7 +166,7 @@ final class KeyboardModel {
         if showsRewriteSkills { quickOpen = false }
     }
 
-    /// 换技能：选了人写进这个人，没选人就把全局默认写进设置（config.toml）；记下来返回 true。
+    /// 换技能：选了人写进这个人，没选人就把全局默认写进设置（经桥的 `qj_rewrite_default_set`）；记下来返回 true。
     /// 没选人时「用默认」等于保持现状——那时现在的默认就是它。
     @discardableResult
     func setRewriteSkill(_ id: String?) -> Bool {
@@ -188,25 +188,18 @@ final class KeyboardModel {
         startRewrite()
     }
 
-    /// 全局默认技能记在 config.toml 的 `rewrite_skill` 里（键盘这边只改这一项，别的读完原样写回）。
+    /// 全局默认技能记在设置里的 `[rewrite] skill` 里，经桥的 `qj_rewrite_default_set` 只改这一项（键盘不碰配置文件）。
     private func saveDefaultRewriteSkill(_ id: String) {
-        guard let engine, let config = engine.configFile else { return }
-        let dicts = engine.dataDirectory.appendingPathComponent("dicts", isDirectory: true)
-        guard var settings = SettingsBridge.readSettings(config: config, dicts: dicts) else { return }
-        settings.rewriteSkill = id
-        if let failure = SettingsBridge.writeSettings(settings, config: config) {
-            Self.log.error("默认技能没写进设置：\(failure, privacy: .public)")
+        if let failure = engine?.setRewriteDefaultSkill(id) {
+            Self.log.error("默认技能没写进设置：\(failure.code.rawValue, privacy: .public)")
         }
     }
 
     /// 随包的技能与设置里的默认：键盘起来、换引擎时各读一次（技能包在运行中不变）。
+    /// 设置里的默认读不出来时按缺省走，不提示（读不是用户刚做的动作）。
     private func reloadRewriteSkills() {
         rewriteSkills = engine?.rewriteSkills ?? []
-        guard let engine, let config = engine.configFile else { return }
-        let dicts = engine.dataDirectory.appendingPathComponent("dicts", isDirectory: true)
-        if let settings = SettingsBridge.readSettings(config: config, dicts: dicts) {
-            defaultRewriteSkill = settings.rewriteSkill
-        }
+        defaultRewriteSkill = engine?.rewriteDefaultSkill ?? RewriteDefault.fallbackSkill
     }
 
     func tap(_ key: Key) {

@@ -55,7 +55,7 @@ uint32_t qj_rewrite_status(QjSession *session);
 char *qj_rewrite_take(QjSession *session);
 void qj_rewrite_cancel(QjSession *session);
 // 改写用的全局默认技能（config.toml 的 [rewrite] skill，与主 App 设置页的 rewrite_skill 是同一项，见 qj_settings_read）：
-// 读 {"skill":"polish"}；会话无效、或这个会话没有配置文件时为 NULL；文件里存的不是合法技能编号时为 {"code":"invalid","message"}。
+// 读 {"skill":"polish"}；会话无效、或这个会话没有配置文件时为 NULL；文件里存的不是合法技能编号时静默回退成缺省（读不报错）。
 // 键盘按「选中的人的技能 → 这一项 → 列表第一个」挑，链里第一环见 qj_memory_contact_skill。
 char *qj_rewrite_default(QjSession *session);
 // 改全局默认技能（skill_id 为 NULL = 回到缺省 polish）：成功返回 NULL，失败返回 {"code","message"}。

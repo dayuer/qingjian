@@ -162,10 +162,11 @@ pub fn set_rewrite_skill(config_path: &Path, skill: &str) -> Result<(), MemoryEr
     }
     // 读-改-写原始 TOML，与上面的 [`rewrite_skill`] 对称：`Config::set_value` 也能写这个键，
     // 但它给不存在的文件铺的是一整套模板，这里只加这一项（其余设置由设置页或 Mac 同步补上）
+    // 这里读的是设置文件，不是记忆：[`MemoryError::Io`] 的文案是记忆专用的，套在 config.toml 上会说出与操作无关的话
     let source = match std::fs::read_to_string(config_path) {
         Ok(source) => source,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(MemoryError::Io(error)),
+        Err(_) => return Err(MemoryError::Invalid("设置文件读不了，没有改动")),
     };
     let mut document: toml_edit::DocumentMut = source
         .parse()
@@ -180,7 +181,7 @@ pub fn set_rewrite_skill(config_path: &Path, skill: &str) -> Result<(), MemoryEr
     document["rewrite"]["skill"] = toml_edit::value(skill);
     // 写临时文件再改名：键盘随时可能被杀，不能留半个配置文件
     crate::cloud_config::write_atomic(config_path, document.to_string().as_bytes(), true)
-        .map_err(MemoryError::Io)
+        .map_err(|_| MemoryError::Invalid("设置文件写不进去，稍后再试"))
 }
 
 fn domain_label(path: &Path) -> Option<String> {
