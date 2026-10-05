@@ -41,7 +41,8 @@ struct SceneSettingsView: View {
                             : MemoryStore.Wording.sceneHasPeople(
                                 people, fallback: store.defaultScene?.name ?? ""))
                 }
-                .confirmationDialog("删掉「\(scene.name)」？", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                // 用 .alert 不用 confirmationDialog：iOS 26 上后者是气泡，「算了」不显示（同素材的「删除」）
+                .alert("删掉「\(scene.name)」？", isPresented: $confirmingDelete) {
                     Button("删掉", role: .destructive) {
                         // 删成了就退回「我」页；还留着的话（比如桥拒了）留在原页看提示
                         Task {

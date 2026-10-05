@@ -33,6 +33,7 @@ struct RememberView: View {
                     sections
                         .padding(.bottom, 24)
                 }
+                .contentMargins(.bottom, RootTab.listBottomMargin, for: .scrollContent)
                 // 下拉刷新挂在滚动的那一块上：挂外层的话拉到的是固定区，刷不出来
                 .refreshable { await store.reload() }
             }
