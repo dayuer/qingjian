@@ -41,13 +41,13 @@ final class MemoryModelTests: XCTestCase {
     // MARK: 桥的 JSON
 
     func testContactDecodesWithDefaultsForOldFiles() throws {
-        let json = #"{"id":"0123456789abcdef0123456789abcdef","name":"小美","pronoun":"ta_f","scene":"dating","created_at":100}"#
+        let json = #"{"id":"0123456789abcdef0123456789abcdef","name":"小美","pronoun":"ta_f","created_at":100}"#
         let contact = try JSONDecoder().decode(MemoryContact.self, from: Data(json.utf8))
         XCTAssertEqual(contact.name, "小美")
         XCTAssertEqual(contact.pronoun, .taF)
         XCTAssertTrue(contact.hintOn)
         XCTAssertTrue(contact.remindOn)
-        let off = #"{"id":"a","name":"b","scene":"dating","created_at":1,"hint_on":false,"remind_on":false}"#
+        let off = #"{"id":"a","name":"b","created_at":1,"hint_on":false,"remind_on":false}"#
         let decoded = try JSONDecoder().decode(MemoryContact.self, from: Data(off.utf8))
         XCTAssertFalse(decoded.hintOn)
         XCTAssertFalse(decoded.remindOn)
@@ -76,23 +76,23 @@ final class MemoryModelTests: XCTestCase {
 
     func testSnapshotDecodesFromBridge() throws {
         let json = """
-        {"contacts":[{"id":"a","name":"小美","pronoun":"ta_f","scene":"dating","created_at":1}],
+        {"contacts":[{"id":"a","name":"小美","pronoun":"ta_f","created_at":1}],
          "cards":{"a":[{"id":"c","kind":"other","text":"x","created_at":1,"touched_at":1}]},
-         "revs":{"a":3},"state":{"scene":"dating","contact_id":"a"},"broken":["b"]}
+         "revs":{"a":3},"state":{"contact_id":"a"},"broken":["b"]}
         """
         let snapshot = try JSONDecoder().decode(MemorySnapshot.self, from: Data(json.utf8))
         XCTAssertEqual(snapshot.contacts.count, 1)
         XCTAssertEqual(snapshot.cards["a"]?.count, 1)
         XCTAssertEqual(snapshot.revs["a"], 3)
-        XCTAssertEqual(snapshot.state, MemoryScope(contactId: "a"), "带 scene 的旧文件照读，多出来的键不管")
+        XCTAssertEqual(snapshot.state, MemoryScope(contactId: "a"))
         XCTAssertEqual(snapshot.broken, ["b"])
         let empty = try JSONDecoder().decode(MemorySnapshot.self, from: Data("{}".utf8))
         XCTAssertEqual(empty, MemorySnapshot())
     }
 
     func testScopeDecodes() throws {
-        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
-        XCTAssertEqual(scope, MemoryScope(contactId: nil), "没有场景之后，旧文件里的 scene 忽略")
+        let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"contact_id":null}"#.utf8))
+        XCTAssertEqual(scope, MemoryScope(contactId: nil), "缺字段按缺省")
         let used = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"used":{"a":1791043200}}"#.utf8))
         XCTAssertEqual(used.used, ["a": 1_791_043_200])
     }
