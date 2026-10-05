@@ -114,15 +114,16 @@ fn the_keyboard_reads_and_writes_the_default_skill() {
     std::fs::remove_dir_all(&user).ok();
 }
 
-/// 文件里的默认技能被别处写坏（不是合法编号）：读出来报 `invalid`，不当成缺省静默过去；会话无效时读是空指针。
+/// 文件里的默认技能被别处写坏（不是合法编号）：读的时候静默回退成缺省 polish、不报错——读不是用户
+/// 刚做的动作（写的时候由 qj_rewrite_default_set 拦住）；会话无效时读是空指针。
 #[test]
-fn a_broken_default_skill_is_reported() {
+fn a_broken_default_skill_falls_back_to_polish() {
     let (data, user) = dirs("rewrite-default-broken");
     std::fs::write(user.join("config.toml"), "[rewrite]\nskill = \"X Y\"\n").unwrap();
     let session = open(&data, Some(&user));
     assert_eq!(
-        json_of(unsafe { qj_rewrite_default(session) })["code"],
-        "invalid"
+        json_of(unsafe { qj_rewrite_default(session) })["skill"],
+        "polish"
     );
     assert!(unsafe { qj_rewrite_default(ptr::null_mut()) }.is_null());
     unsafe { qj_session_free(session) };
