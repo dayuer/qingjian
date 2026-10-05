@@ -50,6 +50,15 @@ unsafe extern "C" {
         client_id: *const c_char,
         contact_id: *const c_char,
     ) -> *mut c_char;
+    pub fn qj_memory_contact_skill(
+        user_dir: *const c_char,
+        contact_id: *const c_char,
+    ) -> *mut c_char;
+    pub fn qj_memory_contact_skill_set(
+        user_dir: *const c_char,
+        contact_id: *const c_char,
+        skill_id: *const c_char,
+    ) -> *mut c_char;
 }
 
 pub const CONTACT: &str = "0123456789abcdef0123456789abcdef";

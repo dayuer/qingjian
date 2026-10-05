@@ -157,6 +157,30 @@ impl MemoryStore {
         self.write_cards(contact_id, file.rev + 1, cards)
     }
 
+    /// 给这个人指定 / 清掉改写技能（`None` = 回到设置里的默认）。
+    pub fn set_contact_skill(
+        &self,
+        contact_id: &str,
+        skill: Option<String>,
+    ) -> Result<(), MemoryError> {
+        if !is_contact_id(contact_id) {
+            return Err(MemoryError::Invalid("对象编号不对"));
+        }
+        if skill
+            .as_deref()
+            .is_some_and(|id| !crate::rewrite::is_skill_id(id))
+        {
+            return Err(MemoryError::Invalid("技能编号不对"));
+        }
+        let _lock = self.lock()?;
+        let mut contacts = self.read_contacts()?;
+        let Some(contact) = contacts.iter_mut().find(|c| c.id == contact_id) else {
+            return Err(MemoryError::Invalid("名单上没有这个人"));
+        };
+        contact.skill = skill;
+        write_json(&self.contacts_path(), &contacts)
+    }
+
     /// 键盘切当前对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象；对象不在磁盘名单上就当不指定；
     /// 切到了某人时把 `now` 记进 `used`。
     pub fn update_contact(&self, pick: &ContactPick, now: i64) -> Result<ScopeState, MemoryError> {

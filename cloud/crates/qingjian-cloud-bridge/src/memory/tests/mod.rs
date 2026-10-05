@@ -41,6 +41,7 @@ fn contact(n: u32) -> Contact {
         name: format!("人{n}"),
         display_name: None,
         initial: None,
+        skill: None,
         pronoun: Pronoun::Ta,
         pinned_at: None,
         created_at: 1_791_043_200,
