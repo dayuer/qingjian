@@ -1,5 +1,5 @@
 // 首次引导：介绍 → 开启键盘 → 免费版与云服务 → 第一个对象（OnboardingStep），RootView 用 fullScreenCover 盖在上面。
-// 第四步直接放 ContactEditor（建在恋爱场景）：它的「取消」与存好后的 dismiss 关掉的就是这层全屏盖，所以跳过与建好都由 RootView 的 onDismiss 收尾。
+// 第四步直接放 ContactEditor：它的「取消」与存好后的 dismiss 关掉的就是这层全屏盖，所以跳过与建好都由 RootView 的 onDismiss 收尾。
 // 包一层 NavigationStack 只为「了解云服务」能推到 CloudIntroView，各步自己不显示导航栏。
 
 import SwiftUI
