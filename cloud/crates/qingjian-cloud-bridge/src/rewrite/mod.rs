@@ -1,9 +1,6 @@
 //! 改写：把光标前的一段话经服务器的大模型代理换个说法，口径由技能包（[`skill`]）决定；
 //! 后台线程发请求，主线程轮询结果。同一时间只认最新一次：用户又点了一次改写或开始打字，旧请求回来也丢掉。
 
-// TODO(Task 4/5/6)：技能包先落文件、调用方后接（会话读目录、C 接口查 id）。
-// 在那之前整块没有引用方，先用这两个 allow 挡住 lint；接上后连同 re-export 的 allow 一起去掉。
-#[allow(dead_code)]
 mod skill;
 mod state;
 
@@ -13,9 +10,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use qingjian_cloud_client::Client;
 use serde_json::{Value, json};
 
-#[allow(unused_imports)]
-pub use self::skill::{DEFAULT_SKILL_ID, MAX_NAME_CHARS, Skill, is_skill_id, load_skills};
+pub use self::skill::{Skill, load_skills};
 pub use self::state::RewriteState;
+
+use self::skill::DEFAULT_SKILL_ID;
 
 /// 模型名只是占位：服务器配置了模型时以服务器的为准。
 const MODEL: &str = "deepseek-v4-flash";
@@ -41,11 +39,6 @@ impl Rewriter {
             state: Arc::new(Mutex::new(RewriteState::Idle)),
             generation: Arc::new(AtomicU64::new(0)),
         }
-    }
-
-    /// 可用的技能（键盘上换技能用）。
-    pub fn skills(&self) -> &[Skill] {
-        &self.skills
     }
 
     /// 用哪个技能：指定了就用它，认不得、或没指定时用默认，再不行用列表第一个。
