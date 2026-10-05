@@ -1,12 +1,11 @@
-//! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，恋爱场景叠场景层与对象层，日常与工作选了人时叠对象层。
-//! 计数类读各层加权求和；恋爱场景写只进叠加层，日常与工作写全局也写对象层。用户词、个人 n-gram、英文词表要返回引用，
-//! 没法现场叠加，一律读全局。恋爱场景不记词序列转移（个人 n-gram）：暧昧的话不该在工作场景的整句里冒出来。删词连当前打开的叠加层一起删。
+//! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，选了对象时叠对象层。
+//! 计数类读各层加权求和，写全局也写对象层。用户词、个人 n-gram、英文词表要返回引用，
+//! 没法现场叠加，一律读全局。删词连当前打开的叠加层一起删。
 //! 包装层必须逐个转发 `Learner` 的全部方法，漏一个就会被 trait 的缺省实现悄悄吞掉。私密输入由外面的 `MutedLearner` 挡写。
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use qingjian_cloud_proto::Scene;
 use qingjian_core::sentence::{Context, UserNgram};
 use qingjian_core::{Candidate, Forgotten, Learner};
 use qingjian_dictionary::{Dictionary, WordList};
@@ -29,21 +28,20 @@ impl ScopedLearner {
     /// 叠加层计数的倍数（spec 定 4，`examples/overlay_replay.rs` 回放调）。
     pub const OVERLAY_WEIGHT: u32 = 4;
 
-    pub fn open(user_dir: &Path, memory_dir: &Path, scene: Scene, contact: Option<&str>) -> Self {
-        Self::open_with_weight(user_dir, memory_dir, scene, contact, Self::OVERLAY_WEIGHT)
+    pub fn open(user_dir: &Path, memory_dir: &Path, contact: Option<&str>) -> Self {
+        Self::open_with_weight(user_dir, memory_dir, contact, Self::OVERLAY_WEIGHT)
     }
 
     /// 同 [`Self::open`]，叠加倍数自定。只给回放调参用，不进产品配置。
     pub fn open_with_weight(
         user_dir: &Path,
         memory_dir: &Path,
-        scene: Scene,
         contact: Option<&str>,
         weight: u32,
     ) -> Self {
         Self {
             global: load_layer(user_dir),
-            overlay: Arc::new(Mutex::new(Overlay::open(memory_dir, scene, contact))),
+            overlay: Arc::new(Mutex::new(Overlay::open(memory_dir, contact))),
             weight,
             memory_dir: memory_dir.to_path_buf(),
         }
@@ -58,13 +56,10 @@ impl ScopedLearner {
         read(&self.global).saturating_add(lock(&self.overlay).count(self.weight, &read))
     }
 
-    /// 恋爱场景只写叠加层（不写全局）；日常与工作写全局，选了人时对象层也写。
+    /// 写全局；选了人时对象层也写。
     fn write(&mut self, mut f: impl FnMut(&mut FrequencyLearner)) {
-        let mut overlay = lock(&self.overlay);
-        if !overlay.exclusive() {
-            f(&mut self.global);
-        }
-        overlay.write(&mut f);
+        f(&mut self.global);
+        lock(&self.overlay).write(&mut f);
     }
 }
 
@@ -102,9 +97,7 @@ impl Learner for ScopedLearner {
     }
 
     fn unrecord_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
-        if !lock(&self.overlay).exclusive() {
-            self.global.unrecord_transition(context, word, times);
-        }
+        self.global.unrecord_transition(context, word, times);
     }
 
     fn learn_word(&mut self, text: &str, syllables: &[String]) {
@@ -124,9 +117,7 @@ impl Learner for ScopedLearner {
     }
 
     fn record_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
-        if !lock(&self.overlay).exclusive() {
-            self.global.record_transition(context, word, times);
-        }
+        self.global.record_transition(context, word, times);
     }
 
     fn user_ngram(&self) -> Option<&UserNgram> {

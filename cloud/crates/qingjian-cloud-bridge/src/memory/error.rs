@@ -2,16 +2,13 @@
 
 use thiserror::Error;
 
-use qingjian_cloud_proto::Scene;
-
-use super::{MAX_CONTACTS, MAX_UNPROCESSED_MATERIALS};
-use crate::scope::scene_label;
+use super::{MAX_PINNED, MAX_UNPROCESSED_MATERIALS};
 
 #[derive(Debug, Error)]
 pub enum MemoryError {
-    /// 这个场景的对象超过上限（每个场景各自计数）。
-    #[error("too many contacts in the {0:?} scene")]
-    ContactLimit(Scene),
+    /// 一个场景里置顶的超过 [`MAX_PINNED`] 个。
+    #[error("too many pinned contacts in one scene")]
+    PinLimit,
 
     /// 数据不合格；里面是给用户看的原因。
     #[error("invalid memory data")]
@@ -35,10 +32,10 @@ pub enum MemoryError {
 }
 
 impl MemoryError {
-    /// `contact_limit` / `invalid` / `conflict` / `material_limit` / `lock_timeout` / `io`，与头文件里写的一致。
+    /// `pin_limit` / `invalid` / `conflict` / `material_limit` / `lock_timeout` / `io`，与头文件里写的一致。
     pub fn code(&self) -> &'static str {
         match self {
-            Self::ContactLimit(_) => "contact_limit",
+            Self::PinLimit => "pin_limit",
             Self::Invalid(_) => "invalid",
             Self::Conflict => "conflict",
             Self::MaterialLimit { .. } => "material_limit",
@@ -49,7 +46,7 @@ impl MemoryError {
 
     pub fn message(&self) -> String {
         match self {
-            Self::ContactLimit(scene) => format!("{}最多 {MAX_CONTACTS} 个人", scene_label(*scene)),
+            Self::PinLimit => format!("一个场景最多置顶 {MAX_PINNED} 个人"),
             Self::Invalid(reason) => (*reason).to_owned(),
             Self::Conflict => "记忆刚有更新，请再点一次".to_owned(),
             Self::MaterialLimit { remaining: 0, .. } => {

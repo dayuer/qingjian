@@ -1,5 +1,5 @@
-//! 每个场景各一组人（C 接口）：键盘按场景新建、按场景计数；切场景回到上次选的人；日常出提示、工作不出；
-//! 日常选了人时全局与对象层都学，恋爱照旧只写叠加层。
+//! 场景（C 接口）：键盘按场景新建、人数不限；切场景回到上次选的人；
+//! 每个场景一样——都出提示、都写全局与对象层（场景自 2026-10-05 起只是用户自建的分组）。
 
 mod memory_support;
 
@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use memory_support::{
     c, dirs, json_of, note, open, qj_memory_add_contact, qj_memory_hint, qj_memory_read,
-    qj_memory_write, qj_scope_get, seed, set_scope, take, type_and_commit,
+    qj_memory_write, qj_scope_get, scenes, seed, set_scope, take, type_and_commit,
 };
 
 const DAILY: &str = "11111111111111111111111111111111";
@@ -31,6 +31,7 @@ fn seed_scenes(user: &Path) {
     };
     let person = |id: &str, name: &str, scene: &str| json!({"id": id, "name": name, "pronoun": "ta", "scene": scene, "created_at": 1_791_043_200});
     let snapshot = json!({
+        "scenes": scenes(),
         "contacts": [person(DATING, "小美", "dating"), person(DAILY, "妈妈", "daily"), person(WORK, "老板", "work")],
         "cards": {DATING: card(1), DAILY: card(2), WORK: card(3)},
     });
@@ -96,14 +97,14 @@ fn keyboard_adds_contacts_into_the_given_scene() {
     assert_eq!(contact["name"], "阿杰", "名字去掉首尾空白");
     assert_eq!(contact["pronoun"], "ta_m");
 
-    // 场景传空指针或认不得：用会话当前的场景
+    // 场景传空指针或不合格式：用会话当前的场景
     set_scope(session, "work", None);
     let id = add(session, "老王", None)["id"]
         .as_str()
         .unwrap()
         .to_owned();
     assert_eq!(scene_of(&user, &id), "work");
-    let id = add(session, "老李", Some("party"))["id"]
+    let id = add(session, "老李", Some("Party"))["id"]
         .as_str()
         .unwrap()
         .to_owned();
@@ -118,26 +119,23 @@ fn keyboard_adds_contacts_into_the_given_scene() {
 }
 
 #[test]
-fn keyboard_add_contact_counts_per_scene() {
+fn keyboard_adds_contacts_without_a_cap() {
     let (data, user) = dirs("scene-add-limit");
+    seed(&user);
     let session = open(&data, Some(&user));
-    for n in 0..8 {
+    for n in 0..12 {
         let added = add(session, &format!("日常{n}"), Some("daily"));
-        assert!(added["id"].is_string(), "日常第 {n} 个应当建得了：{added}");
+        assert!(added["id"].is_string(), "第 {n} 个应当建得了：{added}");
     }
-    let failure = add(session, "日常8", Some("daily"));
-    assert_eq!(failure["code"], "contact_limit");
-    assert_eq!(failure["message"], "日常最多 8 个人");
-    for n in 0..8 {
-        let added = add(session, &format!("恋爱{n}"), Some("dating"));
-        assert!(added["id"].is_string(), "恋爱另算，第 {n} 个：{added}");
-    }
-    assert_eq!(
-        add(session, "恋爱8", Some("dating"))["message"],
-        "恋爱最多 8 个人"
-    );
-    assert!(add(session, "工作0", Some("work"))["id"].is_string());
+    assert!(add(session, "恋爱0", Some("dating"))["id"].is_string());
     unsafe { qj_session_free(session) };
+    let dir = c(user.to_str().unwrap());
+    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
+    assert_eq!(
+        snapshot["contacts"].as_array().unwrap().len(),
+        14,
+        "12 个新的 + 种子那 1 个 + 恋爱 1 个"
+    );
 }
 
 #[test]
@@ -193,31 +191,24 @@ fn switching_scene_without_a_contact_returns_to_the_last_pick() {
 }
 
 #[test]
-fn daily_shows_hints_and_work_does_not() {
+fn every_scene_shows_hints_and_takes_notes() {
     let (data, user) = dirs("scene-hints");
     seed_scenes(&user);
     let session = open(&data, Some(&user));
-    set_scope(session, "daily", Some(DAILY));
-    assert_eq!(type_and_commit(session, "shengri"), "生日");
-    let hint = json_of(unsafe { qj_memory_hint(session) });
-    assert_eq!(hint["text"], "想要一个生日蛋糕", "日常的人出提示");
-
-    set_scope(session, "work", Some(WORK));
-    assert_eq!(
-        json_of(unsafe { qj_scope_get(session) })["contact_id"],
-        WORK
-    );
-    assert_eq!(type_and_commit(session, "shengri"), "生日");
-    assert!(
-        take(unsafe { qj_memory_hint(session) }).is_none(),
-        "工作场景不出提示"
-    );
-
-    // 记一笔三个场景都能用
-    assert_eq!(note(session, WORK, "周五前交方案"), None);
-    let materials =
-        std::fs::read_to_string(user.join("memory").join(WORK).join("materials.jsonl")).unwrap();
-    assert!(materials.contains("周五前交方案"));
+    for (scene, who) in [("daily", DAILY), ("work", WORK)] {
+        set_scope(session, scene, Some(who));
+        assert_eq!(json_of(unsafe { qj_scope_get(session) })["contact_id"], who);
+        assert_eq!(type_and_commit(session, "shengri"), "生日");
+        assert_eq!(
+            json_of(unsafe { qj_memory_hint(session) })["text"],
+            "想要一个生日蛋糕",
+            "{scene} 也出提示"
+        );
+        assert_eq!(note(session, who, "周五前交方案"), None);
+        let materials =
+            std::fs::read_to_string(user.join("memory").join(who).join("materials.jsonl")).unwrap();
+        assert!(materials.contains("周五前交方案"), "{scene} 也能记一笔");
+    }
     unsafe { qj_session_free(session) };
 }
 
@@ -227,35 +218,22 @@ fn learned(dir: &Path, word: &str) -> bool {
 }
 
 #[test]
-fn daily_contact_learns_into_global_and_contact_layers() {
-    let (data, user) = dirs("scene-learn-daily");
-    seed_scenes(&user);
-    let session = open(&data, Some(&user));
-    set_scope(session, "daily", Some(DAILY));
-    assert_eq!(type_and_commit(session, "shengri"), "生日");
-    unsafe { qj_flush(session) };
-    let memory = user.join("memory");
-    assert!(learned(&user, "生日"), "全局写到了");
-    assert!(
-        learned(&memory.join(DAILY).join("learning"), "生日"),
-        "对象层写到了"
-    );
-    assert!(!memory.join("scene-daily").exists(), "日常不开场景层");
-    unsafe { qj_session_free(session) };
-
-    // 恋爱照旧：只写场景层与对象层，不写全局
-    let (data, user) = dirs("scene-learn-dating");
-    seed_scenes(&user);
-    let session = open(&data, Some(&user));
-    set_scope(session, "dating", Some(DATING));
-    assert_eq!(type_and_commit(session, "shengri"), "生日");
-    unsafe { qj_flush(session) };
-    let memory = user.join("memory");
-    assert!(!learned(&user, "生日"), "恋爱不写全局");
-    assert!(learned(&memory.join(DATING).join("learning"), "生日"));
-    assert!(learned(
-        &memory.join("scene-dating").join("learning"),
-        "生日"
-    ));
-    unsafe { qj_session_free(session) };
+fn every_scene_learns_into_global_and_contact_layers() {
+    for (name, scene, who) in [("daily", "daily", DAILY), ("dating", "dating", DATING)] {
+        let (data, user) = dirs(&format!("scene-learn-{name}"));
+        seed_scenes(&user);
+        let session = open(&data, Some(&user));
+        set_scope(session, scene, Some(who));
+        assert_eq!(type_and_commit(session, "shengri"), "生日");
+        unsafe { qj_flush(session) };
+        let memory = user.join("memory");
+        assert!(learned(&user, "生日"), "{scene} 写全局");
+        assert!(
+            learned(&memory.join(who).join("learning"), "生日"),
+            "{scene} 写对象层"
+        );
+        assert!(!memory.join("scene-daily").exists(), "不再有场景层");
+        assert!(!memory.join("scene-dating").exists(), "不再有场景层");
+        unsafe { qj_session_free(session) };
+    }
 }

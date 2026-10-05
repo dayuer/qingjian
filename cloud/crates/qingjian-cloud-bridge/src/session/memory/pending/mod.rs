@@ -12,8 +12,6 @@ use std::collections::VecDeque;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use qingjian_cloud_proto::Scene;
-
 use crate::cloud_config::write_atomic;
 use crate::memory::MemoryError;
 
@@ -36,7 +34,7 @@ pub(in crate::session) struct PendingWrites {
     /// 笔记队列落盘的文件；没有记忆目录时为空（不落盘）。
     file: Option<PathBuf>,
 
-    scope: Option<(Scene, Option<String>)>,
+    scope: Option<(String, Option<String>)>,
 
     /// 补写时被拒绝、还没告诉用户的条数。
     dropped: DroppedNotes,
@@ -185,16 +183,16 @@ impl PendingWrites {
     }
 
     /// 后一次覆盖前一次。
-    pub(in crate::session) fn set_scope(&mut self, scene: Scene, contact: Option<String>) {
-        self.scope = Some((scene, contact));
+    pub(in crate::session) fn set_scope(&mut self, scene: &str, contact: Option<String>) {
+        self.scope = Some((scene.to_owned(), contact));
     }
 
-    pub(in crate::session) fn take_scope(&mut self) -> Option<(Scene, Option<String>)> {
+    pub(in crate::session) fn take_scope(&mut self) -> Option<(String, Option<String>)> {
         self.scope.take()
     }
 
     /// 重试没成功时放回去；期间若有更新的一次（重入）就不覆盖它。
-    pub(in crate::session) fn restore_scope(&mut self, scope: (Scene, Option<String>)) {
+    pub(in crate::session) fn restore_scope(&mut self, scope: (String, Option<String>)) {
         self.scope.get_or_insert(scope);
     }
 }

@@ -7,8 +7,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::SystemTime;
 
-use qingjian_cloud_proto::Scene;
-
 use super::pending::PendingWrites;
 use crate::memory::{
     Card, Contact, Hint, HintIndex, KEYBOARD_LOCK_TIMEOUT, LocalDate, MemoryStore, RecentText,
@@ -55,12 +53,7 @@ impl LiveMemory {
         let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);
         let contacts = store.contacts();
         let state = sanitized_scope(store.state(), &contacts);
-        let learner = ScopedLearner::open(
-            user_dir,
-            store.root(),
-            state.scene,
-            state.contact_id.as_deref(),
-        );
+        let learner = ScopedLearner::open(user_dir, store.root(), state.contact_id.as_deref());
         let handle = learner.handle();
         let cards = state
             .contact_id
@@ -99,9 +92,9 @@ impl LiveMemory {
         (learner, memory)
     }
 
-    /// 恋爱与日常选了对象时出提示与日子提醒；工作场景的人只做分区学习，卡片只在 App 里看（私密输入由会话另挡）。
+    /// 选了对象才有提示与日子提醒（私密输入由会话另挡）。
     pub(super) fn shows_hints(&self) -> bool {
-        self.state.scene != Scene::Work && self.contact().is_some()
+        self.contact().is_some()
     }
 
     pub(super) fn contact(&self) -> Option<&Contact> {

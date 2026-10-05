@@ -1,16 +1,19 @@
-//! App 整份读写的 JSON：`{"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}`。
+//! App 整份读写的 JSON：`{"scenes":[…],"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}`。
 //! `revs` 是读的时候各对象 `cards.json` 的修订号，写回时拿来判断这期间键盘有没有改过。
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Card, Contact};
+use super::{Card, Contact, Scene};
 use crate::scope::ScopeState;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MemorySnapshot {
+    /// 用户自建的场景（分组），至少一个；顺序就是「我」页里显示的顺序，第一个是默认场景。
+    pub scenes: Vec<Scene>,
+
     pub contacts: Vec<Contact>,
 
     /// 对象 id → 卡片。
