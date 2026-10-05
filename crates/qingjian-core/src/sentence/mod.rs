@@ -67,6 +67,14 @@ pub const MIN_PARTIAL_LETTERS: usize = 1;
 /// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
 pub const SPAN_CANDIDATES: usize = 6;
 
+/// 全拼格子最多查出几个词：前 [`SPAN_CANDIDATES`] 个无条件进词图，其余是候补，要前文抬举才进
+/// （`ji shi mu` 的 亩 按词频排第 12，P(亩|十) 却比首段都高）。设计见 `docs/superpowers/specs/2026-10-05-sentence-context-admission-design.md`。
+pub const SPAN_POOL: usize = 16;
+
+/// 候补词的读音占比下限：这个读音的词频占该词全部读音之和的比例。二元模型按词文本计数、不分读音，
+/// 冷门读音（和/huo、没/mo）会借常用读音的文本概率混进路径，占比够高的词文本概率才代表这个读音。
+pub const MIN_READING_SHARE: f64 = 0.5;
+
 /// 有简拼位置的格子最多留几个词：`h` 下有 和 / 好 / 会 / 还 / 很 …… 几十个常用字，
 /// 只留六个会把句子里要的那个挤掉，多留一些让语言模型去挑。
 pub const ABBREVIATED_SPAN_CANDIDATES: usize = 20;

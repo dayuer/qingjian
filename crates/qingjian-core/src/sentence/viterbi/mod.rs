@@ -7,8 +7,8 @@ use qingjian_dictionary::{Dictionary, Match, SyllablePattern};
 
 use super::{
     ABBREVIATED_SPAN_CANDIDATES, BEAM_WIDTH, Context, Conversion, LanguageModel,
-    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SentenceWord, SpanCache,
-    SpanWord, fallback_log_prob, transition_log_prob,
+    MAX_WORD_SYLLABLES, MIN_PARTIAL_LETTERS, Personal, SPAN_CANDIDATES, SPAN_POOL, SentenceWord,
+    SpanCache, SpanWord, fallback_log_prob, transition_log_prob,
 };
 use crate::ranking::weight_bonus;
 
@@ -187,7 +187,13 @@ pub fn convert_paths(
                 continue;
             }
             any = true;
-            for hit in hits.iter() {
+            let abbreviated = span.iter().any(|p| p.iter().any(|t| !t.complete));
+            let head = if abbreviated {
+                hits.len()
+            } else {
+                hits.len().min(SPAN_CANDIDATES)
+            };
+            for hit in &hits[..head] {
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
@@ -330,7 +336,7 @@ fn span_candidates(
     scored.truncate(if abbreviated {
         ABBREVIATED_SPAN_CANDIDATES
     } else {
-        SPAN_CANDIDATES
+        SPAN_POOL
     });
     scored
         .into_iter()
@@ -339,8 +345,19 @@ fn span_candidates(
             syllables: hit.syllables().map(str::to_owned).collect(),
             frequency: hit.frequency,
             penalty,
+            reading_share: reading_share(dictionaries, hit.text, hit.frequency),
         })
         .collect()
+}
+
+/// 这个词在这个读音下的词频占它全部读音词频之和的比例；词库里查不到（理论上不会）按 1 处理。
+fn reading_share(dictionaries: &[&Dictionary], text: &str, frequency: u32) -> f64 {
+    let total: u64 = dictionaries.iter().map(|d| d.text_frequency(text)).sum();
+    if total == 0 {
+        1.0
+    } else {
+        f64::from(frequency) / total as f64
+    }
 }
 
 /// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
