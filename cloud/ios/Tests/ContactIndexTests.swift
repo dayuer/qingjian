@@ -67,7 +67,7 @@ final class ContactIndexTests: XCTestCase {
         XCTAssertEqual(ContactIndex.search(contacts, text: "美").map(\.name), ["小美"])
         XCTAssertEqual(ContactIndex.search(contacts, text: "林林").map(\.name), ["阿林"], "代号也认")
         XCTAssertEqual(ContactIndex.search(contacts, text: "小美").map(\.name), ["小美"])
-        XCTAssertTrue(ContactIndex.search(contacts, text: "工作").isEmpty, "没有场景之后，场景名不再是搜的东西")
+        XCTAssertTrue(ContactIndex.search(contacts, text: "工作").isEmpty, "搜的是名字与代号，别的都不算")
     }
 
     func testSearchIgnoresCaseAndSurroundingSpace() {
