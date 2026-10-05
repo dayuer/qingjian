@@ -95,10 +95,10 @@ final class KeyboardShots: XCTestCase {
         wait(3)
         shot("01-idle")
 
-        // 工具栏左端场景牌子绿底那半（量自 01-idle.png：bbox 中心 38.3pt, 521.3pt）→ 场景与对象选择（01 的 1d）
+        // 工具栏左端的牌子（圆点 + 人名，量自 01-idle.png：bbox 中心 38.3pt, 521.3pt）→ 工具栏里横列其他人 +「不指定」
         tapKey(app, 38.3, 521.3)
         wait(2.5)
-        shot("01-1d")
+        shot("01-quick-picks")
     }
 
     /// 点键打 `kaoshi`：应出候选栏与记忆提示行（提示行的文案来自 App Group 里的卡片）。

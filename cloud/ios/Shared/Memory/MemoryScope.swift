@@ -1,5 +1,5 @@
 // 键盘当前的会话状态与各人上次被选中的时间（memory/state.json；qj_scope_get 给的就是这两项）。
-// 提示开关在各个对象上（MemoryContact）。2026-10-05 起没有「场景」，这个类型里也就没有场景。
+// 提示开关在各个对象上（MemoryContact）。
 
 struct MemoryScope: Codable, Equatable, Sendable {
     var contactId: String?

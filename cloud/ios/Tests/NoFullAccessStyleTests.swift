@@ -83,8 +83,8 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(TabBarStyle.normal, UIColor.tertiaryLabel)
     }
 
-    /// 没开完全访问时牌子只剩场景名、整块中性色；开了照常（每个场景一样，都用灰绿）。
-    func testChipWithoutFullAccessIsSceneOnlyAndNeutral() {
+    /// 没开完全访问时牌子只剩说明入口、整块中性色；开了照常（是给人用的，用灰绿）。
+    func testChipWithoutFullAccessIsNeutral() {
         XCTAssertFalse(ScopeDisplay.chipShowsPerson(fullAccess: false))
         XCTAssertTrue(ScopeDisplay.chipShowsPerson(fullAccess: true))
         XCTAssertFalse(ScopeDisplay.chipUsesAccent(fullAccess: false))

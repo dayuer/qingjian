@@ -45,11 +45,6 @@ final class ContactOrderTests: XCTestCase {
         XCTAssertEqual(ContactOrder.score(one, used: [:]), 42)
     }
 
-    func testPanelKeepsRoomForNobodyAndNewContact() {
-        XCTAssertEqual(ContactOrder.panelCount + 2, 10, "键区里 10 格三行")
-        XCTAssertLessThan(ContactOrder.quickPickCount, ContactOrder.panelCount)
-    }
-
     func testScopePickArgument() {
         XCTAssertNil(ScopePick.keep.argument, "空指针：保持现在选的人不变")
         XCTAssertEqual(ScopePick.nobody.argument, "", "空字符串：明确不指定")

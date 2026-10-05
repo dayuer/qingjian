@@ -42,8 +42,8 @@
 
 ## 客户端这边的现状
 
-- proto 里这两个字段现在是 `String`（青简 `cb94be8` 删掉了 `Scene` 枚举）；这一版再改成 `Option<String>`。
-  注释里指向桥的 `memory/scene.rs` 的那句会一并去掉（那个文件正在删）。
+- proto 里这两个字段已经改成 `Option<String>`（[去掉场景计划](../plans/2026-10-05-remove-scenes.md) Task 5，
+  在青简 `cb94be8` 删掉 `Scene` 枚举之后）。注释里指向桥的 `memory/scene.rs` 的那句一并去掉了（那个文件已删）。
 - 桥里现在**没有任何地方构造** `MemoryItem` / `ContactRegistration`（素材上传这条路径还没实现，见
   [2B 计划](../plans/2026-10-04-memory-2b-client.md)），所以这次改动不影响任何在跑的东西。
 - 本机的记忆（`contacts.json`、`state.json`）里再也没有场景；旧文件里多余的 `scene` 键读时忽略、下次写盘就没了。

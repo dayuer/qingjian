@@ -3,9 +3,9 @@
 
 用法（先把 App 装到模拟器上跑过一次，App Group 容器才存在）：
 
-    UITests/seed/seed.py --device Sujian-PR4              # 现在的格式：三个场景、14 个人、卡片、键盘当前选着小美
-    UITests/seed/seed.py --device Sujian-PR4 --legacy     # 老格式：没有 scenes.json，人还挂在写死的 daily/dating/work 上（SceneShots 看迁移）
-    UITests/seed/seed.py --device Sujian-PR4 --bad-card   # 另给阿林塞一张关键词只有 1 个字的坏卡（看坏卡不挡场景改名）
+    UITests/seed/seed.py --device Sujian-PR4              # 现在的格式：14 个人、卡片、键盘当前选着小美
+    UITests/seed/seed.py --device Sujian-PR4 --legacy     # 老格式：卡片文件是光秃秃的数组（没有 {"rev","cards"}）
+    UITests/seed/seed.py --device Sujian-PR4 --bad-card   # 另给阿林塞一张关键词只有 1 个字的坏卡
     UITests/seed/seed.py --device Sujian-PR4 --clean      # 只清掉 memory/
 
 每次都先清掉整个 memory/ 再写。容器路径用 `xcrun simctl get_app_container <设备> sujian.synon.ai group.sujian.synon.ai` 找。
@@ -23,26 +23,23 @@ from pathlib import Path
 GROUP = "group.sujian.synon.ai"
 BUNDLE = "sujian.synon.ai"
 
-# 场景：id、名字。老格式没有 scenes.json，人直接挂在这三个 id 上
-SCENES = [("daily", "日常"), ("dating", "恋爱"), ("work", "工作")]
-
-# 人：序号（id 是序号的 32 位十六进制）、名字、首字母、场景、代号。
+# 人：序号（id 是序号的 32 位十六进制）、名字、首字母、代号。
 # ContactsShots 按 id 点人：第 6 个是小美（卡片最多；带代号「阿美」，键盘上该显示代号），第 1 个是另一个展开对象。
 PEOPLE = [
-    (1, "阿林", "A", "daily", None),
-    (2, "陈老师", "C", "work", None),
-    (3, "大鹏", "D", "daily", None),
-    (4, "方姐", "F", "work", None),
-    (5, "高远", "G", "work", None),
-    (6, "小美", "X", "dating", "阿美"),
-    (7, "林木", "L", "daily", None),
-    (8, "妈妈", "M", "daily", "老妈"),
-    (9, "宁宁", "N", "daily", None),
-    (10, "秦川", "Q", "work", None),
-    (11, "苏苏", "S", "daily", None),
-    (12, "唐果", "T", "daily", None),
-    (13, "王组长", "W", "work", "组长"),
-    (14, "周周", "Z", "daily", None),
+    (1, "阿林", "A", None),
+    (2, "陈老师", "C", None),
+    (3, "大鹏", "D", None),
+    (4, "方姐", "F", None),
+    (5, "高远", "G", None),
+    (6, "小美", "X", "阿美"),
+    (7, "林木", "L", None),
+    (8, "妈妈", "M", "老妈"),
+    (9, "宁宁", "N", None),
+    (10, "秦川", "Q", None),
+    (11, "苏苏", "S", None),
+    (12, "唐果", "T", None),
+    (13, "王组长", "W", "组长"),
+    (14, "周周", "Z", None),
 ]
 
 TZ = timezone(timedelta(hours=8))
@@ -121,13 +118,12 @@ def seed(root: Path, legacy: bool, bad_card: bool) -> None:
     memory.mkdir(parents=True)
     now = int(time.time())
     contacts = []
-    for n, name, initial, scene, display in PEOPLE:
+    for n, name, initial, display in PEOPLE:
         contact = {
             "id": hexid(n),
             "name": name,
             "initial": initial,
             "pronoun": "ta_f" if n in (6, 8) else "ta",
-            "scene": scene,
             "created_at": now - 86400 * (100 + n),
             "hint_on": True,
             "remind_on": True,
@@ -145,13 +141,8 @@ def seed(root: Path, legacy: bool, bad_card: bool) -> None:
         # 老格式的卡片文件是光秃秃的数组；现在是 {"rev","cards"}
         write(memory / hexid(n) / "cards.json", cards if legacy else {"rev": 1, "cards": cards})
     write(memory / "contacts.json", contacts)
-    if not legacy:
-        write(memory / "scenes.json",
-              [{"id": sid, "name": sname, "created_at": now - 86400 * 200} for sid, sname in SCENES])
     write(memory / "state.json", {
-        "scene": "dating",
         "contact_id": hexid(6),
-        "last": {"dating": hexid(6)},
         "used": {hexid(6): now - 3600, hexid(1): now - 86400 * 3},
     })
 
@@ -159,7 +150,7 @@ def seed(root: Path, legacy: bool, bad_card: bool) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--device", default="booted", help="模拟器名字或 UDID，缺省是正开着的那台")
-    parser.add_argument("--legacy", action="store_true", help="种成老格式（没有 scenes.json）")
+    parser.add_argument("--legacy", action="store_true", help="种成老格式（卡片文件是光秃秃的数组）")
     parser.add_argument("--bad-card", action="store_true", help="另给阿林塞一张不合格的卡")
     parser.add_argument("--clean", action="store_true", help="只清掉 memory/")
     args = parser.parse_args()
