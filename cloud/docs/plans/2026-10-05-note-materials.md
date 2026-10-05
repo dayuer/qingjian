@@ -49,8 +49,17 @@
 - [x] `ClipMessages` 改成按 2000 字节分段（不再按 200 字），删掉过渡代码；`MemoryFailure` 认 `material_limit`。
 
 ### Task M2：iOS 键盘与 App
-- [ ] 键盘 toast 文案按是否开了素笺云（`cloud.toml` 有没有令牌，沿用 `IdleBar` 判断「改写」的办法）二选一；单测锁文案。
-- [ ] App 对象详情「待整理」一节（`MaterialsSection`），展开看全文、删除；没开云服务时的开通引导一行；截图对照（设计稿没画这一节，作为有意偏离写进 UI 清单约束 7）。
+- [x] 键盘 toast 文案按是否开了素笺云二选一（`NoteBarText.doneText`，「记下了 n 条，明早整理」/「……开通素笺云后整理」）；单测锁文案。
+  「开没开」用新加的 `qj_cloud_configured(path)`（内部就是键盘建云端客户端用的 `CloudConfig::load`：有地址且有 `sjt_` 令牌），App 与键盘同一个判断；
+  `IdleBar` 的「改写」实际看的是会话里有没有润色器（令牌**且**开了「大模型」），App 没有会话用不上，所以没直接复用它。
+- [x] App 对象详情「待整理」一节（`MaterialsSection` / `MaterialRow`，数据 `MaterialsStore` + `MaterialsWorker` 后台读删），展开看全文、删除（确认一次）；
+  没开云服务时的开通引导一行；180 条提示一次（`MaterialNudge`，记在 App 自己的 UserDefaults）；截图对照（设计稿没画这一节，写进 UI 清单约束 7 第 17 条）。
+- [x] 到上限不再静默：`material_limit` 的错误 JSON 带 `remaining`（还剩几个空位）与 `needed`（这次几条），记一笔条写
+  「这次有 2 条，这个人只剩 1 个空位，先去 App 里整理」，没空位时「这个人还有 200 条没整理，先去 App 里看看」（`NoteBarText.materialLimit`）。
+  键盘把确认条的几条用空行拼回一段、一次交给桥（桥按同一套规则再切开），「整次拒绝」对整张确认条成立，不会记一半。
+- [x] 排队补写被拒绝不悄悄丢：桥按原因记条数（`memory/dropped-keyboard.json`，只有条数与原因码），`qj_memory_dropped(session)` 取走即清零；
+  键盘出现时提示一次「有 n 条没记上：这个人的待整理满了 / 这个人已经被忘掉了」（`NoteBarText.dropped`）。
+- [x] conflict 文案统一成「记忆刚有更新，请再点一次」（桥的 `MemoryError::Conflict` 与 App 的 `MemoryStore.Wording`）。
 
 ### Task M3：接 2B 上传（在 2B Task 3 里做）
 - [ ] `MemorySync` 的待传队列从各对象的 `materials.jsonl` 里取 `uploaded == false` 的，上传前脱敏、替换对象名字，成功后标 `uploaded`；没开云服务或没同意「记忆」时不取。

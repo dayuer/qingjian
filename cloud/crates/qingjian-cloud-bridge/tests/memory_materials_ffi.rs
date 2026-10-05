@@ -1,5 +1,6 @@
 //! 「记一笔」素材的 C 接口：`qj_memory_note` 写进 `materials.jsonl` 而不是卡片，App 用 `qj_memory_materials` 读、
-//! `qj_memory_material_delete` 删；拿不到锁时进键盘待办，之后补写成素材。按 C 签名直接调，不需要产品数据。
+//! `qj_memory_material_delete` 删；拿不到锁时进键盘待办，之后补写成素材，补写被拒绝的条数用 `qj_memory_dropped` 取。
+//! 按 C 签名直接调，不需要产品数据。
 
 mod memory_support;
 
@@ -7,11 +8,12 @@ use std::path::Path;
 use std::time::Instant;
 
 use qingjian_cloud_bridge::{qj_flush, qj_poll, qj_push, qj_session_free};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use memory_support::{
-    CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_material_delete,
-    qj_memory_materials, qj_memory_note, qj_memory_read, qj_memory_write, seed, take,
+    CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_dropped,
+    qj_memory_material_delete, qj_memory_materials, qj_memory_note, qj_memory_read,
+    qj_memory_write, seed, take,
 };
 
 /// App 读到的 `{"unprocessed_count","materials"}`。
@@ -118,6 +120,8 @@ fn two_hundred_unprocessed_materials_reject_the_next() {
         failure["message"],
         "这个人还有 200 条没整理，先去 App 里看看"
     );
+    assert_eq!(failure["remaining"], 0);
+    assert_eq!(failure["needed"], 1);
     assert_eq!(materials(&user)["unprocessed_count"], 200);
     unsafe { qj_session_free(session) };
 }
@@ -298,7 +302,49 @@ fn restored_note_for_a_forgotten_contact_is_dropped() {
     );
     assert!(
         !user.join("memory/pending-keyboard.jsonl").exists(),
-        "被拒绝的待办丢掉"
+        "被拒绝的待办出队"
     );
+    let dropped = json_of(unsafe { qj_memory_dropped(session) });
+    assert_eq!(dropped, json!({"material_limit": 0, "contact_gone": 1}));
+    assert_eq!(
+        take(unsafe { qj_memory_dropped(session) }),
+        None,
+        "取过一次就清零"
+    );
+    unsafe { qj_session_free(session) };
+}
+
+/// 排队时还有空位、补写时已经满了：不悄悄丢，按切好的条数记成 material_limit；键盘重启也还在，取走后清零，原文不落进记录。
+#[test]
+fn deferred_note_rejected_for_a_full_contact_is_counted() {
+    let (data, user) = dirs("materials-dropped-full");
+    seed(&user);
+    let session = open(&data, Some(&user));
+    assert_eq!(take(unsafe { qj_memory_dropped(session) }), None);
+    for n in 0..199 {
+        assert_eq!(note(session, CONTACT, &format!("第 {n} 条")), None);
+    }
+    let lock = hold_lock(&user);
+    let two = "很长的原话".repeat(140);
+    assert_eq!(note(session, CONTACT, &two), None, "拿不到锁先接受");
+    unsafe { qj_session_free(session) };
+    drop(lock);
+
+    let session = open(&data, Some(&user));
+    unsafe { qj_poll(session) };
+    assert_eq!(materials(&user)["unprocessed_count"], 199, "整次不写");
+    let record = std::fs::read_to_string(user.join("memory/dropped-keyboard.json")).unwrap();
+    assert!(!record.contains("原话"), "只记条数与原因");
+    unsafe { qj_session_free(session) };
+
+    let session = open(&data, Some(&user));
+    let dropped = json_of(unsafe { qj_memory_dropped(session) });
+    assert_eq!(
+        dropped,
+        json!({"material_limit": 2, "contact_gone": 0}),
+        "2100 字节切成两条，按两条算；重开会话还在"
+    );
+    assert!(!user.join("memory/dropped-keyboard.json").exists());
+    assert_eq!(take(unsafe { qj_memory_dropped(session) }), None);
     unsafe { qj_session_free(session) };
 }

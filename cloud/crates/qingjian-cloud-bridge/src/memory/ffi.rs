@@ -13,7 +13,7 @@ use super::{
     Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore, now_unix, unprocessed,
 };
 use crate::scope::{ContactPick, parse_scene, scene_name};
-use crate::session::Session;
+use crate::session::{DroppedNotes, Session};
 use crate::{owned, path_arg, with};
 
 /// 切场景与对象：`contact_id` 为空指针时回到这个场景上次选的人，为空字符串时明确不指定。场景认不得时什么都不做。
@@ -112,8 +112,9 @@ pub unsafe extern "C" fn qj_memory_cards(
 }
 
 /// 键盘「记一笔」：原话存成这个对象的待整理素材（超过 2000 字节切成几条），不再写卡。成功返回空指针，失败返回 `{"code","message"}`
-/// （`material_limit`：没整理的满 200 条）。`source` 取 `clipboard` / `typed`，为空指针或认不得时按 `typed`。
-/// 键盘只等 200 毫秒的锁：拿不到（`lock_timeout`）时也返回空指针，表示已接受、稍后写入（内存待办，下次按键、poll、flush 时补写）。
+/// （`material_limit`：没整理的装不下这次的几条，另带 `remaining` 与 `needed`）。`source` 取 `clipboard` / `typed`，为空指针或认不得时按 `typed`。
+/// 键盘只等 200 毫秒的锁：拿不到（`lock_timeout`）时也返回空指针，表示已接受、稍后写入（内存待办，下次按键、poll、flush 时补写；
+/// 补写被拒绝的条数用 [`qj_memory_dropped`] 取）。
 ///
 /// # Safety
 /// 同 [`qj_scope_set`]；`contact_id`、`text` 为有效 UTF-8 C 字符串，`source` 为空或同上。
@@ -139,6 +140,23 @@ pub unsafe extern "C" fn qj_memory_note(
         Ok(()) => ptr::null_mut(),
         Err(error) => owned(&error.to_json()),
     }
+}
+
+/// 待办补写时被拒绝、没记上的条数 `{"material_limit":n,"contact_gone":n}`，取走即清零；都是 0 或会话无效时返回空指针。
+///
+/// # Safety
+/// 同 [`qj_scope_set`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_dropped(session: *mut Session) -> *mut c_char {
+    let dropped = with(
+        session,
+        DroppedNotes::default(),
+        Session::take_dropped_notes,
+    );
+    if dropped.is_empty() {
+        return ptr::null_mut();
+    }
+    serde_json::to_string(&dropped).map_or(ptr::null_mut(), |json| owned(&json))
 }
 
 /// App 用：一个对象没整理的素材 `{"unprocessed_count":n,"materials":[…]}`，按时间倒序（同一时间的按写入倒序）；

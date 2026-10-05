@@ -25,7 +25,7 @@ const DAY_SECS: i64 = 86_400;
 
 impl MemoryStore {
     /// 「记一笔」：原话切成每条不超过 2000 字节的几条素材存下（时间都是 `now`），返回存下的。
-    /// 没整理的加上这几条超过 [`MAX_UNPROCESSED_MATERIALS`] 就整次不写、返回 [`MemoryError::MaterialLimit`]。
+    /// 没整理的加上这几条超过 [`MAX_UNPROCESSED_MATERIALS`] 就整次不写、返回 [`MemoryError::MaterialLimit`]（带剩几个空位与这次几条）。
     pub fn add_material(
         &self,
         contact_id: &str,
@@ -42,8 +42,12 @@ impl MemoryStore {
         self.require_contact(contact_id)?;
         let mut materials = self.read_materials(contact_id)?;
         prune(&mut materials, now);
-        if unprocessed(&materials) + pieces.len() > MAX_UNPROCESSED_MATERIALS {
-            return Err(MemoryError::MaterialLimit);
+        let remaining = MAX_UNPROCESSED_MATERIALS.saturating_sub(unprocessed(&materials));
+        if pieces.len() > remaining {
+            return Err(MemoryError::MaterialLimit {
+                remaining,
+                needed: pieces.len(),
+            });
         }
         let mut added = Vec::with_capacity(pieces.len());
         for text in pieces {

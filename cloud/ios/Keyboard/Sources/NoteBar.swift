@@ -1,5 +1,6 @@
 // 「记一笔」的确认条（设计稿 .clip）：占提示行的位置，牌子那一行保留。左边两行：小字「刚复制的」（拆成几张时「刚复制的 · 3 条」）、首条原文一行；
-// 右边「忽略」（.btn.ghost，ink-2）与「记到 {对象}」（.btn.acc：灰绿实底、ink 字）。记下后换成 .toast「记下了」（白底、ink-2、圆点），2 秒后消失。
+// 右边「忽略」（.btn.ghost，ink-2）与「记到 {对象}」（.btn.acc：灰绿实底、ink 字）。记下后换成 .toast（白底、ink-2、圆点）：
+// 「记下了，明早整理」或「记下了，开通素笺云后整理」，2 秒后消失；没记上（待整理满了、上次排队的补写被拒绝）时同一行写原因，圆点灰色，停 4 秒。
 // 工作场景的人不用强调色：「记到」换成中性浅底，toast 的圆点换成灰色。
 
 import SwiftUI
@@ -51,16 +52,20 @@ struct NoteBar: View {
     }
 
     private var toast: some View {
-        HStack(spacing: 8) {
+        let toast = model.noteToast
+        let accent = toast?.warning != true && MemoryScope.usesAccent(model.scope.scene)
+        return HStack(spacing: 8) {
             Circle()
-                .fill(MemoryScope.usesAccent(model.scope.scene) ? Theme.accent.color : Theme.ink3)
+                .fill(accent ? Theme.accent.color : Theme.ink3)
                 .frame(width: 6, height: 6)
-            Text(NoteBarText.doneText(count: model.noteDoneCount))
+            Text(toast?.text ?? "")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.ink2)
-            Spacer()
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
         }
-        .padding(.leading, 12)
+        .padding(.horizontal, 12)
         .frame(maxHeight: .infinity)
         .background(KeyStyle.keyFill)
     }

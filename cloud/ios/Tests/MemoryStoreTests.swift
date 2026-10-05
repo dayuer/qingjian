@@ -382,7 +382,7 @@ final class MemoryStoreTests: XCTestCase {
         let saved = await store.saveCard(card("c", "App 新加的", touched: 5), for: contactId)
         XCTAssertTrue(saved)
         XCTAssertEqual(
-            store.message, "键盘刚记过一笔，已经和你的修改合在一起存好了\n小美的记忆文件坏了，已备份；坏的部分没读进来")
+            store.message, "记忆刚有更新，已经和你的修改合在一起存好了\n小美的记忆文件坏了，已备份；坏的部分没读进来")
     }
 
     func testRemindOffNoteUsesPronoun() {

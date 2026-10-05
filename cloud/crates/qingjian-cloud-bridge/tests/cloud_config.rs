@@ -262,3 +262,35 @@ fn concurrent_writes_stay_valid_private_and_leave_no_tmp() {
         .collect();
     assert_eq!(names, ["cloud.toml"]);
 }
+
+/// `qj_cloud_configured`：有地址与登录令牌才算开了素笺云（App 的「待整理」引导与键盘 toast 按它），不联网。
+#[test]
+fn cloud_configured_needs_server_and_session_token() {
+    use std::ffi::CString;
+
+    use qingjian_cloud_bridge::qj_cloud_configured;
+
+    let check = |name: &str, text: Option<&str>| {
+        let path = temp_file(name);
+        if let Some(text) = text {
+            std::fs::write(&path, text).unwrap();
+        }
+        let path = CString::new(path.to_str().unwrap()).unwrap();
+        unsafe { qj_cloud_configured(path.as_ptr()) }
+    };
+    assert!(check(
+        "configured",
+        Some("server = \"s\"\ntoken = \"sjt_t\"\n")
+    ));
+    assert!(!check("configured-missing", None));
+    assert!(
+        !check("configured-seed", Some("server = \"s\"\n")),
+        "随包的种子只有地址"
+    );
+    assert!(!check(
+        "configured-old",
+        Some("server = \"s\"\ntoken = \"qjc_t\"\n")
+    ));
+    assert!(!check("configured-broken", Some("server = ")));
+    assert!(!unsafe { qj_cloud_configured(std::ptr::null()) });
+}

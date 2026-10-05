@@ -42,15 +42,14 @@ final class KeyboardModel {
     /// 点了牌子右半：工具栏里横着列本场景的其他人与「不指定」（ScopeDisplay.quickPicks）。
     private(set) var quickOpen = false
 
-    /// 「记一笔」确认条里的剪贴板文字；nil 时不显示。
-    /// 刚记下了几张（toast「记下了 n 条」）。
-    private(set) var noteDoneCount = 0
-
-    /// 确认条里待记的几张卡（剪贴板拆出来的）；nil 时不出确认条。
+    /// 确认条里待记的几条素材（剪贴板拆出来的）；nil 时不出确认条。
     private(set) var noteDraft: [String]?
 
-    /// 「记一笔」刚记下：确认条换成一行「记下了」，2 秒后消失。
-    private(set) var noteDone = false
+    /// 记一笔条上的一行短提示：「记下了，明早整理」，或没记上的原因（满了、补写被拒绝），过一会儿消失。
+    private(set) var noteToast: NoteToast?
+
+    /// 记一笔条正显示短提示（确认条换成这一行）。
+    var noteDone: Bool { noteToast != nil }
 
     /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
     private(set) var notice: String?
@@ -218,7 +217,7 @@ final class KeyboardModel {
         quickOpen = false
         dismissRewrite()
         noteDraft = nil
-        noteDone = false
+        noteToast = nil
         notice = nil
         engine?.clear()
         engine?.flush()
@@ -227,11 +226,16 @@ final class KeyboardModel {
     }
 
     /// 键盘出现：先同步一轮，别的设备学到的词尽快过来；拉一次别的设备的剪贴板，看本机剪贴板变没变。
+    /// 上次排队的记一笔补写时被拒绝了，在这里提示一次（桥取一次就清零）。
     func appear() {
         engine?.syncNow()
         engine?.refreshClipboard()
         checkPasteboard()
         syncScope()
+        if fullAccess, let dropped = engine?.memoryDropped() {
+            let lines = NoteBarText.dropped(dropped)
+            if !lines.isEmpty { showNoteToast(.problem(lines.joined(separator: "\n"))) }
+        }
     }
 
     /// 焦点换到了（不）是验证码 / 密码这类输入框。
@@ -548,30 +552,32 @@ final class KeyboardModel {
         namingError = nil
     }
 
-    /// 一条条记下（每条走一次 qj_memory_note 存成素材，拿不到锁的进桥的待办）；记下了几条显示在 toast 里。
+    /// 整次交给桥存成素材：确认条里的几条用空行拼回一段，桥按同样的规则再切开（ClipMessages 与桥的 split_note 同一套），
+    /// 这样「这次的条数加上没整理的超过 200 就整次不记」对整张确认条成立，不会记一半。拿不到锁时桥进待办、当成功。
+    /// 记下了在条上写「记下了 n 条，明早整理」；这个人的待整理装不下就写清原因，不静默；别的失败（App Group 不可写、对象刚被删）不打断打字。
     private func saveNote(_ cards: [String], source: String) {
-        guard let id = scope.contactId else { return }
-        var saved = 0
-        for text in cards {
-            // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
-            let failure = engine?.memoryNote(id, text: text, source: source)
-            // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记原话
-            let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
-            Self.log.info("记一笔 \(outcome, privacy: .public)")
-            if failure == nil { saved += 1 }
-        }
-        if saved > 0 {
-            noteDoneCount = saved
-            noteDone = true
-            noteDoneTask?.cancel()
-            noteDoneTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(2))
-                guard !Task.isCancelled else { return }
-                self?.noteDone = false
-            }
+        guard let id = scope.contactId, !cards.isEmpty else { return }
+        let failure = engine?.memoryNote(id, text: cards.joined(separator: "\n\n"), source: source)
+        // 只记成败与错误码，不记原话
+        let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
+        Self.log.info("记一笔 \(cards.count, privacy: .public) 条 \(outcome, privacy: .public)")
+        if let failure {
+            if failure.code == .materialLimit { showNoteToast(.problem(failure.userMessage)) }
+        } else {
+            showNoteToast(.done(count: cards.count, cloud: CloudStatus.configured()))
         }
         reloadContacts()
         refreshHint()
+    }
+
+    private func showNoteToast(_ toast: NoteToast) {
+        noteToast = toast
+        noteToastTask?.cancel()
+        noteToastTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: toast.duration)
+            guard !Task.isCancelled else { return }
+            self?.noteToast = nil
+        }
     }
 
     private func markNoteSourceHandled() {
@@ -613,7 +619,7 @@ final class KeyboardModel {
     }
 
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
-    @ObservationIgnored private var noteDoneTask: Task<Void, Never>?
+    @ObservationIgnored private var noteToastTask: Task<Void, Never>?
 
     /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
     private func syncScope() {

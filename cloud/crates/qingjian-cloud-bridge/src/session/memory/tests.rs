@@ -1,12 +1,14 @@
-//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切场景只留最新一次。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
+//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切场景只留最新一次；补写被拒绝的按原因记条数、落盘、取走清零。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
 
 use qingjian_cloud_proto::Scene;
 
 use std::path::PathBuf;
 
-use crate::memory::MaterialSource;
+use crate::memory::{MaterialSource, MemoryError};
 
-use super::pending::{MAX_PENDING_NOTES, PENDING_FILE, PendingNote, PendingWrites};
+use super::pending::{
+    DROPPED_FILE, DroppedNotes, MAX_PENDING_NOTES, PENDING_FILE, PendingNote, PendingWrites,
+};
 
 fn note(n: usize) -> PendingNote {
     PendingNote {
@@ -121,4 +123,51 @@ fn a_missing_memory_dir_is_neither_created_nor_an_error() {
     pending.push_note(note(1));
     pending.pop_note();
     assert!(!dir.exists());
+}
+
+#[test]
+fn dropped_notes_are_counted_by_reason_and_cleared_when_taken() {
+    let mut pending = PendingWrites::default();
+    assert!(pending.take_dropped().is_empty());
+    pending.record_dropped(
+        &MemoryError::MaterialLimit {
+            remaining: 0,
+            needed: 2,
+        },
+        2,
+    );
+    pending.record_dropped(&MemoryError::Invalid("名单上没有这个人"), 1);
+    pending.record_dropped(&MemoryError::Invalid("名单上没有这个人"), 3);
+    assert_eq!(
+        pending.take_dropped(),
+        DroppedNotes {
+            material_limit: 2,
+            contact_gone: 4
+        }
+    );
+    assert!(pending.take_dropped().is_empty(), "取走就清零");
+}
+
+#[test]
+fn dropped_notes_survive_a_restart_until_taken() {
+    let dir = memory_dir("dropped");
+    let mut pending = PendingWrites::open(&dir);
+    pending.record_dropped(
+        &MemoryError::MaterialLimit {
+            remaining: 1,
+            needed: 3,
+        },
+        3,
+    );
+    let text = std::fs::read_to_string(dir.join(DROPPED_FILE)).unwrap();
+    assert_eq!(text, r#"{"material_limit":3,"contact_gone":0}"#);
+
+    let mut reopened = PendingWrites::open(&dir);
+    assert_eq!(reopened.take_dropped().material_limit, 3);
+    assert!(!dir.join(DROPPED_FILE).exists(), "取走后删文件");
+    assert!(PendingWrites::open(&dir).take_dropped().is_empty());
+
+    // 坏文件按零算，不影响待办
+    std::fs::write(dir.join(DROPPED_FILE), "{坏了").unwrap();
+    assert!(PendingWrites::open(&dir).take_dropped().is_empty());
 }

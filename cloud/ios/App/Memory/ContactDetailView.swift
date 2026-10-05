@@ -1,6 +1,7 @@
 // 对象详情（02 的 1b，2A 没有「待确认」）：56pt 头像字、名字（设计稿是衬线，App 统一用 MiSans）、「认识 n 天 · n 条记忆」，卡片按日子 / 约定 / 喜好 / 近况 / 其他分组；右上「设置」。
 // 有日子的卡左列是下一次的 M.dd（设计稿 .when：衬线 13pt 灰绿），下面一行相对日子（MemoryDetailText.relativeDay）；
 // 没日子的卡照 .mem 行：15pt 正文，下面 11.5pt 灰字「种类 · 你写的」。「记一条」按钮设计稿 iOS 版没画，保留。
+// 卡片与「记一条」下面是「待整理」（MaterialsSection，记一笔存下的原话）；快满 180 条时顶上提示一次（MaterialNudge）。
 
 import SwiftUI
 
@@ -13,10 +14,25 @@ struct ContactDetailView: View {
 
     @State private var adding = false
 
+    @State private var materials = MaterialsStore()
+
+    @State private var cloudConfigured = true
+
+    /// 这次进来要显示的「待整理快满了」；同一个人只出一次。
+    @State private var nudge: String?
+
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         List {
             if let error = store.loadError {
                 MemoryFailureBanner(text: error) { Task { await store.reload() } }
+            }
+            if let nudge {
+                Label(nudge, systemImage: "tray.full")
+                    .font(AppFont.subheadline)
+                    .foregroundStyle(ColorUsage.materialsNudge.role.color)
+                    .padding(.vertical, 4)
             }
             if let contact = store.contact(contactId) {
                 Section {
@@ -54,6 +70,7 @@ struct ContactDetailView: View {
                     .disabled(!store.canEdit)
                     .opacity(store.canEdit ? 1 : 0.4)
                 }
+                MaterialsSection(store: materials, contactId: contactId, cloudConfigured: cloudConfigured)
                 #if DEBUG
                 MemoryStressSection(store: store, contactId: contactId)
                 #endif
@@ -67,8 +84,27 @@ struct ContactDetailView: View {
                     .foregroundStyle(ColorUsage.contactSettingsButton.role.color)
             }
         }
+        .task { await reloadMaterials() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await reloadMaterials() } }
+        }
+        .alert(
+            materials.message ?? "",
+            isPresented: Binding(get: { materials.message != nil }, set: { if !$0 { materials.message = nil } })
+        ) {
+            Button("好", role: .cancel) {}
+        }
         .sheet(item: $editing) { card in CardEditor(store: store, contactId: contactId, card: card) }
         .sheet(isPresented: $adding) { CardEditor(store: store, contactId: contactId, card: nil) }
+    }
+
+    /// 重读待整理与开没开素笺云（键盘随时可能再记一笔，开通在别的页面）；读到快满就看要不要提示。
+    private func reloadMaterials() async {
+        cloudConfigured = CloudStatus.configured()
+        await materials.reload(contactId)
+        if nudge == nil, materials.list != nil {
+            nudge = MaterialNudge().take(contactId: contactId, count: materials.count)
+        }
     }
 
     private func header(_ contact: MemoryContact) -> some View {

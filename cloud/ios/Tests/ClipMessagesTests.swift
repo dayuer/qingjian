@@ -78,7 +78,37 @@ final class ClipMessagesTests: XCTestCase {
     func testBarTexts() {
         XCTAssertEqual(NoteBarText.clipLabel(count: 3), "刚复制的 · 3 条")
         XCTAssertEqual(NoteBarText.clipLabel(count: 1), "刚复制的")
-        XCTAssertEqual(NoteBarText.doneText(count: 3), "记下了 3 条")
-        XCTAssertEqual(NoteBarText.doneText(count: 1), "记下了")
+    }
+
+    /// toast 按开没开素笺云二选一，多条写明条数。
+    func testDoneTextDependsOnCloud() {
+        XCTAssertEqual(NoteBarText.doneText(count: 1, cloud: true), "记下了，明早整理")
+        XCTAssertEqual(NoteBarText.doneText(count: 1, cloud: false), "记下了，开通素笺云后整理")
+        XCTAssertEqual(NoteBarText.doneText(count: 3, cloud: true), "记下了 3 条，明早整理")
+        XCTAssertEqual(NoteBarText.doneText(count: 2, cloud: false), "记下了 2 条，开通素笺云后整理")
+        XCTAssertEqual(NoteToast.done(count: 2, cloud: true), NoteToast(text: "记下了 2 条，明早整理", warning: false))
+        XCTAssertEqual(NoteToast.done(count: 1, cloud: false).duration, .seconds(2))
+        XCTAssertEqual(NoteToast.problem("x").duration, .seconds(4), "没记上的原因停久一点")
+    }
+
+    /// 到上限：没空位、剩 1 个、剩好几个。
+    func testMaterialLimitTexts() {
+        XCTAssertEqual(NoteBarText.materialLimit(remaining: 0, needed: 1), "这个人还有 200 条没整理，先去 App 里看看")
+        XCTAssertEqual(NoteBarText.materialLimit(remaining: 0, needed: 3), "这个人还有 200 条没整理，先去 App 里看看")
+        XCTAssertEqual(NoteBarText.materialLimit(remaining: 1, needed: 2), "这次有 2 条，这个人只剩 1 个空位，先去 App 里整理")
+        XCTAssertEqual(NoteBarText.materialLimit(remaining: 3, needed: 5), "这次有 5 条，这个人只剩 3 个空位，先去 App 里整理")
+    }
+
+    /// 上次排队的记一笔补写被拒绝：两种原因分开写，带条数；都是 0 时不提示。
+    func testDroppedTexts() {
+        XCTAssertEqual(NoteBarText.dropped(DroppedNotes()), [])
+        XCTAssertEqual(NoteBarText.dropped(DroppedNotes(materialLimit: 2)), ["有 2 条没记上：这个人的待整理满了"])
+        XCTAssertEqual(NoteBarText.dropped(DroppedNotes(contactGone: 1)), ["有 1 条没记上：这个人已经被忘掉了"])
+        XCTAssertEqual(
+            NoteBarText.dropped(DroppedNotes(materialLimit: 3, contactGone: 4)),
+            ["有 3 条没记上：这个人的待整理满了", "有 4 条没记上：这个人已经被忘掉了"])
+        let decoded: DroppedNotes? = MemoryFiles.decode(#"{"material_limit":2,"contact_gone":0}"#)
+        XCTAssertEqual(decoded, DroppedNotes(materialLimit: 2))
+        XCTAssertNil(MemoryFiles.decode(nil) as DroppedNotes?, "桥返回 NULL 就是没有")
     }
 }

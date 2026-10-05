@@ -37,7 +37,7 @@ pub use self::scope::{
     ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
     parse_scene, scene_label, scene_learning_dir, scene_name,
 };
-pub use self::session::Session;
+pub use self::session::{DroppedNotes, Session};
 pub use self::settings::{DomainSetting, SchemeOption, Settings};
 
 /// 打开会话；`user_dir` 可为空（只在内存里学习），`config` 为空时用 `user_dir` 下的 `config.toml`，
@@ -268,6 +268,19 @@ pub unsafe extern "C" fn qj_poll(session: *mut Session) -> bool {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_cloud_enabled(session: *mut Session) -> bool {
     with(session, false, |s| s.cloud_enabled())
+}
+
+/// 开了素笺云：`path` 指向的 `cloud.toml` 有服务器地址和登录令牌（与键盘建云端客户端时 [`CloudConfig::load`] 的判断一样，不联网）。
+/// App 的「待整理」引导与键盘记一笔的 toast 按它二选一；文件不在、读不了、没登录都是 false。
+///
+/// # Safety
+/// `path` 为空或有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_cloud_configured(path: *const c_char) -> bool {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return false;
+    };
+    catch_unwind(|| CloudConfig::load(Path::new(path)).is_some()).unwrap_or(false)
 }
 
 /// 马上同步一轮学习数据（键盘出现时调）。

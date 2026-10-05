@@ -21,9 +21,10 @@ pub enum MemoryError {
     #[error("memory changed since it was read")]
     Conflict,
 
-    /// 这个对象没整理的素材已经满了（[`MAX_UNPROCESSED_MATERIALS`]），这次不记、不悄悄丢。
+    /// 这个对象没整理的素材装不下这次的几条（上限 [`MAX_UNPROCESSED_MATERIALS`]），整次不记、不悄悄丢。
+    /// `remaining` 是还剩几个空位，`needed` 是这次切出的条数；键盘按它们写「这次有 2 条，这个人只剩 1 个空位」。
     #[error("too many unprocessed materials")]
-    MaterialLimit,
+    MaterialLimit { remaining: usize, needed: usize },
 
     /// 等 `memory/.lock` 超时（另一个进程占着）；键盘等得短，拿不到就进内存待办、下次再试。
     #[error("memory lock timed out")]
@@ -40,7 +41,7 @@ impl MemoryError {
             Self::ContactLimit(_) => "contact_limit",
             Self::Invalid(_) => "invalid",
             Self::Conflict => "conflict",
-            Self::MaterialLimit => "material_limit",
+            Self::MaterialLimit { .. } => "material_limit",
             Self::LockTimeout => "lock_timeout",
             Self::Io(_) => "io",
         }
@@ -50,16 +51,25 @@ impl MemoryError {
         match self {
             Self::ContactLimit(scene) => format!("{}最多 {MAX_CONTACTS} 个人", scene_label(*scene)),
             Self::Invalid(reason) => (*reason).to_owned(),
-            Self::Conflict => "记忆刚在键盘里改过，已重新读取".to_owned(),
-            Self::MaterialLimit => {
+            Self::Conflict => "记忆刚有更新，请再点一次".to_owned(),
+            Self::MaterialLimit { remaining: 0, .. } => {
                 format!("这个人还有 {MAX_UNPROCESSED_MATERIALS} 条没整理，先去 App 里看看")
+            }
+            Self::MaterialLimit { remaining, needed } => {
+                format!("这次有 {needed} 条，这个人只剩 {remaining} 个空位，先去 App 里整理")
             }
             Self::LockTimeout => "记忆正被另一处使用，稍后再试".to_owned(),
             Self::Io(_) => "记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试".to_owned(),
         }
     }
 
+    /// `{"code","message"}`；`material_limit` 另带 `remaining`（还剩几个空位）与 `needed`（这次要几条）。
     pub fn to_json(&self) -> String {
-        serde_json::json!({"code": self.code(), "message": self.message()}).to_string()
+        let mut json = serde_json::json!({"code": self.code(), "message": self.message()});
+        if let Self::MaterialLimit { remaining, needed } = self {
+            json["remaining"] = (*remaining).into();
+            json["needed"] = (*needed).into();
+        }
+        json.to_string()
     }
 }

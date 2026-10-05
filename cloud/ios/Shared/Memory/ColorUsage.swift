@@ -5,6 +5,7 @@
 // 首次引导照设计稿也用灰绿：进度条亮的格子（onboardingProgress，.progress i.on 的 accent 实底；步骤编号是 .step .n 的 ink 底，App 测不到完成与否，不画对勾），
 // 免费方案卡的描边与「现在就是」（onboardingCurrentPlan、onboardingPlanBadge，.plan.on / .pill.r）。
 // 工作场景里灰绿全部换成中性色（role(in:)）：牌子两半都是中性色，对象格与头像也是。
+// App 对象详情的「待整理」一节设计稿没画（UI 清单约束 7 第 17 条）：原话是素材不是卡，一律中性色，删除与开通引导是 ink / ink2。
 
 enum ColorUsage: CaseIterable {
     /// 牌子左半的场景名（任何场景都是 ink2）。
@@ -53,6 +54,15 @@ enum ColorUsage: CaseIterable {
     case cloudIntroLink
     case failureBanner
 
+    /// 「待整理」每条展开后的「删除」。
+    case materialDelete
+
+    /// 没开素笺云时「待整理」下面那一行开通引导。
+    case materialsCloudLink
+
+    /// 待整理快满（180 条）时对象详情顶上的提示。
+    case materialsNudge
+
     var role: ColorRole {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
@@ -62,8 +72,8 @@ enum ColorUsage: CaseIterable {
         case .reminderCard, .chipBackground, .onboardingPlanBadge: .accentSoft
         case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress: .accentFill
         case .addContactButton, .addCardButton,
-             .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner: .ink
-        case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel: .ink2
+             .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner, .materialsCloudLink, .materialsNudge: .ink
+        case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete: .ink2
         }
     }
 

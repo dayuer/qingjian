@@ -31,6 +31,7 @@ unsafe extern "C" {
         pronoun: *const c_char,
         scene: *const c_char,
     ) -> *mut c_char;
+    pub fn qj_memory_dropped(session: *mut Session) -> *mut c_char;
     pub fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
     pub fn qj_memory_write(user_dir: *const c_char, json: *const c_char) -> *mut c_char;
     pub fn qj_memory_materials(user_dir: *const c_char, contact_id: *const c_char) -> *mut c_char;
