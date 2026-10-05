@@ -37,13 +37,13 @@
 | `memory/mod.rs` | `sanitized_scope` / `scope_with` 里按场景比对的几行；`Scene` 的 re-export | 删掉（对象在不在名单上照旧要判） |
 | `memory/snapshot.rs` | `MemorySnapshot.scenes` | 字段删掉 |
 | `memory/store.rs` | `scenes()` / `put_scene` / `delete_scene` / `scenes_path` / `read_scenes`、`check_pinned` 里按场景那层、`adopt_unknown_scenes`、`migrate_if_needed` 的并场景 | 删掉；`check_pinned` 改成数**全局**置顶 ≤ 4 |
-| `memory/store.rs` | `migrate_if_needed` | 改成**清场**：删 `memory/scenes.json` 与 `memory/scene*/`（含上一版留下的 `scene-*.migrated-*`），幂等 |
+| `memory/store.rs` | `migrate_if_needed` | 改成**清场**：删 `memory/scenes.json` 与**没改过名的** `memory/scene-*/`。**`scene-*.migrated-*` 不动**——那是上一版按审计意见留的备份，说好放 30 天（见 Task 2） |
 | `memory/error.rs` | `PinLimit` 的文案「一个场景最多置顶 4 个人」 | 改成「最多置顶 4 个人」 |
 | `memory/ffi.rs` | `qj_scope_set(session, scene, contact_id)` | 去掉 `scene` 参数 |
 | `memory/ffi.rs` | `qj_scope_get` 返回里的 `scene` / `last` | 去掉，只剩 `{"contact_id","used"}` |
 | `memory/ffi.rs` | **`qj_memory_add_contact(session, name, pronoun, scene)`** | 去掉 `scene` 参数（建人不再指定分组） |
 | `session/memory/mod.rs` | `set_scope(scene, pick)` / `memory_add_contact(..., scene)` | 改签名，去掉场景 |
-| `session/memory/live.rs` | `sweep_migrated_dirs` 那次调用 | 删掉 |
+| `session/memory/live.rs` | `sweep_migrated_dirs` 那次调用 | **留着**（`.migrated-*` 还要按 30 天到期再清） |
 | `scope/pick.rs` | `ContactPick::Last`（「回到这个场景上次选的人」，靠 `state.last`） | 改成 `ContactPick::Keep`：**保持现在选的人不变**（幂等），见下「两处定下来的」 |
 | `include/qingjian_bridge.h` | 上面几处接口的注释与签名 | 同步 |
 
@@ -52,7 +52,7 @@
 | 在哪 | 现在是什么 | 改成 |
 |---|---|---|
 | `docs/specs/memory-scene-field.md` | 请服务端把 `MemoryItem.scene` / `ContactRegistration.scene` **从枚举改成字符串** | **已在本 PR 重写成「请服务端去掉这个字段」**（这一版为准）；还差**把它发给服务端**那一步（对外动作，先问） |
-| proto `Scene` 枚举 | 桥里没人用，但类型还在 | 这次仍不动（等服务端一起改），在规格里写明 |
+| proto `MemoryItem.scene` / `ContactRegistration.scene` | 已经是 `String`（`cb94be8` 改的，服务端 synon-ime#5 已按「不透明字符串」合进 main） | 改成 `Option<String>` + `#[serde(default, skip_serializing_if = "Option::is_none")]`：**客户端不再填**，字段就不再出现在请求里；服务端只要允许缺省即可，几乎不用再改。注释里指向 `memory/scene.rs` 的那句也要去掉 |
 
 ### App
 
@@ -63,7 +63,7 @@
 | `App/Onboarding/OnboardingView.swift` | `ContactEditor(store:scene: store.defaultScene?.id ?? "")` | 去掉 `scene:` |
 | `App/Contacts/ContactRow.swift` | `let sceneName: String` 与行里的灰字 | 去掉（名字后面不再有灰字） |
 | `App/Contacts/ContactIndex.swift` | `search(_:text:sceneName:)` 拿场景名当搜索词 | 去掉 `sceneName` 形参，只搜名字与代号 |
-| `App/Memory/ContactSettingsView.swift` | 「所在场景」Picker；`pinnedCount(in: contact.scene)` | Picker 删掉（改「润色用哪个技能」）；置顶改成数全局 |
+| `App/Memory/ContactSettingsView.swift` | 「所在场景」Picker；`pinnedCount(in: contact.scene)` | Picker 删掉（改**「改写用哪个技能」**——技能不只是润色）；置顶改成数全局 |
 | `App/Memory/MemoryStore.swift` | `scenes` / `sceneName(of:)` / `defaultScene` / `pinnedCount(in:)` / `addScene` / `renameScene` / `deleteScene` / `groups` | 前六个删掉；`pinnedCount()` 不带场景；`groups` 改成一张平铺的人 |
 | `App/Memory/MemoryWording.swift` | `unknownScene` / `sceneNameTooLong` / `sceneHasPeople` / `peopleCount` / `pinLimit` | 前四个删掉，`pinLimit` 改文案 |
 | `App/Remember/AssignSheet.swift` | 按 `store.groups`（按场景）分组 | 改成一张平铺的人 |
@@ -82,7 +82,7 @@
 | `IdleBar.swift` | `model.panel == .scope` 的两处判断；`ScopeChip(split:)` | 删掉（牌子不再有「左半」） |
 | `CandidateBar.swift` | `panelTakesTheBar` 里的 `.scope` | 删掉 |
 | `ScopeChip.swift` | `split`、左半的场景名、`chipShowsPerson`、点左半 `toggleQuickPicks` | 牌子只剩圆点 + 人名（设计稿 1a 那种），点它列其他人 + 「不指定」；`split` 删掉 |
-| **没开完全访问时** | 牌子上只剩场景名，点它进面板看「开启完全访问后才能用记忆」那段说明 | 面板删了，说明改成挂在**牌子上**：读不到名单时牌子上没有人名，那一块就是说明入口，点它**在工具栏里展开**同一段话 +「去开启」+ 设置路径，见下「两处定下来的」 |
+| **没开完全访问时** | 牌子上只剩场景名，点它进面板看「开启完全访问后才能用记忆」那段说明 | 面板删了，说明改成挂在**牌子上**（读不到名单时牌子本来就没有人名）。**技能按钮也一并并进这个入口**：没完全访问就没有网络，改写按下去必然失败（2026-10-05 审计指出） |
 | `KeyboardModel.swift` | `chooseScene(_:)` / `applyScope(scene:pick:)` / `openScopePicker()` / `confirmNewContact` 里的 `engine.addContact(name:scene:)` | 前三个删掉 / 改签名；建人不再传场景 |
 | `MemoryBridge.swift` | `setScope(scene:pick:)` / `addContact(name:scene:)` | 去掉 `scene` 参数 |
 | `Engine.swift` | `setScope` / `addContact` 的包装 | 同上 |
@@ -106,6 +106,10 @@
 **留下来的**：人（`contacts.json`）、卡片、素材、记忆提示、对象卡、记一笔、通讯录页（首字母分组、右侧索引、搜索、行内展开）。
 `pinned_at` 保留，改成**全局最多 4 个**。
 
+**「按人隔离」原样保留**（`Overlay::isolated()` / `write_contact_words` / `Snapshot` 那套读法）：选了人时
+`record` / `record_choice` / `record_typo` / **`learn_word` / `learn_english`** 都只进这个人的对象层，没选人才写全局；
+个人 n-gram 只读全局（选了人不记也不撤）。**这一版只拆场景，别把它一起清掉**——Task 1 里留一组回归测试守住。
+
 **命名**：`ScopeState` / `ScopeHandle` / `ScopedLearner` / `sanitize_scope` 里的「scope」现在只剩「当前选中的对象」一个意思。
 **这一版不改名**（动静大、收益小），只把注释与文档改准。
 
@@ -116,9 +120,9 @@
    - `""` = 明确不指定；
    - 其余 = 指定某个对象 id（不在名单上时当不指定，与现在一样）。
 2. **没开完全访问时那段说明挂在牌子上**：读不到名单时（`chipShowsPerson` 为假）牌子上没有人名，
-   那一块就是**说明入口**——点它在工具栏里展开「开启完全访问后才能用记忆」+「去开启」+ 设置路径
+   那一块就是**说明入口**——点它在工具栏里展开「改写和记忆都要开完全访问」+「去开启」+ 设置路径
    （键盘扩展打不开系统设置，照旧只给文字）。这条保住审核指南 4.4.1 那条路径。
-   **注意**：改写不依赖完全访问（它读的是宿主光标前那段字，不是 App Group 里的记忆），所以没开时技能按钮照旧在。
+   **技能按钮也并进这个入口**：没完全访问就没有网络，改写按下去必然失败（审计指出；我原来写「改写不依赖完全访问」是错的）。
 
 ## Task 1：桥去掉场景
 
@@ -131,13 +135,20 @@
   头文件同步。
 - [ ] 测试：`memory/tests/scene.rs` 删；其他测试文件里的场景参数与断言删；
   `tests/memory_scene_ffi.rs` 删或改成「人」的测试；`memory_support` 的 `scenes()` 去掉。
+- [ ] **留一组「按人隔离」的回归测试**（原来在 `scope/tests.rs` 与 `tests/memory_scene_ffi.rs` 里）：
+  选了人时 `record` / `record_choice` / `learn_word` / `learn_english` 都只进对象层、换人读不到、
+  没选人写全局、选了人不记也不撤个人 n-gram。拆场景时这几条不许跟着删。
 
 ## Task 2：桥的迁移（清场）
 
-- [ ] `migrate_if_needed` 改成清场：删 `memory/scenes.json` 与 `memory/scene*/`（含 `scene-*.migrated-*`），幂等。
-- [ ] 删 `park_legacy_scene_dirs` / `sweep_migrated_dirs` / `MIGRATED_KEEP_DAYS` 与 `LiveMemory::open` 里那次调用。
+- [ ] `migrate_if_needed` 改成清场：删 `memory/scenes.json` 与**没改过名的** `memory/scene-*/`，幂等。
+- [ ] **`park_legacy_scene_dirs` 删掉**（不用再改名了：没有新的场景目录要留）；
+  **`sweep_migrated_dirs` / `MIGRATED_KEEP_DAYS` 与 `LiveMemory::open` 里那次调用留着**——
+  `scene-*.migrated-*` 是上一版按审计意见留的 30 天备份（用户手机上现在就有一份 `scene-dating.migrated-2026-10-05`），
+  说好到期再清，这一版不能顺手删掉（2026-10-05 审计指出）。
 - [ ] 测试：造带 `scenes.json`、`scene-dating/`、`scene-dating.migrated-2026-10-05/`、`contacts.json` 里带 `scene` 的旧数据
-  → 起来之后这些都不在、人和卡片一个不少、`state.json` 里没有 `scene` / `last`。
+  → 起来之后 `scenes.json` 与 `scene-dating/` 不在、**`scene-dating.migrated-2026-10-05/` 还在**（里面的东西没动）、
+  人和卡片一个不少、`state.json` 里没有 `scene` / `last`；再造一份 `.migrated-` 日期已过 30 天的，起来之后被清掉。
 
 ## Task 3：技能包（桥）
 
@@ -167,7 +178,9 @@
   选了人写这个人，没选人写全局默认。
 - [ ] `KeyboardModel`：缓存技能列表与当前技能、`startRewrite(skillId:)`、`setRewriteSkill(id)`；列表为空时 `rewriteAvailable` 为假。
 - [ ] `RewriteState` 带技能名；`failed` 分两种（网络 / `Rejected`）；`RewriteBar` 三种状态带技能排。
-- [ ] **没开完全访问时**：牌子上没有人名，那一块当说明入口（点它在工具栏里展开同一段话 +「去开启」+ 路径）。
+- [ ] **没开完全访问时**：牌子上没有人名，那一块当说明入口；**技能按钮也并进去**（没网络，改写按下去必然失败）。
+- [ ] **工具栏横着列人要设上限**：名单平铺后人数不限，这一行不能无限长——按 `ContactOrder` 取
+  置顶 + 其余按沟通情况，**最多 6 个**（与现有 `quickPicks` 的截断一致），其余回 App 里切。
 - [ ] 测试：当前技能怎么算；列表为空时按钮不出现；私密输入框里 `rewriteAvailable` 为假；两种失败文案分得开。
 
 ## Task 6：App
@@ -180,10 +193,14 @@
 ## Task 7：文档与截图走查
 
 - [ ] 按上面「测试与文档」那张表清理。
-- [x] 重写 `specs/memory-scene-field.md`（给服务端的那份）——**已做**，结论改成「去掉这个字段」。
-- [ ] 把新结论**发给服务端**（对外动作，先问过再发）。
-- [ ] 截图走查（浅深各一套）：工具栏只有人 + 技能按钮 / 点技能列出技能 / 选了人改写用他的技能 / 两种没成功。
-  需要一个假服务端（或把 `llm` 指向本地），否则只能验到「改写中」。
+- [x] 重写 `specs/memory-scene-field.md`（给服务端的那份）——**已做**。结论按审计意见改成
+  「proto 那两个字段改 `Option<String>`、客户端不再填、服务端只要允许缺省」（不是让服务端删字段：
+  那边 synon-ime#5 刚按「不透明字符串」合进 main，再改一次不划算）。
+- [ ] 把新结论**发给服务端**（对外动作，先问过再发）；**发之前先让审计会话看一眼**。
+- [ ] 截图走查（浅深各一套）：工具栏只有人 + 技能按钮 / 点技能列出技能 / 选了人改写用他的技能 / 两种没成功 /
+  没开完全访问时的说明入口。需要一个假服务端（或把 `llm` 指向本地），否则只能验到「改写中」。
+- [ ] 这一版推翻了设计稿的 1d 面板、1f 工作场景与 02 的 2b/2j 场景行，「左人右技能」与技能排都是新拼的：
+  实现后交 UI 审计员走查，**同时请设计稿那边补画一屏**（2026-10-05 审计建议）。
 
 ## 验证
 
