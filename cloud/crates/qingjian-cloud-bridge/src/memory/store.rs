@@ -29,6 +29,9 @@ const CARDS_FILE: &str = "cards.json";
 
 const DISMISSED_FILE: &str = "dismissed.json";
 
+/// 「还没归到人的」卡片；只有 App 写（首页「+ 记一条」）。
+const UNASSIGNED_FILE: &str = "unassigned.json";
+
 const LOCK_FILE: &str = ".lock";
 
 /// 等文件锁缺省最多多久（App 用）；另一个进程正常只占几毫秒。
@@ -188,6 +191,11 @@ impl MemoryStore {
             snapshot.revs.insert(contact.id.clone(), file.rev);
             snapshot.cards.insert(contact.id.clone(), file.cards);
         }
+        // 未归人的卡只有 App 写；文件不在或读不了都当空（不记 broken、不报错），免得一张坏卡卡住整个首页
+        snapshot.unassigned = std::fs::read_to_string(self.unassigned_path())
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default();
         snapshot.contacts = contacts;
         Ok(snapshot)
     }
@@ -209,6 +217,7 @@ impl MemoryStore {
             }
             validate_cards(cards)?;
         }
+        validate_cards(&snapshot.unassigned)?;
         let _lock = self.lock()?;
         let old = self.read_contacts()?;
         check_scenes_kept(&old, &contacts)?;
@@ -235,6 +244,14 @@ impl MemoryStore {
             self.write_cards(id, rev, cards)?;
         }
         write_json(&self.contacts_path(), &contacts)?;
+        // 未归人的卡只有 App 写，没有并发，所以只比内容、变了才落盘（别每次都碰这个文件的 mtime）
+        let unassigned_on_disk: Vec<Card> = std::fs::read_to_string(self.unassigned_path())
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default();
+        if unassigned_on_disk != snapshot.unassigned {
+            write_json(&self.unassigned_path(), &snapshot.unassigned)?;
+        }
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
         let fixed = sanitized_scope(state.clone(), &contacts);
         if fixed != state {
@@ -346,6 +363,10 @@ impl MemoryStore {
 
     fn dismissed_path(&self) -> PathBuf {
         self.root.join(DISMISSED_FILE)
+    }
+
+    fn unassigned_path(&self) -> PathBuf {
+        self.root.join(UNASSIGNED_FILE)
     }
 
     fn cards_path(&self, contact_id: &str) -> PathBuf {

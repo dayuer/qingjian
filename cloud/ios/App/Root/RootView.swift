@@ -56,7 +56,7 @@ struct RootView: View {
     @ViewBuilder
     private func page(_ tab: RootTab) -> some View {
         switch tab {
-        case .remember: MemoryHomeView(store: memory)
+        case .remember: RememberView(store: memory)
         case .contacts: ContactsPlaceholderView()
         case .me: MeView(replayOnboarding: { showsOnboarding = true })
         }

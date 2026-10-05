@@ -180,6 +180,28 @@ final class MemoryStore {
         await update(contactId: id) { $0.cards[id]?.removeAll { $0.id == cardId } }
     }
 
+    /// 快速记一条：**不问是谁**，先落成「还没归到人的」卡（首页「+ 记一条」）。整理留到事后用 `assign`。
+    @discardableResult
+    func quickNote(_ text: String) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return await update {
+            $0.unassigned.append(
+                MemoryCard.new(kind: .other, text: trimmed, when: nil, keywords: []))
+        }
+    }
+
+    /// 把「还没归到人的」一张卡归到某个人名下（首页事件行的「补上」）。
+    @discardableResult
+    func assign(_ cardId: String, to contactId: String) async -> Bool {
+        guard snapshot.unassigned.contains(where: { $0.id == cardId }) else { return false }
+        return await update(contactId: contactId) { snapshot in
+            guard let card = snapshot.unassigned.first(where: { $0.id == cardId }) else { return }
+            snapshot.unassigned.removeAll { $0.id == cardId }
+            snapshot.cards[contactId, default: []].append(card)
+        }
+    }
+
     /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前；恋爱与日常的人都算，工作的人不提醒（MemoryScope.reminds）。
     func upcoming(within days: Int, now: Date = Date()) -> [MemoryUpcoming] {
         snapshot.contacts.filter { $0.remindOn && MemoryScope.reminds($0.scene) }.flatMap { contact in
