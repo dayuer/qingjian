@@ -65,7 +65,9 @@ pub const MAX_WORD_SYLLABLES: usize = 8;
 pub const MIN_PARTIAL_LETTERS: usize = 1;
 
 /// 每个格子最多留几个词（按词库词频 + 用户加分）。同音词很多，全留会让束搜索白费。
-pub const SPAN_CANDIDATES: usize = 6;
+/// 分叉放宽到 12：按词频截会把低频但语境正确的字掐死在词图外（亩 在 mu 格排不进前 6，
+/// 几十亩田地 / 几百亩 整句永远出不来），交给语言模型与神经重打分去挑。评测见 cloud/docs/fork-patch.md。
+pub const SPAN_CANDIDATES: usize = 12;
 
 /// 全拼格子最多查出几个词：前 [`SPAN_CANDIDATES`] 个无条件进词图，其余是候补，要前文抬举才进
 /// （`ji shi mu` 的 亩 按词频排第 12，P(亩|十) 却比首段都高）。设计见 `docs/superpowers/specs/2026-10-05-sentence-context-admission-design.md`。
