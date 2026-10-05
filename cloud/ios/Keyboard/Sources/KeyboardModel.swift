@@ -51,6 +51,16 @@ final class KeyboardModel {
     /// 记一笔条正显示短提示（确认条换成这一行）。
     var noteDone: Bool { noteToast != nil }
 
+    /// 草稿卡（1e-2）的现在这一段内容。
+    private(set) var draftFields: [DraftField] = []
+
+    /// 草稿卡顶部那条原话，以及它展没展开。
+    private(set) var draftSource = ""
+    private(set) var draftSourceExpanded = false
+
+    /// 冲突屏（1e-3）的那一对；没冲突时为 nil。
+    private(set) var conflict: NoteConflict?
+
     /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
     private(set) var notice: String?
 
@@ -465,11 +475,74 @@ final class KeyboardModel {
         }
     }
 
+    /// 点「记到 X」：进草稿卡（1e-2）。
+    ///
+    /// **现在只是 UI 壳**：草稿内容用样例（照设计稿那条「下个月想去厦门」），
+    /// 真正的抽取要等 2C 的云端整理——Task 10 的本地抽取已被审计会话正式暂缓。
     func confirmNote() {
         guard let cards = noteDraft else { return }
         noteDraft = nil
         markNoteSourceHandled()
-        saveNote(cards, source: "clipboard")
+        draftSource = cards.joined(separator: "\n\n")
+        draftSourceExpanded = false
+        draftFields = Self.sampleDraft
+        panel = .draft
+    }
+
+    /// 样例草稿卡（照设计稿 1e-2 的 `e2Init`）；等 2C 换成真抽取。
+    private static let sampleDraft = [
+        DraftField(label: "计划", value: "去厦门"),
+        DraftField(
+            label: "时间", value: "11 月", unsure: true, why: "「下个月」按今天（10 月）算的"),
+        DraftField(label: "地点", value: "沙坡尾"),
+    ]
+
+    /// 样例冲突（照设计稿 1e-3）；等 2C 换成真的冲突比对。
+    private static let sampleConflict = NoteConflict(
+        contactName: "小美", oldLabel: "已有 · 9 月 2 日", oldText: "不吃香菜",
+        newLabel: "新的 · 今天", newText: "最近爱吃香菜")
+
+    func toggleDraftSource() {
+        draftSourceExpanded.toggle()
+    }
+
+    func updateDraftField(index: Int, value: String) {
+        guard draftFields.indices.contains(index) else { return }
+        draftFields[index].value = value
+    }
+
+    func removeDraftField(index: Int) {
+        guard draftFields.indices.contains(index) else { return }
+        draftFields.remove(at: index)
+    }
+
+    /// 「不记」：草稿卡收起，什么都不写。
+    func discardDraft() {
+        draftFields = []
+        draftSource = ""
+        conflict = nil
+        panel = .keys
+    }
+
+    /// 「记下 n 条」：把原话存成待整理素材（落盘还是这一套），然后收起。
+    /// 样例里有冲突时先进冲突屏（1e-3）——**这条链现在也是壳**，等 2C 换成真的冲突比对。
+    func saveDraft() {
+        let text = draftSource
+        draftFields = []
+        draftSource = ""
+        conflict = Self.sampleConflict
+        panel = .conflict
+        _ = text
+    }
+
+    /// 冲突屏上选完之后：都按「存一条素材」走，两条怎么合留给 2C 的整理去判。
+    func resolveConflict(_ decision: ConflictDecision) {
+        let text = conflict?.newText ?? draftSource
+        conflict = nil
+        draftSource = ""
+        panel = .keys
+        saveNote([text], source: "clipboard")
+        _ = decision
     }
 
     /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。

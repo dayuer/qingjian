@@ -36,6 +36,8 @@ struct KeyboardView: View {
                 case .emoji: EmojiPanel(model: model)
                 case .scope: ScopePicker(model: model)
                 case .contactCard: ContactCardPanel(model: model)
+                case .draft: DraftPanel(model: model)
+                case .conflict: ConflictPanel(model: model)
                 }
             }
             .frame(height: Self.keyAreaHeight + (cardOpen && model.hasHintRow ? KeyStyle.hintRowHeight : 0))

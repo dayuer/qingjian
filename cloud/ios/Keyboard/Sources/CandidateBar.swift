@@ -7,12 +7,17 @@ import SwiftUI
 struct CandidateBar: View {
     let model: KeyboardModel
 
+    /// 这些面板打开时，候选栏那一行换成它们自己的工具栏（牌子 + 收起），没有 ⌄。
+    static func panelTakesTheBar(_ panel: KeyboardPanel) -> Bool {
+        panel == .contactCard || panel == .scope || panel == .draft || panel == .conflict
+    }
+
     /// ⌄ 的宽度；它的触摸由 KeyTouchView 收（SwiftUI 手势在这里常吞短点击），这里只画。
     static let chevronWidth: CGFloat = 48
 
     var body: some View {
         // 对象卡与选择面板打开时这一行是它们的工具栏（牌子加收起），组字中打开的也一样（设计稿 1b）
-        if model.composing && model.panel != .contactCard && model.panel != .scope {
+        if model.composing && !Self.panelTakesTheBar(model.panel) {
             candidates
         } else {
             IdleBar(model: model)

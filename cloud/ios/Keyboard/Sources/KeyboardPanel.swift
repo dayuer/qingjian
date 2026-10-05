@@ -13,4 +13,10 @@ enum KeyboardPanel: Hashable {
 
     /// 提示行「展开」打开的对象卡。
     case contactCard
+
+    /// 记一笔点「记到 X」后的草稿卡（设计稿 1e-2）。
+    case draft
+
+    /// 新内容和已有记忆冲突时的并排选择（设计稿 1e-3）。
+    case conflict
 }

@@ -36,7 +36,9 @@ final class NoFullAccessStyleTests: XCTestCase {
              .onboardingCurrentPlan, .onboardingPlanBadge,
              // 首页「记得」（02 的 2a）：日历选中那天、功勋路的下一站、事件行可点的动作标记、「+ 记一条」
              .calendarSelectedDay, .milestoneNext, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
-             .quickNoteButton])
+             .quickNoteButton,
+             // 记一笔的草稿卡与冲突屏（01 的 1e-2 / 1e-3）：冲突屏新卡那圈描边与「新的」标签
+             .conflictNewRing, .conflictNewLabel])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
