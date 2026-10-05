@@ -59,6 +59,13 @@ enum ScopeDisplay {
         fullAccess && !privateField && hasContact
     }
 
+    /// 改写出不出：技能包在、开了完全访问（没开就没有网络，改写按下去必然失败）、不在私密输入框、有改写器。
+    static func canRewrite(
+        fullAccess: Bool, privateField: Bool, hasSkills: Bool, hasRewriter: Bool
+    ) -> Bool {
+        fullAccess && hasSkills && hasRewriter && !privateField
+    }
+
     static func contactSubtitle(knownDays: Int) -> String { "认识 \(knownDays) 天" }
 
     /// 上次在键盘里选中这个人的时间，按北京时间的日历日算。

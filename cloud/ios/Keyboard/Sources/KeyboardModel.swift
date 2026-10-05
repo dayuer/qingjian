@@ -1,7 +1,8 @@
 // 键盘的状态与按键语义，行为对齐 iOS 自带简体拼音：拼音以 marked text 写在宿主光标处，
 // 空格上屏首选，换行原样上屏字母（打英文就靠它），组字中敲标点先上屏首选。视图只读状态、转发点击。
-// 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
-// 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
+// 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以用当前技能改写光标前的一段话
+// （工具栏右边那颗按钮写着技能名，点开是技能排）、插入别的设备刚复制的文字、把本机剪贴板发出去。
+// 验证码 / 密码这类输入框里这些都停（privateField）。
 // 本地记忆：对象牌子、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
 // 名单是一张平铺的人，人数不限；切人就调桥（ScopePick），桥回话后按新的对象重读名单与提示。
 // 所有输出都经 OutputRouter：手写记一笔时它把上屏、退格改道到草稿，宿主一个字都不碰（不持有宿主，就绕不过去）。
@@ -44,6 +45,15 @@ final class KeyboardModel {
 
     /// 没开完全访问时点牌子展开的说明（改写与记忆都要完全访问）。
     private(set) var showsFullAccessNote = false
+
+    /// 随包的改写技能（键盘起来、换引擎时各读一次，运行中不变）。
+    private(set) var rewriteSkills: [Skill] = []
+
+    /// 改写用的全局默认技能（config.toml 的 `rewrite_skill`）；读不出来时按桥的缺省（`polish`）。
+    private(set) var defaultRewriteSkill = "polish"
+
+    /// 点了工具栏那颗技能按钮：露出 / 收起技能排（与 `showsFullAccessNote` 一样的观察状态）。
+    private(set) var showsRewriteSkills = false
 
     /// 确认条里待记的几条素材（剪贴板拆出来的）；nil 时不出确认条。
     private(set) var noteDraft: [String]?
@@ -127,11 +137,77 @@ final class KeyboardModel {
         candidates = shown.candidates
         refresh()
         syncScope()
+        reloadRewriteSkills()
     }
 
     var composing: Bool { !preedit.isEmpty }
 
-    var rewriteAvailable: Bool { engine?.rewriteAvailable ?? false }
+    /// 改写按钮出不出（`ScopeDisplay.canRewrite`：技能包在、开了完全访问、有改写器、不在私密输入框）。
+    /// 没开完全访问时那颗按钮不出现——那时没有网络，按下去必然得到「检查网络」；说明入口在牌子上。
+    var rewriteAvailable: Bool {
+        ScopeDisplay.canRewrite(
+            fullAccess: fullAccess, privateField: privateField,
+            hasSkills: !rewriteSkills.isEmpty, hasRewriter: engine?.rewriteAvailable ?? false)
+    }
+
+    /// 此刻生效的技能：选中的人身上指定了就用它 → 设置里的默认 → 列表第一个。
+    var rewriteSkill: Skill? {
+        RewriteSkill.resolve(
+            skills: rewriteSkills, contactSkill: currentContact?.skill,
+            defaultSkill: defaultRewriteSkill)
+    }
+
+    /// 技能排上高亮的那个：选中的人身上指定的（nil = 用默认）。没选人时永远是「用默认」。
+    var rewriteSkillPick: String? { currentContact?.skill }
+
+    /// 技能排与牌子展开的人占同一行，开一个就收起另一个。
+    func toggleRewriteSkills() {
+        showsRewriteSkills.toggle()
+        if showsRewriteSkills { quickOpen = false }
+    }
+
+    /// 换技能：选了人写进这个人，没选人就把全局默认写进设置（config.toml）；记下来返回 true。
+    /// 没选人时「用默认」等于保持现状——那时现在的默认就是它。
+    @discardableResult
+    func setRewriteSkill(_ id: String?) -> Bool {
+        showsRewriteSkills = false
+        if let contact = currentContact {
+            guard engine?.setContactSkill(contact.id, skillId: id) == nil else { return false }
+            reloadContacts()
+        } else if let id {
+            defaultRewriteSkill = id
+            saveDefaultRewriteSkill(id)
+        }
+        return true
+    }
+
+    /// 技能排上选了一个（工具栏那颗按钮点开的那一排，与改写条上的那一排是同一排）：记下来，并用它改写光标前那一段。
+    /// 与改写条上「点另一个就用它重改」是同一件事——所以工具栏上选技能就等于改写。
+    func pickRewriteSkill(_ id: String?) {
+        guard setRewriteSkill(id) else { return }
+        startRewrite()
+    }
+
+    /// 全局默认技能记在 config.toml 的 `rewrite_skill` 里（键盘这边只改这一项，别的读完原样写回）。
+    private func saveDefaultRewriteSkill(_ id: String) {
+        guard let engine, let config = engine.configFile else { return }
+        let dicts = engine.dataDirectory.appendingPathComponent("dicts", isDirectory: true)
+        guard var settings = SettingsBridge.readSettings(config: config, dicts: dicts) else { return }
+        settings.rewriteSkill = id
+        if let failure = SettingsBridge.writeSettings(settings, config: config) {
+            Self.log.error("默认技能没写进设置：\(failure, privacy: .public)")
+        }
+    }
+
+    /// 随包的技能与设置里的默认：键盘起来、换引擎时各读一次（技能包在运行中不变）。
+    private func reloadRewriteSkills() {
+        rewriteSkills = engine?.rewriteSkills ?? []
+        guard let engine, let config = engine.configFile else { return }
+        let dicts = engine.dataDirectory.appendingPathComponent("dicts", isDirectory: true)
+        if let settings = SettingsBridge.readSettings(config: config, dicts: dicts) {
+            defaultRewriteSkill = settings.rewriteSkill
+        }
+    }
 
     func tap(_ key: Key) {
         // 又开始打字了：没用上的润色作废
@@ -231,6 +307,7 @@ final class KeyboardModel {
     func dismiss() {
         endComposedNote()
         quickOpen = false
+        showsRewriteSkills = false
         dismissRewrite()
         noteDraft = nil
         noteToast = nil
@@ -248,6 +325,7 @@ final class KeyboardModel {
         engine?.refreshClipboard()
         checkPasteboard()
         syncScope()
+        reloadRewriteSkills()
         if fullAccess, let dropped = engine?.memoryDropped() {
             let lines = NoteBarText.dropped(dropped)
             if !lines.isEmpty { showNoteToast(.problem(lines.joined(separator: "\n"))) }
@@ -333,33 +411,37 @@ final class KeyboardModel {
             let offer = engine.clipOffer
             if offer != clipOffer { clipOffer = offer }
         }
-        guard case .pending(let original) = rewrite else { return }
+        guard case .pending(let original, let skill) = rewrite else { return }
         switch engine.rewriteStatus {
         case 2:
             if let result = engine.takeRewrite() {
-                rewrite = .ready(original: original, result: result)
+                rewrite = .ready(original: original, skill: skill, result: result)
             }
         case 3:
             rewrite = .failed
+        case 4:
+            rewrite = .rejected
         default:
             break
         }
     }
 
-    /// 润色光标前的一段话（从上一个换行起，最多 300 字）。
+    /// 改写光标前的一段话（从上一个换行起，最多 300 字），用此刻生效的技能。
     func startRewrite() {
-        guard let engine, !composing, !sink.isComposingNote, output != nil else { return }
+        guard let engine, let skill = rewriteSkill, !composing, !sink.isComposingNote,
+              output != nil
+        else { return }
         let paragraph = sink.contextBefore.split(separator: "\n", omittingEmptySubsequences: false)
             .last.map(String.init) ?? ""
         let original = String(paragraph.suffix(300))
         guard !original.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        engine.startRewrite(original)
-        rewrite = .pending(original: original)
+        engine.startRewrite(original, skillId: skill.id)
+        rewrite = .pending(original: original, skill: skill.name)
     }
 
-    /// 用润色结果替换原文。光标前已经不是原文了（用户挪了光标或改了字）就放弃，不乱删。
+    /// 用改写结果替换原文。光标前已经不是原文了（用户挪了光标或改了字）就放弃，不乱删。
     func applyRewrite() {
-        guard case .ready(let original, let result) = rewrite, output != nil else { return }
+        guard case .ready(let original, _, let result) = rewrite, output != nil else { return }
         rewrite = .idle
         guard sink.contextBefore.hasSuffix(original) else { return }
         for _ in original { sink.deleteBackward() }
@@ -442,6 +524,7 @@ final class KeyboardModel {
         guard fullAccess else { return }
         if !quickOpen { reloadContacts() }
         quickOpen.toggle()
+        if quickOpen { showsRewriteSkills = false }
     }
 
     /// 换一个对象（nil 是不指定）：让桥定完，工具栏里列的人收起。
@@ -792,7 +875,10 @@ final class KeyboardModel {
         preedit = next
         candidates = engine.candidates
         if !composing, panel == .candidates { panel = .keys }
-        if composing { quickOpen = false }
+        if composing {
+            quickOpen = false
+            showsRewriteSkills = false
+        }
         refreshHint()
     }
 }

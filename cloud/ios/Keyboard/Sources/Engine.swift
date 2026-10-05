@@ -8,9 +8,21 @@ final class Engine {
     /// deinit 不在主线程隔离里，要绕开 Sendable 检查；释放时已没有别的引用。MemoryBridge.swift 的扩展也用它。
     nonisolated(unsafe) let session: OpaquePointer
 
+    /// 随包产品数据目录（里面的 dicts/ 是领域词库）。
+    let dataDirectory: URL
+
+    /// 学习数据与记忆的目录（App Group 的 `Qingjian`）；`qj_memory_*` 按目录传时用。没开完全访问时是扩展自己的容器。
+    let userDirectory: URL?
+
+    /// 设置文件（config.toml）；键盘改全局默认技能时按它读写。没有 App Group 时是扩展容器里的那份。
+    let configFile: URL?
+
     /// `dataDirectory` 里要有 dict.qj（lm.qj 可选）；`userDirectory` 放学习数据；`configFile` 是设置（config.toml，
     /// 变了轮询时自动重读）；`cloudConfig` 指向 cloud.toml，没有就完全离线。打不开返回 nil。
     init?(dataDirectory: URL, userDirectory: URL?, configFile: URL?, cloudConfig: URL?) {
+        self.dataDirectory = dataDirectory
+        self.userDirectory = userDirectory
+        self.configFile = configFile
         let opened = Self.withOptionalCString(userDirectory?.path) { user in
             Self.withOptionalCString(configFile?.path) { config in
                 Self.withOptionalCString(cloudConfig?.path) { cloud in
@@ -85,11 +97,14 @@ final class Engine {
 
     func syncNow() { qj_sync_now(session) }
 
-    func startRewrite(_ text: String) {
-        text.withCString { qj_rewrite_start(session, $0) }
+    /// 开始改写；`skillId` 为空时用桥那边当前生效的那个（设置里的默认 → 列表第一个）。
+    func startRewrite(_ text: String, skillId: String?) {
+        text.withCString { t in
+            Self.withOptionalCString(skillId) { qj_rewrite_start(session, t, $0) }
+        }
     }
 
-    /// 0 空闲、1 等待中、2 就绪、3 失败（与桥的约定一致）。
+    /// 0 空闲、1 等待中、2 就绪、3 失败、4 模型给的不合用（已丢掉）（与桥的约定一致）。
     var rewriteStatus: UInt32 { qj_rewrite_status(session) }
 
     func takeRewrite() -> String? { take(qj_rewrite_take(session)) }
