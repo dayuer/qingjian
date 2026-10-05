@@ -53,6 +53,8 @@ impl LiveMemory {
         let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);
         let contacts = store.contacts();
         let state = sanitized_scope(store.state(), &contacts);
+        // 键盘每次起来顺手清掉改名满 30 天的老场景学习目录（不在拿锁的路径上，见 MemoryStore）
+        store.sweep_migrated_dirs(LocalDate::today());
         let learner = ScopedLearner::open(user_dir, store.root(), state.contact_id.as_deref());
         let handle = learner.handle();
         let cards = state

@@ -24,6 +24,12 @@ impl Overlay {
         }
     }
 
+    /// 选了人（且对象目录在）时是这个人的「隔离层」：写只进它、不碰全局，也不记个人 n-gram。
+    /// 对象目录不在（被忘掉了）时当没选人。
+    pub fn isolated(&self) -> bool {
+        self.contact.is_some()
+    }
+
     /// 各叠加层的计数乘 `weight` 再相加。
     pub fn count(&self, weight: u32, read: impl Fn(&FrequencyLearner) -> u32) -> u32 {
         self.contact

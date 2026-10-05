@@ -117,11 +117,9 @@ fn a_contact_may_change_its_scene() {
     store.put_contact(moved.clone()).unwrap();
     assert_eq!(store.contacts(), vec![moved], "换场景不受限了");
 
-    // 场景名册上没有的分组不收
-    assert!(matches!(
-        store.put_contact(contact(2, "nope")),
-        Err(MemoryError::Invalid("这个人所在的场景没有了"))
-    ));
+    // 场景名册上没有的分组（旧键盘写回的老 id）归到默认场景，不报错
+    store.put_contact(contact(2, "nope")).unwrap();
+    assert_eq!(store.contacts()[1].scene, "daily");
     std::fs::remove_dir_all(&user).ok();
 }
 
@@ -142,10 +140,12 @@ fn scenes_must_be_valid_and_are_written_back_whole() {
     let mut snapshot = store.snapshot().unwrap();
     assert_eq!(snapshot.scenes.len(), 3, "整份读要带上场景");
     snapshot.scenes = vec![Scene::new("only".to_owned(), "只剩我".to_owned(), 1)];
-    assert!(matches!(
-        store.write_snapshot(&snapshot),
-        Err(MemoryError::Invalid("这个人所在的场景没有了"))
-    ));
+    store.write_snapshot(&snapshot).unwrap();
+    assert_eq!(
+        store.contacts()[0].scene,
+        "only",
+        "场景名册上没有了就归到默认场景"
+    );
 
     snapshot.contacts.clear();
     snapshot.cards.clear();
@@ -231,9 +231,17 @@ fn legacy_data_is_merged_into_one_daily_scene() {
             .all(|c| c.scene == DEFAULT_SCENE_ID),
         "都归到「日常」"
     );
+    let parked: Vec<String> = std::fs::read_dir(&memory)
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with("scene-dating.migrated-"))
+        .collect();
+    assert_eq!(parked.len(), 1, "老的场景学习目录改名留着：{parked:?}");
+    assert!(!memory.join("scene-dating").exists(), "原名不再有");
     assert!(
-        !memory.join("scene-dating").exists(),
-        "老的场景学习目录删掉"
+        memory.join(&parked[0]).join("learning").is_dir(),
+        "里面学过的东西还在，过 30 天才清"
     );
     assert_eq!(snapshot.state.scene, DEFAULT_SCENE_ID);
     assert_eq!(
