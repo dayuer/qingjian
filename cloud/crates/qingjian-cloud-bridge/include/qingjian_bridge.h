@@ -54,6 +54,14 @@ void qj_rewrite_start(QjSession *session, const char *text, const char *skill_id
 uint32_t qj_rewrite_status(QjSession *session);
 char *qj_rewrite_take(QjSession *session);
 void qj_rewrite_cancel(QjSession *session);
+// 改写用的全局默认技能（config.toml 的 [rewrite] skill，与主 App 设置页的 rewrite_skill 是同一项，见 qj_settings_read）：
+// 读 {"skill":"polish"}；会话无效、或这个会话没有配置文件时为 NULL；文件里存的不是合法技能编号时为 {"code":"invalid","message"}。
+// 键盘按「选中的人的技能 → 这一项 → 列表第一个」挑，链里第一环见 qj_memory_contact_skill。
+char *qj_rewrite_default(QjSession *session);
+// 改全局默认技能（skill_id 为 NULL = 回到缺省 polish）：成功返回 NULL，失败返回 {"code","message"}。
+// 只校验编号的形状（小写字母、数字、- 与 _，不超过 32 个），不校验这个技能现在在不在——技能包随版本增删，
+// 写进来一个暂时认不得的编号由键盘回退；写回去只动 [rewrite] skill 这一项，配置文件里别的内容与注释原样保留。
+char *qj_rewrite_default_set(QjSession *session, const char *skill_id);
 
 // 私密输入框（验证码、密码、信用卡号）：不学习、不记日志、不发云端，剪贴板与润色也停。
 void qj_set_private(QjSession *session, bool private_field);

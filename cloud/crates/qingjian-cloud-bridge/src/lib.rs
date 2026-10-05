@@ -380,6 +380,56 @@ pub unsafe extern "C" fn qj_rewrite_cancel(session: *mut Session) {
     });
 }
 
+/// 改写用的全局默认技能：`{"skill":"polish"}`。会话无效、这个会话没有配置文件（打开时没给学习数据目录）
+/// 时为 NULL；文件里存的不是合法技能编号时为 `{"code":"invalid","message"}`（与键盘侧记忆那些接口的失败同形）。
+/// 与主 App 设置页的 `rewrite_skill` 是 `config.toml` 里的同一项，只是键盘直接读写、不整份过一遍设置。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_default(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        let Some(path) = s.config_path() else {
+            return ptr::null_mut();
+        };
+        let skill = settings::rewrite_skill(path);
+        if !rewrite::is_skill_id(&skill) {
+            return owned(&MemoryError::Invalid("设置里的技能编号不对").to_json());
+        }
+        owned(&serde_json::json!({ "skill": skill }).to_string())
+    })
+}
+
+/// 改改写用的全局默认技能（`skill_id` 为空指针 = 回到缺省 [`rewrite::DEFAULT_SKILL_ID`]）：成功返回 NULL，
+/// 失败 `{"code","message"}`。只校验 id 的形状，不校验这个技能现在在不在（技能包随版本增删，
+/// 认不得的 id 由壳回退）；写进去只动 `[rewrite] skill` 这一项，配置文件里别的不碰。
+///
+/// # Safety
+/// 同 [`qj_push`]；`skill_id` 为空指针或有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_default_set(
+    session: *mut Session,
+    skill_id: *const c_char,
+) -> *mut c_char {
+    let skill = match unsafe { path_arg(skill_id) } {
+        Some(id) if !rewrite::is_skill_id(id) => {
+            return owned(&MemoryError::Invalid("技能编号不对").to_json());
+        }
+        Some(id) => id.to_owned(),
+        None => rewrite::DEFAULT_SKILL_ID.to_owned(),
+    };
+    let written = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
+        let Some(path) = s.config_path() else {
+            return Err(MemoryError::Invalid("这个键盘没有配置文件"));
+        };
+        settings::set_rewrite_skill(path, &skill)
+    });
+    match written {
+        Ok(()) => ptr::null_mut(),
+        Err(error) => owned(&error.to_json()),
+    }
+}
+
 /// 焦点在验证码、密码、信用卡号这类输入框时设 true：不学习、不记日志、不发云端，剪贴板与润色也停。
 ///
 /// # Safety
