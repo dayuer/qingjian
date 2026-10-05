@@ -45,6 +45,10 @@ final class MemoryStoreTests: XCTestCase {
 
         private var _wroteOnMain = false
 
+        private var _sceneEdits: [SceneEdit] = []
+
+        private var _sceneFailure: MemoryFailure?
+
         var gate: DispatchSemaphore?
 
         init(disk: MemorySnapshot?) { _disk = disk }
@@ -71,6 +75,35 @@ final class MemoryStoreTests: XCTestCase {
 
         var wroteOnMain: Bool { locked { _wroteOnMain } }
 
+        var sceneEdits: [SceneEdit] { locked { _sceneEdits } }
+
+        /// 下一次场景改动的结果（用一次就清掉）；nil 时照改 `disk`。
+        var sceneFailure: MemoryFailure? {
+            get { locked { _sceneFailure } }
+            set { locked { _sceneFailure = newValue } }
+        }
+
+        private func applyScene(_ edit: SceneEdit) -> MemoryFailure? {
+            locked {
+                _sceneEdits.append(edit)
+                if let failure = _sceneFailure {
+                    _sceneFailure = nil
+                    return failure
+                }
+                switch edit {
+                case .put(let scene):
+                    if let index = _disk?.scenes.firstIndex(where: { $0.id == scene.id }) {
+                        _disk?.scenes[index].name = scene.name
+                    } else {
+                        _disk?.scenes.append(scene)
+                    }
+                case .delete(let id):
+                    _disk?.scenes.removeAll { $0.id == id }
+                }
+                return nil
+            }
+        }
+
         var backend: MemoryBackend {
             MemoryBackend(
                 read: { _ in
@@ -88,7 +121,9 @@ final class MemoryStoreTests: XCTestCase {
                         if result == nil { self._disk = snapshot }
                         return result
                     }
-                })
+                },
+                putScene: { _, scene in self.applyScene(.put(scene)) },
+                deleteScene: { _, id in self.applyScene(.delete(id)) })
         }
     }
 
@@ -167,6 +202,49 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertEqual(
             MemoryStore.Wording.sceneHasPeople(2, fallback: "日常"),
             "里面有 2 个人，删掉后他们会挪到「日常」。")
+    }
+
+    // 场景单独写：不走整份写，坏卡挡不住
+
+    private func twoScenes() -> MemorySnapshot {
+        var snapshot = sampleSnapshot()
+        snapshot.scenes = [
+            MemoryScene(id: "daily", name: "日常", createdAt: 0),
+            MemoryScene(id: "dating", name: "恋爱", createdAt: 0),
+        ]
+        return snapshot
+    }
+
+    func testSceneEditsSkipTheSnapshotWrite() async {
+        let bridge = FakeBridge(disk: twoScenes())
+        // 整份写一定失败（像有一张坏卡）；场景改动不该走到它
+        bridge.writeResults = [MemoryFailure(code: .invalid, message: "小美的卡「海」：每个关键词要 2 到 8 个字")]
+        let store = await store(bridge)
+        let renamed = await store.renameScene(id: "dating", name: "约会")
+        let added = await store.addScene(name: "家人")
+        let deleted = await store.deleteScene(id: "dating")
+        XCTAssertTrue(renamed && added && deleted)
+        XCTAssertTrue(bridge.writes.isEmpty, "场景改动不走整份写")
+        XCTAssertEqual(bridge.sceneEdits.count, 3)
+        XCTAssertEqual(store.scenes.map(\.name), ["日常", "家人"], "写完按磁盘重读")
+        XCTAssertNil(store.message)
+    }
+
+    func testSceneEditFailureIsShownAndRereads() async {
+        let bridge = FakeBridge(disk: twoScenes())
+        let store = await store(bridge)
+        bridge.sceneFailure = MemoryFailure(code: .lockTimeout, message: "")
+        let ok = await store.renameScene(id: "dating", name: "约会")
+        XCTAssertFalse(ok)
+        XCTAssertEqual(store.message, "没存上：键盘正在写记忆，请稍后再试")
+        XCTAssertEqual(store.scenes.map(\.name), ["日常", "恋爱"])
+        XCTAssertFalse(store.saving)
+    }
+
+    func testBadCardErrorFromBridgeIsShownAsIs() {
+        let failure = MemoryFailure.decode(#"{"code":"invalid","message":"小美的卡「爱吃辣」：每个关键词要 2 到 8 个字"}"#)
+        XCTAssertEqual(
+            failure.map(MemoryStore.Wording.failed), "没存上：小美的卡「爱吃辣」：每个关键词要 2 到 8 个字")
     }
 
     // 三方合并

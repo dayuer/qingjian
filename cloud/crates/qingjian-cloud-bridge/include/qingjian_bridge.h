@@ -133,8 +133,15 @@ char *qj_memory_add_contact(QjSession *session, const char *name, const char *pr
 // 某个对象磁盘上的修订号比 revs 新（这期间别处改过卡片）就整份不写、返回 conflict，App 重读合并后再写；
 // 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删（卡片、素材、分区学习都在里面）。
 // scenes 至少要有一个（删掉最后一个返回 invalid「至少要留一个场景」），人所在的场景不在 scenes 里也返回 invalid；一个场景置顶超过 4 个返回 pin_limit。
+// 卡片不合格（关键词长短、日期格式等）也是 invalid，message 写明是谁的哪张卡：「小美的卡「不吃香菜」：每个关键词要 2 到 8 个字」。
 char *qj_memory_read(const char *user_dir);
 char *qj_memory_write(const char *user_dir, const char *json);
+// App 用：场景的增删改名单独走这两个，不走整份写。它们只碰 scenes.json 与 contacts.json 的 scene 字段（删场景时键盘正在那个场景就连 state.json），
+// 不校验卡片、不比修订号：一张不相干的坏卡、键盘刚记的一笔都不该让改场景失败。成功返回 NULL，失败返回 {"code","message"}。
+// put_scene：id 不在名册上就加在末尾，在就只改名；id 只收小写字母数字，名字去掉首尾空白后 1–8 个字，否则 invalid。
+// delete_scene：里面的人挪到默认场景（剩下的第一个）、置顶取消；只剩一个场景时返回 invalid「至少要留一个场景」。
+char *qj_memory_put_scene(const char *user_dir, const char *id, const char *name);
+char *qj_memory_delete_scene(const char *user_dir, const char *id);
 // App 用：一个对象没整理的素材，按时间倒序（同一秒的按写入倒序），整理过 30 天的顺手删掉：
 // {"unprocessed_count":n,"materials":[{"client_id":"…","kind":"note","text":"原话","at":1791043200,
 //   "source":"clipboard"|"typed","uploaded":false,"processed":false},…]}

@@ -1,5 +1,5 @@
 //! 本地记忆的 C 接口，与 `include/qingjian_bridge.h` 一一对应。`qj_scope_*` 与键盘用的 `qj_memory_*` 带会话（只在主线程上用）；
-//! `qj_memory_read` / `qj_memory_write` / `qj_memory_materials` / `qj_memory_material_delete` 是 App 用的，按学习数据目录传（与 `qj_settings_*` 同一做法）。
+//! `qj_memory_read` / `qj_memory_write` / `qj_memory_put_scene` / `qj_memory_delete_scene` / `qj_memory_materials` / `qj_memory_material_delete` 是 App 用的，按学习数据目录传（与 `qj_settings_*` 同一做法）。
 //! 返回的字符串都用 `qj_string_free` 释放；失败返回 `{"code","message"}`（见 [`MemoryError`]）。全部折掉 panic。
 
 use std::ffi::c_char;
@@ -8,7 +8,7 @@ use std::path::Path;
 use std::ptr;
 
 use super::{
-    DEFAULT_SCENE_ID, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore,
+    DEFAULT_SCENE_ID, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore, Scene,
     is_scene_id, now_unix, unprocessed,
 };
 use crate::scope::ContactPick;
@@ -382,5 +382,58 @@ pub unsafe extern "C" fn qj_memory_write(
         Ok(Ok(())) => ptr::null_mut(),
         Ok(Err(error)) => owned(&error.to_json()),
         Err(_) => owned(&MemoryError::Invalid("写入时出错").to_json()),
+    }
+}
+
+/// App 用：加一个场景或给已有的改名（同 id），只写 `scenes.json`。成功返回空指针，失败返回 `{"code","message"}`
+/// （`invalid`：编号不合格式、名字空着或超过 8 个字；`lock_timeout` / `io`）。
+/// 不走 [`qj_memory_write`] 的整份写：那条路要校验每张卡、比每个人的修订号，一张不相干的坏卡或键盘刚记的一笔都会让改场景名失败。
+///
+/// # Safety
+/// 三个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_put_scene(
+    user_dir: *const c_char,
+    id: *const c_char,
+    name: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(id), Some(name)) = (
+        unsafe { path_arg(user_dir) },
+        unsafe { path_arg(id) }.filter(|id| is_scene_id(id)),
+        unsafe { path_arg(name) },
+    ) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let put = catch_unwind(|| {
+        let scene = Scene::new(id.to_owned(), name.to_owned(), now_unix());
+        MemoryStore::open(Path::new(user_dir)).put_scene(scene)
+    });
+    match put {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("改场景时出错").to_json()),
+    }
+}
+
+/// App 用：删一个场景，里面的人挪到默认场景（剩下的第一个）、置顶取消；只写 `scenes.json`、`contacts.json`
+/// （键盘正在这个场景时连 `state.json`）。成功返回空指针，失败返回 `{"code","message"}`
+/// （`invalid`：只剩这一个场景；`pin_limit` / `lock_timeout` / `io`）。不校验卡片，理由同 [`qj_memory_put_scene`]。
+///
+/// # Safety
+/// 两个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_delete_scene(
+    user_dir: *const c_char,
+    id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(id)) = (unsafe { path_arg(user_dir) }, unsafe { path_arg(id) })
+    else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let deleted = catch_unwind(|| MemoryStore::open(Path::new(user_dir)).delete_scene(id));
+    match deleted {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("删场景时出错").to_json()),
     }
 }
