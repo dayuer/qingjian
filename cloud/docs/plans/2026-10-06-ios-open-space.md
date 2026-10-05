@@ -1244,5 +1244,8 @@ git commit -m "docs(cloud): 开通云服务的流程与截图走查"
 - **偏差三**：计划里 `SpaceStore.noGroupMessage` 是个静态属性，Swift 6 下 `@MainActor` 类的静态属性
   在 `nonisolated` 处引用不了，改成 `nonisolated static let noGroup`。
 - **偏差四**：`PairBridge` 与 `SpaceStore` 的泛型都要 `Sendable`（结果要跨 `Task.detached` 回来）。
-- **没做**：模拟器截图走查（Task 9 Step 1/2）——要一台专用模拟器与四屏截图，还没跑；出码页、设备页、
-  找回方式、2f 同意页按文首的范围表切给别的任务。
+- **截图走查做了**（`UITests/SpaceShots.swift`，iPhone 17 模拟器，浅色）：我页那一行、开通页（未勾 / 已勾）、
+  输码页（空 / 输满）。走查当场抓到两件事：一是开通页失败的提示会漏到输码页（已修，`5310de5`），
+  二是**测试不能点「开通」**——随包的 `cloud.toml` 指向线上，按下去真的会发一次建空间请求（已改成只断言按钮可点）。
+  深色那一套与「交 UI 审计员」还没做。
+- **没做**：出码页、设备页、找回方式、2f 同意页按文首的范围表切给别的任务；出境同意那句话仍是草案。
