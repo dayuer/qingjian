@@ -1,4 +1,4 @@
-// 对象详情（02 的 1b，2A 没有「待确认」）：56pt 头像字、衬线名字、「认识 n 天 · n 条记忆」，卡片按日子 / 约定 / 喜好 / 近况 / 其他分组；右上「设置」。
+// 对象详情（02 的 1b，2A 没有「待确认」）：56pt 头像字、名字（设计稿是衬线，App 统一用 MiSans）、「认识 n 天 · n 条记忆」，卡片按日子 / 约定 / 喜好 / 近况 / 其他分组；右上「设置」。
 // 有日子的卡左列是下一次的 M.dd（设计稿 .when：衬线 13pt 灰绿），下面一行相对日子（MemoryDetailText.relativeDay）；
 // 没日子的卡照 .mem 行：15pt 正文，下面 11.5pt 灰字「种类 · 你写的」。「记一条」按钮设计稿 iOS 版没画，保留。
 
@@ -73,11 +73,11 @@ struct ContactDetailView: View {
 
     private func header(_ contact: MemoryContact) -> some View {
         HStack(spacing: 14) {
-            MemoryAvatar(name: contact.name, size: 56, scene: contact.scene, serif: true)
+            MemoryAvatar(name: contact.name, size: 56, scene: contact.scene, font: AppFont.font(size: 56 * 0.4, weight: .medium))
             VStack(alignment: .leading, spacing: 4) {
-                Text(contact.name).font(SerifFont.font(size: 26, weight: .semibold))
+                Text(contact.name).font(AppFont.font(size: 26, weight: .semibold))
                 Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count))
-                    .font(SerifFont.font(size: 12.5))
+                    .font(AppFont.font(size: 12.5, weight: .semibold))
                     .foregroundStyle(Theme.ink3)
             }
         }
@@ -89,19 +89,19 @@ struct ContactDetailView: View {
             HStack(spacing: 12) {
                 VStack(spacing: 1) {
                     Text(monthDay)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AppFont.font(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.accentInk.color)
                         .monospacedDigit()
                     if let days = card.daysAway(), let target = card.nextDate(),
                        let label = MemoryDetailText.relativeDay(days: days, target: target) {
-                        Text(label).font(.system(size: 10.5)).foregroundStyle(Theme.ink3)
+                        Text(label).font(AppFont.font(size: 10.5)).foregroundStyle(Theme.ink3)
                     }
                 }
                 .frame(width: 48)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(card.text).font(.system(size: 15))
+                    Text(card.text).font(AppFont.font(size: 15))
                     if !card.subtitle.isEmpty {
-                        Text(card.subtitle).font(.system(size: 12.5)).foregroundStyle(Theme.ink3)
+                        Text(card.subtitle).font(AppFont.font(size: 12.5)).foregroundStyle(Theme.ink3)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -109,9 +109,9 @@ struct ContactDetailView: View {
             .contentShape(Rectangle())
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                Text(card.text).font(.system(size: 15)).lineSpacing(3)
+                Text(card.text).font(AppFont.font(size: 15)).lineSpacing(3)
                 Text(MemoryDetailText.meta(kind: card.kind, source: card.source))
-                    .font(.system(size: 11.5))
+                    .font(AppFont.font(size: 11.5))
                     .foregroundStyle(Theme.ink3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

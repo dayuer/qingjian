@@ -55,7 +55,7 @@ struct CardEditor: View {
                                 kind = pill.kind
                             } label: {
                                 Text(pill.title)
-                                    .font(.system(size: 13))
+                                    .font(AppFont.font(size: 13))
                                     .foregroundStyle(pill.foreground)
                                     .padding(.horizontal, 13)
                                     .frame(height: 32)
@@ -77,10 +77,10 @@ struct CardEditor: View {
                             withAnimation { pickingDate.toggle() }
                         } label: {
                             HStack {
-                                Text(MemoryDetailText.dayTitle(when)).font(.system(size: 15)).foregroundStyle(Theme.ink)
+                                Text(MemoryDetailText.dayTitle(when)).font(AppFont.font(size: 15)).foregroundStyle(Theme.ink)
                                 Spacer()
                                 if let note = MemoryDetailText.reminderNote(kind: kind, contact: store.contact(contactId)) {
-                                    Text(note).font(.system(size: 12)).foregroundStyle(Theme.ink3)
+                                    Text(note).font(AppFont.font(size: 12)).foregroundStyle(Theme.ink3)
                                 }
                             }
                             .contentShape(Rectangle())

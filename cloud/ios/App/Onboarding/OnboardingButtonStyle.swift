@@ -8,7 +8,7 @@ struct OnboardingButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .medium))
+            .font(AppFont.font(size: 16, weight: .medium))
             .foregroundStyle(primary ? Color(.systemBackground) : Theme.ink2)
             .frame(maxWidth: .infinity, minHeight: primary ? 50 : 36)
             .background(primary ? Theme.ink : .clear, in: Capsule())

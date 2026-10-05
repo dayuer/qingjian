@@ -1,4 +1,4 @@
-// 引导第一步「介绍」（04 的 1a）：图标与「素笺」、插图、衬线大标题「做一个记得对方的人」、说明、底部「开始」。
+// 引导第一步「介绍」（04 的 1a）：图标与「素笺」、插图、大标题「做一个记得对方的人」、说明、底部「开始」。
 // 插图位置与尺寸照设计稿固定（通栏、高 260、圆角 14）：资源目录里有 onboarding-intro 就显示它（铺满裁切），
 // 没有时画设计稿 .ph 的斜纹占位。插图导出后只加这个图片资源，不改布局。
 
@@ -31,7 +31,7 @@ struct IntroStep: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(.separator).opacity(0.5)))
                     .accessibilityHidden(true)
                 Text("素笺")
-                    .font(SerifFont.font(size: 22, weight: .semibold))
+                    .font(AppFont.font(size: 22, weight: .semibold))
                     .tracking(3)
             }
             .padding(.top, 28)
@@ -42,10 +42,10 @@ struct IntroStep: View {
                 .padding(.top, 28)
             VStack(alignment: .leading, spacing: 12) {
                 Text(Self.title)
-                    .font(SerifFont.font(size: 32, weight: .semibold))
+                    .font(AppFont.font(size: 32, weight: .semibold))
                     .lineSpacing(8)
                 Text(Self.detail)
-                    .font(.system(size: 15))
+                    .font(AppFont.font(size: 15))
                     .lineSpacing(8)
                     .foregroundStyle(Theme.ink2)
             }
@@ -82,7 +82,7 @@ struct IntroStep: View {
         .background(Color(.systemGray6))
         .overlay {
             Text(Self.placeholderNote)
-                .font(.system(size: 11, design: .monospaced))
+                .font(AppFont.mono(size: 11))
                 .foregroundStyle(Theme.ink3)
                 .multilineTextAlignment(.center)
                 .padding(8)

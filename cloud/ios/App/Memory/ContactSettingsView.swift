@@ -87,7 +87,7 @@ struct ContactSettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("日子提醒")
                     Text(MemoryStore.Wording.remindOffNote(contact))
-                        .font(.caption)
+                        .font(AppFont.caption)
                         .foregroundStyle(.secondary)
                 }
             }

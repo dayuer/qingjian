@@ -12,7 +12,7 @@ struct MemoryFailureBanner: View {
             Label(text, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(ColorUsage.failureBanner.role.color)
             Button("再读一次", action: retry)
-                .font(.subheadline.weight(.medium))
+                .font(AppFont.subheadline.weight(.medium))
                 .foregroundStyle(ColorUsage.failureBanner.role.color)
         }
         .padding(.vertical, 4)

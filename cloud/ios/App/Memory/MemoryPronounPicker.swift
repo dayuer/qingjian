@@ -13,7 +13,7 @@ struct MemoryPronounPicker: View {
                     selection = choice
                 } label: {
                     Text(choice.title)
-                        .font(.system(size: 13))
+                        .font(AppFont.font(size: 13))
                         .padding(.horizontal, 13)
                         .frame(height: 32)
                         .foregroundStyle(on ? Color(.systemBackground) : ColorUsage.cardNotice.role.color)

@@ -9,7 +9,7 @@ struct CheckboxToggleStyle: ToggleStyle {
         } label: {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
-                    .font(.title3)
+                    .font(AppFont.title3)
                     .foregroundStyle(configuration.isOn ? ColorUsage.appLink.role.color : Color.secondary)
                 configuration.label
                     .foregroundStyle(.primary)

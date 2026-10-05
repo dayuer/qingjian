@@ -49,6 +49,8 @@ struct RootView: View {
             wasInBackground = false
             Task { await memory.reload() }
         }
+        // 没显式指定字体的 Text 也用 MiSans；挂在最外层，引导的全屏盖与各页弹层一并继承
+        .environment(\.font, AppFont.body)
     }
 
     @ViewBuilder
