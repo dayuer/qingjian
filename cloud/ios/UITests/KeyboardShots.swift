@@ -9,7 +9,7 @@
 // （已比对 kbd-empty 与 kbd-kaoshi），所以这些坐标可以写死。设备像素 ÷3 得 pt。
 //
 // 前提：素笺键盘已加进键盘列表、且「允许完全访问」已开（见 EnableFullAccess），
-// 且 App Group 的 memory/ 里有对象与卡片（否则提示行没有内容可出）。
+// 且 App Group 的 memory/ 里有对象与卡片（否则提示行没有内容可出）：`UITests/seed/seed.py` 种的小美有「考试」这张卡。
 import XCTest
 
 final class KeyboardShots: XCTestCase {

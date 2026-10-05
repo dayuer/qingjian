@@ -1,6 +1,6 @@
 // 通讯录（设计稿 02 的 2b）的截图走查：列表、展开一个人的记忆卡、搜索中。
 // 截图走 XCUITest 的 attachment，跑完用 xcresulttool 导出；深色另跑一次（先 `simctl ui <设备> appearance dark`）。
-// 数据由 /private/tmp/seed-contacts.py 种进 App Group，跑完删掉。
+// 数据由 `UITests/seed/seed.py` 种进 App Group（见 UITests/README.md），跑完 `--clean` 清掉。
 
 import XCTest
 

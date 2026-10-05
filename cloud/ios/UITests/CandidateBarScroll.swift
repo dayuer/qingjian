@@ -38,17 +38,7 @@ final class CandidateBarScroll: XCTestCase {
 
     /// key 在三行里的中心 x（pt）。`row` 取 0/1/2。
     private func x(_ key: Character, row: Int) -> CGFloat {
-        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
-        let letters = Array(rows[row])
-        guard let index = letters.firstIndex(of: key) else { return 0 }
-        // 每行字母键的起点与间距：三行的键宽都是 unit，行内间距都是 keySpacing
-        let unit = (390 - 4 * 2 - 6.3 * 9) / 10
-        let starts: [CGFloat] = [
-            4,  // qwerty：无两端功能键，从边距起
-            4 + unit * 1.36 + 6.3 + (280.92 - (unit * 9 + 6.3 * 8)) / 2,  // asdf：⇧ 之后居中
-            4 + unit * 1.36 + 6.3 + (280.92 - (unit * 7 + 6.3 * 6)) / 2,  // zxcv：⇧ 之后居中
-        ]
-        return starts[row] + CGFloat(index) * (unit + 6.3) + unit / 2
+        KeyGeometry.centerX(key, row: row) ?? 0
     }
 
     private func typeKey(_ app: XCUIApplication, _ key: Character) {

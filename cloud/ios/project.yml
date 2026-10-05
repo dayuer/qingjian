@@ -111,7 +111,10 @@ targets:
   QingjianCloudUITests:
     type: bundle.ui-testing
     platform: iOS
-    sources: [UITests]
+    sources:
+      # 种数据脚本与说明不进测试包
+      - path: UITests
+        excludes: ["seed/**", "README.md"]
     dependencies:
       - target: QingjianCloud
     settings:
