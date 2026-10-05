@@ -248,6 +248,7 @@ fn legacy_qj_umlaut_keys_remain_queryable() {
         ]),
         total_frequency: 190,
         metadata: None,
+        text_totals: OnceLock::new(),
     };
     let dir = std::env::temp_dir().join("qingjian-dictionary-tests");
     std::fs::create_dir_all(&dir).unwrap();
@@ -270,4 +271,13 @@ fn legacy_qj_umlaut_keys_remain_queryable() {
     assert_eq!(texts(&dictionary.lookup(&["lve"], false)), ["略"]);
     assert_eq!(texts(&dictionary.lookup(&["nue"], false)), ["虐"]);
     assert_eq!(texts(&dictionary.lookup(&["nve"], false)), ["虐"]);
+}
+
+#[test]
+fn text_frequency_sums_every_reading_of_a_text() {
+    let dictionary =
+        Dictionary::parse("和\the\t900\n和\thuo\t30\n亩\tmu\t10\n木\tmu\t300\n").unwrap();
+    assert_eq!(dictionary.text_frequency("和"), 930);
+    assert_eq!(dictionary.text_frequency("亩"), 10);
+    assert_eq!(dictionary.text_frequency("没有的词"), 0);
 }
