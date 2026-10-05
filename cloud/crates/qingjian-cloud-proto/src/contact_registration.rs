@@ -2,9 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::Scene;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContactRegistration {
-    pub scene: Scene,
+    /// 场景 id，同 `MemoryItem::scene`。
+    pub scene: String,
 }

@@ -3,23 +3,35 @@
 use qingjian_cloud_proto::{
     Consents, ContactRegistration, Feature, MAX_MEMORY_ITEMS, MAX_MEMORY_TEXT_BYTES,
     MemoryAccepted, MemoryItem, MemoryKind, MemoryPush, PATH_MEMORY_CONTACTS,
-    PATH_MEMORY_MATERIALS, PATH_MEMORY_PROCESSOR, ProcessorInfo, Scene,
+    PATH_MEMORY_MATERIALS, PATH_MEMORY_PROCESSOR, ProcessorInfo,
 };
 use serde_json::json;
 
 #[test]
-fn scene_and_kind_are_lowercase() {
-    assert_eq!(serde_json::to_value(Scene::Daily).unwrap(), json!("daily"));
+fn scene_is_a_free_id_and_old_names_still_parse() {
+    // 场景改成用户自建后只是一个 id；老客户端发的三个固定名照样能解。
+    for old in ["daily", "dating", "work"] {
+        let registration: ContactRegistration =
+            serde_json::from_value(json!({ "scene": old })).unwrap();
+        assert_eq!(registration.scene, old);
+        let item: MemoryItem = serde_json::from_value(json!({
+            "client_id": "c1", "contact_id": null, "scene": old, "kind": "note",
+            "text": "她不吃香菜", "at": 1_760_000_000
+        }))
+        .unwrap();
+        assert_eq!(item.scene, old);
+    }
+    let hex = "0f3a9c2be4d1477f8a6b5c0d9e8f7a61";
+    let registration: ContactRegistration =
+        serde_json::from_value(json!({ "scene": hex })).unwrap();
     assert_eq!(
-        serde_json::to_value(Scene::Dating).unwrap(),
-        json!("dating")
+        serde_json::to_value(&registration).unwrap(),
+        json!({ "scene": hex })
     );
-    assert_eq!(serde_json::to_value(Scene::Work).unwrap(), json!("work"));
-    assert_eq!(
-        serde_json::from_value::<Scene>(json!("work")).unwrap(),
-        Scene::Work
-    );
-    assert!(serde_json::from_value::<Scene>(json!("Work")).is_err());
+}
+
+#[test]
+fn kind_is_lowercase() {
     assert_eq!(
         serde_json::to_value(MemoryKind::Sent).unwrap(),
         json!("sent")
@@ -51,7 +63,7 @@ fn memory_push_matches_the_spec_example() {
         MemoryItem {
             client_id: "c1".to_owned(),
             contact_id: Some("k1".to_owned()),
-            scene: Scene::Dating,
+            scene: "dating".to_owned(),
             kind: MemoryKind::Sent,
             text: "晚上一起吃饭吗".to_owned(),
             at: 1_760_000_000,
@@ -76,7 +88,7 @@ fn responses_and_registration_round_trip() {
 
     let registration: ContactRegistration =
         serde_json::from_value(json!({ "scene": "dating" })).unwrap();
-    assert_eq!(registration.scene, Scene::Dating);
+    assert_eq!(registration.scene, "dating");
     assert_eq!(
         serde_json::to_value(&registration).unwrap(),
         json!({ "scene": "dating" })
