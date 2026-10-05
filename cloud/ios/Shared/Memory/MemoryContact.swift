@@ -18,6 +18,9 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
 
     var pronoun: MemoryPronoun
 
+    /// 这个人改写时用哪个技能（技能包 id）；nil = 用设置里的默认。旧文件没有这个字段。
+    var skill: String?
+
     /// 置顶的时间（Unix 秒）：键盘上先摆置顶的人，全局最多 4 个；nil 就是没置顶。
     var pinnedAt: Int64?
 
@@ -30,7 +33,7 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
     var remindOn = true
 
     enum CodingKeys: String, CodingKey {
-        case id, name, initial, pronoun
+        case id, name, initial, pronoun, skill
         case displayName = "display_name"
         case pinnedAt = "pinned_at"
         case createdAt = "created_at"
@@ -69,6 +72,7 @@ extension MemoryContact {
             displayName: try container.decodeIfPresent(String.self, forKey: .displayName),
             initial: try container.decodeIfPresent(String.self, forKey: .initial),
             pronoun: try container.decodeIfPresent(MemoryPronoun.self, forKey: .pronoun) ?? .ta,
+            skill: try container.decodeIfPresent(String.self, forKey: .skill),
             pinnedAt: try container.decodeIfPresent(Int64.self, forKey: .pinnedAt),
             createdAt: try container.decode(Int64.self, forKey: .createdAt),
             hintOn: try container.decodeIfPresent(Bool.self, forKey: .hintOn) ?? true,

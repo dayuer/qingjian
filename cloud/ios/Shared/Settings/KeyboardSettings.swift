@@ -1,4 +1,5 @@
-// 设置页的数据：与桥的 `Settings`（JSON）一一对应，字段名经 snake_case 转换。
+// 设置的数据：与桥的 `Settings`（JSON）一一对应，字段名经 snake_case 转换。App 的键盘设置页与键盘共用
+// （键盘改全局默认技能时也要整份读出来再写回，缺字段会让桥拒掉）。
 
 import Foundation
 
@@ -22,6 +23,9 @@ struct KeyboardSettings: Codable, Equatable {
     var domains: [DomainOption]
 
     var phrases: [Phrase]
+
+    /// 改写用的默认技能（技能包 id）；某个人身上指定了就用他的。设置页里没有这一项，改由键盘上的技能排写。
+    var rewriteSkill: String
 }
 
 struct SchemeChoice: Codable, Equatable, Hashable {

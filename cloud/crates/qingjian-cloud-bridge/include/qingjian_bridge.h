@@ -171,6 +171,10 @@ char *qj_memory_contact_skill(const char *user_dir, const char *contact_id);
 // （invalid：技能编号不对或名单上没有这个人；lock_timeout / io）。
 char *qj_memory_contact_skill_set(const char *user_dir, const char *contact_id,
                                   const char *skill_id);
+// App 用：读 skills_dir 下随包的改写技能（App 包里那份，由 cloud/ios/project.yml 把 assets/skills 打成 skills/）：
+// JSON 数组 [{"id","name","summary"}]，按 order 排（与 qj_rewrite_skills 同形，只是读的是另一个目录）；
+// 提示词不下发到壳里；目录里一个都没有或参数无效时为 NULL。App 只用来列出技能名（改写本身在键盘里）。
+char *qj_skills(const char *skills_dir);
 
 void qj_string_free(char *text);
 

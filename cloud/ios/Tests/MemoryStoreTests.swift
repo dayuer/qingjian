@@ -1,4 +1,4 @@
-// App 侧「键盘记住的事」的数据层：本周挑卡、写回冲突的三方合并、导出文本，每条写入失败路径（容器拿不到、
+// App 侧「键盘记住的事」的数据层：本周挑卡、写回冲突的三方合并、导出文本、按人指定改写技能，每条写入失败路径（容器拿不到、
 // 读不出、锁超时、冲突、桥报错、忘掉只做了一半）都落成界面上能显示的中文，以及后台写时的「保存中」与重复提交。桥用假的 MemoryBackend 代替。
 
 import Foundation
@@ -45,6 +45,8 @@ final class MemoryStoreTests: XCTestCase {
 
         private var _wroteOnMain = false
 
+        private var _skills: [Skill] = []
+
         var gate: DispatchSemaphore?
 
         init(disk: MemorySnapshot?) { _disk = disk }
@@ -71,6 +73,11 @@ final class MemoryStoreTests: XCTestCase {
 
         var wroteOnMain: Bool { locked { _wroteOnMain } }
 
+        var skills: [Skill] {
+            get { locked { _skills } }
+            set { locked { _skills = newValue } }
+        }
+
         var backend: MemoryBackend {
             MemoryBackend(
                 read: { _ in
@@ -88,7 +95,8 @@ final class MemoryStoreTests: XCTestCase {
                         if result == nil { self._disk = snapshot }
                         return result
                     }
-                })
+                },
+                skills: { self.locked { self._skills } })
         }
     }
 
@@ -163,6 +171,25 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertEqual(MemoryStore.Wording.pinLimit(), "最多置顶 4 个人")
         XCTAssertEqual(MemoryStore.Wording.pinNote(0), "键盘上会先摆置顶的人（最多 4 个）")
         XCTAssertEqual(MemoryStore.Wording.pinNote(2), "已经置顶 2 / 4 个")
+    }
+
+    // 技能与「这个人改写用哪个技能」
+
+    func testSkillsAndContactSkill() async {
+        let bridge = FakeBridge(disk: sampleSnapshot())
+        bridge.skills = [
+            Skill(id: "polish", name: "润色", summary: ""),
+            Skill(id: "tactful", name: "高情商", summary: ""),
+        ]
+        let store = await store(bridge)
+        XCTAssertEqual(store.skills.map(\.id), ["polish", "tactful"])
+
+        await store.setContactSkill(contactId, "tactful")
+        XCTAssertEqual(store.contact(contactId)?.skill, "tactful")
+        XCTAssertEqual(bridge.writes.last?.contacts.first?.skill, "tactful", "写回磁盘（跟着人走）")
+
+        await store.setContactSkill(contactId, nil)
+        XCTAssertNil(store.contact(contactId)?.skill, "清掉就是回到默认")
     }
 
     func testBadCardErrorFromBridgeIsShownAsIs() {
