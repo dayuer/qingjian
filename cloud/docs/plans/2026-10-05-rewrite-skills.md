@@ -46,8 +46,7 @@
   system message = 技能提示词（有词表时再接一句「尽量自然地用上这些说法：…（不合适就不用）」）；
   `Rewriter::start(&self, text, skill_id: Option<&str>)`，id 认不得时回退默认。
 - [ ] `session/mod.rs`：`Session::open` 读技能列表（随包的 `data_dir/skills`）交给 `Rewriter`。
-- [ ] 测试：临时目录放两个 TOML → 顺序与字段对；id 认不得回退默认；坏文件跳过；`body()` 的 system message 含提示词与词表；
-  用户包的写 / 读 / 删往返与校验（空名字、超长提示词、非法 id 都拒）。
+- [ ] 测试：临时目录放两个 TOML → 顺序与字段对；id 认不得回退默认；坏文件跳过；`body()` 的 system message 含提示词与词表；随包技能文件的校验（空名字、超长提示词、非法 id 都拒）。
 
 ## Task 2：C 接口与设置
 
