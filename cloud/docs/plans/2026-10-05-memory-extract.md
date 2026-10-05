@@ -1,5 +1,7 @@
 # 素笺 2A Task 10：记一笔的本地抽取、草稿卡与冲突（客户端实施计划）
 
+> **正式暂缓（2026-10-05 审计会话定）**：用户改为原话存成素材、由素笺云的大模型每日整理（[2026-10-05-note-materials.md](2026-10-05-note-materials.md)）；1e-2 / 1e-3 改为展示云端整理出的「待确认」卡，并入 2C Task 4。本文件留作参考。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > 审计会话「素笺输入法」2026-10-05 定的方案：本地规则、放在桥里（Rust，平台无关，可单测），免费版离线可用，不上传。本文件先发审计会话审，审过再动手；排在 2A Task 9 之后。
 
