@@ -55,7 +55,7 @@ final class DayEventsTests: XCTestCase {
 
     func testUnassignedLandsOnToday() {
         let now = MemoryDate.parse("2026-10-04")!
-        let note = card("u1", .other, "她不吃香菜")
+        let note = MemoryMaterial(clientId: "u1", text: "她不吃香菜", at: 0, source: .typed)
         let days = DayEvents.week(upcoming: [], unassigned: [note], now: now)
 
         XCTAssertTrue(days[0].hasEvents, "未归人的卡算在今天")

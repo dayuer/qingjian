@@ -40,6 +40,17 @@ unsafe extern "C" {
         contact_id: *const c_char,
         client_id: *const c_char,
     ) -> *mut c_char;
+    pub fn qj_memory_unassigned_materials(user_dir: *const c_char) -> *mut c_char;
+    pub fn qj_memory_unassigned_note(
+        user_dir: *const c_char,
+        text: *const c_char,
+        source: *const c_char,
+    ) -> *mut c_char;
+    pub fn qj_memory_assign_material(
+        user_dir: *const c_char,
+        client_id: *const c_char,
+        contact_id: *const c_char,
+    ) -> *mut c_char;
 }
 
 pub const CONTACT: &str = "0123456789abcdef0123456789abcdef";

@@ -220,6 +220,93 @@ pub unsafe extern "C" fn qj_memory_material_delete(
     }
 }
 
+/// App 用：**还没归到人的**素材 `{"unprocessed_count":n,"materials":[…]}`，与 [`qj_memory_materials`] 同形、
+/// 同样的「新的在上」；这些是首页「+ 记一条」先记下的，还没补上归给谁。参数无效或读不了时返回空指针。
+///
+/// # Safety
+/// `user_dir` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_unassigned_materials(user_dir: *const c_char) -> *mut c_char {
+    let Some(user_dir) = (unsafe { path_arg(user_dir) }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        let all = MemoryStore::open(Path::new(user_dir))
+            .unassigned_materials(now_unix())
+            .ok()?;
+        let mut pending: Vec<Material> = all.into_iter().filter(|m| !m.processed).collect();
+        // 先倒过来再稳定排序：同一秒切出来的几条按写入倒序，与整体「新的在上」一致
+        pending.reverse();
+        pending.sort_by_key(|m| std::cmp::Reverse(m.at));
+        Some(
+            serde_json::json!({
+                "unprocessed_count": unprocessed(&pending),
+                "materials": pending,
+            })
+            .to_string(),
+        )
+    })
+    .ok()
+    .flatten()
+    .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// App 用：首页「+ 记一条」——把一句话存成**不绑对象**的待整理素材，切段与上限跟键盘「记一笔」同一套。
+/// 成功返回空指针（与 [`qj_memory_note`] 一样，存下了什么都不用回；要看内容调 [`qj_memory_unassigned_materials`]）；
+/// 失败返回 `{"code","message"}`（`material_limit` 另带 `remaining` / `needed`、`invalid`、`lock_timeout`、`io`）。
+/// `source` 取 `clipboard` / `typed`，空指针或认不得时按 `typed`。
+///
+/// # Safety
+/// `user_dir`、`text` 为有效 UTF-8 C 字符串，`source` 可为空指针。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_unassigned_note(
+    user_dir: *const c_char,
+    text: *const c_char,
+    source: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(text)) = (unsafe { path_arg(user_dir) }, unsafe { path_arg(text) })
+    else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let source = unsafe { path_arg(source) }.map_or(MaterialSource::Typed, MaterialSource::parse);
+    let added = catch_unwind(|| {
+        MemoryStore::open(Path::new(user_dir)).add_unassigned_material(text, source, now_unix())
+    });
+    match added {
+        Ok(Ok(_)) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("记一条时出错").to_json()),
+    }
+}
+
+/// App 用：「补上」——把无主桶里的一条素材归到某个人名下（写进那个人的 `materials.jsonl`）。
+/// 成功返回空指针；失败返回 `{"code","message"}`（`invalid`：人或素材不在，以及 `lock_timeout` / `io`）。
+///
+/// # Safety
+/// 三个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_assign_material(
+    user_dir: *const c_char,
+    client_id: *const c_char,
+    contact_id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(client_id), Some(contact_id)) = (
+        unsafe { path_arg(user_dir) },
+        unsafe { path_arg(client_id) },
+        unsafe { path_arg(contact_id) },
+    ) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let assigned = catch_unwind(|| {
+        MemoryStore::open(Path::new(user_dir)).assign_material(client_id, contact_id, now_unix())
+    });
+    match assigned {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("归人时出错").to_json()),
+    }
+}
+
 /// 键盘里在 `scene` 新建一个对象。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
 /// （`contact_limit`：这个场景已满 8 个；`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
 /// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`；`scene` 为空指针或认不得时用会话当前的场景。

@@ -11,13 +11,13 @@ enum DayEvent: Identifiable, Equatable {
     /// 某个人的日子或约定。
     case person(MemoryUpcoming)
 
-    /// 还没归到人的一张卡（首页「+ 记一条」先记下的）。
-    case unassigned(MemoryCard)
+    /// 还没归到人的一条素材（首页「+ 记一条」先记下的原话）。
+    case unassigned(MemoryMaterial)
 
     var id: String {
         switch self {
         case .person(let item): item.card.id
-        case .unassigned(let card): card.id
+        case .unassigned(let material): material.clientId
         }
     }
 
@@ -25,7 +25,7 @@ enum DayEvent: Identifiable, Equatable {
     var title: String {
         switch self {
         case .person(let item): item.title
-        case .unassigned(let card): card.text
+        case .unassigned(let material): material.text
         }
     }
 
@@ -103,10 +103,10 @@ enum DayEvents {
     ///
     /// - Parameters:
     ///   - upcoming: `MemoryStore.upcoming(within: 6)` 的结果（按 days 排序）。
-    ///   - unassigned: 「还没归到人的」卡，全部落在今天。
+    ///   - unassigned: 「还没归到人的」素材，全部落在今天。
     ///   - now: 注入「今天」，好让单测固定。
     static func week(
-        upcoming: [MemoryUpcoming], unassigned: [MemoryCard] = [], now: Date = Date()
+        upcoming: [MemoryUpcoming], unassigned: [MemoryMaterial] = [], now: Date = Date()
     ) -> [DaySlot] {
         let calendar = MemoryDate.calendar
         let today = calendar.startOfDay(for: now)
