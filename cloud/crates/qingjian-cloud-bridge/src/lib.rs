@@ -36,7 +36,9 @@ pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
     ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
 };
-pub use self::session::{DroppedNotes, Session};
+pub use self::session::{
+    DroppedNotes, MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING, Session,
+};
 pub use self::settings::{DomainSetting, SchemeOption, Settings};
 
 /// 打开会话；`user_dir` 可为空（只在内存里学习），`config` 为空时用 `user_dir` 下的 `config.toml`，
@@ -257,7 +259,55 @@ pub unsafe extern "C" fn qj_set_context(
 /// 同 [`qj_push`]。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_poll(session: *mut Session) -> bool {
-    with(session, false, Session::poll)
+    with(session, false, |s| {
+        s.attach_loaded_model();
+        s.poll()
+    })
+}
+
+/// 开始异步加载本地神经整句模型（含章·通变）。已在加载或在用返回 `false`；加载失败不影响会话，
+/// 结果看 [`qj_model_state`]。加载在后台线程（预热几百毫秒），完成前查询照常。
+///
+/// # Safety
+/// 同 [`qj_push`]；`path` 是以 NUL 结尾的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_load_model(
+    session: *mut Session,
+    path: *const c_char,
+    p2c: bool,
+) -> bool {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return false;
+    };
+    with(session, false, |s| s.load_model(Path::new(path), p2c))
+}
+
+/// 模型状态：0 未加载 / 1 加载中 / 2 在用 / 3 上次失败。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_model_state(session: *mut Session) -> u8 {
+    with(session, session::MODEL_IDLE, Session::model_state)
+}
+
+/// 卸载本地模型（内存吃紧时腾地方），状态回未加载；之后可以再 [`qj_load_model`]。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_unload_model(session: *mut Session) {
+    with(session, (), Session::unload_model);
+}
+
+/// 模型自报的内存占用（MB）；没加载返回 0。调试面板显示用。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_model_memory_mb(_session: *mut Session) -> f64 {
+    // 模型侧还没有自报尺寸的接口，先给 0 占位；不阻塞加载 / 卸载主线
+    0.0
 }
 
 /// 配了青简 Cloud（大模型或同步至少开了一样）。

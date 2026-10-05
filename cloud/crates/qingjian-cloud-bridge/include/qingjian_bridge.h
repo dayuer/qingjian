@@ -38,6 +38,14 @@ void qj_flush(QjSession *session);
 void qj_set_context(QjSession *session, const char *before, const char *after);
 bool qj_poll(QjSession *session);
 bool qj_cloud_enabled(QjSession *session);
+
+// 本地神经整句模型（含章·通变）。加载在后台线程（预热几百毫秒），完成前查询照常；
+// 接上后停键的整句重打分生效。state：0 未加载、1 加载中、2 在用、3 上次失败。
+bool qj_load_model(QjSession *session, const char *path, bool p2c);
+uint8_t qj_model_state(QjSession *session);
+void qj_unload_model(QjSession *session);
+// 模型自报的内存占用（MB）；没加载返回 0。调试面板显示用。
+double qj_model_memory_mb(QjSession *session);
 // 素材会被整理：path（cloud.toml）里有服务器地址和登录令牌，并且同意了「记忆」（memory = true），不联网；
 // 文件不在、没登录、没同意或参数无效为 false。App 的「待整理」引导与键盘记一笔的 toast 按它判断。
 bool qj_memory_cloud_ready(const char *path);

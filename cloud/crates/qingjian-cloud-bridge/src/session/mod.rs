@@ -5,6 +5,7 @@
 mod cloud;
 mod config;
 mod memory;
+mod model;
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +16,9 @@ use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
 use self::memory::LiveMemory;
+use self::model::ModelState;
+
+pub use self::model::{MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING};
 
 pub use self::memory::DroppedNotes;
 use crate::clipboard::Clipboard;
@@ -63,6 +67,9 @@ pub struct Session {
 
     /// 本地记忆；没有学习数据目录（只在内存里学）时为 `None`，学习器也就不分区。
     memory: Option<LiveMemory>,
+
+    /// 本地神经整句模型的加载状态（见 `model` 模块）。
+    model: ModelState,
 }
 
 impl Session {
@@ -126,6 +133,7 @@ impl Session {
             dicts_dir: data_dir.join("dicts"),
             cloud: cloud.clone(),
             memory,
+            model: ModelState::default(),
         };
         session.reload_config();
         if let Some(cloud) = cloud {
@@ -146,6 +154,30 @@ impl Session {
 
     pub fn entries(&self) -> &[Entry] {
         &self.entries
+    }
+
+    /// 开始异步加载本地神经整句模型（含章·通变）；已在加载或在用返回 `false`。
+    pub fn load_model(&mut self, path: &Path, p2c: bool) -> bool {
+        self.model.load(path, p2c)
+    }
+
+    /// 模型状态（[`MODEL_IDLE`] 等四个取值）；顺带取加载线程的结果。
+    pub fn model_state(&mut self) -> u8 {
+        self.attach_loaded_model();
+        self.model.state()
+    }
+
+    /// 卸载本地模型：重打分停用，状态回未加载。内存吃紧时腾地方。
+    pub fn unload_model(&mut self) {
+        self.engine.set_async_sentence_scorer(None);
+        self.model.unload();
+    }
+
+    /// 加载线程出了结果就接上引擎；接上后下一次查询起整句带重打分。
+    pub(crate) fn attach_loaded_model(&mut self) {
+        if let Some(scorer) = self.model.poll() {
+            self.engine.set_async_sentence_scorer(Some(scorer));
+        }
     }
 
     pub fn push(&mut self, c: char) {
