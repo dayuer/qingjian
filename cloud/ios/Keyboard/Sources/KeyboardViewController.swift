@@ -20,6 +20,12 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 展开的候选面板（UIKit，见 `syncPanel`）。
     private let panelView = CandidatePanelView()
 
+    /// 候选栏里横向滚动的那一行（UIKit，见 `syncBar`）：SwiftUI 的 ScrollView 在键盘扩展里收不到滑动。
+    private let barView = CandidateBarView()
+
+    /// 上一次的拼音：变了就把候选栏滚回开头（云端词插进来时不算变，别跳）。
+    private var lastPreedit = ""
+
     /// 键盘可见期间每 0.25 秒一次：大模型候选、润色结果、别的设备的学习数据都靠它取回。
     private var pollTimer: Timer?
 
@@ -46,6 +52,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         mountKeyboard()
         mountTouchView()
         syncHintRow()
+        syncBar()
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
@@ -57,8 +64,11 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         touchView.frame = view.bounds
         touchView.keyArea = keyArea
         panelView.frame = keyArea
+        barView.frame = CGRect(
+            x: 0, y: hintInset, width: view.bounds.width, height: KeyStyle.candidateBarHeight)
         syncTouchView()
         syncPanel()
+        syncBar()
     }
 
     /// 屏幕左右边缘的触摸会被系统边缘手势压住（a、l 慢半拍或丢）：要我们先处理。iOS 在视图切换时会重置，所以 viewWillAppear 再要一次。
@@ -238,7 +248,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         }
         // 面板在触摸层下面：展开时触摸层不认键区的触摸，面板自己收
         panelView.onSelect = { model.selectCandidate($0) }
+        barView.onSelect = { model.selectCandidate($0) }
         view.addSubview(panelView)
+        // 候选栏也在触摸层下面：触摸层的 hitTest 只认键区与 ⌄，候选栏那一条会穿透下来，滑动与点击都归它
+        view.addSubview(barView)
         view.addSubview(touchView)
     }
 
@@ -275,6 +288,23 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         }
         panelView.isHidden = panel != .candidates
         panelView.candidates = candidates
+    }
+
+    /// 候选栏里横向滚动的那一行。组字时显示；对象卡与选择面板打开时藏起来（那一行换成它们的工具栏）。
+    /// 位置跟着提示行走（提示行出现时候选栏往下挪一行），所以 viewDidLayoutSubviews 里也重设一次 frame。
+    private func syncBar() {
+        let (composing, panel, candidates, accentFirst, preedit) = withObservationTracking {
+            (model.composing, model.panel, model.candidates, model.accentFirstCandidate, model.preedit)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.syncBar() }
+        }
+        // 展开面板与候选栏是同一套样式，首选那个的强调色一起同步
+        panelView.accentFirst = accentFirst
+        barView.isHidden = !(composing && panel != .contactCard && panel != .scope)
+        // 拼音变了从头显示；只是云端词插进来时别跳
+        let fromStart = preedit != lastPreedit
+        lastPreedit = preedit
+        barView.show(candidates, accentFirst: accentFirst, fromStart: fromStart)
     }
 
     /// 提示行出现与收起时（hasHintRow）键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在

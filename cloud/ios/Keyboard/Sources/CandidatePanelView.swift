@@ -15,6 +15,14 @@ final class CandidatePanelView: UIView {
     /// 点了第几个候选。
     var onSelect: ((Int) -> Void)?
 
+    /// 首选用强调色（与候选栏同一个来源：`KeyboardModel.accentFirstCandidate`）。
+    var accentFirst = false {
+        didSet {
+            guard accentFirst != oldValue else { return }
+            collection.reloadData()
+        }
+    }
+
     private let collection: UICollectionView
 
     override init(frame: CGRect) {
@@ -50,7 +58,9 @@ extension CandidatePanelView: UICollectionViewDataSource, UICollectionViewDelega
         let cell = collectionView.dequeueReusableCell(
             withReuseIdentifier: CandidateCellView.identifier, for: indexPath)
         if let cell = cell as? CandidateCellView {
-            cell.show(candidates[indexPath.item], highlighted: indexPath.item == 0)
+            cell.show(
+                candidates[indexPath.item], highlighted: indexPath.item == 0,
+                accent: indexPath.item == 0 && accentFirst)
         }
         return cell
     }

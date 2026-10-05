@@ -23,7 +23,8 @@ SwiftUI 只画键，触摸由盖在键区上的 UIKit 视图 `KeyTouchView` 统�
 - **屏幕左右边缘**：`preferredScreenEdgesDeferringSystemGestures` 加上 `viewDidAppear` 里关掉窗口链上识别器的 `delaysTouchesBegan`，a、l 才不会被系统边缘手势压住；只在真机复现。
 - 被系统取消的触摸也按抬起出字：用户确实按了这个键。
 - 候选栏的 ⌄ 也走这层（SwiftUI 的手势在那个位置常吞短点击）；展开面板时触摸层清空格子，面板自己收触摸。
-- **SwiftUI 的 ScrollView 在键盘扩展里滑不动**（展开面板、候选栏那条横向的都试过），滚动的面要用 UIKit。
+- 候选栏那一行**只有 ⌄ 归触摸层**：其余部分 `hitTest` 返回 nil，穿透到下面 UIKit 的 `CandidateBarView`，滑动与点候选都归它。
+- **SwiftUI 的 ScrollView 在键盘扩展里滑不动**（展开面板、候选栏那条横向的都试过），滚动的面一律用 UIKit：面板是 `CandidatePanelView`、候选栏是 `CandidateBarView`，都挂在触摸层下面。
 - 没按行做「手指重心偏下」的命中偏移：真机数据里 n 反而常被打成上面的 j，偏移只会更糟。
 
 ## 构建
