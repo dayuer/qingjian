@@ -1,7 +1,10 @@
 # 人 + 技能包：去掉场景，改写技能跟着人走
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-> 审计会话给出的**任务大纲**，2026-10-05 在原地展开成逐步代码与命令（**展开前核实**那一节记的是当时查到的现状）。先发审计会话「素笺输入法」审过再动手。
+> **For agentic workers:** 这份是**需求、要清掉的清单与验收标准**，不是逐步计划。
+> 逐步代码与命令拆成两份，各自能独立交付：
+> **[① 去掉场景](2026-10-05-remove-scenes.md)**（先做，做完就是一个能跑的版本）→
+> **[② 改写技能包](2026-10-05-rewrite-skills.md)**（在它之上）。
+> 两份都已按 writing-plans 展开；开工前先发审计会话「素笺输入法」审过。
 
 **Goal:** 键盘上只剩两件事——**左边切人、右边切技能**。为此**把「场景」整个去掉**（人是一张平铺的名单），
 并把「改写」从一份写死的提示词改成**可切换的技能包**，**每个人可以指定一个**（不指定就用全局默认）。
@@ -54,7 +57,7 @@
 
 **验收就一条**：实现完之后 `grep -rn "场景\|scene" cloud/`（排除 `cloud/design/` 设计稿快照、
 `docs/plans/2026-10-05-*.md` 这类「记作废」的历史文档、以及 `@Environment(\.scenePhase)`）
-**没有功能性引用了**。下面按文件分组列清楚。
+**没有功能性引用了**。下面按文件分组列清楚；**逐条怎么改在 [① 去掉场景](2026-10-05-remove-scenes.md) 的 Task 1–9 里**。
 
 ### 桥
 
