@@ -6,7 +6,7 @@ import XCTest
 
 final class ContactIndexTests: XCTestCase {
     private func contact(
-        _ name: String, initial: String? = nil, scene: String = MemoryScope.dating, displayName: String? = nil
+        _ name: String, initial: String? = nil, scene: String = "dating", displayName: String? = nil
     ) -> MemoryContact {
         MemoryContact(
             id: name, name: name, displayName: displayName, initial: initial, pronoun: .taF,
@@ -62,23 +62,25 @@ final class ContactIndexTests: XCTestCase {
     func testSearchMatchesNameDisplayNameAndScene() {
         let contacts = [
             contact("小美", initial: "X"), contact("阿林", initial: "A", displayName: "林林"),
-            contact("老板", initial: "L", scene: MemoryScope.work),
+            contact("老板", initial: "L", scene: "work"),
         ]
-        XCTAssertEqual(ContactIndex.search(contacts, text: "美").map(\.name), ["小美"])
-        XCTAssertEqual(ContactIndex.search(contacts, text: "林林").map(\.name), ["阿林"], "代号也认")
-        XCTAssertEqual(ContactIndex.search(contacts, text: "工作").map(\.name), ["老板"], "场景名也认")
-        XCTAssertEqual(ContactIndex.search(contacts, text: "小美").map(\.name), ["小美"])
+        let name = { (scene: String) in scene == "work" ? "工作" : "日常" }
+        XCTAssertEqual(ContactIndex.search(contacts, text: "美", sceneName: name).map(\.name), ["小美"])
+        XCTAssertEqual(ContactIndex.search(contacts, text: "林林", sceneName: name).map(\.name), ["阿林"], "代号也认")
+        XCTAssertEqual(ContactIndex.search(contacts, text: "工作", sceneName: name).map(\.name), ["老板"], "场景名也认")
+        XCTAssertEqual(ContactIndex.search(contacts, text: "小美", sceneName: name).map(\.name), ["小美"])
     }
 
     func testSearchIgnoresCaseAndSurroundingSpace() {
         let contacts = [contact("Alice", initial: "A")]
-        XCTAssertEqual(ContactIndex.search(contacts, text: "alice").count, 1)
-        XCTAssertEqual(ContactIndex.search(contacts, text: "  ALI  ").count, 1)
+        let name = { (_: String) in "日常" }
+        XCTAssertEqual(ContactIndex.search(contacts, text: "alice", sceneName: name).count, 1)
+        XCTAssertEqual(ContactIndex.search(contacts, text: "  ALI  ", sceneName: name).count, 1)
     }
 
     func testEmptySearchKeepsEveryone() {
         let contacts = [contact("小美", initial: "X")]
-        XCTAssertEqual(ContactIndex.search(contacts, text: "   ").count, 1)
+        XCTAssertEqual(ContactIndex.search(contacts, text: "   ", sceneName: { _ in "日常" }).count, 1)
     }
 
     func testSearchPromptCountsPeople() {

@@ -1,11 +1,11 @@
-// 键盘与 App 共用的记忆模型：桥 JSON 解码、上限、日子换算、提示行与牌子的显示判断、换输入框判断。
+// 键盘与 App 共用的记忆模型：桥 JSON 解码、长度上限、日子换算、提示行与牌子的显示判断。
 
 import XCTest
 @testable import QingjianCloud
 
 final class MemoryModelTests: XCTestCase {
     private func contact(_ name: String = "小美") -> MemoryContact {
-        MemoryContact.new(name: name, pronoun: .taF)
+        MemoryContact.new(name: name, pronoun: .taF, scene: "daily")
     }
 
     private func date(_ text: String) throws -> Date { try XCTUnwrap(MemoryDate.parse(text)) }
@@ -93,9 +93,7 @@ final class MemoryModelTests: XCTestCase {
     func testScopeDecodes() throws {
         let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
         XCTAssertEqual(scope, MemoryScope(scene: "work", contactId: nil))
-        XCTAssertEqual(MemoryScope.title(of: "dating"), "恋爱")
-        XCTAssertEqual(MemoryScope.title(of: "work"), "工作")
-        XCTAssertEqual(MemoryScope.title(of: "daily"), "日常")
+        XCTAssertEqual(MemoryScene(id: "a", name: "家人", createdAt: 1).name, "家人", "场景名就是用户起的那串字")
     }
 
     func testHintDecodes() throws {
@@ -179,24 +177,21 @@ final class MemoryModelTests: XCTestCase {
 
     // MARK: 提示行、牌子、面板
 
-    func testHintRowForDatingAndDailyButNotWork() {
-        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasHint: true, hasNoteBar: false))
-        XCTAssertTrue(ScopeDisplay.hasHintRow(scene: "daily", hasContact: true, hasHint: true, hasNoteBar: false))
+    func testHintRowForEveryScene() {
+        XCTAssertTrue(ScopeDisplay.hasHintRow(hasContact: true, hasHint: true, hasNoteBar: false))
         XCTAssertFalse(
-            ScopeDisplay.hasHintRow(scene: "dating", hasContact: true, hasHint: false, hasNoteBar: false),
+            ScopeDisplay.hasHintRow(hasContact: true, hasHint: false, hasNoteBar: false),
             "没有提示就不占行，不留空行")
         XCTAssertFalse(
-            ScopeDisplay.hasHintRow(scene: "dating", hasContact: false, hasHint: true, hasNoteBar: false), "不指定没有提示行")
-        XCTAssertFalse(ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasHint: true, hasNoteBar: false), "工作不出提示")
+            ScopeDisplay.hasHintRow(hasContact: false, hasHint: true, hasNoteBar: false), "不指定没有提示行")
         XCTAssertTrue(
-            ScopeDisplay.hasHintRow(scene: "work", hasContact: true, hasHint: false, hasNoteBar: true), "记一笔三个场景都能用")
+            ScopeDisplay.hasHintRow(hasContact: true, hasHint: false, hasNoteBar: true), "记一笔能用")
         XCTAssertTrue(
-            ScopeDisplay.hasHintRow(scene: "work", hasContact: false, hasHint: false, hasNoteBar: true), "工作里也能起名字")
+            ScopeDisplay.hasHintRow(hasContact: false, hasHint: false, hasNoteBar: true), "没选人也能起名字")
     }
 
     func testChipHalves() {
-        XCTAssertEqual(ScopeDisplay.chipScene("dating"), "恋爱")
-        XCTAssertEqual(ScopeDisplay.chipScene("work"), "工作")
+        XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
         XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
         XCTAssertEqual(ScopeDisplay.chipPerson(nil), "不指定")
     }

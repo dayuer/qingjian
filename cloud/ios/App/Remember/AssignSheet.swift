@@ -30,7 +30,7 @@ struct AssignSheet: View {
                 }
                 ForEach(store.groups) { group in
                     if !group.people.isEmpty {
-                        Section(group.title) {
+                        Section(group.name) {
                             ForEach(group.people) { contact in
                                 Button {
                                     Task {
@@ -42,7 +42,7 @@ struct AssignSheet: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         MemoryAvatar(
-                                            name: contact.name, size: 34, scene: contact.scene)
+                                            name: contact.name, size: 34)
                                         Text(contact.name).foregroundStyle(Theme.ink)
                                         Spacer()
                                     }

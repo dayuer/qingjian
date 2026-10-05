@@ -1,4 +1,5 @@
-// 每个场景各一组人：分组与人数、各场景上次选的人与上次用的时间、切场景的参数、哪些场景出提醒，以及牌子、快速切人、面板格子、首选候选与工作场景的中性色。
+// 场景与分组：每个场景一组人、各场景上次选的人与上次用的时间、切场景的参数、牌子、快速切人、面板格子、首选候选，
+// 以及键盘面板的取人顺序（置顶的先、其余按沟通情况）。
 
 import XCTest
 @testable import QingjianCloud
@@ -8,24 +9,28 @@ final class SceneGroupTests: XCTestCase {
         MemoryContact.new(name: name, pronoun: .ta, scene: scene)
     }
 
-    func testGroupsAreDatingDailyWorkWithCounts() {
-        let contacts = [person("妈妈", "daily"), person("小美", "dating"), person("老板", "work"), person("老周", "daily")]
-        let groups = SceneGroup.all(contacts)
-        XCTAssertEqual(groups.map(\.scene), ["dating", "daily", "work"])
-        XCTAssertEqual(groups.map(\.title), ["恋爱", "日常", "工作"])
-        XCTAssertEqual(groups[1].people.map(\.name), ["妈妈", "老周"], "组内保持名单顺序")
-        XCTAssertEqual(groups[1].countLabel, "2 / 8")
-        XCTAssertEqual(SceneGroup.all([]).count, 3, "没人的组也在，好从那里加人")
-        let full = SceneGroup(scene: "work", people: (0..<8).map { person("人\($0)", "work") })
-        XCTAssertTrue(full.isFull)
-        XCTAssertEqual(full.fullNote, "工作最多 8 个人")
-        XCTAssertEqual(groups[0].header, "恋爱 · 1 / 8")
-        XCTAssertFalse(groups[0].isFull)
+    private func scene(_ id: String, _ name: String) -> MemoryScene {
+        MemoryScene(id: id, name: name, createdAt: 0)
+    }
+
+    func testGroupsFollowTheSceneList() {
+        let contacts = [person("妈妈", "a"), person("小美", "b"), person("老周", "a")]
+        let scenes = [scene("a", "家人"), scene("b", "朋友")]
+        let groups = scenes.map { one in
+            SceneGroup(
+                id: one.id, name: one.name,
+                people: SceneGroup.people(in: one.id, from: contacts))
+        }
+        XCTAssertEqual(groups.map(\.id), ["a", "b"], "顺序照场景列表")
+        XCTAssertEqual(groups.map(\.name), ["家人", "朋友"])
+        XCTAssertEqual(groups[0].people.map(\.name), ["妈妈", "老周"], "组内保持名单顺序")
+        XCTAssertEqual(SceneGroup.people(in: "c", from: contacts), [], "没有这个场景就是空的")
     }
 
     func testNewContactKeepsTheGivenScene() {
-        XCTAssertEqual(MemoryContact.new(name: "a", pronoun: .ta).scene, "dating", "缺省仍是恋爱")
         XCTAssertEqual(person("a", "work").scene, "work")
+        XCTAssertEqual(MemoryScene.new(name: "家人").name, "家人")
+        XCTAssertEqual(MemoryScene.new(name: "家人").id.count, 32, "id 用与对象同一套随机十六进制")
     }
 
     func testScopeDecodesLastAndOldFilesWithout() throws {
@@ -42,14 +47,6 @@ final class SceneGroupTests: XCTestCase {
         XCTAssertEqual(ScopePick.contact("a").argument, "a")
     }
 
-    func testRemindersAndAccentSkipWork() {
-        XCTAssertTrue(MemoryScope.reminds("dating"))
-        XCTAssertTrue(MemoryScope.reminds("daily"))
-        XCTAssertFalse(MemoryScope.reminds("work"))
-        XCTAssertFalse(MemoryScope.usesAccent("work"))
-        XCTAssertEqual(MemoryScope.pickerOrder, ["daily", "dating", "work"])
-    }
-
     func testQuickPicksListOthersThenNobody() {
         let people = [person("小美", "dating"), person("阿林", "dating")]
         XCTAssertEqual(ScopeDisplay.quickPicks(people: people, current: people[0].id), [people[1].id, nil])
@@ -63,18 +60,6 @@ final class SceneGroupTests: XCTestCase {
         XCTAssertEqual(ScopeDisplay.cellStyle(people: 2), .tall, "2 人加两格正好一行（设计稿 1d）")
         XCTAssertEqual(ScopeDisplay.cellStyle(people: 3), .compact)
         XCTAssertEqual(ScopeDisplay.cellStyle(people: 8), .compact)
-    }
-
-    func testWorkSceneUsesNeutralColors() {
-        XCTAssertEqual(ColorUsage.chipPerson.role(in: "dating"), .accent)
-        XCTAssertEqual(ColorUsage.chipPerson.role(in: "daily"), .accent, "日常的人也代表一个人")
-        XCTAssertEqual(ColorUsage.chipPerson.role(in: "work"), .ink2)
-        XCTAssertEqual(ColorUsage.chipBackground.role(in: "work"), .neutralSoft)
-        XCTAssertEqual(ColorUsage.chipScene.role(in: "dating"), .ink2, "场景那半边任何场景都是中性色")
-        XCTAssertEqual(ColorUsage.selectedContactCell.role(in: "work"), .ink2)
-        for usage in ColorUsage.allCases {
-            XCTAssertFalse(usage.role(in: "work").isAccent, "\(usage) 在工作场景不该用灰绿")
-        }
     }
 
     func testScopeDecodesUsed() throws {
@@ -95,10 +80,55 @@ final class SceneGroupTests: XCTestCase {
         XCTAssertEqual(ScopeDisplay.lastUsed(at: nil, now: now), "还没用过")
     }
 
-    func testFirstCandidateAccentOnlyWithAPersonOutsideWork() {
-        XCTAssertTrue(ScopeDisplay.accentFirstCandidate(scene: "dating", hasContact: true))
-        XCTAssertTrue(ScopeDisplay.accentFirstCandidate(scene: "daily", hasContact: true))
-        XCTAssertFalse(ScopeDisplay.accentFirstCandidate(scene: "daily", hasContact: false), "不指定只加粗")
-        XCTAssertFalse(ScopeDisplay.accentFirstCandidate(scene: "work", hasContact: true))
+    func testFirstCandidateAccentOnlyWithAPerson() {
+        XCTAssertTrue(ScopeDisplay.accentFirstCandidate(hasContact: true))
+        XCTAssertFalse(ScopeDisplay.accentFirstCandidate(hasContact: false), "不指定只加粗")
+    }
+}
+
+final class ContactOrderTests: XCTestCase {
+    private func person(
+        _ name: String, scene: String = "daily", pinnedAt: Int64? = nil, createdAt: Int64 = 0
+    ) -> MemoryContact {
+        MemoryContact(
+            id: name, name: name, pronoun: .ta, scene: scene, pinnedAt: pinnedAt, createdAt: createdAt)
+    }
+
+    func testPinnedComeFirstByWhenTheyWerePinned() {
+        let people = [
+            person("甲", pinnedAt: 30), person("乙"), person("丙", pinnedAt: 10),
+        ]
+        let ordered = ContactOrder.ordered(people, used: [:])
+        XCTAssertEqual(ordered.map(\.name), ["丙", "甲", "乙"], "早置顶的在前，没置顶的在后")
+    }
+
+    func testTheRestFollowHowOftenYouTalk() {
+        let people = [person("甲"), person("乙"), person("丙")]
+        let used: [String: Int64] = ["甲": 100, "丙": 300, "乙": 200]
+        XCTAssertEqual(ContactOrder.ordered(people, used: used).map(\.name), ["丙", "乙", "甲"])
+    }
+
+    func testNeverUsedSortsByHowLongYouHaveKnownThem() {
+        let people = [person("甲", createdAt: 100), person("乙", createdAt: 300), person("丙")]
+        XCTAssertEqual(ContactOrder.ordered(people, used: [:]).map(\.name), ["乙", "甲", "丙"])
+    }
+
+    func testLimitKeepsTheHead() {
+        let people = [person("甲"), person("乙"), person("丙")]
+        let used: [String: Int64] = ["甲": 1, "乙": 3, "丙": 2]
+        XCTAssertEqual(ContactOrder.ordered(people, used: used, limit: 2).map(\.name), ["乙", "丙"])
+        XCTAssertEqual(ContactOrder.ordered(people, used: used, limit: 0).count, 0)
+        XCTAssertEqual(ContactOrder.ordered([], used: [:]).count, 0)
+    }
+
+    func testScoreFallsBackToWhenYouMet() {
+        let one = person("甲", createdAt: 42)
+        XCTAssertEqual(ContactOrder.score(one, used: ["甲": 7]), 7)
+        XCTAssertEqual(ContactOrder.score(one, used: [:]), 42)
+    }
+
+    func testPanelKeepsRoomForNobodyAndNewContact() {
+        XCTAssertEqual(ContactOrder.panelCount + 2, 10, "键区里 10 格三行")
+        XCTAssertLessThan(ContactOrder.quickPickCount, ContactOrder.panelCount)
     }
 }

@@ -4,7 +4,6 @@
 // 例外：App 里的开关（appToggle）与「加一个人」的「好了」（addContactDone，设计稿 btn.acc：灰绿底、accentInk 字）打开时用灰绿底，照设计稿 theme.css 的 .toggle 用 Theme.accent（浅 #C0E7C6、深 #34563B，不是 accentInk）；「控件一律中性色」只管键盘面板。
 // 首次引导照设计稿也用灰绿：进度条亮的格子（onboardingProgress，.progress i.on 的 accent 实底；步骤编号是 .step .n 的 ink 底，App 测不到完成与否，不画对勾），
 // 免费方案卡的描边与「现在就是」（onboardingCurrentPlan、onboardingPlanBadge，.plan.on / .pill.r）。
-// 工作场景里灰绿全部换成中性色（role(in:)）：牌子两半都是中性色，对象格与头像也是。
 // App 对象详情的「待整理」一节设计稿没画（UI 清单约束 7 第 17 条）：原话是素材不是卡，一律中性色，删除与开通引导是 ink / ink2。
 
 enum ColorUsage: CaseIterable {
@@ -122,10 +121,5 @@ enum ColorUsage: CaseIterable {
              .eventKindTag, .draftUnsure: .ink2
         case .conflictBoth: .ink
         }
-    }
-
-    /// 在 `scene` 场景里用的角色：工作场景把灰绿换成中性色（MemoryScope.usesAccent）。
-    func role(in scene: String) -> ColorRole {
-        MemoryScope.usesAccent(scene) ? role : role.neutralized
     }
 }

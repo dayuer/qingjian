@@ -1,4 +1,4 @@
-// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（每个场景最多 8 个人、人建好后不能换场景、日期格式）在桥里。
+// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（场景合法、一个场景置顶不超过 4 个、日期格式）在桥里。
 // 任何读写失败都要变成界面上的一句中文（loadError 常驻首页、详情与设置页顶上，message 弹窗），不静默。
 // 读写都交给 MemoryWorker 在后台串行做（桥等锁最多 2 秒，不能卡界面），这里只管界面状态：loading / saving、结果回来后更新与弹提示。
 // conflict（键盘这期间「记一笔」改过）时 MemoryWorker 重读、用 MemoryMerge 合并上去再写，最多三轮；App 回到前台时重读（SetupView）。
@@ -10,8 +10,6 @@ import Observation
 @MainActor
 @Observable
 final class MemoryStore {
-    static let contactLimit = SceneGroup.limit
-
     /// memory/ 的数据保护级别：开机后第一次解锁前读不了，之后锁屏也能读。桥建的子目录与原子写的临时文件继承所在目录的级别。
     nonisolated static let protection = FileProtectionType.completeUntilFirstUserAuthentication
 
@@ -54,8 +52,30 @@ final class MemoryStore {
     /// 能不能改：容器在、读成功过、现在没有读失败。
     var canEdit: Bool { loaded && loadError == nil }
 
-    /// 首页的三组人：恋爱、日常、工作，各自最多 8 个。
-    var groups: [SceneGroup] { SceneGroup.all(snapshot.contacts) }
+    /// 用户自建的场景（分组），第一个是默认场景。
+    var scenes: [MemoryScene] { snapshot.scenes }
+
+    /// 每个场景与它里面的人（补上素材时按它分组选人）。
+    var groups: [SceneGroup] {
+        snapshot.scenes.map { scene in
+            SceneGroup(
+                id: scene.id, name: scene.name,
+                people: SceneGroup.people(in: scene.id, from: snapshot.contacts))
+        }
+    }
+
+    /// 场景名；场景被删掉（或还没读到）时给一句兜底，界面上不出现空白。
+    func sceneName(of id: String) -> String {
+        snapshot.scenes.first { $0.id == id }?.name ?? Wording.unknownScene
+    }
+
+    /// 默认场景（列表里第一个）：删掉别的场景时人挪到它。
+    var defaultScene: MemoryScene? { snapshot.scenes.first }
+
+    /// 这个场景里已经置顶了几个。
+    func pinnedCount(in scene: String) -> Int {
+        snapshot.contacts.filter { $0.scene == scene && $0.pinnedAt != nil }.count
+    }
 
     func contact(_ id: String) -> MemoryContact? { snapshot.contacts.first { $0.id == id } }
 
@@ -150,6 +170,51 @@ final class MemoryStore {
         }
     }
 
+    /// 加一个场景（分组）。名字空着或过长时就地拒掉，不往桥上走（桥也会拒，文案一致）。
+    @discardableResult
+    func addScene(name: String) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= MemoryScene.maxNameChars else {
+            message = trimmed.isEmpty
+                ? "场景名不能是空的" : Wording.sceneNameTooLong()
+            return false
+        }
+        return await update { $0.scenes.append(MemoryScene.new(name: trimmed)) }
+    }
+
+    @discardableResult
+    func renameScene(id: String, name: String) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= MemoryScene.maxNameChars else {
+            message = trimmed.isEmpty
+                ? "场景名不能是空的" : Wording.sceneNameTooLong()
+            return false
+        }
+        return await update { snapshot in
+            if let index = snapshot.scenes.firstIndex(where: { $0.id == id }) {
+                snapshot.scenes[index].name = trimmed
+            }
+        }
+    }
+
+    /// 删一个场景：里面的人挪到默认场景（列表里第一个）、置顶一并取消（桥那边一样）。
+    /// 只剩一个场景不让删——桥也会拒（至少要留一个场景）。
+    @discardableResult
+    func deleteScene(id: String) async -> Bool {
+        guard snapshot.scenes.count > 1 else {
+            message = "至少要留一个场景"
+            return false
+        }
+        return await update { snapshot in
+            snapshot.scenes.removeAll { $0.id == id }
+            let fallback = snapshot.scenes.first?.id ?? id
+            for index in snapshot.contacts.indices where snapshot.contacts[index].scene == id {
+                snapshot.contacts[index].scene = fallback
+                snapshot.contacts[index].pinnedAt = nil
+            }
+        }
+    }
+
     @discardableResult
     func saveContact(_ contact: MemoryContact) async -> Bool {
         await update(contactId: contact.id) { snapshot in
@@ -231,9 +296,9 @@ final class MemoryStore {
         return true
     }
 
-    /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前；恋爱与日常的人都算，工作的人不提醒（MemoryScope.reminds）。
+    /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前。
     func upcoming(within days: Int, now: Date = Date()) -> [MemoryUpcoming] {
-        snapshot.contacts.filter { $0.remindOn && MemoryScope.reminds($0.scene) }.flatMap { contact in
+        snapshot.contacts.filter(\.remindOn).flatMap { contact in
             cards(of: contact.id).compactMap { card -> MemoryUpcoming? in
                 guard let away = card.daysAway(now: now), (0...days).contains(away) else { return nil }
                 return MemoryUpcoming(contact: contact, card: card, days: away)

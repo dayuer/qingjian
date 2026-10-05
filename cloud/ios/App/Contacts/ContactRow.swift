@@ -7,6 +7,9 @@ import SwiftUI
 struct ContactRow: View {
     let contact: MemoryContact
 
+    /// 这个人所在场景的名字（用户自己起的，App 从 MemoryScene 取）。
+    let sceneName: String
+
     /// 行尾提示（「明天生日」）；没有就留空。
     let note: String?
 
@@ -33,14 +36,14 @@ struct ContactRow: View {
             Text(contact.name)
                 .font(AppFont.font(size: 17))
                 .foregroundStyle(Theme.ink)
-            Text(MemoryScope.title(of: contact.scene))
+            Text(sceneName)
                 .font(AppFont.font(size: 13))
                 .foregroundStyle(Theme.ink3)
             Spacer(minLength: 8)
             if let note {
                 Text(note)
                     .font(AppFont.font(size: 13))
-                    .foregroundStyle(ColorUsage.contactEventNote.role(in: contact.scene).color)
+                    .foregroundStyle(ColorUsage.contactEventNote.role.color)
                     .lineLimit(1)
             }
         }
@@ -86,7 +89,7 @@ struct ContactRow: View {
                         .font(AppFont.font(size: 11, weight: .semibold))
                 }
                 .font(AppFont.font(size: 13, weight: .medium))
-                .foregroundStyle(ColorUsage.allMemoryButton.role(in: contact.scene).color)
+                .foregroundStyle(ColorUsage.allMemoryButton.role.color)
                 .padding(.leading, 34)
                 .padding(.trailing, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
