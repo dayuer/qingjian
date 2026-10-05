@@ -505,6 +505,18 @@ pub unsafe extern "C" fn qj_clip_push(session: *mut Session, text: *const c_char
     with(session, (), |s| s.clip_push(&text));
 }
 
+/// 本机有没有拿到过会话（只读 `cloud.toml` 的令牌，不联网）：App 用它在「我」页显示「已开通 / 没开通」。
+/// 读不了、格式不对、旧版设备令牌（`qjc_`）都当没有。
+///
+/// # Safety
+/// `path` 是有效的 UTF-8 C 字符串或空指针。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_cloud_signed_in(path: *const c_char) -> bool {
+    unsafe { path_arg(path) }.is_some_and(|path| {
+        CloudConfig::read(Path::new(path)).is_some_and(|config| config.signed_in())
+    })
+}
+
 /// 主 App 设置页：读 `config.toml`（没有按缺省），领域词库按 `dicts_dir` 列；返回 JSON（[`Settings`]），失败返回空。
 ///
 /// # Safety

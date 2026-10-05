@@ -85,6 +85,8 @@ char *qj_settings_write(const char *config_path, const char *json);
 // 其余成功返回 NULL，失败返回 JSON {"code":"…","message":"…"}：message 是给用户看的中文，code 取值
 // auth_failed / locked_today / consent_required / unauthorized / not_configured / rate_limited / forbidden / unreachable /
 // invalid_argument / not_signed_in / other；status 的 error_code 取值相同。键盘下次弹出时按新的 cloud.toml 重连。
+// 本机有没有拿到过会话：只读 cloud.toml 的令牌，不联网。App 用它决定「我」页那一行显示已开通还是没开通。
+bool qj_cloud_signed_in(const char *path);
 char *qj_account_status(const char *path);
 // nonce 是原始值（交给 Apple 的是它的 SHA-256 十六进制）；device 是设备名，可为 NULL。
 // 三个登录函数的 cross_border_consented 是用户是否勾选了「同意把数据发到境外服务器」：false 时不联网，
