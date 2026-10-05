@@ -7,19 +7,25 @@ struct DroppedNotes: Decodable, Equatable, Sendable {
     /// 这个人已经被忘掉。
     var contactGone = 0
 
+    /// 排队等补写的超过上限，最旧的被挤掉。
+    var queueFull = 0
+
     enum CodingKeys: String, CodingKey {
         case materialLimit = "material_limit"
         case contactGone = "contact_gone"
+        case queueFull = "queue_full"
     }
 
-    init(materialLimit: Int = 0, contactGone: Int = 0) {
+    init(materialLimit: Int = 0, contactGone: Int = 0, queueFull: Int = 0) {
         self.materialLimit = materialLimit
         self.contactGone = contactGone
+        self.queueFull = queueFull
     }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         materialLimit = try container.decodeIfPresent(Int.self, forKey: .materialLimit) ?? 0
         contactGone = try container.decodeIfPresent(Int.self, forKey: .contactGone) ?? 0
+        queueFull = try container.decodeIfPresent(Int.self, forKey: .queueFull) ?? 0
     }
 }

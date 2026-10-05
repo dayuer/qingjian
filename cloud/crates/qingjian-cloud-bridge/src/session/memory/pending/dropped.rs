@@ -13,11 +13,14 @@ pub struct DroppedNotes {
 
     /// 这个人已经被忘掉（名单上没有了）。
     pub contact_gone: usize,
+
+    /// 排队等补写的记一笔超过上限（[`super::MAX_PENDING_NOTES`]），最旧的被挤掉。
+    pub queue_full: usize,
 }
 
 impl DroppedNotes {
     pub fn is_empty(&self) -> bool {
-        self.material_limit == 0 && self.contact_gone == 0
+        self.material_limit == 0 && self.contact_gone == 0 && self.queue_full == 0
     }
 
     /// 按拒绝的原因记 `count` 条：素材满了记 `material_limit`，其余（补写时只会是名单上没这个人）记 `contact_gone`。
@@ -27,5 +30,10 @@ impl DroppedNotes {
             _ => &mut self.contact_gone,
         };
         *slot = slot.saturating_add(count);
+    }
+
+    /// 排队满了挤掉的条数。
+    pub(in crate::session) fn add_queue_full(&mut self, count: usize) {
+        self.queue_full = self.queue_full.saturating_add(count);
     }
 }

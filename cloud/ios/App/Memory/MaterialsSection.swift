@@ -9,8 +9,8 @@ struct MaterialsSection: View {
 
     let contactId: String
 
-    /// 开了素笺云（CloudStatus.configured）：开了就不放开通引导。
-    let cloudConfigured: Bool
+    /// 素材会被整理（CloudStatus.memoryReady：开通并同意了「记忆」）：会就不放开通引导。
+    let memoryReady: Bool
 
     @State private var expanded: Set<String> = []
 
@@ -33,7 +33,7 @@ struct MaterialsSection: View {
                         toggle: { toggle(material.id) },
                         delete: { confirming = material })
                 }
-                if !cloudConfigured {
+                if !memoryReady {
                     NavigationLink {
                         CloudIntroView()
                     } label: {
@@ -45,10 +45,10 @@ struct MaterialsSection: View {
             } header: {
                 Text(MaterialDisplay.title(count: list.unprocessedCount))
             }
-            .confirmationDialog(
+            // 用 .alert 不用 confirmationDialog：iOS 26 上后者是气泡，「取消」不显示（同「忘掉」）
+            .alert(
                 MaterialDisplay.deleteTitle,
                 isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
-                titleVisibility: .visible,
                 presenting: confirming
             ) { material in
                 Button(MaterialDisplay.deleteButton, role: .destructive) {

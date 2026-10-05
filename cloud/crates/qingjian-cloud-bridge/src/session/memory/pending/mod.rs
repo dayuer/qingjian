@@ -127,11 +127,13 @@ impl PendingWrites {
         self.notes.len()
     }
 
-    /// 排到队尾；满了丢最旧的（记日志）。
+    /// 排到队尾；满了丢最旧的，记进没记上的条数（queue_full），键盘下次出现时提示，不只记日志。
     pub(in crate::session) fn push_note(&mut self, note: PendingNote) {
         if self.notes.len() >= MAX_PENDING_NOTES {
             self.notes.pop_front();
             tracing::warn!("待写的记一笔太多，丢掉最旧的一条");
+            self.dropped.add_queue_full(1);
+            self.persist_dropped();
         }
         self.notes.push_back(note);
         self.persist();
@@ -150,6 +152,10 @@ impl PendingWrites {
     /// 补写被拒绝：按原因记下这次没记上的条数并落盘（键盘被杀也不丢），等键盘出现时 [`Self::take_dropped`] 取走。
     pub(in crate::session) fn record_dropped(&mut self, error: &MemoryError, count: usize) {
         self.dropped.add(error, count);
+        self.persist_dropped();
+    }
+
+    fn persist_dropped(&self) {
         let Some(file) = self.dropped_file.as_deref() else {
             return;
         };

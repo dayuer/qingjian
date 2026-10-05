@@ -305,7 +305,10 @@ fn restored_note_for_a_forgotten_contact_is_dropped() {
         "被拒绝的待办出队"
     );
     let dropped = json_of(unsafe { qj_memory_dropped(session) });
-    assert_eq!(dropped, json!({"material_limit": 0, "contact_gone": 1}));
+    assert_eq!(
+        dropped,
+        json!({"material_limit": 0, "contact_gone": 1, "queue_full": 0})
+    );
     assert_eq!(
         take(unsafe { qj_memory_dropped(session) }),
         None,
@@ -341,7 +344,7 @@ fn deferred_note_rejected_for_a_full_contact_is_counted() {
     let dropped = json_of(unsafe { qj_memory_dropped(session) });
     assert_eq!(
         dropped,
-        json!({"material_limit": 2, "contact_gone": 0}),
+        json!({"material_limit": 2, "contact_gone": 0, "queue_full": 0}),
         "2100 字节切成两条，按两条算；重开会话还在"
     );
     assert!(!user.join("memory/dropped-keyboard.json").exists());
