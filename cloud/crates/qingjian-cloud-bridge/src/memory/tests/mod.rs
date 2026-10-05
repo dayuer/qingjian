@@ -7,6 +7,7 @@ mod display_name;
 mod hint;
 mod initial;
 mod materials;
+mod migrate;
 mod store;
 mod sync;
 
