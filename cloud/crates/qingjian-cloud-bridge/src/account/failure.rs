@@ -1,4 +1,5 @@
 //! 操作失败的样子：`{"code": "…", "message": "…"}`，code 给 Swift 区分种类，message 是给用户看的中文。
+//! 所有 `qj_*` 操作都用这一份，成功的返回值与它不许有同名字段（Swift 按字段分成功与失败）。
 //! `ClientError` 到 code 与文案的映射是纯函数，不联网就能测。
 
 use qingjian_cloud_client::ClientError;

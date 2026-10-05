@@ -22,6 +22,8 @@ rustls = ["ureq/rustls"]
 # macOS / iOS：系统 TLS（Security.framework）与系统信任的根证书，不用交叉编译 ring。
 # 要开 ureq 的 native-tls 而不是 native-tls-no-default：ureq 选 NativeTls 时只认前者，否则一发 https 就 panic
 native-tls = ["ureq/native-tls"]
+# 依赖这个 crate 的测试用（桥的集成测试要起假服务）：只影响 dev-dependencies，不进发布产物
+test-support = []
 
 [lints]
 workspace = true

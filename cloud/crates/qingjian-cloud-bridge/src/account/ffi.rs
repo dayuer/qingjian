@@ -7,7 +7,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
-use qingjian_cloud_proto::Feature;
+use qingjian_cloud_proto::{Feature, PairPoll};
 
 use super::AccountStatus;
 use super::failure::Failure;
@@ -160,10 +160,143 @@ pub unsafe extern "C" fn qj_account_delete(path: *const c_char) -> *mut c_char {
     outcome(|| super::delete_account(Path::new(path)))
 }
 
+/// 建空间：开通云服务的第一步，不用登录。成功后令牌写进 `cloud.toml`，返回值里没有它。
+///
+/// # Safety
+/// `path` 是有效的 UTF-8 C 字符串，`device` 为空或同上。`cross_border_consented` 为假时不联网，直接返回 `consent_required`。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_space_create(
+    path: *const c_char,
+    device: *const c_char,
+    cross_border_consented: bool,
+) -> *mut c_char {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    let device = unsafe { path_arg(device) }.unwrap_or_default();
+    outcome(|| super::pair::create_space(Path::new(path), device, cross_border_consented))
+}
+
+/// 出一张匹配码（要已登录）：成功 `{"pair_code":"K7P2-9QXM","expires_at":…}`。
+///
+/// # Safety
+/// `path` 是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_pair_code(path: *const c_char) -> *mut c_char {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    outcome_json(|| {
+        super::pair::pair_code(Path::new(path)).map(|code| {
+            // 不叫 `code`：失败的那个 JSON 里 `code` 是错误种类，两个不能重名
+            serde_json::json!({"pair_code": code.code, "expires_at": code.expires_at}).to_string()
+        })
+    })
+}
+
+/// 新设备输码申请加入：成功 `{"request_id":…,"secret":…,"expires_at":…}`，`secret` 是轮询的凭据。
+///
+/// # Safety
+/// 两个字符串参数都是有效的 UTF-8 C 字符串，`device` 为空或同上。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_pair_join(
+    path: *const c_char,
+    code: *const c_char,
+    device: *const c_char,
+) -> *mut c_char {
+    let (Some(path), Some(code)) = (unsafe { path_arg(path) }, unsafe { path_arg(code) }) else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    let device = unsafe { path_arg(device) }.unwrap_or_default();
+    outcome_json(|| {
+        super::pair::pair_join(Path::new(path), code, device).map(|grant| {
+            serde_json::json!({
+                "request_id": grant.request_id,
+                "secret": grant.secret,
+                "expires_at": grant.expires_at,
+            })
+            .to_string()
+        })
+    })
+}
+
+/// 轮询这次申请：成功 `{"state":"pending"|"denied"|"approved"}`。
+/// `approved` 时会话已经写进 `cloud.toml`，返回值里没有令牌。
+///
+/// # Safety
+/// 三个字符串参数都是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_pair_poll(
+    path: *const c_char,
+    request_id: *const c_char,
+    secret: *const c_char,
+) -> *mut c_char {
+    let (Some(path), Some(request_id), Some(secret)) = (
+        unsafe { path_arg(path) },
+        unsafe { path_arg(request_id) },
+        unsafe { path_arg(secret) },
+    ) else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    outcome_json(|| {
+        super::pair::pair_poll(Path::new(path), request_id, secret).map(|poll| {
+            let state = match poll {
+                PairPoll::Pending => "pending",
+                PairPoll::Denied => "denied",
+                PairPoll::Approved(_) => "approved",
+            };
+            serde_json::json!({"state": state}).to_string()
+        })
+    })
+}
+
+/// 等这台设备处理的加入申请（要已登录）：成功是一个 JSON 数组。
+///
+/// # Safety
+/// `path` 是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_pair_requests(path: *const c_char) -> *mut c_char {
+    let Some(path) = (unsafe { path_arg(path) }) else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    outcome_json(|| {
+        super::pair::pair_requests(Path::new(path)).and_then(|requests| {
+            serde_json::to_string(&requests).map_err(|_| Failure::other("出错了，请重试"))
+        })
+    })
+}
+
+/// 允许或拒绝一条加入申请（要已登录）。
+///
+/// # Safety
+/// 两个字符串参数都是有效的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_pair_decide(
+    path: *const c_char,
+    request_id: *const c_char,
+    allow: bool,
+) -> *mut c_char {
+    let (Some(path), Some(request_id)) =
+        (unsafe { path_arg(path) }, unsafe { path_arg(request_id) })
+    else {
+        return owned(&Failure::invalid_argument().to_json());
+    };
+    outcome(|| super::pair::pair_decide(Path::new(path), request_id, allow))
+}
+
 /// 成功返回空，失败返回 [`Failure`] 的 JSON；panic 折成一句通用的话（穿过 `extern "C"` 会直接 abort）。
 fn outcome(f: impl FnOnce() -> Result<(), Failure>) -> *mut c_char {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(failure)) => owned(&failure.to_json()),
+        Err(_) => owned(&Failure::other("出错了，请重试").to_json()),
+    }
+}
+
+/// 同 [`outcome`]，但成功要交出一个 JSON 串。
+fn outcome_json(f: impl FnOnce() -> Result<String, Failure>) -> *mut c_char {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(Ok(json)) => owned(&json),
         Ok(Err(failure)) => owned(&failure.to_json()),
         Err(_) => owned(&Failure::other("出错了，请重试").to_json()),
     }
