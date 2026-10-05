@@ -9,7 +9,7 @@ struct CandidateBar: View {
 
     /// 这些面板打开时，候选栏那一行换成它们自己的工具栏（牌子 + 收起），没有 ⌄。
     static func panelTakesTheBar(_ panel: KeyboardPanel) -> Bool {
-        panel == .contactCard || panel == .scope || panel == .draft || panel == .conflict
+        panel == .contactCard || panel == .draft || panel == .conflict
     }
 
     /// ⌄ 的宽度；它的触摸由 KeyTouchView 收（SwiftUI 手势在这里常吞短点击），这里只画。
