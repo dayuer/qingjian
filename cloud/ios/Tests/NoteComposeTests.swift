@@ -179,10 +179,21 @@ final class NoteComposeTests: XCTestCase {
     func testEntryOffersNewClipboard() {
         let handled = NoteEntry.digest("上一条")
         XCTAssertEqual(NoteEntry.decide(clipboard: " 她不吃香菜 ", lastHandledDigest: handled), .clipboard(["她不吃香菜"]))
-        let medium = String(repeating: "长", count: 250)
-        XCTAssertEqual(NoteEntry.decide(clipboard: medium, lastHandledDigest: nil), .clipboard([medium]), "750 字节还是一条")
-        // 一个汉字 3 字节：2000 字节装 666 个，第 667 个起是下一条
-        let long = String(repeating: "长", count: 700)
-        XCTAssertEqual(NoteEntry.decide(clipboard: long, lastHandledDigest: nil), .clipboard([String(repeating: "长", count: 666), String(repeating: "长", count: 34)]), "超过 2000 字节拆成两条，不丢")
+        // 填充字前面带个「想去」：这是本地门槛认的可记信号（NoteWorth），不然会走 .ignore
+        let medium = "想去" + String(repeating: "长", count: 250)
+        XCTAssertEqual(NoteEntry.decide(clipboard: medium, lastHandledDigest: nil), .clipboard([medium]), "756 字节还是一条")
+        // 一个汉字 3 字节：2000 字节里先放 6 字节的「想去」，再装 664 个「长」= 1998 字节，第 665 个起是下一条
+        let long = "想去" + String(repeating: "长", count: 700)
+        XCTAssertEqual(
+            NoteEntry.decide(clipboard: long, lastHandledDigest: nil),
+            .clipboard(["想去" + String(repeating: "长", count: 664), String(repeating: "长", count: 36)]),
+            "超过 2000 字节拆成两条，不丢")
+    }
+
+    /// 剪贴板有字但不值得记（设计稿 1e）：什么都不出，也不提示「未识别」。
+    func testEntryIgnoresClipboardNobodyWouldNote() {
+        XCTAssertEqual(NoteEntry.decide(clipboard: "123456", lastHandledDigest: nil), .ignore, "验证码")
+        XCTAssertEqual(
+            NoteEntry.decide(clipboard: "https://example.com/a/b", lastHandledDigest: nil), .ignore, "链接")
     }
 }

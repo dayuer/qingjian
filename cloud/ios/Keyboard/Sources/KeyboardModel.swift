@@ -472,6 +472,10 @@ final class KeyboardModel {
             noteSource = clipboard.map { (NoteEntry.digest($0), changeCount) }
         case .compose:
             beginComposedNote()
+        case .ignore:
+            // 剪贴板有字但不值得记：什么都不出（设计稿 1e：也不提示「未识别」）。不改状态，免得
+            // 把这段标成「已处理」——用户下次点「记一笔」还是这个判断，直到剪贴板换成别的。
+            break
         }
     }
 
