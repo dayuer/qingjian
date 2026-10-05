@@ -1,6 +1,6 @@
-//! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」（补写成素材）按顺序排队，切场景只留最新一次。
-//! 下次 refresh、poll、flush 或下一次写入时重试；卡片与场景在内存里已经生效，只是磁盘上晚几步。
-//! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切场景不落盘。
+//! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」（补写成素材）按顺序排队，切人只留最新一次。
+//! 下次 refresh、poll、flush 或下一次写入时重试；卡片与当前对象在内存里已经生效，只是磁盘上晚几步。
+//! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切人不落盘。
 //! 只有键盘这一个进程写这个文件，不需要 flock：每次队列变了就整份写临时文件再改名（读到的不会是半截），
 //! 文件始终等于队列，上限自然一致；队列空了就删文件。`memory/` 不存在时不建、不报错。
 //! 补写时被拒绝的（素材满了、对象被忘掉）不悄悄丢：条数与原因记在 `memory/dropped-keyboard.json`（[`DroppedNotes`]），键盘下次出现时取走提示。
@@ -34,7 +34,8 @@ pub(in crate::session) struct PendingWrites {
     /// 笔记队列落盘的文件；没有记忆目录时为空（不落盘）。
     file: Option<PathBuf>,
 
-    scope: Option<(String, Option<String>)>,
+    /// 最新一次没写成的切人：`None` 是「明确不指定」。
+    scope: Option<Option<String>>,
 
     /// 补写时被拒绝、还没告诉用户的条数。
     dropped: DroppedNotes,
@@ -183,16 +184,16 @@ impl PendingWrites {
     }
 
     /// 后一次覆盖前一次。
-    pub(in crate::session) fn set_scope(&mut self, scene: &str, contact: Option<String>) {
-        self.scope = Some((scene.to_owned(), contact));
+    pub(in crate::session) fn set_scope(&mut self, contact: Option<String>) {
+        self.scope = Some(contact);
     }
 
-    pub(in crate::session) fn take_scope(&mut self) -> Option<(String, Option<String>)> {
+    pub(in crate::session) fn take_scope(&mut self) -> Option<Option<String>> {
         self.scope.take()
     }
 
     /// 重试没成功时放回去；期间若有更新的一次（重入）就不覆盖它。
-    pub(in crate::session) fn restore_scope(&mut self, scope: (String, Option<String>)) {
+    pub(in crate::session) fn restore_scope(&mut self, scope: Option<String>) {
         self.scope.get_or_insert(scope);
     }
 }

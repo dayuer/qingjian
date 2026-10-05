@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 // Session 在 C 侧是不透明指针，这里只传地址
 #[allow(improper_ctypes)]
 unsafe extern "C" {
-    pub fn qj_scope_set(session: *mut Session, scene: *const c_char, contact_id: *const c_char);
+    pub fn qj_scope_set(session: *mut Session, contact_id: *const c_char);
     pub fn qj_scope_get(session: *mut Session) -> *mut c_char;
     pub fn qj_reset_context(session: *mut Session);
     pub fn qj_memory_hint(session: *mut Session) -> *mut c_char;
@@ -29,7 +29,6 @@ unsafe extern "C" {
         session: *mut Session,
         name: *const c_char,
         pronoun: *const c_char,
-        scene: *const c_char,
     ) -> *mut c_char;
     pub fn qj_memory_dropped(session: *mut Session) -> *mut c_char;
     pub fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
@@ -89,7 +88,7 @@ pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     (data, user)
 }
 
-/// 经 `qj_memory_write` 放两个场景、一个「恋爱」里的对象与一张带关键词「生日」的卡。
+/// 经 `qj_memory_write` 放一个对象与一张带关键词「生日」的卡。
 pub fn seed(user: &Path) {
     let mut cards = serde_json::Map::new();
     cards.insert(
@@ -101,10 +100,8 @@ pub fn seed(user: &Path) {
         }]),
     );
     let snapshot = json!({
-        "scenes": scenes(),
-        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "scene": "dating", "created_at": 1_791_043_200}],
+        "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "created_at": 1_791_043_200}],
         "cards": cards,
-        "state": {"scene": "daily", "contact_id": null}
     });
     let dir = c(user.to_str().unwrap());
     let text = c(&snapshot.to_string());
@@ -119,15 +116,6 @@ pub fn note(session: *mut Session, contact: &str, text: &str) -> Option<String> 
     let contact = c(contact);
     let text = c(text);
     take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr(), ptr::null()) })
-}
-
-/// 整份写回要带的场景（分组）那一项；空的不收，多数用例用这三个。
-pub fn scenes() -> serde_json::Value {
-    json!([
-        {"id": "daily", "name": "日常", "created_at": 1},
-        {"id": "dating", "name": "恋爱", "created_at": 1},
-        {"id": "work", "name": "工作", "created_at": 1},
-    ])
 }
 
 /// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。
@@ -156,12 +144,11 @@ pub fn open(data: &Path, user: Option<&Path>) -> *mut Session {
     session
 }
 
-/// `contact` 为 `None` 时传空指针（回到这个场景上次选的人），`Some("")` 是明确不指定。
-pub fn set_scope(session: *mut Session, scene: &str, contact: Option<&str>) {
-    let scene = c(scene);
+/// 切当前对象；`None` 是空指针（保持现在选的人不变），`Some("")` 是不指定，其余是对象 id。
+pub fn set_contact(session: *mut Session, contact: Option<&str>) {
     let contact = contact.map(c);
     let contact_ptr = contact.as_ref().map_or(ptr::null(), |id| id.as_ptr());
-    unsafe { qj_scope_set(session, scene.as_ptr(), contact_ptr) };
+    unsafe { qj_scope_set(session, contact_ptr) };
 }
 
 pub fn type_and_commit(session: *mut Session, keys: &str) -> String {
