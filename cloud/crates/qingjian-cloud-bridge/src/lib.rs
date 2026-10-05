@@ -381,7 +381,8 @@ pub unsafe extern "C" fn qj_rewrite_cancel(session: *mut Session) {
 }
 
 /// 改写用的全局默认技能：`{"skill":"polish"}`。会话无效、这个会话没有配置文件（打开时没给学习数据目录）
-/// 时为 NULL；文件里存的不是合法技能编号时为 `{"code":"invalid","message"}`（与键盘侧记忆那些接口的失败同形）。
+/// 时为 NULL；文件里存的不是合法技能编号时静默回退成缺省 [`rewrite::DEFAULT_SKILL_ID`]、不报错——
+/// 读不是用户刚做的动作，不该弹错（写坏的值由 [`qj_rewrite_default_set`] 在写的时候拦住）。
 /// 与主 App 设置页的 `rewrite_skill` 是 `config.toml` 里的同一项，只是键盘直接读写、不整份过一遍设置。
 ///
 /// # Safety
@@ -393,9 +394,11 @@ pub unsafe extern "C" fn qj_rewrite_default(session: *mut Session) -> *mut c_cha
             return ptr::null_mut();
         };
         let skill = settings::rewrite_skill(path);
-        if !rewrite::is_skill_id(&skill) {
-            return owned(&MemoryError::Invalid("设置里的技能编号不对").to_json());
-        }
+        let skill = if rewrite::is_skill_id(&skill) {
+            skill
+        } else {
+            rewrite::DEFAULT_SKILL_ID.to_owned()
+        };
         owned(&serde_json::json!({ "skill": skill }).to_string())
     })
 }
