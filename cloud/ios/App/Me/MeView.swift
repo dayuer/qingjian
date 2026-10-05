@@ -18,50 +18,44 @@ struct MeView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // 大标题画在内容里，不用系统的导航栏标题（设计稿第三次导出：标题与右侧按钮合成一行，padding 14/20/6）
-                Section {
-                    Text("我")
-                        .font(AppFont.font(size: 30, weight: .semibold))
-                        .tracking(0.5)
-                        .foregroundStyle(Theme.ink)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(
-                            EdgeInsets(top: 14, leading: 20, bottom: 6, trailing: 20))
-                }
-                // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
-                Section {
-                    Text(ScopeDisplay.fullAccessExplanation)
-                    Text(ScopeDisplay.fullAccessPath)
-                        .font(AppFont.footnote)
-                        .foregroundStyle(.secondary)
-                    Button("去开启") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
+            VStack(spacing: 0) {
+                // 标题放在 Form **外面**：放进 Section 会被 List 的分节内边距往下推 35pt，跟另外两页对不齐
+                PageHeader(title: "我")
+                Form {
+                    // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
+                    Section {
+                        Text(ScopeDisplay.fullAccessExplanation)
+                        Text(ScopeDisplay.fullAccessPath)
+                            .font(AppFont.footnote)
+                            .foregroundStyle(.secondary)
+                        Button("去开启") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
                         }
+                    } header: {
+                        Text("记忆")
                     }
-                } header: {
-                    Text("记忆")
-                }
-                Section {
-                    if store.available {
-                        NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
-                        if Self.showsAccountEntry {
-                            NavigationLink("账号") { AccountView(store: account) }
+                    Section {
+                        if store.available {
+                            NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
+                            if Self.showsAccountEntry {
+                                NavigationLink("账号") { AccountView(store: account) }
+                            }
+                        } else {
+                            Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
                         }
-                    } else {
-                        Text("这个安装包没有开通 App Group，设置改不到键盘上。").foregroundStyle(.secondary)
+                        NavigationLink("关于") { AboutView() }
+                    } header: {
+                        Text("设置")
                     }
-                    NavigationLink("关于") { AboutView() }
-                } header: {
-                    Text("设置")
-                }
-                Section {
-                    Button(Self.replayOnboardingTitle, action: replayOnboarding)
-                        .font(AppFont.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
+                    Section {
+                        Button(Self.replayOnboardingTitle, action: replayOnboarding)
+                            .font(AppFont.footnote)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .listRowBackground(Color.clear)
+                    }
                 }
             }
             .toolbar(.hidden, for: .navigationBar)

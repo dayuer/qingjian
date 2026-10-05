@@ -55,19 +55,9 @@ struct RememberView: View {
 
     // MARK: - 顶部
 
-    /// 顶部一行：大标题在左、按钮在右（设计稿第三次导出：标题与按钮合成一行，`padding:14px 20px 6px`）。
+    /// 顶部一行：大标题在左、按钮在右。三页共用 `PageHeader`，高度才对得齐。
     private var header: some View {
-        HStack(spacing: 12) {
-            Text("记得")
-                .font(AppFont.font(size: 30, weight: .semibold))
-                .tracking(0.5)
-                .foregroundStyle(Theme.ink)
-            Spacer(minLength: 0)
-            quickNoteButton
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 6)
+        PageHeader(title: "记得") { quickNoteButton }
     }
 
     private var quickNoteButton: some View {
