@@ -313,12 +313,13 @@ pub unsafe extern "C" fn qj_rewrite_start(session: *mut Session, text: *const c_
     };
     with(session, (), |s| {
         if let Some(rewriter) = s.rewriter() {
-            rewriter.start(&text);
+            // TODO(Task 5)：这个 C 接口要加第三个参数（技能 id），在那之前用当前生效的那个。
+            rewriter.start(&text, None);
         }
     });
 }
 
-/// 0 空闲、1 等待中、2 结果就绪（用 [`qj_rewrite_take`] 取）、3 失败。
+/// 0 空闲、1 等待中、2 结果就绪（用 [`qj_rewrite_take`] 取）、3 失败、4 模型给的不合用（已丢掉）。
 ///
 /// # Safety
 /// 同 [`qj_push`]。
