@@ -47,7 +47,7 @@ pub(crate) struct LiveMemory {
 }
 
 impl LiveMemory {
-    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前场景开分区学习器，读入「知道了」的记录。
+    /// 读名单与 `state.json`（对象不在名单上就退回不指定），按当前选中的人开分区学习器，读入「知道了」的记录。
     /// 提示索引由会话随后建（要用引擎的语言模型切词）。
     pub(in crate::session) fn open(user_dir: &Path) -> (ScopedLearner, Self) {
         let store = MemoryStore::open_with_lock_timeout(user_dir, KEYBOARD_LOCK_TIMEOUT);

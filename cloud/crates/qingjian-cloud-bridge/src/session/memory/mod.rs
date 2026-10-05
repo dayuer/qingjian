@@ -326,7 +326,7 @@ impl Session {
     }
 
     /// `Session::poll` 开头调：`memory/` 下的文件被 App 改了（修改时间变了）就重读，读不了的留着原来的；
-    /// 当前对象被删时退回这个场景的不指定。换了叠加层（候选重排过）返回 true。
+    /// 当前对象被删时退回不指定。换了叠加层（候选重排过）返回 true。
     pub(super) fn poll_memory(&mut self) -> bool {
         let rescoped = self.retry_pending();
         let Some(memory) = self.memory.as_mut() else {
@@ -360,7 +360,7 @@ impl Session {
         moved || rescoped
     }
 
-    /// 状态里的场景或对象变了：换叠加层、清最近的字，作废格子缓存后重读名单与卡片（`deferred` 为真说明刚拿不到锁，
+    /// 状态里选中的人变了：换叠加层、清最近的字，作废格子缓存后重读名单与卡片（`deferred` 为真说明刚拿不到锁，
     /// 不再读盘，卡片先当没有、记下待补读）、重建提示、重排候选。
     fn switch_layers(&mut self, deferred: bool) {
         let Some(memory) = self.memory.as_mut() else {
