@@ -56,15 +56,15 @@ final class AccountDecodeTests: XCTestCase {
     }
 }
 
-final class AccountFailureTests: XCTestCase {
+final class BridgeFailureTests: XCTestCase {
     func testDecode() {
-        XCTAssertNil(AccountFailure.decode(nil))
-        let failure = AccountFailure.decode(#"{"code":"auth_failed","message":"验证码不对，请重新输入"}"#)
-        XCTAssertEqual(failure, AccountFailure(code: .authFailed, message: "验证码不对，请重新输入"))
-        let unknown = AccountFailure.decode(#"{"code":"brand_new","message":"x"}"#)
-        XCTAssertEqual(unknown, AccountFailure(code: .other, message: "x"))
-        let plain = AccountFailure.decode("连不上服务器")
-        XCTAssertEqual(plain, AccountFailure(code: .other, message: "连不上服务器"))
+        XCTAssertNil(BridgeFailure.decode(nil))
+        let failure = BridgeFailure.decode(#"{"code":"auth_failed","message":"验证码不对，请重新输入"}"#)
+        XCTAssertEqual(failure, BridgeFailure(code: .authFailed, message: "验证码不对，请重新输入"))
+        let unknown = BridgeFailure.decode(#"{"code":"brand_new","message":"x"}"#)
+        XCTAssertEqual(unknown, BridgeFailure(code: .other, message: "x"))
+        let plain = BridgeFailure.decode("连不上服务器")
+        XCTAssertEqual(plain, BridgeFailure(code: .other, message: "连不上服务器"))
     }
 
     func testStatusErrorCode() throws {
@@ -81,24 +81,35 @@ final class AccountFailureTests: XCTestCase {
     }
 
     func testReactions() {
-        func reaction(_ code: AccountFailure.Code, _ step: LoginStep = .code) -> AccountReaction {
-            AccountStore.reaction(for: AccountFailure(code: code, message: ""), step: step)
+        func reaction(_ code: BridgeFailure.Code, _ step: LoginStep = .code) -> AccountReaction {
+            AccountStore.reaction(for: BridgeFailure(code: code, message: ""), step: step)
         }
         XCTAssertEqual(reaction(.authFailed, .code), .retryCode)
         XCTAssertEqual(reaction(.authFailed, .email), .showMessage)
         XCTAssertEqual(reaction(.lockedToday, .code), .lockEmail)
         XCTAssertEqual(reaction(.lockedToday, .email), .lockEmail)
         XCTAssertEqual(reaction(.unauthorized), .signOutLocally)
-        for code: AccountFailure.Code in [
-            .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .consentRequired, .other,
+        for code: BridgeFailure.Code in [
+            .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn, .consentRequired,
+            .badCode, .deviceLimit, .other,
         ] {
             XCTAssertEqual(reaction(code), .showMessage, "\(code)")
         }
     }
 
     func testConsentRequiredDecodes() {
-        let failure = AccountFailure.decode(#"{"code":"consent_required","message":"请先勾选同意，才能继续登录"}"#)
+        let failure = BridgeFailure.decode(#"{"code":"consent_required","message":"请先勾选同意，才能继续登录"}"#)
         XCTAssertEqual(failure?.code, .consentRequired)
-        XCTAssertEqual(AccountFailure.Code.allCases.count, 11)
+        XCTAssertEqual(BridgeFailure.Code.allCases.count, 13)
+    }
+
+    /// 空间那条路的两个 code（`impl/no-account-client` 加的，与桥的 failure.rs 对齐）。
+    func testSpaceCodesDecode() {
+        XCTAssertEqual(
+            BridgeFailure.decode(#"{"code":"bad_code","message":"匹配码不对或已经过期，请重新输一张"}"#)?.code,
+            .badCode)
+        XCTAssertEqual(
+            BridgeFailure.decode(#"{"code":"device_limit","message":"空间里的设备已经满了"}"#)?.code,
+            .deviceLimit)
     }
 }
