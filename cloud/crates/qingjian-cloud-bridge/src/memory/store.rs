@@ -21,6 +21,9 @@ use super::{
 use crate::cloud_config::write_atomic;
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
 
+/// 上一版的场景文件：这一版只用来删（清场）。
+const SCENES_FILE: &str = "scenes.json";
+
 const CONTACTS_FILE: &str = "contacts.json";
 
 const STATE_FILE: &str = "state.json";
@@ -301,7 +304,12 @@ impl MemoryStore {
         let started = Instant::now();
         loop {
             match file.try_lock() {
-                Ok(()) => return Ok(file),
+                Ok(()) => {
+                    // 拿锁之后、交给调用方之前清一次老场景数据（幂等，只有真清到东西时才写盘）。
+                    // 每个读写入口都走 lock()，所以谁也看不到没清过的数据。
+                    self.clear_scenes()?;
+                    return Ok(file);
+                }
                 Err(TryLockError::WouldBlock) if started.elapsed() < self.lock_timeout => {
                     std::thread::sleep(LOCK_RETRY);
                 }
@@ -311,6 +319,28 @@ impl MemoryStore {
                 Err(TryLockError::Error(error)) => return Err(error.into()),
             }
         }
+    }
+
+    /// 老数据（场景写死的那一版）清场：删 `scenes.json` 与没改过名的 `scene-*/`，
+    /// 清到了东西时顺手把 `state.json` 里留下的 `scene` / `last` 写掉（解析时已经忽略它们，写一遍就没了）。
+    /// `scene-*.migrated-<日期>` **不动**——那是上一版承诺保留 30 天的备份，由 [`Self::sweep_migrated_dirs`] 到期再清。
+    /// 幂等（没东西可清也算成功）：每次拿锁都会走一遍，就是两个 stat 加一次 readdir；没清到东西不碰 state.json
+    /// （白写一遍会改修改时间，键盘按修改时间重读，没必要）。
+    fn clear_scenes(&self) -> Result<(), MemoryError> {
+        let mut cleared = remove_file(&self.scenes_path())?;
+        for entry in self.memory_entries()? {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with("scene-") && !name.contains(".migrated-") {
+                remove_dir(&entry.path())?;
+                cleared = true;
+            }
+        }
+        if cleared {
+            let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
+            write_json(&self.state_path(), &state)?;
+        }
+        Ok(())
     }
 
     /// 删掉改名满 [`MIGRATED_KEEP_DAYS`] 天的老场景学习目录（键盘每次起来调一次，不在拿锁的路径上）。
@@ -370,6 +400,10 @@ impl MemoryStore {
             cards: cards.to_vec(),
         };
         write_json(&self.cards_path(contact_id), &file)
+    }
+
+    fn scenes_path(&self) -> PathBuf {
+        self.root.join(SCENES_FILE)
     }
 
     fn contacts_path(&self) -> PathBuf {
@@ -434,6 +468,15 @@ pub(super) fn quarantine(path: &Path) {
     name.push(format!(".broken-{}", now_unix()));
     if let Err(error) = std::fs::rename(path, path.with_file_name(name)) {
         tracing::warn!(%error, "坏文件没改成备份名");
+    }
+}
+
+/// 删文件；本来就不在也算成功（返回是否真删掉了）。
+fn remove_file(path: &Path) -> Result<bool, MemoryError> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
     }
 }
 
