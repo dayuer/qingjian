@@ -8,6 +8,9 @@ use qingjian_translate::GlossaryError;
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
     #[error(transparent)]
+    AsrFix(#[from] crate::asr_fix::AsrFixError),
+
+    #[error(transparent)]
     Cold(#[from] crate::cold::error::ColdError),
 
     #[error(transparent)]

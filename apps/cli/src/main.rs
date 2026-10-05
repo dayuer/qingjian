@@ -4,6 +4,7 @@
 //! 不依赖任何平台 API，是 Core 的第一个「壳」。
 
 mod args;
+mod asr_fix;
 mod cold;
 mod display;
 mod error;
@@ -71,6 +72,16 @@ fn run() -> Result<(), CliError> {
                 println!("{word}\t{}", codes.join(" "));
             }
         }
+        return Ok(());
+    }
+    if let Some(terms) = &args.terms {
+        let options = asr_fix::Options {
+            loose: args.asr_fix_loose,
+            holdout: args.asr_fix_holdout,
+            confirmed_only: args.asr_fix_confirmed,
+        };
+        let report = asr_fix::run(&engine, &args.asr_fix, terms, options)?;
+        print!("{report}");
         return Ok(());
     }
     if let Some(path) = &args.replay {

@@ -154,6 +154,28 @@ pub struct Args {
     #[arg(long)]
     pub eval_save: Option<PathBuf>,
 
+    /// 语音转录纠错原型：读识别结果（一行一句，可带 `<Tab>参考文本`），按 `--terms` 的术语表
+    /// 把同音、近音片段换回术语，报替换明细；带参考时报字错率与术语命中的前后对比
+    #[arg(long, num_args = 1.., requires = "terms")]
+    pub asr_fix: Vec<PathBuf>,
+
+    /// 术语表：一行一条，也认逗号、顿号分隔（VoiceBridge 词库导出的格式）；
+    /// 或 `错<Tab>对[<Tab>会议[<Tab>状态]]` 的纠错对，按词库读音提炼成术语
+    #[arg(long, requires = "asr_fix")]
+    pub terms: Option<PathBuf>,
+
+    /// 纠错原型的宽松模式：识别结果里的片段本身是词库词也换
+    #[arg(long, requires = "asr_fix")]
+    pub asr_fix_loose: bool,
+
+    /// 纠错原型留一场会议评测：转录第三列是会议、术语表第三列是学自哪场会议时，只学自本场的术语不纠本场
+    #[arg(long, requires = "asr_fix")]
+    pub asr_fix_holdout: bool,
+
+    /// 纠错原型只用确认过的纠错对（术语表第四列为 candidate 的不用）
+    #[arg(long, requires = "asr_fix")]
+    pub asr_fix_confirmed: bool,
+
     /// 实验专用：P2C 按完整拼音给整句路径打分；仅用于 --eval-text，不看上文
     #[arg(long, requires = "eval_text", conflicts_with_all = ["neural", "neural_async", "neural_context"])]
     pub eval_p2c: Option<PathBuf>,
