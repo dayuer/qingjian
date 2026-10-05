@@ -83,4 +83,12 @@ final class OnboardingTests: XCTestCase {
     func testReplayEntryTitle() {
         XCTAssertEqual(MeView.replayOnboardingTitle, "重新看引导")
     }
+
+    func testTheStepTextsDoNotMentionAccounts() {
+        for text in PlanStep.allTexts {
+            for banned in ["账号", "登录", "注册"] {
+                XCTAssertFalse(text.contains(banned), "「\(text)」里有「\(banned)」")
+            }
+        }
+    }
 }
