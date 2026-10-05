@@ -20,7 +20,7 @@
 | 技能怎么绑 | **全局默认 + 人身上覆盖** |
 | 用户自定义技能 | 不做（审计意见：自写提示词可被用来写诈骗话术） |
 
-## 展开前核实（以代码为准，2026-10-05 在 `sujian` d5b92e7 上查的）
+## 现状（以代码为准，2026-10-05 在 `sujian` d5b92e7 上查的）
 
 - `Contact`（`memory/contact.rs`）：`{id, name, display_name, initial, pronoun, scene, pinned_at, created_at, hint_on, remind_on}`；
   `MAX_PINNED = 4`。
