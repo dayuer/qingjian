@@ -12,8 +12,10 @@ pub struct MemoryItem {
     /// 对象的 id；不为空时必须已登记。
     pub contact_id: Option<String>,
 
-    /// 场景 id（用户自建，见桥的 `memory/scene.rs`）；老客户端写的 `daily` / `dating` / `work` 照样收。
-    pub scene: String,
+    /// 场景 id。2026-10-05 起客户端没有「场景」了，这里恒为 `None` 且不序列化；
+    /// 字段留着是为了老数据还能读进来（服务端也只要允许它缺省）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<String>,
 
     pub kind: MemoryKind,
 
