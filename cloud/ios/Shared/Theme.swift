@@ -1,13 +1,12 @@
-// 素笺的强调色：灰绿，只用在和对象有关的地方（对象牌子、提示行、对象卡与选择面板）。工作 / 日常场景完全不用。
+// 素笺的强调色：灰绿，只用在和对象有关的地方（对象牌子、提示行、对象卡）。
 // 设计稿 theme.css 的 oklch 值，已用 `OKLCH.srgb`（Tests/ThemeTests 核对）换算成 sRGB：
 //                浅色                              深色
 //   --accent      oklch(0.89  0.06  150)  #C0E7C6  oklch(0.42 0.06  150)  #34563B  圆点、头像底、选中描边
 //   --accent-ink  oklch(0.38  0.05  150)  #2E4A34  oklch(0.86 0.06  150)  #B6DDBD  强调色上的文字、按钮文字
 //   --accent-soft oklch(0.965 0.025 150)  #E8F9EB  oklch(0.26 0.02  150)  #1D271F  提示行与牌子的底色
 //   提示行下沿    oklch(0.91  0.035 150)  #D2E8D5  oklch(0.33 0.025 150)  #2C392F  .k-hint 的 1px 分隔线
-//   牌子竖线      oklch(0.88  0.04  150)  #C6DFCA  oklch(0.36 0.03  150)  #324235  .chip.split .cs 右侧 1px 竖线（深色值设计稿没给，按明暗对调取）
 // ink / ink-2 不自定义，跟系统的 label / secondaryLabel 走；云端候选、剪贴板、润色的标识用 ink-2，不用强调色。
-// ink-3（设计稿 oklch(0.56 0 0)，#747474）是更淡的说明文字：「知道了」、页脚、工作场景牌子的灰圆点。
+// ink-3（设计稿 oklch(0.56 0 0)，#747474）是更淡的说明文字：「知道了」、页脚。
 
 import SwiftUI
 import UIKit
@@ -28,10 +27,6 @@ enum Theme {
     static let hintLine = ThemeColor(
         light: ThemeSwatch(hex: 0xD2E8D5, l: 0.91, c: 0.035, h: 150),
         dark: ThemeSwatch(hex: 0x2C392F, l: 0.33, c: 0.025, h: 150))
-
-    static let chipLine = ThemeColor(
-        light: ThemeSwatch(hex: 0xC6DFCA, l: 0.88, c: 0.04, h: 150),
-        dark: ThemeSwatch(hex: 0x324235, l: 0.36, c: 0.03, h: 150))
 
     /// 正文与按钮文字：系统 label。
     static let ink = Color(UIColor.label)
