@@ -1,4 +1,4 @@
-// 调桥的本地记忆接口（qj_scope_* / qj_memory_*）：Engine 的扩展，用同一个会话指针，只在主线程上用。
+// 调桥的本地记忆与改写接口（qj_scope_* / qj_memory_* / qj_rewrite_*）：Engine 的扩展，用同一个会话指针，只在主线程上用。
 
 import Foundation
 import QingjianBridge
@@ -50,6 +50,15 @@ extension Engine {
 
     /// 可用的改写技能（随包的技能包，会话打开时读一次）；包没打进来时为空。
     var rewriteSkills: [Skill] { MemoryFiles.decode(take(qj_rewrite_skills(session))) ?? [] }
+
+    /// 设置里的全局默认技能（config.toml 的 `[rewrite] skill`）；会话没有配置文件、或桥读不出来时按缺省 polish。
+    var rewriteDefaultSkill: String { RewriteDefault.decode(take(qj_rewrite_default(session))).skill }
+
+    /// 改设置里的全局默认技能（nil = 回到缺省 polish）；成功给 nil。
+    func setRewriteDefaultSkill(_ skillId: String?) -> MemoryFailure? {
+        let raw = Self.withOptionalCString(skillId) { qj_rewrite_default_set(session, $0) }
+        return MemoryFailure.decode(take(raw))
+    }
 
     /// 给这个人指定 / 清掉改写技能（nil = 回到设置里的默认）；成功给 nil。
     func setContactSkill(_ contactId: String, skillId: String?) -> MemoryFailure? {
