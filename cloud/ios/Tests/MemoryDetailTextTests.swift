@@ -6,8 +6,8 @@ import XCTest
 final class MemoryDetailTextTests: XCTestCase {
     private func day(_ text: String) -> Date { MemoryDate.parse(text)! }
 
-    private func contact(scene: String = "dating", remindOn: Bool = true) -> MemoryContact {
-        MemoryContact(id: "a", name: "小美", pronoun: .taF, scene: scene, createdAt: 0, remindOn: remindOn)
+    private func contact(remindOn: Bool = true) -> MemoryContact {
+        MemoryContact(id: "a", name: "小美", pronoun: .taF, createdAt: 0, remindOn: remindOn)
     }
 
     func testSubtitle() {
@@ -36,16 +36,12 @@ final class MemoryDetailTextTests: XCTestCase {
     }
 
     /// 只写真有的行为：键盘提示行对约定提前 3 天起提醒；日子设计稿没画不写；关了提醒的不写。
-    /// 每个场景一样（场景自 2026-10-05 起只是分组，不再有「工作场景不提醒」）。
     func testReminderNoteFollowsRealBehavior() {
         XCTAssertEqual(MemoryDetailText.reminderLeadDays, 3, "与桥的 REMINDER_DAYS 一致")
         XCTAssertEqual(MemoryDetailText.reminderNote(kind: .promise, contact: contact()), "提前 3 天提醒")
         XCTAssertEqual(MemoryDetailText.reminderNote(kind: .date, contact: contact()), "提前 3 天提醒", "日子也照实写")
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .preference, contact: contact()))
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .promise, contact: contact(remindOn: false)))
-        XCTAssertEqual(
-            MemoryDetailText.reminderNote(kind: .promise, contact: contact(scene: "work")), "提前 3 天提醒",
-            "每个场景一样")
         XCTAssertNil(MemoryDetailText.reminderNote(kind: .promise, contact: nil))
     }
 

@@ -19,7 +19,7 @@ final class MemoryStoreTests: XCTestCase {
     }
 
     private func person(_ name: String = "小美") -> MemoryContact {
-        MemoryContact(id: contactId, name: name, pronoun: .ta, scene: "dating", createdAt: 0)
+        MemoryContact(id: contactId, name: name, pronoun: .ta, createdAt: 0)
     }
 
     private func sampleSnapshot() -> MemorySnapshot {
@@ -44,10 +44,6 @@ final class MemoryStoreTests: XCTestCase {
         private var _reads = 0
 
         private var _wroteOnMain = false
-
-        private var _sceneEdits: [SceneEdit] = []
-
-        private var _sceneFailure: MemoryFailure?
 
         var gate: DispatchSemaphore?
 
@@ -75,35 +71,6 @@ final class MemoryStoreTests: XCTestCase {
 
         var wroteOnMain: Bool { locked { _wroteOnMain } }
 
-        var sceneEdits: [SceneEdit] { locked { _sceneEdits } }
-
-        /// 下一次场景改动的结果（用一次就清掉）；nil 时照改 `disk`。
-        var sceneFailure: MemoryFailure? {
-            get { locked { _sceneFailure } }
-            set { locked { _sceneFailure = newValue } }
-        }
-
-        private func applyScene(_ edit: SceneEdit) -> MemoryFailure? {
-            locked {
-                _sceneEdits.append(edit)
-                if let failure = _sceneFailure {
-                    _sceneFailure = nil
-                    return failure
-                }
-                switch edit {
-                case .put(let scene):
-                    if let index = _disk?.scenes.firstIndex(where: { $0.id == scene.id }) {
-                        _disk?.scenes[index].name = scene.name
-                    } else {
-                        _disk?.scenes.append(scene)
-                    }
-                case .delete(let id):
-                    _disk?.scenes.removeAll { $0.id == id }
-                }
-                return nil
-            }
-        }
-
         var backend: MemoryBackend {
             MemoryBackend(
                 read: { _ in
@@ -121,9 +88,7 @@ final class MemoryStoreTests: XCTestCase {
                         if result == nil { self._disk = snapshot }
                         return result
                     }
-                },
-                putScene: { _, scene in self.applyScene(.put(scene)) },
-                deleteScene: { _, id in self.applyScene(.delete(id)) })
+                })
         }
     }
 
@@ -182,73 +147,22 @@ final class MemoryStoreTests: XCTestCase {
     func testUpcomingIncludesEveryone() async {
         let store = MemoryStore(directory: { nil }, backend: FakeBridge(disk: nil).backend)
         var snapshot = MemorySnapshot()
-        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: "daily")
-        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: "work")
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta)
+        let boss = MemoryContact.new(name: "老板", pronoun: .ta)
         snapshot.contacts = [mom, boss]
         snapshot.cards[mom.id] = [MemoryCard.new(kind: .date, text: "生日", when: "1960-10-05", keywords: [])]
         snapshot.cards[boss.id] = [MemoryCard.new(kind: .promise, text: "交方案", when: "2026-10-05", keywords: [])]
         store.replace(with: snapshot)
         let items = store.upcoming(within: 6, now: MemoryDate.parse("2026-10-04")!)
-        XCTAssertEqual(items.map(\.contact.name).sorted(), ["妈妈", "老板"], "每个场景一样，都提醒")
+        XCTAssertEqual(items.map(\.contact.name).sorted(), ["妈妈", "老板"], "名单上的人都提醒")
     }
 
-    func testSettingsWordingForScenes() {
-        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: "daily")
+    func testSettingsWording() {
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta)
         XCTAssertEqual(MemoryStore.Wording.switchesNote(mom), "只对妈妈生效。")
-        XCTAssertEqual(MemoryStore.Wording.peopleCount(2), "2 个人")
-        XCTAssertEqual(MemoryStore.Wording.pinLimit(), "一个场景最多置顶 4 个人")
-        XCTAssertEqual(MemoryStore.Wording.sceneNameTooLong(), "场景名最多 8 个字")
-        XCTAssertEqual(MemoryStore.Wording.sceneHasPeople(0, fallback: "日常"), "这个场景里没有人，删掉不影响任何人。")
-        XCTAssertEqual(
-            MemoryStore.Wording.sceneHasPeople(2, fallback: "日常"),
-            "里面有 2 个人，删掉后他们会挪到「日常」。")
-    }
-
-    func testDeletingTheDefaultSceneNamesTheNextOne() {
-        let scenes = [
-            MemoryScene(id: "daily", name: "日常", createdAt: 0),
-            MemoryScene(id: "dating", name: "恋爱", createdAt: 0),
-        ]
-        XCTAssertEqual(MemoryScene.fallback(in: scenes, deleting: "daily")?.name, "恋爱", "删默认场景时人挪去删完后的新默认")
-        XCTAssertEqual(MemoryScene.fallback(in: scenes, deleting: "dating")?.name, "日常")
-        XCTAssertNil(MemoryScene.fallback(in: [scenes[0]], deleting: "daily"))
-    }
-
-    // 场景单独写：不走整份写，坏卡挡不住
-
-    private func twoScenes() -> MemorySnapshot {
-        var snapshot = sampleSnapshot()
-        snapshot.scenes = [
-            MemoryScene(id: "daily", name: "日常", createdAt: 0),
-            MemoryScene(id: "dating", name: "恋爱", createdAt: 0),
-        ]
-        return snapshot
-    }
-
-    func testSceneEditsSkipTheSnapshotWrite() async {
-        let bridge = FakeBridge(disk: twoScenes())
-        // 整份写一定失败（像有一张坏卡）；场景改动不该走到它
-        bridge.writeResults = [MemoryFailure(code: .invalid, message: "小美的卡「海」：每个关键词要 2 到 8 个字")]
-        let store = await store(bridge)
-        let renamed = await store.renameScene(id: "dating", name: "约会")
-        let added = await store.addScene(name: "家人")
-        let deleted = await store.deleteScene(id: "dating")
-        XCTAssertTrue(renamed && added && deleted)
-        XCTAssertTrue(bridge.writes.isEmpty, "场景改动不走整份写")
-        XCTAssertEqual(bridge.sceneEdits.count, 3)
-        XCTAssertEqual(store.scenes.map(\.name), ["日常", "家人"], "写完按磁盘重读")
-        XCTAssertNil(store.message)
-    }
-
-    func testSceneEditFailureIsShownAndRereads() async {
-        let bridge = FakeBridge(disk: twoScenes())
-        let store = await store(bridge)
-        bridge.sceneFailure = MemoryFailure(code: .lockTimeout, message: "")
-        let ok = await store.renameScene(id: "dating", name: "约会")
-        XCTAssertFalse(ok)
-        XCTAssertEqual(store.message, "没存上：键盘正在写记忆，请稍后再试")
-        XCTAssertEqual(store.scenes.map(\.name), ["日常", "恋爱"])
-        XCTAssertFalse(store.saving)
+        XCTAssertEqual(MemoryStore.Wording.pinLimit(), "最多置顶 4 个人")
+        XCTAssertEqual(MemoryStore.Wording.pinNote(0), "键盘上会先摆置顶的人（最多 4 个）")
+        XCTAssertEqual(MemoryStore.Wording.pinNote(2), "已经置顶 2 / 4 个")
     }
 
     func testBadCardErrorFromBridgeIsShownAsIs() {
@@ -280,7 +194,7 @@ final class MemoryStoreTests: XCTestCase {
         var local = base
         local.cards[contactId] = [card("a", "App 改的", touched: 2)]
         let other = MemoryContact(
-            id: "11111111111111111111111111111111", name: "阿杰", pronoun: .taM, scene: "dating",
+            id: "11111111111111111111111111111111", name: "阿杰", pronoun: .taM,
             createdAt: 0)
         local.contacts.append(other)
         var remote = base
@@ -346,14 +260,14 @@ final class MemoryStoreTests: XCTestCase {
     func testBridgeErrorsAreShownWithReason() async {
         let bridge = FakeBridge(disk: sampleSnapshot())
         bridge.writeResults = [
-            MemoryFailure.decode(#"{"code":"pin_limit","message":"一个场景最多置顶 4 个人"}"#),
+            MemoryFailure.decode(#"{"code":"pin_limit","message":"最多置顶 4 个人"}"#),
             MemoryFailure.decode(#"{"code":"io","message":"记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试"}"#),
             MemoryFailure.decode("不是 JSON"),
         ]
         let store = await store(bridge)
-        let ok4 = await store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM, scene: "daily"), cards: [])
+        let ok4 = await store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM), cards: [])
         XCTAssertFalse(ok4)
-        XCTAssertEqual(store.message, "没存上：一个场景最多置顶 4 个人")
+        XCTAssertEqual(store.message, "没存上：最多置顶 4 个人")
         let ok5 = await store.forget(contactId)
         XCTAssertFalse(ok5)
         XCTAssertEqual(store.message, "没存上：记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试")
