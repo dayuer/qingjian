@@ -54,15 +54,18 @@ final class KeyboardModel {
     /// 记一笔条正显示短提示（确认条换成这一行）。
     var noteDone: Bool { noteToast != nil }
 
-    /// 草稿卡（1e-2）的现在这一段内容。
-    private(set) var draftFields: [DraftField] = []
+    /// 草稿卡（1e-2）与冲突屏（1e-3）的状态：原话、草稿项、冲突的那一对（NoteDraftFlow）。
+    private(set) var noteFlow = NoteDraftFlow()
 
-    /// 草稿卡顶部那条原话，以及它展没展开。
-    private(set) var draftSource = ""
-    private(set) var draftSourceExpanded = false
+    /// 草稿卡的几项。
+    var draftFields: [DraftField] { noteFlow.fields }
 
-    /// 冲突屏（1e-3）的那一对；没冲突时为 nil。
-    private(set) var conflict: NoteConflict?
+    /// 草稿卡与冲突屏顶部那条原话，以及它展没展开。
+    var draftSource: String { noteFlow.source }
+    var draftSourceExpanded: Bool { noteFlow.sourceExpanded }
+
+    /// 冲突屏的那一对；没冲突时为 nil。
+    var conflict: NoteConflict? { noteFlow.conflict }
 
     /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
     private(set) var notice: String?
@@ -369,12 +372,34 @@ final class KeyboardModel {
     }
 
     /// 提示行这一行在不在：选了人且有提示，或有记一笔 / 起名字的输入条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
-    /// 对象卡打开时这一行不画（设计稿 1b），高度让给对象卡，键盘总高不变。
+    /// 对象卡打开时这一行不画（设计稿 1b），高度让给对象卡，键盘总高不变；草稿卡与冲突屏打开时这一行收起（设计稿 1e-2、1e-3）。
     var hasHintRow: Bool {
         ScopeDisplay.hasHintRow(
             hasContact: currentContact != nil, hasHint: hint != nil,
-            hasNoteBar: noteDraft != nil || noteDone || sink.isComposingNote)
+            hasNoteBar: noteDraft != nil || noteDone || sink.isComposingNote,
+            noteCardOpen: panel == .draft || panel == .conflict)
     }
+
+    /// 提示行这一行实际画出来的高度：没有时为 0；记一笔确认条比提示行高（KeyStyle.clipRowHeight）。
+    private var liveRowHeight: CGFloat {
+        guard hasHintRow else { return 0 }
+        return noteDraft != nil && !sink.isComposingNote ? KeyStyle.clipRowHeight : KeyStyle.hintRowHeight
+    }
+
+    /// 打开草稿卡那一刻的行高：草稿卡、冲突屏打开期间键盘总高按它，宿主界面不跳。
+    @ObservationIgnored private var heldRowHeight: CGFloat = 0
+
+    private var rowHeights: (total: CGFloat, inset: CGFloat) {
+        ScopeDisplay.rowHeights(
+            live: liveRowHeight, held: heldRowHeight,
+            noteCardOpen: panel == .draft || panel == .conflict, contactCardOpen: panel == .contactCard)
+    }
+
+    /// 提示行这一行占的高度（键盘总高按它加减）：草稿卡、冲突屏、对象卡打开时这一行不画，高度让给面板。
+    var hintRowHeight: CGFloat { rowHeights.total }
+
+    /// 候选栏与键区往下挪多少：画出来的提示行有多高。
+    var hintRowInset: CGFloat { rowHeights.inset }
 
     /// 首选候选用强调色（ScopeDisplay.accentFirstCandidate）。
     var accentFirstCandidate: Bool {
@@ -497,68 +522,44 @@ final class KeyboardModel {
     /// 真正的抽取要等 2C 的云端整理——Task 10 的本地抽取已被审计会话正式暂缓。
     func confirmNote() {
         guard let cards = noteDraft else { return }
+        heldRowHeight = liveRowHeight
         noteDraft = nil
         markNoteSourceHandled()
-        draftSource = cards.joined(separator: "\n\n")
-        draftSourceExpanded = false
-        draftFields = Self.sampleDraft
+        noteFlow.open(cards: cards)
         panel = .draft
     }
 
-    /// 样例草稿卡（照设计稿 1e-2 的 `e2Init`）；等 2C 换成真抽取。
-    private static let sampleDraft = [
-        DraftField(label: "计划", value: "去厦门"),
-        DraftField(
-            label: "时间", value: "11 月", unsure: true, why: "「下个月」按今天（10 月）算的"),
-        DraftField(label: "地点", value: "沙坡尾"),
-    ]
-
-    /// 样例冲突（照设计稿 1e-3）；等 2C 换成真的冲突比对。
-    private static let sampleConflict = NoteConflict(
-        contactName: "小美", oldLabel: "已有 · 9 月 2 日", oldText: "不吃香菜",
-        newLabel: "新的 · 今天", newText: "最近爱吃香菜")
-
     func toggleDraftSource() {
-        draftSourceExpanded.toggle()
+        noteFlow.toggleSource()
     }
 
     func updateDraftField(index: Int, value: String) {
-        guard draftFields.indices.contains(index) else { return }
-        draftFields[index].value = value
+        noteFlow.updateField(index: index, value: value)
     }
 
     func removeDraftField(index: Int) {
-        guard draftFields.indices.contains(index) else { return }
-        draftFields.remove(at: index)
+        noteFlow.removeField(index: index)
     }
 
-    /// 「不记」：草稿卡收起，什么都不写。
+    /// 「不记」：草稿卡或冲突屏收起，什么都不写。
     func discardDraft() {
-        draftFields = []
-        draftSource = ""
-        conflict = nil
+        noteFlow.discard()
         panel = .keys
     }
 
-    /// 「记下 n 条」：把原话存成待整理素材（落盘还是这一套），然后收起。
-    /// 样例里有冲突时先进冲突屏（1e-3）——**这条链现在也是壳**，等 2C 换成真的冲突比对。
+    /// 「记下 n 条」：样例里有冲突，先进冲突屏（1e-3），原话留着给冲突屏显示，选完才存——**这条链现在也是壳**，
+    /// 等 2C 换成真的冲突比对。冲突落在当前对象身上，称呼用 chipName。
     func saveDraft() {
-        let text = draftSource
-        draftFields = []
-        draftSource = ""
-        conflict = Self.sampleConflict
+        noteFlow.save(contactName: currentContact?.chipName ?? "")
         panel = .conflict
-        _ = text
     }
 
-    /// 冲突屏上选完之后：都按「存一条素材」走，两条怎么合留给 2C 的整理去判。
+    /// 冲突屏上选完之后：都按「存一条素材」存原话，两条怎么合留给 2C 的整理去判。
     func resolveConflict(_ decision: ConflictDecision) {
-        let text = conflict?.newText ?? draftSource
-        conflict = nil
-        draftSource = ""
+        let text = noteFlow.resolve(decision)
         panel = .keys
+        guard !text.isEmpty else { return }
         saveNote([text], source: "clipboard")
-        _ = decision
     }
 
     /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。

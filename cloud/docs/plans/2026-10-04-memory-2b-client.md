@@ -25,14 +25,13 @@
 **Files:** Create `cloud/crates/qingjian-cloud-proto/src/{memory_item,memory_push,memory_accepted,contact_registration,processor_info}.rs`；Modify `feature.rs`（加 `Memory` → `"memory"`）、`consents.rs`（加 `memory: bool`，`#[serde(default)]`）、`lib.rs`（常量与 re-export）。
 
 ```rust
-pub struct MemoryItem { pub client_id: String, pub contact_id: Option<String>, pub scene: Scene, pub kind: MemoryKind, pub text: String, pub at: i64 }
-pub enum Scene { Daily, Dating, Work }          // serde: "daily" / "dating" / "work"
-// 2026-10-05 作废：场景改成用户自建的分组（`memory/scenes.json` 的 {id, name}），
-// `Contact.scene` 是那串 id；「按场景开记录 / 恋爱 default 开」那套要重想（见 2026-10-05-scene-management.md）。
+pub struct MemoryItem { pub client_id: String, pub contact_id: Option<String>, pub scene: String, pub kind: MemoryKind, pub text: String, pub at: i64 }
+// 2026-10-05：场景改成用户自建的分组（`memory/scenes.json` 的 {id, name}），`scene` 是那串 id，`Scene` 枚举已删；
+// 老客户端发的 "daily" / "dating" / "work" 照样是合法 id。「按场景开记录 / 恋爱 default 开」那套要重想（见 2026-10-05-scene-management.md）。
 pub enum MemoryKind { Sent, Note }              // serde: "sent" / "note"
 pub struct MemoryPush { pub items: Vec<MemoryItem> }
 pub struct MemoryAccepted { pub accepted: u32 }
-pub struct ContactRegistration { pub scene: Scene }
+pub struct ContactRegistration { pub scene: String }  // 场景 id，同上
 pub struct ProcessorInfo { pub name: String, pub zero_retention: bool }
 pub const PATH_MEMORY_MATERIALS: &str = "/v1/memory/materials";
 pub const PATH_MEMORY_CONTACTS: &str = "/v1/memory/contacts";   // 后接 /{contact_id}
@@ -88,6 +87,9 @@ impl MemorySync {
 - 新 C 接口：`qj_memory_pause(minutes)`、`qj_memory_recording() -> char*`（`{"recording":bool,"paused_until":…|null,"scene":…}`，键盘画标记用）。
 - ~~2A 的对象新建遇到 `ContactLimit`（云端 30 天内删过的仍占名额）：App 提示「恋爱场景最多 8 个人（最近 30 天删除的也算）」。~~
   **2026-10-05 作废**：人数不限了（每个场景可以置顶 4 个）。
+- **2026-10-05 审计会话定：服务端每个用户最多登记 100 个对象。** 本机不限人数；登记遇到 409 `contact_limit`（`ClientError::ContactLimit`）时
+  这个人照常在本机记、提示照常，只是不登记、不上传（素材留在本机，不进待传队列，也不反复重试登记），
+  App 的对象设置里写一行「这个人只存在这台手机上」。删掉别的对象腾出名额后不自动补登记，下次有素材要传时再试一次。
 - 测试：封口的两种边界；五个条件逐一不满足时不入队；暂停期间不入队；`note` 双写；对象新建离线时登记进待办、恢复后补登记。
 
 ## Task 5：iOS 键盘「记录中」

@@ -135,6 +135,7 @@ struct ContactsView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
+            .contentMargins(.bottom, RootTab.listBottomMargin, for: .scrollContent)
             .scrollDismissesKeyboard(.immediately)
             .overlay(alignment: .topTrailing) {
                 // 搜索时不分组，也就没有索引；只有一个字母也不值得摆一条

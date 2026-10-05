@@ -376,8 +376,8 @@ impl Session {
             memory.reload_contacts();
             memory.reload_cards();
         }
-        // 叠加层换了，格子缓存里的排序作废（learner_mut 会清缓存）
-        self.engine.learner_mut();
+        // 叠加层换了：格子缓存里的排序作废（learner_mut 会清缓存），这个人的用户词快照重建
+        self.engine.learner_mut().scope_changed();
         self.rebuild_hints();
         self.refresh_candidates();
     }

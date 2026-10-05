@@ -7,6 +7,7 @@ mod handle;
 mod overlay;
 mod pick;
 mod scoped_learner;
+mod snapshot;
 mod state;
 
 #[cfg(test)]
@@ -18,6 +19,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use qingjian_learning::FrequencyLearner;
 
 use self::overlay::Overlay;
+use self::snapshot::Snapshot;
 
 pub use self::handle::ScopeHandle;
 pub use self::pick::ContactPick;

@@ -1,7 +1,7 @@
 // 「先快速记、之后再整理」的端到端：首页 →「+ 记一条」写一句 → 当天事件里出现（未归人）→
 // 点「补上」选个人 → 卡归过去。
 //
-// 前提：App Group 的 memory/ 里至少有一个对象（选人那步要有人可选）。
+// 前提：App Group 的 memory/ 里有人可选，选人那步点的是小美：先跑 `UITests/seed/seed.py`（见 UITests/README.md）。
 import XCTest
 
 final class HomeFlow: XCTestCase {
@@ -54,9 +54,14 @@ final class HomeFlow: XCTestCase {
         wait(1.5)
         shot("assign-sheet")
 
-        // 在弹层里点第一个人。**别用 `collectionViews.firstMatch.cells.firstMatch`**：
+        // 在弹层里点小美。**别用 `collectionViews.firstMatch.cells.firstMatch`**：
         // 那个匹配到的可能是弹层后面的视图，点下去落在遮罩上，弹层被关掉、`assign` 根本没被调用。
+        // 种的数据里人多，小美在「恋爱」那组、排在日常之后，弹层第一屏看不到（列表是懒加载的，没滚到就不存在），往上滑着找。
         let person = app.buttons["小美"]
+        for _ in 0..<6 where !(person.exists && person.isHittable) {
+            app.swipeUp()
+            wait(0.5)
+        }
         XCTAssertTrue(person.waitForExistence(timeout: 5), "选人弹层里没有「小美」")
         person.tap()
         wait(5)

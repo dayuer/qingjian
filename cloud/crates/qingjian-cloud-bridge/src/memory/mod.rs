@@ -19,6 +19,7 @@ mod recent;
 mod scene;
 mod snapshot;
 mod store;
+mod validate;
 
 #[cfg(test)]
 mod tests;

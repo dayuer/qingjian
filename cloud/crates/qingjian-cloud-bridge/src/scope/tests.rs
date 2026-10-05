@@ -6,7 +6,8 @@
 use std::path::PathBuf;
 
 use qingjian_core::sentence::Context;
-use qingjian_core::{Candidate, CandidateKind, Learner};
+use qingjian_core::{Candidate, CandidateKind, Engine, Learner};
+use qingjian_dictionary::{Dictionary, WordList};
 
 use super::{ContactPick, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id};
 
@@ -107,7 +108,7 @@ fn counts_overlay_for_choices_raw_and_typos() {
 #[test]
 fn forwarding_is_complete() {
     let (user, memory) = dirs("forward");
-    let mut learner = ScopedLearner::open(&user, &memory, Some(A));
+    let mut learner = ScopedLearner::open(&user, &memory, None);
     assert_eq!(learner.merge_remote("user\tadd\t开发\t3\n"), 1);
     learner.learn_word("青简", &["qing".to_owned(), "jian".to_owned()]);
     assert!(learner.user_words().is_some());
@@ -232,4 +233,148 @@ fn contact_pick_follows_the_c_convention() {
         ContactPick::from_arg(Some(A)),
         ContactPick::Contact(A.to_owned())
     );
+}
+
+fn engine(learner: ScopedLearner) -> Engine {
+    Engine::new(Dictionary::parse("你好\tni hao\t100\n").unwrap())
+        .with_english(WordList::parse("hello\n").unwrap())
+        .with_learner(Box::new(learner))
+}
+
+/// 敲 `input` 时候选里有没有 `text`。
+fn shows(engine: &mut Engine, input: &str, text: &str) -> bool {
+    engine.set_input(input);
+    let found = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .any(|item| item.text == text);
+    engine.set_input("");
+    found
+}
+
+fn dudu() -> Vec<String> {
+    vec!["du".to_owned(), "du".to_owned()]
+}
+
+/// 会话换人的做法：换层后调 `scope_changed`（`session/memory` 的 `switch_layers`）。
+fn switch(engine: &mut Engine, handle: &super::ScopeHandle, contact: Option<&str>) {
+    handle.switch(contact);
+    engine.learner_mut().scope_changed();
+}
+
+#[test]
+fn new_words_made_for_someone_stay_with_them() {
+    let (user, memory) = dirs("new-words");
+    let learner = ScopedLearner::open(&user, &memory, Some(A));
+    let handle = learner.handle();
+    let mut engine = engine(learner);
+    engine.learner_mut().learn_word("嘟嘟", &dudu());
+    engine.learner_mut().learn_english("gist");
+    assert!(shows(&mut engine, "dudu", "嘟嘟"), "选着 A 看得到 A 的新词");
+    assert!(shows(&mut engine, "gist", "gist"), "英文新词也是");
+
+    switch(&mut engine, &handle, Some(B));
+    assert!(!shows(&mut engine, "dudu", "嘟嘟"), "换到 B 就没有");
+    assert!(!shows(&mut engine, "gist", "gist"));
+    assert!(engine.learner().user_words().is_none(), "也没进全局");
+    assert!(engine.learner().user_english().is_none());
+
+    switch(&mut engine, &handle, None);
+    assert!(!shows(&mut engine, "dudu", "嘟嘟"), "不指定也没有");
+    assert!(!shows(&mut engine, "gist", "gist"));
+
+    switch(&mut engine, &handle, Some(A));
+    assert!(
+        shows(&mut engine, "dudu", "嘟嘟"),
+        "换回 A 又有了（落过盘）"
+    );
+    assert!(shows(&mut engine, "gist", "gist"));
+    engine.learner_mut().flush();
+    assert!(
+        !user.join("user-words.tsv").exists(),
+        "全局用户词文件都没建"
+    );
+    assert!(
+        std::fs::read_to_string(contact_learning_dir(&memory, A).join("user-words.tsv"))
+            .unwrap()
+            .contains("嘟嘟")
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn someone_picked_sees_global_and_their_own_words() {
+    let (user, memory) = dirs("both-words");
+    let learner = ScopedLearner::open(&user, &memory, None);
+    let handle = learner.handle();
+    let mut engine = engine(learner);
+    engine
+        .learner_mut()
+        .learn_word("青简", &["qing".to_owned(), "jian".to_owned()]);
+    switch(&mut engine, &handle, Some(A));
+    engine.learner_mut().learn_word("嘟嘟", &dudu());
+    assert!(shows(&mut engine, "qingjian", "青简"), "全局用户词照样有");
+    assert!(shows(&mut engine, "dudu", "嘟嘟"), "这个人的也有");
+    switch(&mut engine, &handle, Some(B));
+    assert!(shows(&mut engine, "qingjian", "青简"), "全局的谁都看得到");
+    assert!(!shows(&mut engine, "dudu", "嘟嘟"));
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn nobody_picked_learns_new_words_globally() {
+    let (user, memory) = dirs("global-words");
+    let mut learner = ScopedLearner::open(&user, &memory, None);
+    learner.learn_word("嘟嘟", &dudu());
+    learner.learn_english("gist");
+    assert!(learner.user_words().is_some(), "不指定照旧写全局");
+    assert!(learner.user_english().is_some());
+    assert!(learner.scoped_user_words().is_none());
+    let handle = learner.handle();
+    let mut engine = engine(learner);
+    switch(&mut engine, &handle, Some(A));
+    assert!(shows(&mut engine, "dudu", "嘟嘟"), "选了人也看得到全局的");
+    assert!(shows(&mut engine, "gist", "gist"));
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn stale_snapshot_never_leaks_before_scope_changed() {
+    let (user, memory) = dirs("stale");
+    let mut learner = ScopedLearner::open(&user, &memory, Some(A));
+    learner.learn_word("嘟嘟", &dudu());
+    learner.learn_english("gist");
+    assert!(learner.scoped_user_words().is_some());
+    let handle = learner.handle();
+    handle.switch(Some(B));
+    assert!(
+        learner.scoped_user_words().is_none(),
+        "没调 scope_changed 也查不到 A 的"
+    );
+    assert!(learner.scoped_user_english().is_none());
+    learner.scope_changed();
+    assert!(learner.scoped_user_words().is_none(), "B 自己没有新词");
+    handle.switch(Some(A));
+    assert!(learner.scoped_user_words().is_none(), "换回 A 要等重建");
+    learner.scope_changed();
+    assert!(learner.scoped_user_words().is_some());
+    assert!(learner.scoped_user_english().is_some());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn forgetting_a_persons_word_drops_it_from_candidates() {
+    let (user, memory) = dirs("forget-word");
+    let learner = ScopedLearner::open(&user, &memory, Some(A));
+    let mut engine = engine(learner);
+    engine.learner_mut().learn_word("嘟嘟", &dudu());
+    engine.learner_mut().learn_english("gist");
+    assert!(engine.learner_mut().forget("嘟嘟").user_word);
+    assert!(engine.learner_mut().forget_english("gist"));
+    assert!(!shows(&mut engine, "dudu", "嘟嘟"));
+    assert!(!shows(&mut engine, "gist", "gist"));
+    std::fs::remove_dir_all(&user).ok();
 }

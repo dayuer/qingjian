@@ -164,9 +164,12 @@ impl Engine {
     }
 
     pub(super) fn english_lists(&self) -> Vec<&WordList> {
+        // 分叉补丁：叠加层的个人英文词在最前（MutedLearner 不转发它，直接问里面那个）
         self.learner
-            .user_english()
+            .inner()
+            .scoped_user_english()
             .into_iter()
+            .chain(self.learner.user_english())
             .chain(self.english.as_ref())
             .collect()
     }

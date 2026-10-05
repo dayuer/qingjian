@@ -56,6 +56,20 @@ pub trait Learner: Send {
         None
     }
 
+    /// 分叉补丁：叠加层自己的用户词（壳按场合分区学习时，只属于当前这一层的那份），与 [`Self::user_words`] 一起查。
+    /// 只经 `MutedLearner::inner` 读，包装器不用转发。
+    fn scoped_user_words(&self) -> Option<&Dictionary> {
+        None
+    }
+
+    /// 分叉补丁：叠加层自己的个人英文词表，排在 [`Self::user_english`] 前面。
+    fn scoped_user_english(&self) -> Option<&WordList> {
+        None
+    }
+
+    /// 分叉补丁：壳换了叠加层，学习器借此重建按层缓存的东西（如上面两份词表）。经 `Engine::learner_mut` 调。
+    fn scope_changed(&mut self) {}
+
     /// 记一条词序列转移：`word` 在上文 `context`（前一个词与再前一个词，句首都是 `None`）之后上屏。
     /// 整句上屏按路径上的词逐条记，连续选词上屏也记；喂个人 n-gram（二元与三元一起记）。
     /// `times` 是这次记几份：用户自己点选的词记双份（[`EXPLICIT_TRANSITION_WEIGHT`]），整句路径里顺带的记一份，
