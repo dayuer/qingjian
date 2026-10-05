@@ -12,7 +12,7 @@ enum ColorRole: Equatable {
     /// 灰绿的浅底 accentSoft（提示行、提醒卡的底色）。
     case accentSoft
 
-    /// 中性的浅底（工作场景里代替灰绿浅底与实底）。
+    /// 中性的浅底（代替灰绿浅底与实底）。
     case neutralSoft
 
     /// 系统 label。

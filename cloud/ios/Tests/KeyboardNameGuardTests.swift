@@ -1,6 +1,6 @@
 // 守护：键盘画出来的文字、VoiceOver 读的、日志里写的称呼只能是 chipName，不能出现真名。
 // 做法是读 Keyboard/Sources 的源码，任何对 `.name` 属性的读取都算违规（`ContactAdd.name(…)` 这类函数调用不算）；
-// 场景名（`MemoryScene.name`，用户自己给分组起的名字）不是称呼，放行。
+// 白名单见下面的 `allowed`；它的条目是上一版留下的，现在已无命中。
 // 源码按 #filePath 找，只在模拟器上跑（模拟器与 Mac 共用文件系统）。
 
 import Foundation
@@ -16,7 +16,7 @@ final class KeyboardNameGuardTests: XCTestCase {
             .filter { $0.pathExtension == "swift" }
         XCTAssertGreaterThan(files.count, 10, "没找到键盘源码：\(sources.path)")
         let pattern = try NSRegularExpression(pattern: #"\.name\b(?!\s*\()"#)
-        // 场景名、以及拿到场景之后的 `.name` 都不算称呼
+        // 白名单：名称类字段的 `.name` 读取不算称呼
         let allowed = try NSRegularExpression(pattern: #"(scene|Scene|scenes\.first|\?)\.name\b"#)
         var hits: [String] = []
         for file in files {
