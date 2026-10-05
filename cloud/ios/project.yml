@@ -107,3 +107,26 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai.tests
+  # 截图走查用：把 App 与键盘驱动到指定屏并逐屏截图，交 UI 审计员对稿（见 docs/plans/2026-10-05-ui-implementation.md）
+  QingjianCloudUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: QingjianCloud
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai.uitests
+schemes:
+  QingjianCloud:
+    build:
+      targets:
+        QingjianCloud: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - QingjianCloudTests
+        - QingjianCloudUITests
