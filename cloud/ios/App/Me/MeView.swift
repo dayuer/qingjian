@@ -19,6 +19,16 @@ struct MeView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // 大标题画在内容里，不用系统的导航栏标题（设计稿第三次导出：标题与右侧按钮合成一行，padding 14/20/6）
+                Section {
+                    Text("我")
+                        .font(AppFont.font(size: 30, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundStyle(Theme.ink)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(
+                            EdgeInsets(top: 14, leading: 20, bottom: 6, trailing: 20))
+                }
                 // 记忆要完全访问（键盘读 App Group 里的卡片）；和键盘面板同一段话，这里能直接跳到素笺的设置页
                 Section {
                     Text(ScopeDisplay.fullAccessExplanation)
@@ -54,7 +64,7 @@ struct MeView: View {
                         .listRowBackground(Color.clear)
                 }
             }
-            .navigationTitle("我")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }

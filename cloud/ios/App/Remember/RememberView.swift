@@ -27,7 +27,7 @@ struct RememberView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header
-                    title
+                    statusRow
                     WeekStrip(days: days, selected: $selectedDay)
                     sections
                 }
@@ -55,43 +55,52 @@ struct RememberView: View {
 
     // MARK: - 顶部
 
+    /// 顶部一行：大标题在左、按钮在右（设计稿第三次导出：标题与按钮合成一行，`padding:14px 20px 6px`）。
     private var header: some View {
-        HStack {
-            Text(DayEvents.monthAndWeek())
-                .font(AppFont.font(size: 13))
-                .foregroundStyle(Theme.ink3)
-            Spacer()
-            Button {
-                writingNote = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text("+").font(AppFont.font(size: 17))
-                    Text("记一条").font(AppFont.font(size: 13, weight: .medium))
-                }
+        HStack(spacing: 12) {
+            Text("记得")
+                .font(AppFont.font(size: 30, weight: .semibold))
+                .tracking(0.5)
                 .foregroundStyle(Theme.ink)
-                .padding(.leading, 10)
-                .padding(.trailing, 12)
-                .frame(height: 28)
-                .background(ColorUsage.quickNoteButton.role.color)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(!store.canEdit)
-            .opacity(store.canEdit ? 1 : 0.4)
-            // 截图走查与 UI 测试要认这个按钮，别让 label 随内部排版变
-            .accessibilityIdentifier("quickNote")
+            Spacer(minLength: 0)
+            quickNoteButton
         }
-        .padding(.horizontal, 16)
-        .frame(height: 44)
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
-    private var title: some View {
-        Text("记得")
-            .font(AppFont.font(size: 30, weight: .semibold))
+    private var quickNoteButton: some View {
+        Button {
+            writingNote = true
+        } label: {
+            HStack(spacing: 4) {
+                Text("+").font(AppFont.font(size: 17))
+                Text("记一条").font(AppFont.font(size: 13, weight: .medium))
+            }
             .foregroundStyle(Theme.ink)
+            .padding(.leading, 10)
+            .padding(.trailing, 12)
+            .frame(height: 28)
+            .background(ColorUsage.quickNoteButton.role.color)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!store.canEdit)
+        .opacity(store.canEdit ? 1 : 0.4)
+        // 截图走查与 UI 测试要认这个按钮，别让 label 随内部排版变
+        .accessibilityIdentifier("quickNote")
+    }
+
+    /// 状态行。设计稿这里是「● 记录中 · 恋爱」+「10 月 · 第 40 周 · 今天 HH:mm 整理过」——
+    /// 记录状态与整理时间来自 2B/2C，现在只有周数那半截能显示，位置先占住。
+    private var statusRow: some View {
+        Text(DayEvents.monthAndWeek())
+            .font(AppFont.font(size: 12.5))
+            .foregroundStyle(Theme.ink3)
             .padding(.horizontal, 20)
-            .padding(.top, 4)
-            .padding(.bottom, 6)
+            .padding(.bottom, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - 分节
