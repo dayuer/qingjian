@@ -6,9 +6,10 @@ import Foundation
 enum ScopeDisplay {
     /// 提示行这一行在不在：选了人且有提示，或有记一笔 / 起名字的输入条时才在，没东西就不占行（设计稿）；
     /// 代价是提示出现与消失时键盘高度变 34pt、宿主界面跟着动，用户把常驻的空行当成了 bug，2026-10-04 改定。
-    /// 每个场景一样，输入条也不看场景。
-    static func hasHintRow(hasContact: Bool, hasHint: Bool, hasNoteBar: Bool) -> Bool {
-        (hasContact && hasHint) || hasNoteBar
+    /// 每个场景一样，输入条也不看场景。记一笔的草稿卡、冲突屏打开时（`noteCardOpen`）这一行收起：设计稿 1e-2、1e-3
+    /// 那两屏顶上直接是牌子那一行，没有提示行。
+    static func hasHintRow(hasContact: Bool, hasHint: Bool, hasNoteBar: Bool, noteCardOpen: Bool = false) -> Bool {
+        !noteCardOpen && ((hasContact && hasHint) || hasNoteBar)
     }
 
     /// 没开完全访问时素笺就是普通输入法：牌子只剩场景名、整块中性色（点开是说明），不出人名与灰绿。

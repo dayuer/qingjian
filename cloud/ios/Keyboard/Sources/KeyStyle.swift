@@ -19,6 +19,9 @@ enum KeyStyle {
     /// 候选栏上方记忆提示行的高度。
     static let hintRowHeight: CGFloat = 34
 
+    /// 记一笔确认条那一行的高度（设计稿 `.clip`：上下 8 + 32 高的按钮 + 下沿 1）。
+    static let clipRowHeight: CGFloat = 49
+
     /// ⇧ / ⌫ / 切层键的宽度，以字母键宽为 1。
     static let edgeKeyUnits: CGFloat = 1.36
 

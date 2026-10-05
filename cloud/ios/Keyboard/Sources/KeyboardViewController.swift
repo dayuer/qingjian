@@ -259,8 +259,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 展开面板时格子清空（面板自己收触摸），⌄ 照常归触摸层，这样才收得起来。
     private func syncTouchView() {
         let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
-        let (layer, panel, composing, hinted) = withObservationTracking {
-            (model.layer, model.panel, model.composing, model.hasHintRow)
+        let (layer, panel, composing, top) = withObservationTracking {
+            (model.layer, model.panel, model.composing, model.hintRowHeight)
         } onChange: { [weak self] in
             Task { @MainActor in self?.syncTouchView() }
         }
@@ -269,7 +269,6 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             : []
         if slots.map(\.key) != touchView.slots.map(\.key) { touchView.resetTouches() }
         touchView.slots = slots
-        let top = hinted ? KeyStyle.hintRowHeight : 0
         // 对象卡与选择面板打开时候选栏那一行换成它们的工具栏，没有 ⌄（CandidateBar）
         let showsChevron = composing && !CandidateBar.panelTakesTheBar(panel)
         touchView.chevron = showsChevron
@@ -307,15 +306,15 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         barView.show(candidates, accentFirst: accentFirst, fromStart: fromStart)
     }
 
-    /// 提示行出现与收起时（hasHintRow）键盘高度加减一行（0.2 秒），键区与 ⌄ 的触摸范围在
+    /// 提示行出现与收起时（hintRowHeight：提示行 34、记一笔确认条更高）键盘高度跟着加减（0.2 秒），键区与 ⌄ 的触摸范围在
     /// viewDidLayoutSubviews / syncTouchView 里跟着下移。
     private func syncHintRow() {
-        let visible = withObservationTracking {
-            model.hasHintRow
+        let hintHeight = withObservationTracking {
+            model.hintRowHeight
         } onChange: { [weak self] in
             Task { @MainActor in self?.syncHintRow() }
         }
-        let height = baseHeight + (visible ? KeyStyle.hintRowHeight : 0)
+        let height = baseHeight + hintHeight
         guard let heightConstraint, heightConstraint.constant != height else { return }
         heightConstraint.constant = height
         view.setNeedsLayout()
@@ -328,7 +327,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     private var baseHeight: CGFloat { KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight }
 
     /// 提示行占掉的高度：键区与 ⌄ 往下挪这么多。
-    private var hintInset: CGFloat { model.hasHintRow ? KeyStyle.hintRowHeight : 0 }
+    private var hintInset: CGFloat { model.hintRowHeight }
 
     private var currentSignature: String {
         let modified = SharedStore.cloudFile.flatMap {

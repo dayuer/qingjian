@@ -40,10 +40,10 @@ struct KeyboardView: View {
                 case .conflict: ConflictPanel(model: model)
                 }
             }
-            .frame(height: Self.keyAreaHeight + (cardOpen && model.hasHintRow ? KeyStyle.hintRowHeight : 0))
+            .frame(height: Self.keyAreaHeight + (cardOpen ? model.hintRowHeight : 0))
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .animation(.easeOut(duration: 0.2), value: model.hasHintRow)
+        .animation(.easeOut(duration: 0.2), value: model.hintRowHeight)
     }
 
     private var cardOpen: Bool { model.panel == .contactCard }
