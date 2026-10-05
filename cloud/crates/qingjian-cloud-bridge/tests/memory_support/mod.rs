@@ -1,5 +1,5 @@
 //! 本地记忆 C 接口测试共用：按 C 签名声明导出函数、临时目录（只有样例词库 `assets/sample/dict.tsv`，按内容认格式，起名 dict.qj 也能读）、
-//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs`、`memory_scene_ffi.rs` 与 `memory_materials_ffi.rs` 各用一部分，所以关掉未使用的告警。
+//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs` 与 `memory_materials_ffi.rs` 各用一部分，所以关掉未使用的告警。
 #![allow(dead_code)]
 
 use std::ffi::{CStr, CString, c_char};
