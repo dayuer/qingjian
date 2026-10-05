@@ -11,9 +11,10 @@ use qingjian_cloud_bridge::{qj_flush, qj_poll, qj_push, qj_session_free};
 use serde_json::{Value, json};
 
 use memory_support::{
-    CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_dropped,
-    qj_memory_material_delete, qj_memory_materials, qj_memory_note, qj_memory_read,
-    qj_memory_write, seed, take,
+    CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_assign_material,
+    qj_memory_dropped, qj_memory_material_delete, qj_memory_materials, qj_memory_note,
+    qj_memory_read, qj_memory_unassigned_materials, qj_memory_unassigned_note, qj_memory_write,
+    seed, take,
 };
 
 /// App 读到的 `{"unprocessed_count","materials"}`。
@@ -350,4 +351,68 @@ fn deferred_note_rejected_for_a_full_contact_is_counted() {
     assert!(!user.join("memory/dropped-keyboard.json").exists());
     assert_eq!(take(unsafe { qj_memory_dropped(session) }), None);
     unsafe { qj_session_free(session) };
+}
+
+/// 首页「+ 记一条」的无主素材：写进 memory/unassigned.jsonl（不绑对象），「补上」挪到某人名下。
+fn unassigned(user: &Path) -> Value {
+    let dir = c(user.to_str().unwrap());
+    json_of(unsafe { qj_memory_unassigned_materials(dir.as_ptr()) })
+}
+
+#[test]
+fn quick_note_goes_to_the_unassigned_bucket_then_moves_to_a_contact() {
+    let (_, user) = dirs("unassigned-ffi");
+    seed(&user);
+    let dir = c(user.to_str().unwrap());
+    let text = c("周五晚上订了两个人的位子");
+    let source = c("typed");
+    assert_eq!(
+        take(unsafe { qj_memory_unassigned_note(dir.as_ptr(), text.as_ptr(), source.as_ptr()) }),
+        None,
+        "成功时返回 NULL（与 qj_memory_note 一致；返回 JSON 的话 App 会当成失败弹出来）"
+    );
+
+    let listing = unassigned(&user);
+    assert_eq!(listing["unprocessed_count"], 1);
+    assert_eq!(listing["materials"][0]["text"], "周五晚上订了两个人的位子");
+    assert_eq!(listing["materials"][0]["kind"], "note");
+    assert_eq!(
+        materials(&user)["unprocessed_count"],
+        0,
+        "还没补上归人，那个人的待整理里不该有"
+    );
+
+    let client_id = c(listing["materials"][0]["client_id"].as_str().unwrap());
+    let contact = c(CONTACT);
+    assert_eq!(
+        take(unsafe { qj_memory_assign_material(dir.as_ptr(), client_id.as_ptr(), contact.as_ptr()) }),
+        None,
+        "「补上」成功也返回 NULL"
+    );
+
+    assert_eq!(unassigned(&user)["unprocessed_count"], 0, "归完从无主桶摘掉");
+    assert_eq!(texts(&materials(&user)), vec!["周五晚上订了两个人的位子"]);
+}
+
+#[test]
+fn assign_rejects_an_unknown_contact() {
+    let (_, user) = dirs("unassigned-bad-contact");
+    seed(&user);
+    let dir = c(user.to_str().unwrap());
+    let text = c("一句话");
+    let source = c("typed");
+    assert_eq!(
+        take(unsafe { qj_memory_unassigned_note(dir.as_ptr(), text.as_ptr(), source.as_ptr()) }),
+        None
+    );
+    let listing = unassigned(&user);
+    let client_id = c(listing["materials"][0]["client_id"].as_str().unwrap());
+    let ghost = c("ffffffffffffffffffffffffffffffff");
+    let failure = take(unsafe {
+        qj_memory_assign_material(dir.as_ptr(), client_id.as_ptr(), ghost.as_ptr())
+    })
+    .expect("名单上没有的人该被拒");
+    let failure: Value = serde_json::from_str(&failure).expect("失败要回一份 JSON");
+    assert_eq!(failure["code"], "invalid");
+    assert_eq!(unassigned(&user)["unprocessed_count"], 1, "没归成，素材还在原处");
 }

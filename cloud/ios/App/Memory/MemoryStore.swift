@@ -17,6 +17,10 @@ final class MemoryStore {
 
     private(set) var snapshot = MemorySnapshot()
 
+    /// 首页「+ 记一条」记下、还没补上归人的**无主素材**（不绑对象的那一桶，与按对象的那份同形）。
+    /// 单独一个文件，随 `reload()` 一起读；读不出时报空表，不至于让首页跟着空掉。
+    private(set) var unassigned: [MemoryMaterial] = []
+
     /// 读不出来的原因（容器不可用、开机后还没解锁过）；有它时首页常驻显示，并且不让写，免得空数据覆盖文件。
     private(set) var loadError: String?
 
@@ -74,6 +78,8 @@ final class MemoryStore {
             return
         }
         apply(next)
+        // 无主素材是另一个文件（不绑对象的那一桶），和快照一起读；它读不出只是首页少几条，不影响上面的成败
+        unassigned = await worker.unassigned(directory)
     }
 
     /// 测试用：不经桥直接换数据。
@@ -180,26 +186,49 @@ final class MemoryStore {
         await update(contactId: id) { $0.cards[id]?.removeAll { $0.id == cardId } }
     }
 
-    /// 快速记一条：**不问是谁**，先落成「还没归到人的」卡（首页「+ 记一条」）。整理留到事后用 `assign`。
+    /// 快速记一条：**不问是谁**，先落进无主素材桶（首页「+ 记一条」）。整理留到事后用 `assign`。
+    /// 走的是键盘「记一笔」那同一套素材（切段、2000 字节、200 条上限都一样），只是不绑对象。
     @discardableResult
     func quickNote(_ text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-        return await update {
-            $0.unassigned.append(
-                MemoryCard.new(kind: .other, text: trimmed, when: nil, keywords: []))
+        guard let directory = directory() else {
+            loadError = Wording.noAppGroup
+            message = Wording.noAppGroup
+            return false
         }
+        guard canEdit else {
+            message = loadError ?? Wording.unreadable
+            return false
+        }
+        if let failure = await worker.addUnassigned(directory, text: trimmed, source: .typed) {
+            message = Wording.failed(failure)
+            return false
+        }
+        unassigned = await worker.unassigned(directory)
+        return true
     }
 
-    /// 把「还没归到人的」一张卡归到某个人名下（首页事件行的「补上」）。
+    /// 把无主素材里的一条归到某个人名下（首页事件行的「补上」）。
     @discardableResult
-    func assign(_ cardId: String, to contactId: String) async -> Bool {
-        guard snapshot.unassigned.contains(where: { $0.id == cardId }) else { return false }
-        return await update(contactId: contactId) { snapshot in
-            guard let card = snapshot.unassigned.first(where: { $0.id == cardId }) else { return }
-            snapshot.unassigned.removeAll { $0.id == cardId }
-            snapshot.cards[contactId, default: []].append(card)
+    func assign(_ clientId: String, to contactId: String) async -> Bool {
+        guard let directory = directory() else {
+            loadError = Wording.noAppGroup
+            message = Wording.noAppGroup
+            return false
         }
+        guard canEdit else {
+            message = loadError ?? Wording.unreadable
+            return false
+        }
+        if let failure = await worker.assign(directory, clientId: clientId, contactId: contactId) {
+            message = Wording.failed(failure)
+            return false
+        }
+        // 素材挪到那个人名下了，两边都要重读：无主桶少一条、那个人的「待整理」多一条
+        unassigned = await worker.unassigned(directory)
+        await reload()
+        return true
     }
 
     /// 开着日子提醒的人今天到 `within` 天后的日子与约定，近的在前；恋爱与日常的人都算，工作的人不提醒（MemoryScope.reminds）。

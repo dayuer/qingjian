@@ -23,6 +23,23 @@ actor MemoryWorker {
         return backend.read(directory)
     }
 
+    /// 无主素材（首页「+ 记一条」记下、还没归人的）。这一桶读不出只是首页少几条，不当整次读失败，所以给空表。
+    func unassigned(_ directory: URL) -> [MemoryMaterial] {
+        backend.unassigned(directory) ?? []
+    }
+
+    /// 往无主桶里记一条；成功为 nil。
+    func addUnassigned(
+        _ directory: URL, text: String, source: MemoryMaterial.Source
+    ) -> MemoryFailure? {
+        backend.addUnassigned(directory, text, source)
+    }
+
+    /// 把无主桶里的一条归到某个人；成功为 nil。
+    func assign(_ directory: URL, clientId: String, contactId: String) -> MemoryFailure? {
+        backend.assign(directory, clientId, contactId)
+    }
+
     /// 写 `next`；conflict 时重读、三方合并后再写，最多三轮。写成功后重读一遍拿新的修订号。`contactId` 只给日志用。
     /// `forgetting` 是这次要忘掉的人：写失败后重读，若那人还在名单上但卡片已经没了，就报 `forgetPartial`。
     func save(

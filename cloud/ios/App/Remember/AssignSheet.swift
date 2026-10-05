@@ -1,4 +1,4 @@
-// 「补上」：把一张「还没归到人的」卡归给某个人。按场景分组列出本机已有的人，点谁就归到谁名下。
+// 「补上」：把无主素材里的一条归给某个人。按场景分组列出本机已有的人，点谁就归到谁名下。
 // 一个人都没有时给一句提示（先去通讯录加一个人）。
 
 import SwiftUI
@@ -6,7 +6,7 @@ import SwiftUI
 struct AssignSheet: View {
     let store: MemoryStore
 
-    let card: MemoryCard
+    let material: MemoryMaterial
 
     let onPicked: () -> Void
 
@@ -15,6 +15,12 @@ struct AssignSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                // 归人失败时把原因写在这儿：TabView 上那个 memoryAlert 被这一层弹层挡着，弹不出来
+                if let message = store.message {
+                    Section {
+                        Text(message).font(AppFont.subheadline).foregroundStyle(.red)
+                    }
+                }
                 if store.snapshot.contacts.isEmpty {
                     Section {
                         Text("还没有记下任何人。先去通讯录加一个人，再回来归这张卡。")
@@ -28,7 +34,7 @@ struct AssignSheet: View {
                             ForEach(group.people) { contact in
                                 Button {
                                     Task {
-                                        if await store.assign(card.id, to: contact.id) {
+                                        if await store.assign(material.clientId, to: contact.id) {
                                             onPicked()
                                             dismiss()
                                         }
@@ -49,6 +55,7 @@ struct AssignSheet: View {
             }
             .navigationTitle("记到谁那儿？")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { store.message = nil }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }

@@ -54,13 +54,17 @@ final class HomeFlow: XCTestCase {
         wait(1.5)
         shot("assign-sheet")
 
-        // 选第一个人
-        let list = app.collectionViews.firstMatch
-        let first = list.exists ? list.cells.firstMatch : app.buttons.matching(
-            NSPredicate(format: "label CONTAINS %@", "小美")).firstMatch
-        XCTAssertTrue(first.waitForExistence(timeout: 5), "选人列表里没有人")
-        first.tap()
-        wait(2)
+        // 在弹层里点第一个人。**别用 `collectionViews.firstMatch.cells.firstMatch`**：
+        // 那个匹配到的可能是弹层后面的视图，点下去落在遮罩上，弹层被关掉、`assign` 根本没被调用。
+        let person = app.buttons["小美"]
+        XCTAssertTrue(person.waitForExistence(timeout: 5), "选人弹层里没有「小美」")
+        person.tap()
+        wait(5)
         shot("assigned")
+        // 归人失败时弹层不会自己收（assign 返回 false），把那一刻的元素树打出来看原因
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "after-assign"
+        tree.lifetime = .keepAlways
+        add(tree)
     }
 }

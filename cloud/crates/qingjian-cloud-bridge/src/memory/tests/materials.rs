@@ -384,3 +384,100 @@ fn upload_needs_cloud_and_consent() {
         );
     }
 }
+
+/// 「+ 记一条」的无主桶：不绑对象、与按对象的那份同格式，归人时挪进那个人的 materials.jsonl。
+
+#[test]
+fn unassigned_bucket_starts_empty() {
+    let user = temp_dir("unassigned-empty");
+    let store = MemoryStore::open(&user);
+    assert!(store.unassigned_materials(0).unwrap().is_empty());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn unassigned_note_stores_and_assigns() {
+    let user = temp_dir("unassigned-assign");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+
+    let added = store
+        .add_unassigned_material("周五晚上订了两个人的位子", MaterialSource::Typed, 100)
+        .unwrap();
+    assert_eq!(added.len(), 1);
+    assert!(!added[0].uploaded && !added[0].processed);
+    assert_eq!(store.unassigned_materials(100).unwrap().len(), 1);
+    assert!(store.materials(&id(1), 100).unwrap().is_empty(), "还没归人");
+
+    store
+        .assign_material(&added[0].client_id, &id(1), 200)
+        .unwrap();
+    assert!(store.unassigned_materials(200).unwrap().is_empty(), "归完就从无主桶摘掉");
+    let target = store.materials(&id(1), 200).unwrap();
+    assert_eq!(target.len(), 1);
+    assert_eq!(target[0].text, "周五晚上订了两个人的位子");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn assign_requires_a_known_contact_and_a_stored_material() {
+    let user = temp_dir("unassigned-errors");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let added = store
+        .add_unassigned_material("一句原话", MaterialSource::Typed, 100)
+        .unwrap();
+
+    // 名单上没有的人
+    assert!(matches!(
+        store.assign_material(&added[0].client_id, &id(9), 100),
+        Err(MemoryError::Invalid(_))
+    ));
+    // 无主桶里没有这条
+    assert!(matches!(
+        store.assign_material(&id(5000), &id(1), 100),
+        Err(MemoryError::Invalid(_))
+    ));
+    // 两次都没成，素材还在无主桶里
+    assert_eq!(store.unassigned_materials(100).unwrap().len(), 1);
+    std::fs::remove_dir_all(&user).ok();
+}
+
+/// 回归：无主桶放在 `memory/` 根上，**不能**放进 `<伪对象 id>/`。
+/// `write_snapshot` 会把名单上没有的人的目录连内容一起删，放对象目录里每次写快照都会把它清掉。
+#[test]
+fn unassigned_survives_a_snapshot_write() {
+    let user = temp_dir("unassigned-snapshot");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    store
+        .add_unassigned_material("别被写快照冲掉", MaterialSource::Typed, 100)
+        .unwrap();
+
+    let snapshot = store.snapshot().unwrap();
+    store.write_snapshot(&snapshot).unwrap();
+
+    assert_eq!(
+        store.unassigned_materials(100).unwrap().len(),
+        1,
+        "写一次快照不该动无主桶"
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn unassigned_honours_the_same_limit() {
+    let user = temp_dir("unassigned-limit");
+    let store = MemoryStore::open(&user);
+    // 每条一段，塞满 200 条
+    for index in 0..MAX_UNPROCESSED_MATERIALS {
+        store
+            .add_unassigned_material(&format!("第 {index} 条"), MaterialSource::Typed, 100)
+            .unwrap();
+    }
+    assert!(matches!(
+        store.add_unassigned_material("挤不下了", MaterialSource::Typed, 100),
+        Err(MemoryError::MaterialLimit { remaining: 0, needed: 1 })
+    ));
+    std::fs::remove_dir_all(&user).ok();
+}

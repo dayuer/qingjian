@@ -142,6 +142,19 @@ char *qj_memory_materials(const char *user_dir, const char *contact_id);
 // App 用：删一条素材，没有这条也算成功。成功返回 NULL，失败返回 {"code","message"}（invalid / lock_timeout / io）。
 char *qj_memory_material_delete(const char *user_dir, const char *contact_id, const char *client_id);
 
+// App 用：**还没归到人的**素材（首页「+ 记一条」先记下的），与 qj_memory_materials 同形、同样「新的在上」；
+// 存在 memory/unassigned.jsonl（不绑对象；不能放进 <伪对象 id>/，写快照时会把名单上没有的人的目录连内容删掉）。
+// 参数无效或读不了时为 NULL。
+char *qj_memory_unassigned_materials(const char *user_dir);
+// App 用：首页「+ 记一条」——把一句话存成不绑对象的待整理素材（切段与上限同键盘的「记一笔」）。
+// 成功返回 NULL（与 qj_memory_note 一样；要看内容调 qj_memory_unassigned_materials）；
+// 失败返回 {"code","message"}（material_limit 另带 remaining/needed、invalid / lock_timeout / io）。
+// source 取 "clipboard" / "typed"，NULL 或不认得按 typed。
+char *qj_memory_unassigned_note(const char *user_dir, const char *text, const char *source);
+// App 用：「补上」——把无主素材里的一条归到某个人名下。成功返回 NULL，失败返回 {"code","message"}
+// （invalid：人不在名单上或无主素材里没有这条；lock_timeout / io）。
+char *qj_memory_assign_material(const char *user_dir, const char *client_id, const char *contact_id);
+
 void qj_string_free(char *text);
 
 #endif

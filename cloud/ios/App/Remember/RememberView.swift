@@ -19,8 +19,8 @@ struct RememberView: View {
 
     @State private var writingNote = false
 
-    /// 正在「补上」的那张未归人卡；nil 时选人弹层收着。
-    @State private var assigningCard: MemoryCard?
+    /// 正在「补上」的那条无主素材；nil 时选人弹层收着。
+    @State private var assigningMaterial: MemoryMaterial?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -47,8 +47,8 @@ struct RememberView: View {
             }
             .refreshable { await store.reload() }
             .sheet(isPresented: $writingNote) { QuickNoteSheet(store: store) }
-            .sheet(item: $assigningCard) { card in
-                AssignSheet(store: store, card: card, onPicked: { assigningCard = nil })
+            .sheet(item: $assigningMaterial) { material in
+                AssignSheet(store: store, material: material, onPicked: { assigningMaterial = nil })
             }
         }
     }
@@ -189,7 +189,7 @@ struct RememberView: View {
         let text = Text(event.tag).font(AppFont.font(size: 11, weight: .medium))
         if event.isAction {
             Button {
-                if case .unassigned(let card) = event { assigningCard = card }
+                if case .unassigned(let material) = event { assigningMaterial = material }
             } label: {
                 text
                     .foregroundStyle(ColorUsage.eventActionTagInk.role.color)
@@ -318,7 +318,7 @@ struct RememberView: View {
 
     private var days: [DaySlot] {
         DayEvents.week(
-            upcoming: store.upcoming(within: 6), unassigned: store.snapshot.unassigned)
+            upcoming: store.upcoming(within: 6), unassigned: store.unassigned)
     }
 
     private var current: DaySlot {
