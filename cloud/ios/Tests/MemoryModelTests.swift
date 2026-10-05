@@ -5,7 +5,7 @@ import XCTest
 
 final class MemoryModelTests: XCTestCase {
     private func contact(_ name: String = "小美") -> MemoryContact {
-        MemoryContact.new(name: name, pronoun: .taF, scene: "daily")
+        MemoryContact.new(name: name, pronoun: .taF)
     }
 
     private func date(_ text: String) throws -> Date { try XCTUnwrap(MemoryDate.parse(text)) }
@@ -84,7 +84,7 @@ final class MemoryModelTests: XCTestCase {
         XCTAssertEqual(snapshot.contacts.count, 1)
         XCTAssertEqual(snapshot.cards["a"]?.count, 1)
         XCTAssertEqual(snapshot.revs["a"], 3)
-        XCTAssertEqual(snapshot.state, MemoryScope(scene: "dating", contactId: "a"))
+        XCTAssertEqual(snapshot.state, MemoryScope(contactId: "a"), "带 scene 的旧文件照读，多出来的键不管")
         XCTAssertEqual(snapshot.broken, ["b"])
         let empty = try JSONDecoder().decode(MemorySnapshot.self, from: Data("{}".utf8))
         XCTAssertEqual(empty, MemorySnapshot())
@@ -92,8 +92,9 @@ final class MemoryModelTests: XCTestCase {
 
     func testScopeDecodes() throws {
         let scope = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"scene":"work","contact_id":null}"#.utf8))
-        XCTAssertEqual(scope, MemoryScope(scene: "work", contactId: nil))
-        XCTAssertEqual(MemoryScene(id: "a", name: "家人", createdAt: 1).name, "家人", "场景名就是用户起的那串字")
+        XCTAssertEqual(scope, MemoryScope(contactId: nil), "没有场景之后，旧文件里的 scene 忽略")
+        let used = try JSONDecoder().decode(MemoryScope.self, from: Data(#"{"used":{"a":1791043200}}"#.utf8))
+        XCTAssertEqual(used.used, ["a": 1_791_043_200])
     }
 
     func testHintDecodes() throws {
@@ -163,7 +164,7 @@ final class MemoryModelTests: XCTestCase {
         var person = contact()
         XCTAssertEqual(person.knownDays(), 1)
         person = MemoryContact(
-            id: "a", name: "小美", pronoun: .ta, scene: "dating",
+            id: "a", name: "小美", pronoun: .ta,
             createdAt: Int64(Date().timeIntervalSince1970) - 12 * 86400)
         XCTAssertEqual(person.knownDays(), 13)
     }
@@ -175,9 +176,9 @@ final class MemoryModelTests: XCTestCase {
         XCTAssertNotEqual(id, MemoryID.make())
     }
 
-    // MARK: 提示行、牌子、面板
+    // MARK: 提示行、牌子
 
-    func testHintRowForEveryScene() {
+    func testHintRow() {
         XCTAssertTrue(ScopeDisplay.hasHintRow(hasContact: true, hasHint: true, hasNoteBar: false))
         XCTAssertFalse(
             ScopeDisplay.hasHintRow(hasContact: true, hasHint: false, hasNoteBar: false),
@@ -190,15 +191,9 @@ final class MemoryModelTests: XCTestCase {
             ScopeDisplay.hasHintRow(hasContact: false, hasHint: false, hasNoteBar: true), "没选人也能起名字")
     }
 
-    func testChipHalves() {
-        XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
+    func testChipPerson() {
         XCTAssertEqual(ScopeDisplay.chipPerson("小美"), "小美")
         XCTAssertEqual(ScopeDisplay.chipPerson(nil), "不指定")
-    }
-
-    func testPickerNeedsFullAccess() {
-        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
-        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: true), .picker)
     }
 
     func testCanNoteNeedsEverything() {

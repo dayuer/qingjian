@@ -2,8 +2,8 @@
 // 空格上屏首选，换行原样上屏字母（打英文就靠它），组字中敲标点先上屏首选。视图只读状态、转发点击。
 // 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
 // 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
-// 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
-// 每个场景各有一组人；切场景时桥回到这个场景上次选的人（ScopePick.last），工作场景不出提示。
+// 本地记忆：对象牌子、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
+// 名单是一张平铺的人，人数不限；切人就调桥（ScopePick），桥回话后按新的对象重读名单与提示。
 // 所有输出都经 OutputRouter：手写记一笔时它把上屏、退格改道到草稿，宿主一个字都不碰（不持有宿主，就绕不过去）。
 
 import Foundation
@@ -33,17 +33,17 @@ final class KeyboardModel {
     /// 记忆的提示行：恋爱或日常、选了对象、碰上卡片里的词或日子快到时有。
     private(set) var hint: MemoryHint?
 
-    /// 当前场景与对象（只能用户自己切）。
+    /// 当前对象（只能用户自己切）。
     private(set) var scope = MemoryScope()
 
-    /// 三个场景的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
+    /// 名单上的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
     private(set) var contacts: [MemoryContact] = []
 
-    /// 用户自建的场景（分组）；键盘上的分段与牌子左半按它来。
-    private(set) var scenes: [MemoryScene] = []
-
-    /// 点了牌子右半：工具栏里横着列本场景的其他人与「不指定」（ScopeDisplay.quickPicks）。
+    /// 点了牌子：工具栏里横着列其他人与「不指定」（ScopeDisplay.quickPicks）。
     private(set) var quickOpen = false
+
+    /// 没开完全访问时点牌子展开的说明（改写与记忆都要完全访问）。
+    private(set) var showsFullAccessNote = false
 
     /// 确认条里待记的几条素材（剪贴板拆出来的）；nil 时不出确认条。
     private(set) var noteDraft: [String]?
@@ -323,7 +323,7 @@ final class KeyboardModel {
     func poll() {
         guard let engine else { return }
         refreshHint()
-        // App 删了当前对象时桥会退回这个场景的不指定
+        // App 删了当前对象时桥会退回不指定
         if let next = engine.scope, next != scope {
             scope = next
             reloadContacts()
@@ -418,20 +418,10 @@ final class KeyboardModel {
         refresh()
     }
 
-    /// 当前场景的名字（用户自己起的）；场景还没读到或认不得时给一句兜底。
-    var sceneName: String {
-        scenes.first { $0.id == scope.scene }?.name ?? ScopeDisplay.unknownScene
+    /// 牌子展开时列的人（nil 是「不指定」）：名单平铺后人数不限，只列排在前面的几个。
+    var quickPicks: [String?] {
+        ScopeDisplay.quickPicks(people: contacts, current: scope.contactId, used: scope.used)
     }
-
-    /// 当前场景的人：置顶的先、其余按沟通情况，面板里最多摆 `panelCount` 个。
-    var people: [MemoryContact] {
-        ContactOrder.ordered(
-            SceneGroup.people(in: scope.scene, from: contacts), used: scope.used,
-            limit: ContactOrder.panelCount)
-    }
-
-    /// 牌子右半展开时列的人（nil 是「不指定」）。
-    var quickPicks: [String?] { ScopeDisplay.quickPicks(people: people, current: scope.contactId) }
 
     /// 当前对象（名单里找得到的）。
     var currentContact: MemoryContact? {
@@ -444,43 +434,32 @@ final class KeyboardModel {
         ScopeDisplay.canNote(fullAccess: fullAccess, privateField: privateField, hasContact: currentContact != nil)
     }
 
-    func openScopePicker() {
-        reloadContacts()
-        quickOpen = false
-        panel = .scope
-    }
+    /// 没开完全访问时点牌子：展开 / 收起那段说明（键盘里只有这里能说清为什么要开）。
+    func toggleFullAccessNote() { showsFullAccessNote.toggle() }
 
-    /// 点牌子右半：列出 / 收起本场景的其他人。没开完全访问时进面板看说明。
+    /// 点牌子：列出 / 收起其他人。没开完全访问时读不到名单，不做（牌子那时是说明入口）。
     func toggleQuickPicks() {
-        guard fullAccess else {
-            openScopePicker()
-            return
-        }
+        guard fullAccess else { return }
         if !quickOpen { reloadContacts() }
         quickOpen.toggle()
     }
 
-    /// 面板里切场景：回到这个场景上次选的人，面板留着接着选人。
-    func chooseScene(_ scene: String) {
-        guard scene != scope.scene else { return }
-        applyScope(scene: scene, pick: .last)
-    }
-
-    /// 在当前场景里选人（nil 是不指定）：面板与工具栏里的人都收起。
+    /// 换一个对象（nil 是不指定）：让桥定完，工具栏里列的人收起。
     func chooseContact(_ contactId: String?) {
-        applyScope(scene: scope.scene, pick: contactId.map(ScopePick.contact) ?? .nobody)
+        applyScope(pick: contactId.map(ScopePick.contact) ?? .nobody)
         quickOpen = false
         panel = .keys
     }
 
-    private func applyScope(scene: String, pick: ScopePick) {
-        guard let engine else { return }
-        engine.setScope(scene: scene, pick: pick)
-        let next = engine.scope ?? scope
+    /// 换当前对象：先让桥在锁里读名单定对象，再按回来的状态重读名单与提示。
+    private func applyScope(pick: ScopePick) {
+        engine?.setScope(pick: pick)
+        let next = engine?.scope ?? scope
         // 手写的草稿是记给原来那个人的，换了人就丢掉
-        if next.scene != scope.scene || next.contactId != scope.contactId { endComposedNote() }
+        if next.contactId != scope.contactId { endComposedNote() }
         scope = next
-        refresh()
+        reloadContacts()
+        refreshHint()
     }
 
     func openContactCard() {
@@ -583,7 +562,7 @@ final class KeyboardModel {
         saveNote([composer.text], source: "typed")
     }
 
-    /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
+    /// 点「新对象」：在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
     func startNamingContact() {
         guard fullAccess, !sink.isComposingNote else { return }
         namingContact = true
@@ -593,7 +572,7 @@ final class KeyboardModel {
 
     private func confirmNewContact(_ draft: String) {
         guard let name = ContactAdd.name(draft), let engine else { return }
-        switch engine.addContact(name: name, scene: scope.scene) {
+        switch engine.addContact(name: name) {
         case .success(let id):
             endComposedNote()
             reloadContacts()
@@ -707,7 +686,7 @@ final class KeyboardModel {
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var noteToastTask: Task<Void, Never>?
 
-    /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
+    /// 换了引擎、键盘出现时：从桥取当前对象，重读名单与提示。
     private func syncScope() {
         scope = engine?.scope ?? MemoryScope()
         reloadContacts()
@@ -719,12 +698,10 @@ final class KeyboardModel {
               let snapshot = MemoryFiles.read(userDirectory: directory)
         else {
             contacts = []
-            scenes = []
             cardIndex = [:]
             return
         }
         contacts = snapshot.contacts
-        scenes = snapshot.scenes
         cardIndex = Dictionary(
             snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
