@@ -1,5 +1,6 @@
 //! 本地记忆的单元测试，按主题分文件；这里放共用的临时目录与样例对象、卡片。
 
+mod bad_card;
 mod date;
 mod display_name;
 mod hint;

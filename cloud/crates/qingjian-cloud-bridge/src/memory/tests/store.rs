@@ -243,7 +243,10 @@ fn snapshot_write_validates() {
     );
     assert!(matches!(
         store.write_snapshot(&bad_date),
-        Err(MemoryError::Invalid(_))
+        Err(MemoryError::InvalidCard {
+            reason: "日期要写成 2026-10-04 这样",
+            ..
+        })
     ));
 
     let mut bad_id = ok.clone();
