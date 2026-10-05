@@ -125,7 +125,7 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            learning_language: "en".to_owned(),
+            learning_language: "off".to_owned(),
             page_size: MAX_PAGE_SIZE,
             page_keys: PAGE_KEY_OPTIONS[0].to_owned(),
             theme: ThemeMode::default(),
