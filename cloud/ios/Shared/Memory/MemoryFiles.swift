@@ -1,4 +1,4 @@
-// 经桥整份读写 memory/（qj_memory_read / qj_memory_write），场景的增删改名另走 qj_memory_put_scene / qj_memory_delete_scene。App 与键盘共用；键盘只读名单，写只在 App 里。
+// 经桥整份读写 memory/（qj_memory_read / qj_memory_write）。App 与键盘共用；键盘只读名单，写只在 App 里。
 
 import Foundation
 import QingjianBridge
@@ -15,20 +15,6 @@ enum MemoryFiles {
               let json = String(data: data, encoding: .utf8)
         else { return MemoryFailure(code: .invalid, message: "数据编码失败") }
         let raw = userDirectory.path.withCString { dir in json.withCString { qj_memory_write(dir, $0) } }
-        return MemoryFailure.decode(take(raw))
-    }
-
-    /// 加一个场景或给已有的改名（只写 scenes.json，不校验卡片）；成功返回 nil。
-    static func putScene(_ scene: MemoryScene, userDirectory: URL) -> MemoryFailure? {
-        let raw = userDirectory.path.withCString { dir in
-            scene.id.withCString { id in scene.name.withCString { qj_memory_put_scene(dir, id, $0) } }
-        }
-        return MemoryFailure.decode(take(raw))
-    }
-
-    /// 删一个场景，里面的人挪到默认场景（不校验卡片）；成功返回 nil。
-    static func deleteScene(id: String, userDirectory: URL) -> MemoryFailure? {
-        let raw = userDirectory.path.withCString { dir in id.withCString { qj_memory_delete_scene(dir, $0) } }
         return MemoryFailure.decode(take(raw))
     }
 

@@ -30,11 +30,11 @@ struct MemoryFailure: Error, Equatable, Sendable {
         }
     }
 
-    /// 给用户看的话：锁超时与素材满了用固定文案，其余照桥给的（置顶超了的话桥会带「一个场景最多置顶 4 个人」）。
+    /// 给用户看的话：锁超时与素材满了用固定文案，其余照桥给的（置顶超了的话桥会带「最多置顶 4 个人」）。
     /// 素材满了按 remaining / needed 写（NoteBarText.materialLimit）；旧桥没带时按没有空位写。
     var userMessage: String {
         switch code {
-        case .pinLimit: message.isEmpty ? "一个场景最多置顶 \(MemoryScene.maxPinned) 个人" : message
+        case .pinLimit: message.isEmpty ? "最多置顶 4 个人" : message
         case .materialLimit: NoteBarText.materialLimit(remaining: remaining ?? 0, needed: needed ?? 1)
         case .lockTimeout: "键盘正在写记忆，请稍后再试"
         default: message
