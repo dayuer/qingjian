@@ -1,5 +1,5 @@
 // 场景改成用户自建之后的截图走查：「我」页的场景一组、加一个、改名、删一个（人挪到默认场景）、通讯录里的场景名。
-// 数据由 /private/tmp/seed-legacy.py 种成老样子（三个场景），跑起来先看迁移。
+// 数据由 `UITests/seed/seed.py --legacy` 种成老样子（三个场景、没有 scenes.json），跑起来先看迁移（见 UITests/README.md）。
 
 import XCTest
 

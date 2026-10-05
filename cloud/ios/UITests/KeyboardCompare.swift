@@ -48,19 +48,7 @@ final class KeyboardCompare: XCTestCase {
 
     /// 字母键在三行里的中心 x。
     private func x(_ key: Character) -> CGFloat {
-        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
-        let unit = (390 - 4 * 2 - 6.3 * 9) / 10
-        let starts: [CGFloat] = [
-            4,
-            4 + unit * 1.36 + 6.3 + (280.92 - (unit * 9 + 6.3 * 8)) / 2,
-            4 + unit * 1.36 + 6.3 + (280.92 - (unit * 7 + 6.3 * 6)) / 2,
-        ]
-        for (row, letters) in rows.enumerated() {
-            let characters = Array(letters)
-            guard let index = characters.firstIndex(of: key) else { continue }
-            return starts[row] + CGFloat(index) * (unit + 6.3) + unit / 2
-        }
-        return 0
+        KeyGeometry.locate(key)?.x ?? 0
     }
 
     private func typeSample(_ app: XCUIApplication) {
