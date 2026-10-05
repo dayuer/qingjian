@@ -1,4 +1,4 @@
-// 「记一笔」的确认条（设计稿 .clip）：占提示行的位置，牌子那一行保留。左边两行：小字「刚复制的」、原文一行；
+// 「记一笔」的确认条（设计稿 .clip）：占提示行的位置，牌子那一行保留。左边两行：小字「刚复制的」（拆成几张时「刚复制的 · 3 条」）、首条原文一行；
 // 右边「忽略」（.btn.ghost，ink-2）与「记到 {对象}」（.btn.acc：灰绿实底、ink 字）。记下后换成 .toast「记下了」（白底、ink-2、圆点），2 秒后消失。
 // 工作场景的人不用强调色：「记到」换成中性浅底，toast 的圆点换成灰色。
 
@@ -19,13 +19,13 @@ struct NoteBar: View {
         .overlay(alignment: .bottom) { Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1) }
     }
 
-    private func clip(_ draft: String) -> some View {
+    private func clip(_ draft: [String]) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 0) {
-                Text("刚复制的")
+                Text(NoteBarText.clipLabel(count: draft.count))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.ink3)
-                Text(draft.replacingOccurrences(of: "\n", with: " "))
+                Text(NoteBarText.preview(draft))
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.ink2)
                     .lineLimit(1)
@@ -55,7 +55,7 @@ struct NoteBar: View {
             Circle()
                 .fill(MemoryScope.usesAccent(model.scope.scene) ? Theme.accent.color : Theme.ink3)
                 .frame(width: 6, height: 6)
-            Text("记下了")
+            Text(NoteBarText.doneText(count: model.noteDoneCount))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.ink2)
             Spacer()

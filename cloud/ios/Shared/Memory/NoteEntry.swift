@@ -5,8 +5,8 @@ import CryptoKit
 import Foundation
 
 enum NoteEntry: Equatable {
-    /// 出确认条，带去掉首尾空白、截到 200 字的剪贴板文字。
-    case clipboard(String)
+    /// 出确认条，带拆好的几张卡（ClipMessages：微信多选复制一条一张，长文按段拼成每张不超过 200 字）。
+    case clipboard([String])
 
     case compose
 
@@ -14,7 +14,8 @@ enum NoteEntry: Equatable {
         guard let text = clipboard.map(trimmed), !text.isEmpty, digest(text) != lastHandledDigest else {
             return .compose
         }
-        return .clipboard(MemoryLimits.clampText(text))
+        let cards = ClipMessages.split(text)
+        return cards.isEmpty ? .compose : .clipboard(cards)
     }
 
     /// 剪贴板文字（去掉首尾空白后）的 SHA-256，十六进制。
