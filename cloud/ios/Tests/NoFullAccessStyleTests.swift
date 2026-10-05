@@ -45,9 +45,11 @@ final class NoFullAccessStyleTests: XCTestCase {
 
     /// App 的「键盘记住的事」：加人、记一条、存好、设置这些控件，以及读写失败的提示都是中性色，只有今天的提醒卡（关于某个人）用灰绿底。
     func testMemoryAppControlsAreNeutral() {
-        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner] {
+        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner,
+                      .materialsCloudLink, .materialsNudge] {
             XCTAssertEqual(usage.role, .ink, "\(usage)")
         }
+        XCTAssertEqual(ColorUsage.materialDelete.role, .ink2, "「待整理」设计稿没画，原话不是卡，一律中性色")
         XCTAssertEqual(ColorUsage.reminderCard.role, .accentSoft)
         XCTAssertEqual(ColorUsage.reminderDay.role, .accent)
     }

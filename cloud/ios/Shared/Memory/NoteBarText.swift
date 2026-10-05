@@ -1,4 +1,5 @@
-// 「记一笔」确认条与 toast 的文字：剪贴板拆成几张时写明条数，免得用户以为只记了第一条。
+// 「记一笔」确认条与 toast 的文字：剪贴板拆成几张时写明条数，免得用户以为只记了第一条；
+// 记下后按开没开素笺云说清什么时候整理；记不下（这个人的待整理满了）和补写时没记上的，直接写原因，不静默。
 
 enum NoteBarText {
     static func clipLabel(count: Int) -> String { count > 1 ? "刚复制的 · \(count) 条" : "刚复制的" }
@@ -8,5 +9,27 @@ enum NoteBarText {
         (cards.first ?? "").replacingOccurrences(of: "\n", with: " ")
     }
 
-    static func doneText(count: Int) -> String { count > 1 ? "记下了 \(count) 条" : "记下了" }
+    /// 记下后的 toast：开了素笺云「记下了，明早整理」，没开「记下了，开通素笺云后整理」；多条时写明条数。
+    static func doneText(count: Int, cloud: Bool) -> String {
+        let head = count > 1 ? "记下了 \(count) 条" : "记下了"
+        return head + (cloud ? "，明早整理" : "，开通素笺云后整理")
+    }
+
+    /// 一个人最多留几条没整理的素材，与桥的 MAX_UNPROCESSED_MATERIALS 一致。
+    static let materialCap = 200
+
+    /// 桥报 material_limit（这次的条数加上没整理的超过上限，整次没记）时记一笔条上的话：
+    /// 没空位了写「这个人还有 200 条没整理」，还有空位但装不下写清这次几条、剩几个空位。
+    static func materialLimit(remaining: Int, needed: Int) -> String {
+        guard remaining > 0 else { return "这个人还有 \(materialCap) 条没整理，先去 App 里看看" }
+        return "这次有 \(needed) 条，这个人只剩 \(remaining) 个空位，先去 App 里整理"
+    }
+
+    /// 键盘出现时提示一次的「没记上」：拿不到锁排队的记一笔，补写时被拒绝了，按原因分开写。
+    static func dropped(_ notes: DroppedNotes) -> [String] {
+        var lines: [String] = []
+        if notes.materialLimit > 0 { lines.append("有 \(notes.materialLimit) 条没记上：这个人的待整理满了") }
+        if notes.contactGone > 0 { lines.append("有 \(notes.contactGone) 条没记上：这个人已经被忘掉了") }
+        return lines
+    }
 }

@@ -15,6 +15,8 @@ use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
 use self::memory::LiveMemory;
+
+pub use self::memory::DroppedNotes;
 use crate::clipboard::Clipboard;
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;

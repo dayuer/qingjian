@@ -38,6 +38,9 @@ void qj_flush(QjSession *session);
 void qj_set_context(QjSession *session, const char *before, const char *after);
 bool qj_poll(QjSession *session);
 bool qj_cloud_enabled(QjSession *session);
+// 开了素笺云：path（cloud.toml）里有服务器地址和登录令牌，不联网；文件不在、没登录或参数无效为 false。
+// App 的「待整理」引导与键盘记一笔的 toast 按它判断（与键盘建云端客户端时的判断一样）。
+bool qj_cloud_configured(const char *path);
 void qj_sync_now(QjSession *session);
 
 // 润色。status：0 空闲、1 等待中、2 就绪、3 失败。
@@ -106,11 +109,18 @@ void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
 char *qj_memory_cards(QjSession *session, const char *contact_id);
 // 「记一笔」：原话原样存成这个对象的一条待整理素材（memory/<对象 id>/materials.jsonl），不再写卡；超过 2000 字节的先按空行、
 // 单段再按字节（不切断字符）切成几条，一个字不丢。source 取 clipboard / typed，NULL 或认不得按 typed。
-// 成功返回 NULL，失败返回 {"code","message"}（invalid：没有这个人或没有文字；material_limit：这个人没整理的素材已满 200 条，
-// message 是「这个人还有 200 条没整理，先去 App 里看看」，这次一条都不写；io：素材读不了，例如开机后还没解锁过，此时什么都不写）。
+// 成功返回 NULL，失败返回 {"code","message"}（invalid：没有这个人或没有文字；io：素材读不了，例如开机后还没解锁过，此时什么都不写）。
+// material_limit：这次切出的条数加上没整理的超过 200 条，整次一条都不写，另带 remaining（还剩几个空位）与 needed（这次要几条）：
+// {"code":"material_limit","message":"这次有 2 条，这个人只剩 1 个空位，先去 App 里整理","remaining":1,"needed":2}，
+// remaining 为 0 时 message 是「这个人还有 200 条没整理，先去 App 里看看」。
 // 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在待办里
 // （最多 32 条，满了丢最旧的，落盘在 memory/pending-keyboard.jsonl），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
+// 补写时被拒绝的（素材满了、对象被忘掉）不悄悄丢，条数与原因记下来，用 qj_memory_dropped 取。
 char *qj_memory_note(QjSession *session, const char *contact_id, const char *text, const char *source);
+// 待办补写时被拒绝、没记上的条数（按切好的素材条数算，只有条数与原因，没有原文），取走即清零（落盘在 memory/dropped-keyboard.json，
+// 键盘被杀也不丢）；键盘出现时调，提示一次：{"material_limit":n,"contact_gone":n}（material_limit：这个人的待整理满了；
+// contact_gone：这个人已经被忘掉）。都是 0、会话没有记忆目录或参数无效时为 NULL。
+char *qj_memory_dropped(QjSession *session);
 // 键盘里在 scene 新建一个对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（contact_limit：这个场景已满 8 个，
 // message 带场景名，如「日常最多 8 个人」；lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。
 // pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta；scene 为 NULL 或认不得时用会话当前的场景。

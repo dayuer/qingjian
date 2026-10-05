@@ -15,11 +15,13 @@ use super::Session;
 use crate::entry::Entry;
 use crate::memory::{
     Card, Contact, Hint, LocalDate, MaterialSource, MemoryError, Pronoun, new_id, now_unix,
-    panel_cards, sanitized_scope, scope_with,
+    panel_cards, sanitized_scope, scope_with, split_note,
 };
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
 
 use self::pending::PendingNote;
+
+pub use self::pending::DroppedNotes;
 
 pub(super) use self::live::LiveMemory;
 
@@ -191,7 +193,16 @@ impl Session {
         Ok(id)
     }
 
-    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写成素材（成功才出队，被拒绝的丢掉），再补写最新一次切场景，
+    /// 待办补写时被拒绝、没记上的条数（按原因），取完清零；键盘出现时调，提示用户一次。
+    pub fn take_dropped_notes(&mut self) -> DroppedNotes {
+        self.memory
+            .as_mut()
+            .map_or_else(DroppedNotes::default, |memory| {
+                memory.pending.take_dropped()
+            })
+    }
+
+    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写成素材（成功才出队，被拒绝的出队并记下条数与原因），再补写最新一次切场景，
     /// 最后补读换对象时没读成的卡片。仍拿不到锁或读写不了就留着，这一轮到此为止（最多再等一个 200 毫秒）；
     /// 补写的场景换了叠加层返回 true。
     pub(super) fn retry_pending(&mut self) -> bool {
@@ -216,8 +227,10 @@ impl Session {
                     break;
                 }
                 Err(error) => {
-                    // 对象被忘掉、素材满了：补写时已经没法告诉用户，只记错误码
-                    tracing::warn!(code = error.code(), "待写的记一笔被拒绝，丢掉");
+                    // 对象被忘掉、素材满了：这时没法当场告诉用户，记下条数与原因，键盘下次出现时提示（不记原话）
+                    let count = split_note(&note.text).len().max(1);
+                    tracing::warn!(code = error.code(), count, "待写的记一笔被拒绝，记下条数");
+                    memory.pending.record_dropped(&error, count);
                     memory.pending.pop_note();
                 }
             }

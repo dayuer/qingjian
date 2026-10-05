@@ -154,17 +154,36 @@ fn unprocessed_limit_rejects_without_dropping() {
     let error = store
         .add_material(&id(1), &two, MaterialSource::Clipboard, 2)
         .unwrap_err();
-    assert!(matches!(error, MemoryError::MaterialLimit));
+    assert!(matches!(
+        error,
+        MemoryError::MaterialLimit {
+            remaining: 1,
+            needed: 2
+        }
+    ));
     assert_eq!(error.code(), "material_limit");
-    assert_eq!(error.message(), "这个人还有 200 条没整理，先去 App 里看看");
+    assert_eq!(
+        error.message(),
+        "这次有 2 条，这个人只剩 1 个空位，先去 App 里整理"
+    );
+    let json: serde_json::Value = serde_json::from_str(&error.to_json()).unwrap();
+    assert_eq!(json["remaining"], 1);
+    assert_eq!(json["needed"], 2);
 
     store
         .add_material(&id(1), "第 200 条", MaterialSource::Typed, 3)
         .unwrap();
+    let full = store
+        .add_material(&id(1), "第 201 条", MaterialSource::Typed, 4)
+        .unwrap_err();
     assert!(matches!(
-        store.add_material(&id(1), "第 201 条", MaterialSource::Typed, 4),
-        Err(MemoryError::MaterialLimit)
+        full,
+        MemoryError::MaterialLimit {
+            remaining: 0,
+            needed: 1
+        }
     ));
+    assert_eq!(full.message(), "这个人还有 200 条没整理，先去 App 里看看");
     let all = store.materials(&id(1), 4).unwrap();
     assert_eq!(unprocessed(&all), MAX_UNPROCESSED_MATERIALS);
 

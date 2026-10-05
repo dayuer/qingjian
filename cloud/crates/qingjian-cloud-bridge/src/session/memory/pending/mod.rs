@@ -3,7 +3,9 @@
 //! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切场景不落盘。
 //! 只有键盘这一个进程写这个文件，不需要 flock：每次队列变了就整份写临时文件再改名（读到的不会是半截），
 //! 文件始终等于队列，上限自然一致；队列空了就删文件。`memory/` 不存在时不建、不报错。
+//! 补写时被拒绝的（素材满了、对象被忘掉）不悄悄丢：条数与原因记在 `memory/dropped-keyboard.json`（[`DroppedNotes`]），键盘下次出现时取走提示。
 
+mod dropped;
 mod note;
 
 use std::collections::VecDeque;
@@ -13,7 +15,9 @@ use std::path::{Path, PathBuf};
 use qingjian_cloud_proto::Scene;
 
 use crate::cloud_config::write_atomic;
+use crate::memory::MemoryError;
 
+pub use self::dropped::DroppedNotes;
 pub(in crate::session) use self::note::PendingNote;
 
 /// 待写的「记一笔」最多几条，超出丢最旧的。
@@ -21,6 +25,9 @@ pub(in crate::session) const MAX_PENDING_NOTES: usize = 32;
 
 /// 落盘文件在 `memory/` 下的名字。
 pub(in crate::session) const PENDING_FILE: &str = "pending-keyboard.jsonl";
+
+/// 被拒绝条数的落盘文件，在 `memory/` 下。
+pub(in crate::session) const DROPPED_FILE: &str = "dropped-keyboard.json";
 
 #[derive(Debug, Default)]
 pub(in crate::session) struct PendingWrites {
@@ -30,6 +37,12 @@ pub(in crate::session) struct PendingWrites {
     file: Option<PathBuf>,
 
     scope: Option<(Scene, Option<String>)>,
+
+    /// 补写时被拒绝、还没告诉用户的条数。
+    dropped: DroppedNotes,
+
+    /// `dropped` 落盘的文件；没有记忆目录时为空。
+    dropped_file: Option<PathBuf>,
 }
 
 impl PendingWrites {
@@ -55,10 +68,24 @@ impl PendingWrites {
             Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => tracing::warn!(%error, "待写笔记文件读不了"),
         }
+        let dropped_file = memory_dir.join(DROPPED_FILE);
+        let dropped = match std::fs::read_to_string(&dropped_file) {
+            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|error| {
+                tracing::warn!(kind = ?error.classify(), "没记上的条数文件坏了，按零算");
+                DroppedNotes::default()
+            }),
+            Err(error) if error.kind() == ErrorKind::NotFound => DroppedNotes::default(),
+            Err(error) => {
+                tracing::warn!(%error, "没记上的条数文件读不了，按零算");
+                DroppedNotes::default()
+            }
+        };
         Self {
             notes,
             file: Some(file),
             scope: None,
+            dropped,
+            dropped_file: Some(dropped_file),
         }
     }
 
@@ -118,6 +145,37 @@ impl PendingWrites {
         let note = self.notes.pop_front();
         self.persist();
         note
+    }
+
+    /// 补写被拒绝：按原因记下这次没记上的条数并落盘（键盘被杀也不丢），等键盘出现时 [`Self::take_dropped`] 取走。
+    pub(in crate::session) fn record_dropped(&mut self, error: &MemoryError, count: usize) {
+        self.dropped.add(error, count);
+        let Some(file) = self.dropped_file.as_deref() else {
+            return;
+        };
+        let result = serde_json::to_vec(&self.dropped)
+            .map_err(std::io::Error::other)
+            .and_then(|bytes| write_atomic(file, &bytes, false));
+        match result {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                tracing::warn!(%error, "没记上的条数没落盘");
+            }
+            _ => {}
+        }
+    }
+
+    /// 取走没记上的条数并清零（删文件）。
+    pub(in crate::session) fn take_dropped(&mut self) -> DroppedNotes {
+        let dropped = std::mem::take(&mut self.dropped);
+        if let Some(file) = self.dropped_file.as_deref() {
+            match std::fs::remove_file(file) {
+                Err(error) if error.kind() != ErrorKind::NotFound => {
+                    tracing::warn!(%error, "没记上的条数文件没删掉");
+                }
+                _ => {}
+            }
+        }
+        dropped
     }
 
     /// 后一次覆盖前一次。
