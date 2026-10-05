@@ -15,7 +15,7 @@ use memory_support::{
     CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_add_contact,
     qj_memory_cards, qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete,
     qj_memory_materials, qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context,
-    qj_scope_get, qj_scope_set, seed, set_scope, take, type_and_commit,
+    qj_scope_get, qj_scope_set, seed, set_contact, take, type_and_commit,
 };
 
 #[test]
@@ -28,28 +28,28 @@ fn scope_set_round_trips_without_scenes() {
     assert!(scope.get("scene").is_none(), "没有场景了：{scope}");
     assert!(scope.get("last").is_none(), "没有 last 了：{scope}");
 
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
         CONTACT
     );
 
     // 空指针 = 保持现在选的人不变（幂等）
-    set_scope(session, "dating", None);
+    set_contact(session, None);
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
         CONTACT
     );
 
     // 空字符串 = 明确不指定
-    set_scope(session, "dating", Some(""));
+    set_contact(session, Some(""));
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
         Value::Null
     );
 
     // 名单上没有的对象当不指定
-    set_scope(session, "dating", Some("ffffffffffffffffffffffffffffffff"));
+    set_contact(session, Some("ffffffffffffffffffffffffffffffff"));
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["contact_id"],
         Value::Null,
@@ -66,10 +66,10 @@ fn hint_shows_on_match_and_hides_when_private() {
     assert_eq!(type_and_commit(session, "shengri"), "生日");
     assert!(
         take(unsafe { qj_memory_hint(session) }).is_none(),
-        "日常场景不出提示"
+        "还没选对象，不出提示"
     );
 
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert!(
         take(unsafe { qj_memory_hint(session) }).is_none(),
         "换对象时清了最近的字"
@@ -111,7 +111,7 @@ fn flush_and_new_field_clear_recent_text() {
     let (data, user) = dirs("reset");
     seed(&user);
     let session = open(&data, Some(&user));
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert_eq!(type_and_commit(session, "shengri"), "生日");
     assert!(take(unsafe { qj_memory_hint(session) }).is_some());
     unsafe { qj_flush(session) };
@@ -128,7 +128,7 @@ fn flush_and_new_field_clear_recent_text() {
     let (data, user) = dirs("reset-field");
     seed(&user);
     let other = open(&data, Some(&user));
-    set_scope(other, "dating", Some(CONTACT));
+    set_contact(other, Some(CONTACT));
     assert_eq!(type_and_commit(other, "shengri"), "生日");
     unsafe { qj_reset_context(other) };
     assert_eq!(type_and_commit(other, "dianying"), "电影");
@@ -153,7 +153,7 @@ fn hint_switch_is_per_contact() {
         None
     );
     let session = open(&data, Some(&user));
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert_eq!(type_and_commit(session, "shengri"), "生日");
     assert!(
         take(unsafe { qj_memory_hint(session) }).is_none(),
@@ -167,7 +167,7 @@ fn forgotten_contact_stays_forgotten() {
     let (data, user) = dirs("forgotten");
     seed(&user);
     let session = open(&data, Some(&user));
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     let dir = c(user.to_str().unwrap());
     let empty = c(&json!({"contacts": [], "cards": {}}).to_string());
     assert_eq!(
@@ -213,7 +213,7 @@ fn the_roster_holds_any_number_of_people() {
 #[test]
 fn bad_arguments_do_not_crash() {
     assert!(take(unsafe { qj_scope_get(ptr::null_mut()) }).is_none());
-    unsafe { qj_scope_set(ptr::null_mut(), ptr::null(), ptr::null()) };
+    unsafe { qj_scope_set(ptr::null_mut(), ptr::null()) };
     assert!(take(unsafe { qj_memory_hint(ptr::null_mut()) }).is_none());
     unsafe { qj_memory_dismiss(ptr::null_mut(), ptr::null(), true) };
     assert!(take(unsafe { qj_memory_cards(ptr::null_mut(), ptr::null()) }).is_none());
@@ -237,7 +237,7 @@ fn bad_arguments_do_not_crash() {
     // 没有学习数据目录的会话：没有记忆
     let session = open(&data, None);
     assert!(take(unsafe { qj_scope_get(session) }).is_none());
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert!(take(unsafe { qj_memory_hint(session) }).is_none());
     let failure: Value = serde_json::from_str(&note(session, CONTACT, "x").unwrap()).unwrap();
     assert_eq!(failure["code"], "invalid");
@@ -252,8 +252,8 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
 
     let lock = hold_lock(&user);
     let started = Instant::now();
-    set_scope(session, "work", None);
-    set_scope(session, "dating", Some(CONTACT));
+    set_contact(session, None);
+    set_contact(session, Some(CONTACT));
     let elapsed = started.elapsed();
     eprintln!("锁被占着时两次 qj_scope_set 用了 {elapsed:?}");
     assert!(
@@ -292,9 +292,7 @@ fn keyboard_adds_contacts_without_a_cap() {
     let session = open(&data, Some(&user));
     for n in 0..12 {
         let name = c(&format!("日常{n}"));
-        let added = json_of(unsafe {
-            qj_memory_add_contact(session, name.as_ptr(), ptr::null(), ptr::null())
-        });
+        let added = json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null()) });
         assert!(added["id"].is_string(), "第 {n} 个应当建得了：{added}");
     }
     unsafe { qj_session_free(session) };
@@ -319,15 +317,14 @@ fn learning_is_isolated_per_person() {
     let session = open(&data, Some(&user));
     let name = c("妈妈");
     let second =
-        json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null(), ptr::null()) })
-            ["id"]
+        json_of(unsafe { qj_memory_add_contact(session, name.as_ptr(), ptr::null()) })["id"]
             .as_str()
             .expect("建好返回 id")
             .to_owned();
     let memory = user.join("memory");
 
     // 选了人：只写这个人的对象层，不碰全局
-    set_scope(session, "daily", Some(CONTACT));
+    set_contact(session, Some(CONTACT));
     assert_eq!(type_and_commit(session, "shengri"), "生日");
     unsafe { qj_flush(session) };
     assert!(
@@ -337,7 +334,7 @@ fn learning_is_isolated_per_person() {
     assert!(!learned(&user, "生日"), "选了人不写全局");
 
     // 换个人：他的层还是空的，上一个人学的没串过来
-    set_scope(session, "work", Some(&second));
+    set_contact(session, Some(&second));
     assert!(
         !learned(&memory.join(&second).join("learning"), "生日"),
         "别人学的不串过来"
@@ -346,7 +343,7 @@ fn learning_is_isolated_per_person() {
 
     // 不指定：写全局
     let session = open(&data, Some(&user));
-    set_scope(session, "daily", Some(""));
+    set_contact(session, Some(""));
     assert_eq!(type_and_commit(session, "shengri"), "生日");
     unsafe { qj_flush(session) };
     assert!(learned(&user, "生日"), "不指定写全局");

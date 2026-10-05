@@ -28,7 +28,7 @@ impl Session {
     /// 切当前对象：交给 `MemoryStore::update_contact` 在锁里重读 `state.json` 与名单，按 `pick` 定对象。
     /// 磁盘名单上没有的对象当不指定。读写失败（开机后还没解锁过）就不切，记日志；
     /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次，存的是按内存算好的对象）稍后重试。
-    pub fn set_scope(&mut self, pick: &ContactPick) {
+    pub fn set_contact(&mut self, pick: &ContactPick) {
         let Some(memory) = self.memory.as_mut() else {
             return;
         };

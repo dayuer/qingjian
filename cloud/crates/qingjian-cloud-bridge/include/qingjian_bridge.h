@@ -91,10 +91,10 @@ char *qj_account_delete(const char *path);
 // 本地记忆（素笺 2A）：对象、打字提示、对象卡、「记一笔」（存成待整理素材）。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。名单是一张平铺的人，人数不限，全局可以置顶最多 4 个人。
 // contact_id 是 32 位十六进制；NULL 表示保持现在选的人不变（幂等），空字符串 "" 表示明确不指定；
-// 磁盘名单上没有的对象当不指定。scene 是上一版留下的场景参数，这一版已经不看它。
+// 磁盘名单上没有的对象当不指定；切到了某人时记下时间（used，列人时按沟通情况排用）。
 // 切换时在锁里重读 memory/state.json、只改当前对象再写回；开机后还没解锁过、读不了就不切。候选按新的分区学习重排。
 // 键盘只等 200 毫秒的锁：拿不到时内存里照切，写盘进待办（只留最新一次），下次按键、qj_poll、qj_flush 时补写。
-void qj_scope_set(QjSession *session, const char *scene, const char *contact_id);
+void qj_scope_set(QjSession *session, const char *contact_id);
 // {"contact_id":"…"|null,"used":{"<id>":1791043200}}（used：各人上次被选中的 Unix 秒）
 char *qj_scope_get(QjSession *session);
 // 宿主换了输入框时调：清掉最近上屏的字与正在显示的匹配提示（qj_flush 也会清）。
@@ -120,10 +120,10 @@ char *qj_memory_note(QjSession *session, const char *contact_id, const char *tex
 // 键盘被杀也不丢）；键盘出现时调，提示一次：{"material_limit":n,"contact_gone":n,"queue_full":n}（material_limit：这个人的待整理满了；
 // contact_gone：这个人已经被忘掉；queue_full：排队等补写的超过 32 条，最旧的被挤掉）。都是 0、会话没有记忆目录或参数无效时为 NULL。
 char *qj_memory_dropped(QjSession *session);
-// 键盘里新建一个对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（lock_timeout：App 正占着锁，请再点一次；
-// invalid：名字为空）。人数不限。
-// pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta；scene 是上一版留下的场景参数，这一版已经不看它。
-char *qj_memory_add_contact(QjSession *session, const char *name, const char *pronoun, const char *scene);
+// 键盘里新建一个对象（名字与称呼，称呼由 App 里改）：成功返回 {"id":"…"}，失败返回 {"code","message"}
+// （lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。人数不限。
+// pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta。
+char *qj_memory_add_contact(QjSession *session, const char *name, const char *pronoun);
 // App 用，user_dir 是 App Group 里的 Qingjian 目录（记忆在它下面的 memory/）。read 返回
 // {"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}（revs 是各对象卡片的修订号；
 // broken 是卡片文件损坏、已备份的对象；参数无效或有文件读不了时为 NULL）。

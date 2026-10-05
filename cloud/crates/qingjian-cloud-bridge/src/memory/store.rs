@@ -102,7 +102,7 @@ impl MemoryStore {
         Ok(self.read_cards(contact_id)?.0.cards)
     }
 
-    /// 当前场景与对象；读不了时按缺省（只给显示用）。
+    /// 当前对象；读不了时按缺省（只给显示用）。
     pub fn state(&self) -> ScopeState {
         self.try_state().unwrap_or_default()
     }
