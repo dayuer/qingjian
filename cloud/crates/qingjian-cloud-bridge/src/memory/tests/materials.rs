@@ -412,7 +412,10 @@ fn unassigned_note_stores_and_assigns() {
     store
         .assign_material(&added[0].client_id, &id(1), 200)
         .unwrap();
-    assert!(store.unassigned_materials(200).unwrap().is_empty(), "归完就从无主桶摘掉");
+    assert!(
+        store.unassigned_materials(200).unwrap().is_empty(),
+        "归完就从无主桶摘掉"
+    );
     let target = store.materials(&id(1), 200).unwrap();
     assert_eq!(target.len(), 1);
     assert_eq!(target[0].text, "周五晚上订了两个人的位子");
@@ -477,7 +480,93 @@ fn unassigned_honours_the_same_limit() {
     }
     assert!(matches!(
         store.add_unassigned_material("挤不下了", MaterialSource::Typed, 100),
-        Err(MemoryError::MaterialLimit { remaining: 0, needed: 1 })
+        Err(MemoryError::MaterialLimit {
+            remaining: 0,
+            needed: 1
+        })
     ));
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[cfg(unix)]
+fn set_writable(path: &std::path::Path, writable: bool) {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = if writable { 0o755 } else { 0o555 };
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
+}
+
+/// 写目标失败时素材还留在无主桶；写完目标、摘无主桶时失败，重试也不重复不丢（先写目标、按 client_id 去重）。
+#[cfg(unix)]
+#[test]
+fn assign_never_loses_a_material_when_a_write_fails() {
+    let user = temp_dir("unassigned-write-fails");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let added = store
+        .add_unassigned_material("周六下午三点在老地方见", MaterialSource::Typed, 100)
+        .unwrap();
+    let client_id = added[0].client_id.clone();
+    let memory = user.join(crate::memory::MEMORY_DIR);
+    let target_dir = memory.join(id(1));
+
+    // 目标目录只读：写目标失败，无主桶里那条不动
+    set_writable(&target_dir, false);
+    assert!(store.assign_material(&client_id, &id(1), 200).is_err());
+    set_writable(&target_dir, true);
+    assert_eq!(
+        store.unassigned_materials(200).unwrap().len(),
+        1,
+        "写目标失败，素材还在无主桶"
+    );
+    assert!(store.materials(&id(1), 200).unwrap().is_empty());
+
+    // 记忆根目录只读：目标写成了，摘无主桶失败；两边各一份，不丢
+    set_writable(&memory, false);
+    assert!(store.assign_material(&client_id, &id(1), 200).is_err());
+    set_writable(&memory, true);
+    assert_eq!(store.materials(&id(1), 200).unwrap().len(), 1);
+    assert_eq!(store.unassigned_materials(200).unwrap().len(), 1);
+
+    // 重试：目标按 client_id 去重，不多出第二份；无主桶摘掉
+    store.assign_material(&client_id, &id(1), 300).unwrap();
+    assert_eq!(store.materials(&id(1), 300).unwrap().len(), 1, "重试不重复");
+    assert!(store.unassigned_materials(300).unwrap().is_empty());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+/// 往满了的人名下「补上」和记一笔一样报 material_limit，素材留在无主桶。
+#[test]
+fn assign_respects_the_unprocessed_limit() {
+    let user = temp_dir("assign-over-limit");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    for n in 0..MAX_UNPROCESSED_MATERIALS {
+        store
+            .add_material(&id(1), &format!("第 {n} 条"), MaterialSource::Typed, 1)
+            .unwrap();
+    }
+    let added = store
+        .add_unassigned_material("满了之后的一句", MaterialSource::Typed, 2)
+        .unwrap();
+    let error = store
+        .assign_material(&added[0].client_id, &id(1), 3)
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        MemoryError::MaterialLimit {
+            remaining: 0,
+            needed: 1
+        }
+    ));
+    assert_eq!(error.code(), "material_limit");
+    assert_eq!(
+        store.unassigned_materials(3).unwrap().len(),
+        1,
+        "没挪成，还在无主桶"
+    );
+    assert_eq!(
+        store.materials(&id(1), 3).unwrap().len(),
+        MAX_UNPROCESSED_MATERIALS
+    );
     std::fs::remove_dir_all(&user).ok();
 }

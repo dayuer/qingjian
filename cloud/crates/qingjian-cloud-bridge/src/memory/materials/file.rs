@@ -240,13 +240,10 @@ impl MemoryStore {
     }
 
     /// 「补上」：把无主桶里的一条素材挪到某个人名下（写进那个人的 `materials.jsonl`）。
-    /// 人要在名单上、素材要在无主桶里；两次写都成功才算数。
-    pub fn assign_material(
-        &self,
-        client_id: &str,
-        to: &str,
-        now: i64,
-    ) -> Result<(), MemoryError> {
+    /// 人要在名单上、素材要在无主桶里；这个人没整理的满了返回 [`MemoryError::MaterialLimit`]（同记一笔）。
+    /// 先写目标再从无主桶摘掉：中途失败或被杀最多两边各有一份，目标按 `client_id` 去重，重试时不会重复也不会丢；
+    /// 反过来先摘再写，第二次写失败这条就两边都没了。
+    pub fn assign_material(&self, client_id: &str, to: &str, now: i64) -> Result<(), MemoryError> {
         check_contact_id(to)?;
         let _lock = self.lock()?;
         self.require_contact(to)?;
@@ -257,10 +254,19 @@ impl MemoryStore {
         };
         let mut target = self.read_materials(to)?;
         prune(&mut target, now);
-        let material = unassigned.remove(index);
-        target.push(material);
+        if !target.iter().any(|m| m.client_id == client_id) {
+            let remaining = MAX_UNPROCESSED_MATERIALS.saturating_sub(unprocessed(&target));
+            if remaining == 0 {
+                return Err(MemoryError::MaterialLimit {
+                    remaining,
+                    needed: 1,
+                });
+            }
+            target.push(unassigned[index].clone());
+            self.write_materials(to, &target)?;
+        }
+        unassigned.remove(index);
         write_material_file(&self.unassigned_path(), &unassigned)?;
-        self.write_materials(to, &target)?;
         tracing::debug!("一条无主素材归到了人");
         Ok(())
     }
@@ -296,10 +302,7 @@ fn read_material_file(path: &std::path::Path) -> Result<Vec<Material>, MemoryErr
 }
 
 /// 整份写临时文件再改名。不建上级目录：对象目录由建对象时建，无主桶的上级就是 `memory/`。
-fn write_material_file(
-    path: &std::path::Path,
-    materials: &[Material],
-) -> Result<(), MemoryError> {
+fn write_material_file(path: &std::path::Path, materials: &[Material]) -> Result<(), MemoryError> {
     let mut text = String::new();
     for material in materials {
         let line =
