@@ -292,7 +292,7 @@ pub unsafe extern "C" fn qj_sync_now(session: *mut Session) {
     with(session, (), |s| s.sync_now());
 }
 
-/// 润色能不能用（配了青简 Cloud 且开了大模型）。
+/// 润色能不能用（配了青简 Cloud、开了大模型且包里有技能包）。
 ///
 /// # Safety
 /// 同 [`qj_push`]。
@@ -301,19 +301,46 @@ pub unsafe extern "C" fn qj_rewrite_available(session: *mut Session) -> bool {
     with(session, false, |s| s.rewriter().is_some())
 }
 
-/// 开始润色 `text`；之前没回来的那次作废。
+/// 可用的改写技能：`[{"id","name","summary"}]`，按 `order` 排；一个都没有或会话无效时返回空指针。
+/// 提示词不下发到壳里（壳只用来显示名字）；用了哪个技能由键盘自己算，桥不回传。
 ///
 /// # Safety
-/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串。
+/// 同 [`qj_push`]。
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_rewrite_start(session: *mut Session, text: *const c_char) {
+pub unsafe extern "C" fn qj_rewrite_skills(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        let skills = s.rewrite_skills();
+        if skills.is_empty() {
+            return ptr::null_mut();
+        }
+        let list: Vec<serde_json::Value> = skills
+            .iter()
+            .map(|skill| {
+                serde_json::json!({"id": skill.id, "name": skill.name, "summary": skill.summary})
+            })
+            .collect();
+        owned(&serde_json::Value::Array(list).to_string())
+    })
+}
+
+/// 开始润色 `text`；之前没回来的那次作废。`skill_id` 为空指针或认不得时用当前生效的那个
+/// （选中的人的技能 → 设置里的默认 → 列表第一个）。
+///
+/// # Safety
+/// 同 [`qj_push`]；`text` 为有效 UTF-8 C 字符串，`skill_id` 为空或同上。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rewrite_start(
+    session: *mut Session,
+    text: *const c_char,
+    skill_id: *const c_char,
+) {
     let Some(text) = (unsafe { path_arg(text) }).map(str::to_owned) else {
         return;
     };
+    let skill = unsafe { path_arg(skill_id) }.map(str::to_owned);
     with(session, (), |s| {
         if let Some(rewriter) = s.rewriter() {
-            // TODO(Task 5)：这个 C 接口要加第三个参数（技能 id），在那之前用当前生效的那个。
-            rewriter.start(&text, None);
+            rewriter.start(&text, skill.as_deref());
         }
     });
 }

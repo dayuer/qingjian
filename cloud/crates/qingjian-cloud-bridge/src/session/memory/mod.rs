@@ -183,6 +183,8 @@ impl Session {
             display_name: None,
             // 首字母由下面那次补写算（`Session::open` 里词库还在手上）；这里先留空
             initial: None,
+            // 新建的人没指定技能，用设置里的默认
+            skill: None,
             pronoun,
             // 新建的人不置顶，要置顶在 App 的对象设置里点
             pinned_at: None,
