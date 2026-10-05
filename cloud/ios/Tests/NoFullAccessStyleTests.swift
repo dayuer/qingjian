@@ -91,9 +91,15 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertTrue(ScopeDisplay.chipUsesAccent(fullAccess: true))
     }
 
-    /// 界面里不出现账号：「我」页的账号入口藏着，T9 换成开通流程。
-    func testAccountEntryIsHidden() {
-        XCTAssertFalse(MeView.showsAccountEntry)
+    /// 「我」页那一行是素笺云服务，两种状态各有各的说法，界面里不出现「账号」。
+    func testTheCloudRowSaysOpenedOrNot() {
+        XCTAssertEqual(MeView.cloudTitle, "素笺云服务")
+        XCTAssertEqual(MeView.cloudStatus(signedIn: true), "已开通")
+        XCTAssertEqual(MeView.cloudStatus(signedIn: false), "没开通")
+        XCTAssertEqual(MeView.cloudStatus(signedIn: nil), "没开通", "还没读出来时按没开通显示")
+        for text in [MeView.cloudTitle, MeView.cloudStatus(signedIn: true), MeView.cloudStatus(signedIn: false)] {
+            XCTAssertFalse(text.contains("账号"))
+        }
     }
 
     /// 「我」页的说明不分状态：不能写「开启后才能用」，开了的人会以为自己没开。
