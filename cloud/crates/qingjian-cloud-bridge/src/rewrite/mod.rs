@@ -10,10 +10,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use qingjian_cloud_client::Client;
 use serde_json::{Value, json};
 
-pub use self::skill::{Skill, load_skills};
+pub use self::skill::{DEFAULT_SKILL_ID, Skill, load_skills};
 pub use self::state::RewriteState;
-
-use self::skill::DEFAULT_SKILL_ID;
 
 /// 模型名只是占位：服务器配置了模型时以服务器的为准。
 const MODEL: &str = "deepseek-v4-flash";
