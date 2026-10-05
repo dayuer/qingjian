@@ -122,6 +122,12 @@ final class KeyboardModel {
     /// 每次按键按下时调（键盘音与震动），由控制器接上。
     @ObservationIgnored var onKeyDown: (() -> Void)?
 
+    /// 内存自保后本键盘会话不再自动加载模型（余量低于水位卸过一次）。
+    @ObservationIgnored private var modelSealed = false
+
+    /// 上次汇报给 App 设置页的模型状态（0–3，见 `Engine.modelState`），变了才写共享 defaults。
+    @ObservationIgnored private var reportedModelState: UInt8?
+
     init(engine: Engine?) {
         self.engine = engine
     }
@@ -138,6 +144,39 @@ final class KeyboardModel {
         refresh()
         syncScope()
         reloadRewriteSkills()
+        loadModelIfNeeded()
+    }
+
+    /// 键盘引擎就位后按设置加载本地整句模型（含章·通变）：设置关着、包里没有模型或内存自保封印过就什么都不做。
+    private func loadModelIfNeeded() {
+        guard let engine, !modelSealed else { return }
+        let defaults = UserDefaults(suiteName: SharedStore.groupIdentifier)
+        guard defaults?.object(forKey: "localSentenceModelEnabled") as? Bool ?? true else { return }
+        let model = engine.dataDirectory
+            .appendingPathComponent("models/hanzhang-tongbian/hanzhang-tongbian-small.qjm")
+        guard FileManager.default.fileExists(atPath: model.path) else { return }
+        engine.loadModel(at: model, p2c: true)
+    }
+
+    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：
+    /// 余量低于 8MB 就卸掉模型腾地方，本会话不再自动加载；顺带把模型状态汇报给 App 设置页。
+    private func guardMemoryPressure() {
+        guard let engine else { return }
+        let state = engine.modelState
+        if state != reportedModelState {
+            reportedModelState = state
+            UserDefaults(suiteName: SharedStore.groupIdentifier)?
+                .set(Int(state), forKey: "keyboardModelState")
+        }
+        guard !modelSealed, state == 2 else { return }
+        let available = Engine.availableMemoryMB
+        if available >= 0, available < 8 {
+            engine.unloadModel()
+            modelSealed = true
+            reportedModelState = engine.modelState
+            UserDefaults(suiteName: SharedStore.groupIdentifier)?
+                .set(Int(reportedModelState ?? 0), forKey: "keyboardModelState")
+        }
     }
 
     var composing: Bool { !preedit.isEmpty }
@@ -400,6 +439,7 @@ final class KeyboardModel {
             reloadContacts()
         }
         if engine.poll() { candidates = engine.candidates }
+        guardMemoryPressure()
         if !privateField {
             let offer = engine.clipOffer
             if offer != clipOffer { clipOffer = offer }

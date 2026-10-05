@@ -46,6 +46,8 @@ uint8_t qj_model_state(QjSession *session);
 void qj_unload_model(QjSession *session);
 // 模型自报的内存占用（MB）；没加载返回 0。调试面板显示用。
 double qj_model_memory_mb(QjSession *session);
+// 本进程剩余可用内存（MB，os_proc_available_memory）；拿不到是 -1。键盘侧内存自保用它。
+double qj_available_memory_mb(void);
 // 素材会被整理：path（cloud.toml）里有服务器地址和登录令牌，并且同意了「记忆」（memory = true），不联网；
 // 文件不在、没登录、没同意或参数无效为 false。App 的「待整理」引导与键盘记一笔的 toast 按它判断。
 bool qj_memory_cloud_ready(const char *path);

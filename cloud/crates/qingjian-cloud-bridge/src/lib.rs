@@ -310,6 +310,25 @@ pub unsafe extern "C" fn qj_model_memory_mb(_session: *mut Session) -> f64 {
     0.0
 }
 
+/// 本进程还剩多少内存可用（MB，`os_proc_available_memory`）：键盘扩展的 jetsam 按 `phys_footprint` 杀，
+/// 余量低于水位就该卸模型（见 iOS 侧的 `guardMemoryPressure`）。拿不到返回 -1。
+///
+/// # Safety
+/// 无参数，随便调。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_available_memory_mb() -> f64 {
+    // Apple 平台独有；返回字节数，不可用时是 SIZE_MAX
+    unsafe extern "C" {
+        fn os_proc_available_memory() -> usize;
+    }
+    let bytes = unsafe { os_proc_available_memory() };
+    if bytes == usize::MAX {
+        -1.0
+    } else {
+        bytes as f64 / 1_048_576.0
+    }
+}
+
 /// 配了青简 Cloud（大模型或同步至少开了一样）。
 ///
 /// # Safety

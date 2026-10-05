@@ -52,6 +52,12 @@ struct KeyboardSettingsView: View {
         } footer: {
             Text("关掉学习后不再记新词与词频，已学到的保留。云联想经素笺云 让大模型补候选与整句，和 Mac 是同一个开关。")
         }
+        Section {
+            Toggle("本地整句模型", isOn: localSentenceModel)
+                .tint(ColorUsage.appToggle.role.color)
+        } footer: {
+            Text("停键后用本地模型（含章·通变）重排整句候选，不联网，下次打开键盘生效。内存吃紧时键盘会自动卸掉它，这次键盘会话里不再加载。")
+        }
         if !settings.domains.isEmpty {
             Section("领域词库") {
                 ForEach(settings.domains.indices, id: \.self) { index in
@@ -74,6 +80,15 @@ struct KeyboardSettingsView: View {
     }
 
     private static let fuzzy: WritableKeyPath<KeyboardSettings, FuzzyOptions> = \.fuzzy
+
+    /// 本地整句模型开关：键盘直接读共享 defaults（不进桥的 Settings——那是 config.toml 的字段）。
+    private var localSentenceModel: Binding<Bool> {
+        let defaults = UserDefaults(suiteName: SharedStore.groupIdentifier)
+        return Binding(
+            get: { defaults?.object(forKey: "localSentenceModelEnabled") as? Bool ?? true },
+            set: { defaults?.set($0, forKey: "localSentenceModelEnabled") }
+        )
+    }
 
     private func binding<T>(_ path: WritableKeyPath<KeyboardSettings, T>) -> Binding<T> {
         Binding(
