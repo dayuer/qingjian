@@ -50,7 +50,7 @@
 
 ### Task M2：iOS 键盘与 App
 - [x] 键盘 toast 文案按是否开了素笺云二选一（`NoteBarText.doneText`，「记下了 n 条，明早整理」/「……开通素笺云后整理」）；单测锁文案。
-  「开没开」用新加的 `qj_cloud_configured(path)`（内部就是键盘建云端客户端用的 `CloudConfig::load`：有地址且有 `sjt_` 令牌），App 与键盘同一个判断；
+  「会不会整理」用 `qj_memory_cloud_ready(path)`（`CloudConfig::load` 有地址与 `sjt_` 令牌，并且 `memory = true`；审计会话 2026-10-05 定：不等 M3，没同意「记忆」一律写「开通素笺云后整理」），App 与键盘同一个判断；
   `IdleBar` 的「改写」实际看的是会话里有没有润色器（令牌**且**开了「大模型」），App 没有会话用不上，所以没直接复用它。
 - [x] App 对象详情「待整理」一节（`MaterialsSection` / `MaterialRow`，数据 `MaterialsStore` + `MaterialsWorker` 后台读删），展开看全文、删除（确认一次）；
   没开云服务时的开通引导一行；180 条提示一次（`MaterialNudge`，记在 App 自己的 UserDefaults）；截图对照（设计稿没画这一节，写进 UI 清单约束 7 第 17 条）。

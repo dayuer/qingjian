@@ -270,17 +270,18 @@ pub unsafe extern "C" fn qj_cloud_enabled(session: *mut Session) -> bool {
     with(session, false, |s| s.cloud_enabled())
 }
 
-/// 开了素笺云：`path` 指向的 `cloud.toml` 有服务器地址和登录令牌（与键盘建云端客户端时 [`CloudConfig::load`] 的判断一样，不联网）。
-/// App 的「待整理」引导与键盘记一笔的 toast 按它二选一；文件不在、读不了、没登录都是 false。
+/// 素材会被整理：`path` 指向的 `cloud.toml` 有服务器地址和登录令牌（[`CloudConfig::load`]），并且同意了「记忆」（`memory`），不联网。
+/// App 的「待整理」引导与键盘记一笔的 toast 按它二选一：没同意时素材不会上传，不能说「明早整理」。文件不在、读不了、没登录都是 false。
 ///
 /// # Safety
 /// `path` 为空或有效的 UTF-8 C 字符串。
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn qj_cloud_configured(path: *const c_char) -> bool {
+pub unsafe extern "C" fn qj_memory_cloud_ready(path: *const c_char) -> bool {
     let Some(path) = (unsafe { path_arg(path) }) else {
         return false;
     };
-    catch_unwind(|| CloudConfig::load(Path::new(path)).is_some()).unwrap_or(false)
+    catch_unwind(|| CloudConfig::load(Path::new(path)).is_some_and(|config| config.memory))
+        .unwrap_or(false)
 }
 
 /// 马上同步一轮学习数据（键盘出现时调）。

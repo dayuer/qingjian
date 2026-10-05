@@ -39,6 +39,12 @@ fn pending_notes_keep_order_and_drop_the_oldest_over_the_cap() {
     let expected: Vec<i64> = (5..i64::try_from(MAX_PENDING_NOTES).unwrap() + 5).collect();
     assert_eq!(texts, expected);
     assert!(pending.is_empty());
+    let dropped = pending.take_dropped();
+    assert_eq!(
+        dropped.queue_full, 5,
+        "挤掉的 5 条记进没记上的条数，键盘会提示"
+    );
+    assert!(pending.take_dropped().is_empty(), "取一次就清零");
 }
 
 #[test]
@@ -142,7 +148,8 @@ fn dropped_notes_are_counted_by_reason_and_cleared_when_taken() {
         pending.take_dropped(),
         DroppedNotes {
             material_limit: 2,
-            contact_gone: 4
+            contact_gone: 4,
+            queue_full: 0
         }
     );
     assert!(pending.take_dropped().is_empty(), "取走就清零");
@@ -160,7 +167,10 @@ fn dropped_notes_survive_a_restart_until_taken() {
         3,
     );
     let text = std::fs::read_to_string(dir.join(DROPPED_FILE)).unwrap();
-    assert_eq!(text, r#"{"material_limit":3,"contact_gone":0}"#);
+    assert_eq!(
+        text,
+        r#"{"material_limit":3,"contact_gone":0,"queue_full":0}"#
+    );
 
     let mut reopened = PendingWrites::open(&dir);
     assert_eq!(reopened.take_dropped().material_limit, 3);

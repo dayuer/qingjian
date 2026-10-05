@@ -564,7 +564,7 @@ final class KeyboardModel {
         if let failure {
             if failure.code == .materialLimit { showNoteToast(.problem(failure.userMessage)) }
         } else {
-            showNoteToast(.done(count: cards.count, cloud: CloudStatus.configured()))
+            showNoteToast(.done(count: cards.count, cloud: CloudStatus.memoryReady()))
         }
         reloadContacts()
         refreshHint()

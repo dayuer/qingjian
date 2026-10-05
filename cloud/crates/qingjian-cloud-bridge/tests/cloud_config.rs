@@ -263,12 +263,12 @@ fn concurrent_writes_stay_valid_private_and_leave_no_tmp() {
     assert_eq!(names, ["cloud.toml"]);
 }
 
-/// `qj_cloud_configured`：有地址与登录令牌才算开了素笺云（App 的「待整理」引导与键盘 toast 按它），不联网。
+/// `qj_memory_cloud_ready`：有地址、登录令牌，并且同意了「记忆」才算素材会被整理（App 的「待整理」引导与键盘 toast 按它），不联网。
 #[test]
-fn cloud_configured_needs_server_and_session_token() {
+fn memory_cloud_ready_needs_token_and_memory_consent() {
     use std::ffi::CString;
 
-    use qingjian_cloud_bridge::qj_cloud_configured;
+    use qingjian_cloud_bridge::qj_memory_cloud_ready;
 
     let check = |name: &str, text: Option<&str>| {
         let path = temp_file(name);
@@ -276,12 +276,19 @@ fn cloud_configured_needs_server_and_session_token() {
             std::fs::write(&path, text).unwrap();
         }
         let path = CString::new(path.to_str().unwrap()).unwrap();
-        unsafe { qj_cloud_configured(path.as_ptr()) }
+        unsafe { qj_memory_cloud_ready(path.as_ptr()) }
     };
     assert!(check(
         "configured",
-        Some("server = \"s\"\ntoken = \"sjt_t\"\n")
+        Some("server = \"s\"\ntoken = \"sjt_t\"\nmemory = true\n")
     ));
+    assert!(
+        !check(
+            "configured-no-memory",
+            Some("server = \"s\"\ntoken = \"sjt_t\"\n")
+        ),
+        "开通了但没同意「记忆」，素材不会上传"
+    );
     assert!(!check("configured-missing", None));
     assert!(
         !check("configured-seed", Some("server = \"s\"\n")),
@@ -292,5 +299,5 @@ fn cloud_configured_needs_server_and_session_token() {
         Some("server = \"s\"\ntoken = \"qjc_t\"\n")
     ));
     assert!(!check("configured-broken", Some("server = ")));
-    assert!(!unsafe { qj_cloud_configured(std::ptr::null()) });
+    assert!(!unsafe { qj_memory_cloud_ready(std::ptr::null()) });
 }

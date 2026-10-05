@@ -30,6 +30,7 @@ enum NoteBarText {
         var lines: [String] = []
         if notes.materialLimit > 0 { lines.append("有 \(notes.materialLimit) 条没记上：这个人的待整理满了") }
         if notes.contactGone > 0 { lines.append("有 \(notes.contactGone) 条没记上：这个人已经被忘掉了") }
+        if notes.queueFull > 0 { lines.append("有 \(notes.queueFull) 条没记上：键盘一下子记得太多了") }
         return lines
     }
 }

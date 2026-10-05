@@ -104,6 +104,7 @@ final class ClipMessagesTests: XCTestCase {
         XCTAssertEqual(NoteBarText.dropped(DroppedNotes()), [])
         XCTAssertEqual(NoteBarText.dropped(DroppedNotes(materialLimit: 2)), ["有 2 条没记上：这个人的待整理满了"])
         XCTAssertEqual(NoteBarText.dropped(DroppedNotes(contactGone: 1)), ["有 1 条没记上：这个人已经被忘掉了"])
+        XCTAssertEqual(NoteBarText.dropped(DroppedNotes(queueFull: 3)), ["有 3 条没记上：键盘一下子记得太多了"])
         XCTAssertEqual(
             NoteBarText.dropped(DroppedNotes(materialLimit: 3, contactGone: 4)),
             ["有 3 条没记上：这个人的待整理满了", "有 4 条没记上：这个人已经被忘掉了"])

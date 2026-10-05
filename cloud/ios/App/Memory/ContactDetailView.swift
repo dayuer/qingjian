@@ -16,7 +16,7 @@ struct ContactDetailView: View {
 
     @State private var materials = MaterialsStore()
 
-    @State private var cloudConfigured = true
+    @State private var memoryReady = true
 
     /// 这次进来要显示的「待整理快满了」；同一个人只出一次。
     @State private var nudge: String?
@@ -70,7 +70,7 @@ struct ContactDetailView: View {
                     .disabled(!store.canEdit)
                     .opacity(store.canEdit ? 1 : 0.4)
                 }
-                MaterialsSection(store: materials, contactId: contactId, cloudConfigured: cloudConfigured)
+                MaterialsSection(store: materials, contactId: contactId, memoryReady: memoryReady)
                 #if DEBUG
                 MemoryStressSection(store: store, contactId: contactId)
                 #endif
@@ -100,7 +100,7 @@ struct ContactDetailView: View {
 
     /// 重读待整理与开没开素笺云（键盘随时可能再记一笔，开通在别的页面）；读到快满就看要不要提示。
     private func reloadMaterials() async {
-        cloudConfigured = CloudStatus.configured()
+        memoryReady = CloudStatus.memoryReady()
         await materials.reload(contactId)
         if nudge == nil, materials.list != nil {
             nudge = MaterialNudge().take(contactId: contactId, count: materials.count)
