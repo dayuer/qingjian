@@ -18,7 +18,12 @@ const CLOUD_POSITION: usize = 1;
 impl Session {
     pub(super) fn connect(&mut self, cloud: &CloudConfig) {
         if cloud.llm {
-            self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
+            // TODO(Task 4)：会话要按 data_dir/skills 读一次技能包，空的时候这里根本不建 `Rewriter`；
+            // 在那之前先给一个空表（改写会以 `Failed` 结束）。
+            self.rewriter = Some(Rewriter::new(
+                Client::new(&cloud.server, &cloud.token),
+                Vec::new(),
+            ));
         }
         if let (true, Some(user_dir)) = (cloud.clipboard, &self.user_dir) {
             let client = Client::new(&cloud.server, &cloud.token);
