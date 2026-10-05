@@ -1,9 +1,7 @@
 //! 键盘上的代号 `display_name`：旧文件兼容、写盘前去空白、超长拒绝、键盘称呼的回退。
 
-use qingjian_cloud_proto::Scene;
-
-use super::{contact, temp_dir};
-use crate::memory::{Contact, MemoryError, MemorySnapshot, MemoryStore};
+use super::{contact, open_with_scenes, temp_dir};
+use crate::memory::{Contact, MemoryError, MemorySnapshot};
 
 #[test]
 fn old_contacts_without_display_name_read_as_none_and_stay_absent() {
@@ -21,11 +19,12 @@ fn old_contacts_without_display_name_read_as_none_and_stay_absent() {
 #[test]
 fn display_name_round_trips_through_the_store() {
     let user = temp_dir("display-round-trip");
-    let store = MemoryStore::open(&user);
-    let mut named = contact(1, Scene::Dating);
+    let store = open_with_scenes(&user);
+    let mut named = contact(1, "dating");
     named.display_name = Some(" 阿美 ".to_owned());
     store
         .write_snapshot(&MemorySnapshot {
+            scenes: store.scenes(),
             contacts: vec![named],
             ..MemorySnapshot::default()
         })
@@ -48,8 +47,8 @@ fn display_name_round_trips_through_the_store() {
 #[test]
 fn blank_display_name_counts_as_none() {
     let user = temp_dir("display-blank");
-    let store = MemoryStore::open(&user);
-    let mut blank = contact(1, Scene::Dating);
+    let store = open_with_scenes(&user);
+    let mut blank = contact(1, "dating");
     blank.display_name = Some(" \u{3000} ".to_owned());
     assert_eq!(blank.chip_name(), "人1", "全是空白时键盘显示名字");
     store.put_contact(blank).unwrap();
@@ -62,11 +61,11 @@ fn blank_display_name_counts_as_none() {
 #[test]
 fn display_name_over_twelve_chars_is_rejected() {
     let user = temp_dir("display-long");
-    let store = MemoryStore::open(&user);
-    let mut ok = contact(1, Scene::Dating);
+    let store = open_with_scenes(&user);
+    let mut ok = contact(1, "dating");
     ok.display_name = Some("一二三四五六七八九十一二".to_owned());
     store.put_contact(ok).unwrap();
-    let mut long = contact(2, Scene::Dating);
+    let mut long = contact(2, "dating");
     long.display_name = Some("一二三四五六七八九十一二三".to_owned());
     assert!(matches!(
         store.put_contact(long.clone()),
@@ -85,7 +84,7 @@ fn display_name_over_twelve_chars_is_rejected() {
 
 #[test]
 fn chip_name_prefers_display_name() {
-    let mut person = contact(1, Scene::Dating);
+    let mut person = contact(1, "dating");
     assert_eq!(person.chip_name(), "人1");
     person.display_name = Some("阿美".to_owned());
     assert_eq!(person.chip_name(), "阿美");

@@ -34,11 +34,14 @@ enum ContactIndex {
     }
 
     /// 搜索：名字、代号或场景名里含这段字（不分大小写）；空关键词原样返回。
-    static func search(_ contacts: [MemoryContact], text: String) -> [MemoryContact] {
+    /// 场景名是用户自己起的，由调用方查（`sceneName`）。
+    static func search(
+        _ contacts: [MemoryContact], text: String, sceneName: (String) -> String
+    ) -> [MemoryContact] {
         let needle = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return contacts }
         return contacts.filter { contact in
-            [contact.name, contact.displayName ?? "", MemoryScope.title(of: contact.scene)]
+            [contact.name, contact.displayName ?? "", sceneName(contact.scene)]
                 .contains { $0.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
         }
     }

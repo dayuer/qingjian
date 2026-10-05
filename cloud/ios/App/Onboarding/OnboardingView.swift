@@ -34,7 +34,7 @@ struct OnboardingView: View {
                 OnboardingProgressBar(step: .contact)
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
-                ContactEditor(store: store, scene: MemoryScope.dating)
+                ContactEditor(store: store, scene: store.defaultScene?.id ?? "")
             }
         }
     }

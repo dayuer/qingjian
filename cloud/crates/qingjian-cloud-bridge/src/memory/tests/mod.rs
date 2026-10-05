@@ -9,11 +9,11 @@ mod scene;
 mod store;
 mod sync;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use qingjian_cloud_proto::{CardKind, CardSource, Scene};
+use qingjian_cloud_proto::{CardKind, CardSource};
 
-use crate::memory::{Card, Contact, Pronoun};
+use crate::memory::{Card, Contact, MemoryStore, Pronoun, Scene};
 use crate::scope::ContactPick;
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -33,14 +33,34 @@ fn pick(n: u32) -> ContactPick {
     ContactPick::Contact(id(n))
 }
 
-fn contact(n: u32, scene: Scene) -> Contact {
+/// 老模型里场景是写死的三个（现在要显式建）；多数用例沿用这三个 id，省得每条都建。
+const THREE_SCENES: [(&str, &str); 3] = [("daily", "日常"), ("dating", "恋爱"), ("work", "工作")];
+
+/// 开一个临时目录里的 store，并把上面三个场景建好。
+fn open_with_scenes(user: &Path) -> MemoryStore {
+    let store = MemoryStore::open(user);
+    memory_scenes(&store);
+    store
+}
+
+/// 给一个已经开好的 store 建好那三个场景（等锁上限自定、由调用方自己开的那些用例用）。
+fn memory_scenes(store: &MemoryStore) {
+    for (id, name) in THREE_SCENES {
+        store
+            .put_scene(Scene::new(id.to_owned(), name.to_owned(), 0))
+            .unwrap();
+    }
+}
+
+fn contact(n: u32, scene: &str) -> Contact {
     Contact {
         id: id(n),
         name: format!("人{n}"),
         display_name: None,
         initial: None,
         pronoun: Pronoun::Ta,
-        scene,
+        scene: scene.to_owned(),
+        pinned_at: None,
         created_at: 1_791_043_200,
         hint_on: true,
         remind_on: true,

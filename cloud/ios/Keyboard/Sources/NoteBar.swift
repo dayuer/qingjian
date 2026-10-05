@@ -45,7 +45,7 @@ struct NoteBar: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 14)
                 .frame(height: 28)
-                .background(Capsule().fill(ColorUsage.noteConfirm.role(in: model.scope.scene).color))
+                .background(Capsule().fill(ColorUsage.noteConfirm.role.color))
                 .padding(.trailing, 10)
                 .onKeyboardPress { model.confirmNote() }
         }
@@ -53,7 +53,7 @@ struct NoteBar: View {
 
     private var toast: some View {
         let toast = model.noteToast
-        let accent = toast?.warning != true && MemoryScope.usesAccent(model.scope.scene)
+        let accent = toast?.warning != true
         return HStack(spacing: 8) {
             Circle()
                 .fill(accent ? Theme.accent.color : Theme.ink3)

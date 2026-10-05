@@ -19,7 +19,7 @@ final class MemoryStoreTests: XCTestCase {
     }
 
     private func person(_ name: String = "小美") -> MemoryContact {
-        MemoryContact(id: contactId, name: name, pronoun: .ta, scene: MemoryScope.dating, createdAt: 0)
+        MemoryContact(id: contactId, name: name, pronoun: .ta, scene: "dating", createdAt: 0)
     }
 
     private func sampleSnapshot() -> MemorySnapshot {
@@ -144,25 +144,29 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertTrue(store.upcoming(within: 6, now: MemoryDate.parse("2026-10-04")!).isEmpty, "日子提醒关了不列")
     }
 
-    func testUpcomingIncludesDailyButNotWork() async {
+    func testUpcomingIncludesEveryone() async {
         let store = MemoryStore(directory: { nil }, backend: FakeBridge(disk: nil).backend)
         var snapshot = MemorySnapshot()
-        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: MemoryScope.daily)
-        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: MemoryScope.work)
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: "daily")
+        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: "work")
         snapshot.contacts = [mom, boss]
         snapshot.cards[mom.id] = [MemoryCard.new(kind: .date, text: "生日", when: "1960-10-05", keywords: [])]
         snapshot.cards[boss.id] = [MemoryCard.new(kind: .promise, text: "交方案", when: "2026-10-05", keywords: [])]
         store.replace(with: snapshot)
         let items = store.upcoming(within: 6, now: MemoryDate.parse("2026-10-04")!)
-        XCTAssertEqual(items.map(\.contact.name), ["妈妈"], "日常的人提醒，工作的人不提醒")
+        XCTAssertEqual(items.map(\.contact.name).sorted(), ["妈妈", "老板"], "每个场景一样，都提醒")
     }
 
     func testSettingsWordingForScenes() {
-        XCTAssertEqual(MemoryStore.Wording.sceneLocked, "换场景需要忘掉后重新加")
-        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: MemoryScope.daily)
+        let mom = MemoryContact.new(name: "妈妈", pronoun: .ta, scene: "daily")
         XCTAssertEqual(MemoryStore.Wording.switchesNote(mom), "只对妈妈生效。")
-        let boss = MemoryContact.new(name: "老板", pronoun: .ta, scene: MemoryScope.work)
-        XCTAssertEqual(MemoryStore.Wording.switchesNote(boss), "工作场景的人不出提示和提醒，只用来分开学习。")
+        XCTAssertEqual(MemoryStore.Wording.peopleCount(2), "2 个人")
+        XCTAssertEqual(MemoryStore.Wording.pinLimit(), "一个场景最多置顶 4 个人")
+        XCTAssertEqual(MemoryStore.Wording.sceneNameTooLong(), "场景名最多 8 个字")
+        XCTAssertEqual(MemoryStore.Wording.sceneHasPeople(0, fallback: "日常"), "这个场景里没有人，删掉不影响任何人。")
+        XCTAssertEqual(
+            MemoryStore.Wording.sceneHasPeople(2, fallback: "日常"),
+            "里面有 2 个人，删掉后他们会挪到「日常」。")
     }
 
     // 三方合并
@@ -188,7 +192,7 @@ final class MemoryStoreTests: XCTestCase {
         var local = base
         local.cards[contactId] = [card("a", "App 改的", touched: 2)]
         let other = MemoryContact(
-            id: "11111111111111111111111111111111", name: "阿杰", pronoun: .taM, scene: MemoryScope.dating,
+            id: "11111111111111111111111111111111", name: "阿杰", pronoun: .taM, scene: "dating",
             createdAt: 0)
         local.contacts.append(other)
         var remote = base
@@ -254,14 +258,14 @@ final class MemoryStoreTests: XCTestCase {
     func testBridgeErrorsAreShownWithReason() async {
         let bridge = FakeBridge(disk: sampleSnapshot())
         bridge.writeResults = [
-            MemoryFailure.decode(#"{"code":"contact_limit","message":"恋爱最多 8 个人"}"#),
+            MemoryFailure.decode(#"{"code":"pin_limit","message":"一个场景最多置顶 4 个人"}"#),
             MemoryFailure.decode(#"{"code":"io","message":"记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试"}"#),
             MemoryFailure.decode("不是 JSON"),
         ]
         let store = await store(bridge)
-        let ok4 = await store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM), cards: [])
+        let ok4 = await store.addContact(MemoryContact.new(name: "阿杰", pronoun: .taM, scene: "daily"), cards: [])
         XCTAssertFalse(ok4)
-        XCTAssertEqual(store.message, "没存上：恋爱最多 8 个人")
+        XCTAssertEqual(store.message, "没存上：一个场景最多置顶 4 个人")
         let ok5 = await store.forget(contactId)
         XCTAssertFalse(ok5)
         XCTAssertEqual(store.message, "没存上：记忆文件读写不了（开机后还没解锁过时读不到），请解锁后重试")

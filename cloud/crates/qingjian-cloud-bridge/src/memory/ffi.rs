@@ -7,16 +7,16 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::ptr;
 
-use qingjian_cloud_proto::Scene;
-
 use super::{
-    Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore, now_unix, unprocessed,
+    DEFAULT_SCENE_ID, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore,
+    is_scene_id, now_unix, unprocessed,
 };
-use crate::scope::{ContactPick, parse_scene, scene_name};
+use crate::scope::ContactPick;
 use crate::session::{DroppedNotes, Session};
 use crate::{owned, path_arg, with};
 
-/// 切场景与对象：`contact_id` 为空指针时回到这个场景上次选的人，为空字符串时明确不指定。场景认不得时什么都不做。
+/// 切场景与对象：`scene` 是场景 id（键盘从 `qj_memory_read` 的 `scenes` 里拿），
+/// `contact_id` 为空指针时回到这个场景上次选的人，为空字符串时明确不指定。场景 id 不合格式时什么都不做。
 ///
 /// # Safety
 /// `session` 来自 `qj_session_open` 且未释放；`scene` 为有效 UTF-8 C 字符串，`contact_id` 为空或同上。
@@ -26,7 +26,7 @@ pub unsafe extern "C" fn qj_scope_set(
     scene: *const c_char,
     contact_id: *const c_char,
 ) {
-    let Some(scene) = (unsafe { path_arg(scene) }).and_then(parse_scene) else {
+    let Some(scene) = (unsafe { path_arg(scene) }).filter(|scene| is_scene_id(scene)) else {
         return;
     };
     let pick = ContactPick::from_arg(unsafe { path_arg(contact_id) });
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn qj_scope_get(session: *mut Session) -> *mut c_char {
     with(session, ptr::null_mut(), |s| {
         s.scope().map_or(ptr::null_mut(), |state| {
             let json = serde_json::json!({
-                "scene": scene_name(state.scene),
+                "scene": state.scene,
                 "contact_id": state.contact_id,
                 "last": state.last,
                 "used": state.used,
@@ -326,10 +326,14 @@ pub unsafe extern "C" fn qj_memory_add_contact(
     let pronoun = unsafe { path_arg(pronoun) }
         .and_then(|text| serde_json::from_value(serde_json::Value::String(text.to_owned())).ok())
         .unwrap_or_default();
-    let scene = unsafe { path_arg(scene) }.and_then(parse_scene);
+    let scene = unsafe { path_arg(scene) }
+        .filter(|scene| is_scene_id(scene))
+        .map(str::to_owned);
     let added = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
-        let scene = scene.unwrap_or_else(|| s.scope().map_or(Scene::Daily, |state| state.scene));
-        s.memory_add_contact(&name, pronoun, scene)
+        let scene = scene
+            .clone()
+            .unwrap_or_else(|| s.scope().map_or(DEFAULT_SCENE_ID.to_owned(), |s| s.scene));
+        s.memory_add_contact(&name, pronoun, &scene)
     });
     match added {
         Ok(id) => owned(&serde_json::json!({ "id": id }).to_string()),

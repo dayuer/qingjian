@@ -17,12 +17,35 @@ extension MemoryStore {
 
         static let loading = "正在读取"
 
-        /// 对象设置里「所在场景」下面的小字。
-        static let sceneLocked = "换场景需要忘掉后重新加"
+        /// 场景被删掉、或还没读到时的兜底（界面上不出现空白）。
+        static let unknownScene = "场景"
 
-        /// 两个开关下面的小字：工作场景的人打字时不出提示、今天和本周里也不提，两个开关对 TA 不起作用，这里写明。
+        /// 场景名最多几个字。
+        static func sceneNameTooLong() -> String { "场景名最多 \(MemoryScene.maxNameChars) 个字" }
+
+        /// 「n 个人」。
+        static func peopleCount(_ count: Int) -> String { "\(count) 个人" }
+
+        /// 对象设置里「置顶」下面的小字。
+        static func pinNote(_ count: Int) -> String {
+            count == 0
+                ? "键盘的选择面板会先摆置顶的人（一个场景最多 \(MemoryScene.maxPinned) 个）"
+                : "这个场景已经置顶 \(count) / \(MemoryScene.maxPinned) 个"
+        }
+
+        /// 一个场景最多置顶几个。
+        static func pinLimit() -> String { "一个场景最多置顶 \(MemoryScene.maxPinned) 个人" }
+
+        /// 场景设置页脚：删掉这个场景会怎么处理里面的人。
+        static func sceneHasPeople(_ count: Int, fallback: String) -> String {
+            count == 0
+                ? "这个场景里没有人，删掉不影响任何人。"
+                : "里面有 \(count) 个人，删掉后他们会挪到「\(fallback)」。"
+        }
+
+        /// 两个开关下面的小字。
         static func switchesNote(_ contact: MemoryContact) -> String {
-            MemoryScope.reminds(contact.scene) ? "只对\(contact.name)生效。" : "工作场景的人不出提示和提醒，只用来分开学习。"
+            "只对\(contact.name)生效。"
         }
 
         /// 对象设置里「日子提醒」下面的小字，称呼按这个人选的来。

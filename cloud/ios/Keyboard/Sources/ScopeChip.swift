@@ -17,7 +17,7 @@ struct ScopeChip: View {
     var body: some View {
         HStack(spacing: 0) {
             if split || !showsPerson {
-                Text(ScopeDisplay.chipScene(model.scope.scene))
+                Text(model.sceneName)
                     .font(.system(size: 13))
                     .foregroundStyle(ColorUsage.chipScene.role.color)
                     .padding(.leading, 11)
@@ -30,7 +30,7 @@ struct ScopeChip: View {
                     }
                     .onKeyboardPress { if interactive { model.openScopePicker() } }
                     .accessibilityAddTraits(.isButton)
-                    .accessibilityLabel("场景：\(ScopeDisplay.chipScene(model.scope.scene))")
+                    .accessibilityLabel("场景：\(model.sceneName)")
             }
             if showsPerson { person }
         }
@@ -60,7 +60,7 @@ struct ScopeChip: View {
         .accessibilityLabel("对象：\(ScopeDisplay.chipPerson(model.currentContact?.chipName))")
     }
 
-    private var love: Bool { ScopeDisplay.chipUsesAccent(scene: model.scope.scene, fullAccess: model.fullAccess) }
+    private var love: Bool { ScopeDisplay.chipUsesAccent(fullAccess: model.fullAccess) }
 
     private var showsPerson: Bool { ScopeDisplay.chipShowsPerson(fullAccess: model.fullAccess) }
 }

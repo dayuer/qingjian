@@ -7,8 +7,8 @@ import SwiftUI
 struct ContactEditor: View {
     let store: MemoryStore
 
-    /// 建在哪个场景（首页从哪组点进来）。
-    var scene = MemoryScope.dating
+    /// 建在哪个场景（分组）的 id；调用方从 MemoryScene 里挑一个传进来。
+    let scene: String
 
     @Environment(\.dismiss) private var dismiss
 
@@ -51,7 +51,7 @@ struct ContactEditor: View {
                     .contentShape(Rectangle())
                     .onTapGesture { nameFocused = true }
                     .padding(.top, 8)
-                Text("加在「\(MemoryScope.title(of: scene))」里 · 只保存在这台手机上。")
+                Text("加在「\(store.sceneName(of: scene))」里 · 只保存在这台手机上。")
                     .font(AppFont.font(size: 12.5))
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)

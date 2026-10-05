@@ -9,9 +9,9 @@ use std::os::unix::fs::PermissionsExt;
 use std::sync::{Arc, Barrier, mpsc};
 use std::time::{Duration, Instant};
 
-use qingjian_cloud_proto::{CardKind, Scene};
+use qingjian_cloud_proto::CardKind;
 
-use super::{card, contact, id, pick, temp_dir};
+use super::{card, contact, id, memory_scenes, open_with_scenes, pick, temp_dir};
 use crate::memory::{LocalDate, MaterialSource, MemoryError, MemorySnapshot, MemoryStore};
 
 /// 另一个进程往卡片末尾加一张（读与写各拿一次锁，只在不并发的地方用）；记一笔现在写素材，不再碰卡片。
@@ -35,8 +35,8 @@ fn edit_first_card(snapshot: &mut MemorySnapshot, text: &str) {
 #[test]
 fn stale_snapshot_conflicts_and_merges() {
     let user = temp_dir("conflict");
-    let store = MemoryStore::open(&user);
-    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let store = open_with_scenes(&user);
+    store.put_contact(contact(1, "dating")).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "原来的", &[], None, 1)])
         .unwrap();
@@ -63,8 +63,8 @@ fn stale_snapshot_conflicts_and_merges() {
 #[test]
 fn two_processes_lose_no_notes() {
     let user = temp_dir("two-processes");
-    MemoryStore::open(&user)
-        .put_contact(contact(1, Scene::Dating))
+    open_with_scenes(&user)
+        .put_contact(contact(1, "dating"))
         .unwrap();
     MemoryStore::open(&user)
         .put_cards(&id(1), &[card(1, CardKind::Other, "第一张", &[], None, 1)])
@@ -89,7 +89,7 @@ fn two_processes_lose_no_notes() {
     });
     keyboard.join().unwrap();
     app.join().unwrap();
-    let store = MemoryStore::open(&user);
+    let store = open_with_scenes(&user);
     let texts: HashSet<String> = store
         .materials(&id(1), 40)
         .unwrap()
@@ -106,8 +106,8 @@ fn two_processes_lose_no_notes() {
 #[test]
 fn unreadable_files_abort_writes() {
     let user = temp_dir("unreadable");
-    let store = MemoryStore::open(&user);
-    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let store = open_with_scenes(&user);
+    store.put_contact(contact(1, "dating")).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "真文件", &[], None, 1)])
         .unwrap();
@@ -135,11 +135,11 @@ fn unreadable_files_abort_writes() {
     let contacts = memory.join("contacts.json");
     deny(&contacts, 0o000);
     assert!(matches!(
-        store.put_contact(contact(2, Scene::Dating)),
+        store.put_contact(contact(2, "dating")),
         Err(MemoryError::Io(_))
     ));
     assert!(matches!(
-        store.update_scope(Scene::Dating, &pick(1), 0),
+        store.update_scope("dating", &pick(1), 0),
         Err(MemoryError::Io(_))
     ));
     assert!(store.contacts().is_empty(), "只读的接口读不了给空");
@@ -151,8 +151,8 @@ fn unreadable_files_abort_writes() {
 #[test]
 fn forgotten_contact_is_not_recreated() {
     let user = temp_dir("forgotten");
-    let store = MemoryStore::open(&user);
-    store.put_contact(contact(1, Scene::Dating)).unwrap();
+    let store = open_with_scenes(&user);
+    store.put_contact(contact(1, "dating")).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
         .unwrap();
@@ -173,7 +173,7 @@ fn forgotten_contact_is_not_recreated() {
 #[test]
 fn dismissed_records_drop_old_and_unknown_cards() {
     let user = temp_dir("dismissed");
-    let store = MemoryStore::open(&user);
+    let store = open_with_scenes(&user);
     let today = LocalDate::parse("2026-10-04").unwrap();
     let mut records = HashMap::new();
     records.insert(id(1001), today);
@@ -191,7 +191,8 @@ fn dismissed_records_drop_old_and_unknown_cards() {
 fn keyboard_lock_wait_times_out_quickly() {
     let user = temp_dir("lock-timeout");
     let keyboard = MemoryStore::open_with_lock_timeout(&user, Duration::from_millis(200));
-    keyboard.put_contact(contact(1, Scene::Dating)).unwrap();
+    memory_scenes(&keyboard);
+    keyboard.put_contact(contact(1, "dating")).unwrap();
 
     let lock_path = user.join("memory").join(".lock");
     let (held_tx, held_rx) = mpsc::channel();
@@ -240,8 +241,8 @@ fn forced_interleaving(
     merge: impl Fn(&mut MemorySnapshot, &MemorySnapshot),
 ) -> (Result<(), MemoryError>, usize, Vec<crate::memory::Card>) {
     let user = temp_dir(name);
-    let setup = MemoryStore::open(&user);
-    setup.put_contact(contact(1, Scene::Dating)).unwrap();
+    let setup = open_with_scenes(&user);
+    setup.put_contact(contact(1, "dating")).unwrap();
     setup
         .put_cards(
             &id(1),

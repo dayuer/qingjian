@@ -15,7 +15,7 @@ use memory_support::{
     CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_cards,
     qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete, qj_memory_materials,
     qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context, qj_scope_get, qj_scope_set,
-    seed, set_scope, take, type_and_commit,
+    scenes, seed, set_scope, take, type_and_commit,
 };
 
 #[test]
@@ -43,11 +43,13 @@ fn scope_set_round_trips() {
     let scope = json_of(unsafe { qj_scope_get(session) });
     assert_eq!(scope["scene"], "work");
     assert_eq!(scope["contact_id"], Value::Null, "不是这个场景的人当不指定");
-    set_scope(session, "party", None);
+    // 场景 id 现在由用户自己起，只挡格式不合法的（大写、带斜杠）；正常的 id 认，哪怕名册上还没有
+    set_scope(session, "../x", None);
+    set_scope(session, "Party", None);
     assert_eq!(
         json_of(unsafe { qj_scope_get(session) })["scene"],
         "work",
-        "不认识的场景不动"
+        "不合格式的场景 id 不动"
     );
     set_scope(session, "dating", Some("ffffffffffffffffffffffffffffffff"));
     assert_eq!(
@@ -169,7 +171,7 @@ fn forgotten_contact_stays_forgotten() {
     let session = open(&data, Some(&user));
     set_scope(session, "dating", Some(CONTACT));
     let dir = c(user.to_str().unwrap());
-    let empty = c(r#"{"contacts":[],"cards":{}}"#);
+    let empty = c(&json!({"scenes": scenes(), "contacts": [], "cards": {}}).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
         None
@@ -189,26 +191,30 @@ fn forgotten_contact_stays_forgotten() {
 }
 
 #[test]
-fn ninth_dating_contact_is_rejected() {
+fn a_scene_holds_any_number_of_people() {
     let (_, user) = dirs("limit");
-    let people = |count: u32| -> Value {
-        let contacts: Vec<Value> = (0..count)
-            .map(|n| json!({"id": format!("{n:032x}"), "name": format!("人{n}"), "pronoun": "ta", "scene": "dating", "created_at": 0}))
-            .collect();
-        json!({"contacts": contacts, "cards": {}, "state": {}})
-    };
+    let contacts: Vec<Value> = (0..12)
+        .map(|n| json!({"id": format!("{n:032x}"), "name": format!("人{n}"), "pronoun": "ta", "scene": "dating", "created_at": 0}))
+        .collect();
     let dir = c(user.to_str().unwrap());
-    let nine = c(&people(9).to_string());
-    let failure = json_of(unsafe { qj_memory_write(dir.as_ptr(), nine.as_ptr()) });
-    assert_eq!(failure["code"], "contact_limit");
-    assert_eq!(failure["message"], "恋爱最多 8 个人");
-    let eight = c(&people(8).to_string());
+    let many = c(
+        &json!({"scenes": scenes(), "contacts": contacts, "cards": {}, "state": {}}).to_string(),
+    );
     assert_eq!(
-        take(unsafe { qj_memory_write(dir.as_ptr(), eight.as_ptr()) }),
+        take(unsafe { qj_memory_write(dir.as_ptr(), many.as_ptr()) }),
         None
     );
     let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    assert_eq!(snapshot["contacts"].as_array().unwrap().len(), 8);
+    assert_eq!(
+        snapshot["contacts"].as_array().unwrap().len(),
+        12,
+        "不再有每场景 8 个的上限"
+    );
+    assert_eq!(
+        snapshot["scenes"].as_array().unwrap().len(),
+        3,
+        "整份读带上场景"
+    );
 }
 
 #[test]
