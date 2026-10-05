@@ -1,4 +1,4 @@
-// 「我」Tab（启用键盘交给首次引导，App 判断不了键盘加没加）：记忆要开完全访问的说明、场景（用户自建的分组）、
+// 「我」Tab（启用键盘交给首次引导，App 判断不了键盘加没加）：记忆要开完全访问的说明、
 // 键盘设置与关于（账号入口先藏起来，试打框在键盘设置里），最底下不显眼的「重新看引导」。
 
 import SwiftUI
@@ -13,15 +13,9 @@ struct MeView: View {
     /// 「重新看引导」：由 RootView 盖上首次引导。设计稿 05 的 2j 没有这一项，有意加的（UI 清单约束 7）。
     var replayOnboarding: () -> Void = {}
 
-    /// 记忆：场景一组要读名单（每个场景几个人）与改场景。
-    let memory: MemoryStore
-
     @State private var store = SettingsStore()
 
     @State private var account = AccountStore()
-
-    /// 「加一个场景」的弹层；`.sheet` 挂在 Form 这层（挂在 Section 上不生效）。
-    @State private var addingScene = false
 
     var body: some View {
         NavigationStack {
@@ -43,7 +37,6 @@ struct MeView: View {
                     } header: {
                         Text("记忆")
                     }
-                    SceneListSection(store: memory, adding: $addingScene)
                     Section {
                         if store.available {
                             NavigationLink("键盘设置") { KeyboardSettingsView(store: store) }
@@ -69,11 +62,6 @@ struct MeView: View {
             }
             // 标题条与 Form 同一种底（分组灰）：标题在 Form 外面，不设的话浅色模式下标题是白底、下面是灰底
             .background(Color(.systemGroupedBackground))
-            .sheet(isPresented: $addingScene) {
-                SceneNameSheet(title: "加一个场景", name: "") { name in
-                    Task { await memory.addScene(name: name) }
-                }
-            }
             .toolbar(.hidden, for: .navigationBar)
         }
     }

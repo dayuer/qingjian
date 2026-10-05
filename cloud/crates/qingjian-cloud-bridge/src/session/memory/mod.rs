@@ -1,6 +1,6 @@
-//! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切场景与对象、取提示、对象卡、「记一笔」（存成待整理素材）、「知道了」，
+//! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切当前对象、取提示、对象卡、「记一笔」（存成待整理素材）、「知道了」，
 //! 以及上屏路径喂进来的最近 24 字、换输入框时清空、按修改时间重载。读-改-写都交给 `MemoryStore`（文件锁里读磁盘再写）。
-//! 键盘只等 200 毫秒的锁：拿不到时「记一笔」与切场景进内存待办，下次 refresh / poll / flush 或下一次记一笔时重试，主线程不卡。
+//! 键盘只等 200 毫秒的锁：拿不到时「记一笔」与切人进内存待办，下次 refresh / poll / flush 或下一次记一笔时重试，主线程不卡。
 
 mod live;
 mod pending;
@@ -25,44 +25,44 @@ pub use self::pending::DroppedNotes;
 pub(super) use self::live::LiveMemory;
 
 impl Session {
-    /// 切场景与对象：交给 `MemoryStore::update_scope` 在锁里重读 `state.json` 与名单，按 `pick` 定对象
-    /// （`Last` 回到这个场景上次选的人）。不是这个场景的人、磁盘名单上没有的对象都当不指定。读写失败（开机后还没解锁过）就不切，记日志；
+    /// 切当前对象：交给 `MemoryStore::update_contact` 在锁里重读 `state.json` 与名单，按 `pick` 定对象。
+    /// 磁盘名单上没有的对象当不指定。读写失败（开机后还没解锁过）就不切，记日志；
     /// 只是拿不到锁（`LockTimeout`）时内存里照切，写盘进待办（只留最新一次，存的是按内存算好的对象）稍后重试。
-    pub fn set_scope(&mut self, scene: &str, pick: &ContactPick) {
+    pub fn set_contact(&mut self, pick: &ContactPick) {
         let Some(memory) = self.memory.as_mut() else {
             return;
         };
         let mut deferred = false;
-        let next = match memory.store.update_scope(scene, pick, now_unix()) {
+        let next = match memory.store.update_contact(pick, now_unix()) {
             Ok(state) => {
                 memory.pending.take_scope();
                 state
             }
             Err(MemoryError::LockTimeout) => {
                 deferred = true;
-                let wanted = scope_with(memory.state.clone(), scene, pick, &memory.contacts);
-                memory.pending.set_scope(scene, wanted.contact_id.clone());
+                let wanted = scope_with(memory.state.clone(), pick, &memory.contacts);
+                memory.pending.set_scope(wanted.contact_id.clone());
                 wanted
             }
             Err(error) => {
-                tracing::warn!(%error, "切场景没写进 state.json，不切");
+                tracing::warn!(%error, "切对象没写进 state.json，不切");
                 return;
             }
         };
-        let moved = next.scene != memory.state.scene || next.contact_id != memory.state.contact_id;
+        let moved = next.contact_id != memory.state.contact_id;
         memory.state = next;
         if moved {
             self.switch_layers(deferred);
         }
     }
 
-    /// 当前场景与对象；没有学习数据目录的会话没有记忆，返回 `None`。
+    /// 当前对象；没有学习数据目录的会话没有记忆，返回 `None`。
     pub fn scope(&self) -> Option<ScopeState> {
         self.memory.as_ref().map(|memory| memory.state.clone())
     }
 
     /// 提示行要显示的：日子提醒优先，其次是匹配提示，各按当前对象的两个开关。
-    /// 私密输入、工作场景、没选对象时没有。
+    /// 私密输入、没选对象时没有。
     pub fn memory_hint(&self) -> Option<&Hint> {
         if self.engine.is_private() {
             return None;
@@ -162,13 +162,12 @@ impl Session {
         }
     }
 
-    /// 键盘里在 `scene`（场景 id）新建一个对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录；
+    /// 键盘里新建一个对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录；
     /// 键盘只等 200 毫秒的锁，拿不到就报 `LockTimeout` 让用户再点一次（新建是一次性的确认，不进待办）。
     pub fn memory_add_contact(
         &mut self,
         name: &str,
         pronoun: Pronoun,
-        scene: &str,
     ) -> Result<String, MemoryError> {
         let Some(memory) = self.memory.as_mut() else {
             return Err(MemoryError::Invalid("这个键盘没有记忆目录"));
@@ -184,8 +183,9 @@ impl Session {
             display_name: None,
             // 首字母由下面那次补写算（`Session::open` 里词库还在手上）；这里先留空
             initial: None,
+            // 新建的人没指定技能，用设置里的默认
+            skill: None,
             pronoun,
-            scene: scene.to_owned(),
             // 新建的人不置顶，要置顶在 App 的对象设置里点
             pinned_at: None,
             created_at: now_unix(),
@@ -205,9 +205,9 @@ impl Session {
             })
     }
 
-    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写成素材（成功才出队，被拒绝的出队并记下条数与原因），再补写最新一次切场景，
+    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写成素材（成功才出队，被拒绝的出队并记下条数与原因），再补写最新一次切人，
     /// 最后补读换对象时没读成的卡片。仍拿不到锁或读写不了就留着，这一轮到此为止（最多再等一个 200 毫秒）；
-    /// 补写的场景换了叠加层返回 true。
+    /// 补写的切人换了叠加层返回 true。
     pub(super) fn retry_pending(&mut self) -> bool {
         let Some(memory) = self.memory.as_mut() else {
             return false;
@@ -241,21 +241,19 @@ impl Session {
         let mut moved = false;
         if !blocked && let Some(scope) = memory.pending.take_scope() {
             let pick = scope
-                .1
                 .clone()
                 .map_or(ContactPick::Nobody, ContactPick::Contact);
-            match memory.store.update_scope(&scope.0, &pick, now_unix()) {
+            match memory.store.update_contact(&pick, now_unix()) {
                 Ok(state) => {
-                    moved = state.scene != memory.state.scene
-                        || state.contact_id != memory.state.contact_id;
+                    moved = state.contact_id != memory.state.contact_id;
                     memory.state = state;
                 }
                 Err(error @ (MemoryError::LockTimeout | MemoryError::Io(_))) => {
-                    tracing::warn!(%error, "待写的场景先留着");
+                    tracing::warn!(%error, "待写的切人先留着");
                     memory.pending.restore_scope(scope);
                     blocked = true;
                 }
-                Err(error) => tracing::warn!(%error, "待写的场景被拒绝，丢掉"),
+                Err(error) => tracing::warn!(%error, "待写的切人被拒绝，丢掉"),
             }
         }
         if moved {
@@ -328,7 +326,7 @@ impl Session {
     }
 
     /// `Session::poll` 开头调：`memory/` 下的文件被 App 改了（修改时间变了）就重读，读不了的留着原来的；
-    /// 当前对象被删时退回这个场景的不指定。换了叠加层（候选重排过）返回 true。
+    /// 当前对象被删时退回不指定。换了叠加层（候选重排过）返回 true。
     pub(super) fn poll_memory(&mut self) -> bool {
         let rescoped = self.retry_pending();
         let Some(memory) = self.memory.as_mut() else {
@@ -351,7 +349,7 @@ impl Session {
             }
         };
         let next = sanitized_scope(disk, &memory.contacts);
-        let moved = next.scene != memory.state.scene || next.contact_id != memory.state.contact_id;
+        let moved = next.contact_id != memory.state.contact_id;
         memory.state = next;
         if moved {
             self.switch_layers(false);
@@ -362,7 +360,7 @@ impl Session {
         moved || rescoped
     }
 
-    /// 状态里的场景或对象变了：换叠加层、清最近的字，作废格子缓存后重读名单与卡片（`deferred` 为真说明刚拿不到锁，
+    /// 状态里选中的人变了：换叠加层、清最近的字，作废格子缓存后重读名单与卡片（`deferred` 为真说明刚拿不到锁，
     /// 不再读盘，卡片先当没有、记下待补读）、重建提示、重排候选。
     fn switch_layers(&mut self, deferred: bool) {
         let Some(memory) = self.memory.as_mut() else {

@@ -1,9 +1,10 @@
 // 键盘的状态与按键语义，行为对齐 iOS 自带简体拼音：拼音以 marked text 写在宿主光标处，
 // 空格上屏首选，换行原样上屏字母（打英文就靠它），组字中敲标点先上屏首选。视图只读状态、转发点击。
-// 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以润色光标前的一段话、
-// 插入别的设备刚复制的文字、把本机剪贴板发出去。验证码 / 密码这类输入框里这些都停（privateField）。
-// 本地记忆：场景牌子与选择面板、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
-// 每个场景各有一组人；切场景时桥回到这个场景上次选的人（ScopePick.last），工作场景不出提示。
+// 配了素笺云 时：大模型的候选异步插进候选栏（控制器定时调 poll），没在组字时可以用当前技能改写光标前的一段话
+// （工具栏右边那颗按钮写着技能名，点开是技能排）、插入别的设备刚复制的文字、把本机剪贴板发出去。
+// 验证码 / 密码这类输入框里这些都停（privateField）。
+// 本地记忆：对象牌子、候选栏上方的提示行、对象卡、「记一笔」都经 MemoryBridge 调桥；名单读 App Group 里的 memory/。
+// 名单是一张平铺的人，人数不限；切人就调桥（ScopePick），桥回话后按新的对象重读名单与提示。
 // 所有输出都经 OutputRouter：手写记一笔时它把上屏、退格改道到草稿，宿主一个字都不碰（不持有宿主，就绕不过去）。
 
 import Foundation
@@ -33,17 +34,26 @@ final class KeyboardModel {
     /// 记忆的提示行：恋爱或日常、选了对象、碰上卡片里的词或日子快到时有。
     private(set) var hint: MemoryHint?
 
-    /// 当前场景与对象（只能用户自己切）。
+    /// 当前对象（只能用户自己切）。
     private(set) var scope = MemoryScope()
 
-    /// 三个场景的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
+    /// 名单上的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
     private(set) var contacts: [MemoryContact] = []
 
-    /// 用户自建的场景（分组）；键盘上的分段与牌子左半按它来。
-    private(set) var scenes: [MemoryScene] = []
-
-    /// 点了牌子右半：工具栏里横着列本场景的其他人与「不指定」（ScopeDisplay.quickPicks）。
+    /// 点了牌子：工具栏里横着列其他人与「不指定」（ScopeDisplay.quickPicks）。
     private(set) var quickOpen = false
+
+    /// 没开完全访问时点牌子展开的说明（改写与记忆都要完全访问）。
+    private(set) var showsFullAccessNote = false
+
+    /// 随包的改写技能（键盘起来、换引擎时各读一次，运行中不变）。
+    private(set) var rewriteSkills: [Skill] = []
+
+    /// 改写用的全局默认技能（设置里的 `[rewrite] skill`）；读不出来时按缺省（`polish`）。
+    private(set) var defaultRewriteSkill = RewriteDefault.fallbackSkill
+
+    /// 点了工具栏那颗技能按钮：露出 / 收起技能排（与 `showsFullAccessNote` 一样的观察状态）。
+    private(set) var showsRewriteSkills = false
 
     /// 确认条里待记的几条素材（剪贴板拆出来的）；nil 时不出确认条。
     private(set) var noteDraft: [String]?
@@ -127,11 +137,70 @@ final class KeyboardModel {
         candidates = shown.candidates
         refresh()
         syncScope()
+        reloadRewriteSkills()
     }
 
     var composing: Bool { !preedit.isEmpty }
 
-    var rewriteAvailable: Bool { engine?.rewriteAvailable ?? false }
+    /// 改写按钮出不出（`ScopeDisplay.canRewrite`：技能包在、开了完全访问、有改写器、不在私密输入框）。
+    /// 没开完全访问时那颗按钮不出现——那时没有网络，按下去必然得到「检查网络」；说明入口在牌子上。
+    var rewriteAvailable: Bool {
+        ScopeDisplay.canRewrite(
+            fullAccess: fullAccess, privateField: privateField,
+            hasSkills: !rewriteSkills.isEmpty, hasRewriter: engine?.rewriteAvailable ?? false)
+    }
+
+    /// 此刻生效的技能：选中的人身上指定了就用它 → 设置里的默认 → 列表第一个。
+    var rewriteSkill: Skill? {
+        RewriteSkill.resolve(
+            skills: rewriteSkills, contactSkill: currentContact?.skill,
+            defaultSkill: defaultRewriteSkill)
+    }
+
+    /// 技能排上高亮的那个：选中的人身上指定的（nil = 用默认）。没选人时永远是「用默认」。
+    var rewriteSkillPick: String? { currentContact?.skill }
+
+    /// 技能排与牌子展开的人占同一行，开一个就收起另一个。
+    func toggleRewriteSkills() {
+        showsRewriteSkills.toggle()
+        if showsRewriteSkills { quickOpen = false }
+    }
+
+    /// 换技能：选了人写进这个人，没选人就把全局默认写进设置（经桥的 `qj_rewrite_default_set`）；记下来返回 true。
+    /// 没选人时「用默认」等于保持现状——那时现在的默认就是它。
+    @discardableResult
+    func setRewriteSkill(_ id: String?) -> Bool {
+        showsRewriteSkills = false
+        if let contact = currentContact {
+            guard engine?.setContactSkill(contact.id, skillId: id) == nil else { return false }
+            reloadContacts()
+        } else if let id {
+            defaultRewriteSkill = id
+            saveDefaultRewriteSkill(id)
+        }
+        return true
+    }
+
+    /// 技能排上选了一个（工具栏那颗按钮点开的那一排，与改写条上的那一排是同一排）：记下来，并用它改写光标前那一段。
+    /// 与改写条上「点另一个就用它重改」是同一件事——所以工具栏上选技能就等于改写。
+    func pickRewriteSkill(_ id: String?) {
+        guard setRewriteSkill(id) else { return }
+        startRewrite()
+    }
+
+    /// 全局默认技能记在设置里的 `[rewrite] skill` 里，经桥的 `qj_rewrite_default_set` 只改这一项（键盘不碰配置文件）。
+    private func saveDefaultRewriteSkill(_ id: String) {
+        if let failure = engine?.setRewriteDefaultSkill(id) {
+            Self.log.error("默认技能没写进设置：\(failure.code.rawValue, privacy: .public)")
+        }
+    }
+
+    /// 随包的技能与设置里的默认：键盘起来、换引擎时各读一次（技能包在运行中不变）。
+    /// 设置里的默认读不出来时按缺省走，不提示（读不是用户刚做的动作）。
+    private func reloadRewriteSkills() {
+        rewriteSkills = engine?.rewriteSkills ?? []
+        defaultRewriteSkill = engine?.rewriteDefaultSkill ?? RewriteDefault.fallbackSkill
+    }
 
     func tap(_ key: Key) {
         // 又开始打字了：没用上的润色作废
@@ -231,6 +300,7 @@ final class KeyboardModel {
     func dismiss() {
         endComposedNote()
         quickOpen = false
+        showsRewriteSkills = false
         dismissRewrite()
         noteDraft = nil
         noteToast = nil
@@ -248,6 +318,7 @@ final class KeyboardModel {
         engine?.refreshClipboard()
         checkPasteboard()
         syncScope()
+        reloadRewriteSkills()
         if fullAccess, let dropped = engine?.memoryDropped() {
             let lines = NoteBarText.dropped(dropped)
             if !lines.isEmpty { showNoteToast(.problem(lines.joined(separator: "\n"))) }
@@ -323,7 +394,7 @@ final class KeyboardModel {
     func poll() {
         guard let engine else { return }
         refreshHint()
-        // App 删了当前对象时桥会退回这个场景的不指定
+        // App 删了当前对象时桥会退回不指定
         if let next = engine.scope, next != scope {
             scope = next
             reloadContacts()
@@ -333,33 +404,37 @@ final class KeyboardModel {
             let offer = engine.clipOffer
             if offer != clipOffer { clipOffer = offer }
         }
-        guard case .pending(let original) = rewrite else { return }
+        guard case .pending(let original, let skill) = rewrite else { return }
         switch engine.rewriteStatus {
         case 2:
             if let result = engine.takeRewrite() {
-                rewrite = .ready(original: original, result: result)
+                rewrite = .ready(original: original, skill: skill, result: result)
             }
         case 3:
             rewrite = .failed
+        case 4:
+            rewrite = .rejected
         default:
             break
         }
     }
 
-    /// 润色光标前的一段话（从上一个换行起，最多 300 字）。
+    /// 改写光标前的一段话（从上一个换行起，最多 300 字），用此刻生效的技能。
     func startRewrite() {
-        guard let engine, !composing, !sink.isComposingNote, output != nil else { return }
+        guard let engine, let skill = rewriteSkill, !composing, !sink.isComposingNote,
+              output != nil
+        else { return }
         let paragraph = sink.contextBefore.split(separator: "\n", omittingEmptySubsequences: false)
             .last.map(String.init) ?? ""
         let original = String(paragraph.suffix(300))
         guard !original.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        engine.startRewrite(original)
-        rewrite = .pending(original: original)
+        engine.startRewrite(original, skillId: skill.id)
+        rewrite = .pending(original: original, skill: skill.name)
     }
 
-    /// 用润色结果替换原文。光标前已经不是原文了（用户挪了光标或改了字）就放弃，不乱删。
+    /// 用改写结果替换原文。光标前已经不是原文了（用户挪了光标或改了字）就放弃，不乱删。
     func applyRewrite() {
-        guard case .ready(let original, let result) = rewrite, output != nil else { return }
+        guard case .ready(let original, _, let result) = rewrite, output != nil else { return }
         rewrite = .idle
         guard sink.contextBefore.hasSuffix(original) else { return }
         for _ in original { sink.deleteBackward() }
@@ -418,20 +493,10 @@ final class KeyboardModel {
         refresh()
     }
 
-    /// 当前场景的名字（用户自己起的）；场景还没读到或认不得时给一句兜底。
-    var sceneName: String {
-        scenes.first { $0.id == scope.scene }?.name ?? ScopeDisplay.unknownScene
+    /// 牌子展开时列的人（nil 是「不指定」）：名单平铺后人数不限，只列排在前面的几个。
+    var quickPicks: [String?] {
+        ScopeDisplay.quickPicks(people: contacts, current: scope.contactId, used: scope.used)
     }
-
-    /// 当前场景的人：置顶的先、其余按沟通情况，面板里最多摆 `panelCount` 个。
-    var people: [MemoryContact] {
-        ContactOrder.ordered(
-            SceneGroup.people(in: scope.scene, from: contacts), used: scope.used,
-            limit: ContactOrder.panelCount)
-    }
-
-    /// 牌子右半展开时列的人（nil 是「不指定」）。
-    var quickPicks: [String?] { ScopeDisplay.quickPicks(people: people, current: scope.contactId) }
 
     /// 当前对象（名单里找得到的）。
     var currentContact: MemoryContact? {
@@ -444,43 +509,33 @@ final class KeyboardModel {
         ScopeDisplay.canNote(fullAccess: fullAccess, privateField: privateField, hasContact: currentContact != nil)
     }
 
-    func openScopePicker() {
-        reloadContacts()
-        quickOpen = false
-        panel = .scope
-    }
+    /// 没开完全访问时点牌子：展开 / 收起那段说明（键盘里只有这里能说清为什么要开）。
+    func toggleFullAccessNote() { showsFullAccessNote.toggle() }
 
-    /// 点牌子右半：列出 / 收起本场景的其他人。没开完全访问时进面板看说明。
+    /// 点牌子：列出 / 收起其他人。没开完全访问时读不到名单，不做（牌子那时是说明入口）。
     func toggleQuickPicks() {
-        guard fullAccess else {
-            openScopePicker()
-            return
-        }
+        guard fullAccess else { return }
         if !quickOpen { reloadContacts() }
         quickOpen.toggle()
+        if quickOpen { showsRewriteSkills = false }
     }
 
-    /// 面板里切场景：回到这个场景上次选的人，面板留着接着选人。
-    func chooseScene(_ scene: String) {
-        guard scene != scope.scene else { return }
-        applyScope(scene: scene, pick: .last)
-    }
-
-    /// 在当前场景里选人（nil 是不指定）：面板与工具栏里的人都收起。
+    /// 换一个对象（nil 是不指定）：让桥定完，工具栏里列的人收起。
     func chooseContact(_ contactId: String?) {
-        applyScope(scene: scope.scene, pick: contactId.map(ScopePick.contact) ?? .nobody)
+        applyScope(pick: contactId.map(ScopePick.contact) ?? .nobody)
         quickOpen = false
         panel = .keys
     }
 
-    private func applyScope(scene: String, pick: ScopePick) {
-        guard let engine else { return }
-        engine.setScope(scene: scene, pick: pick)
-        let next = engine.scope ?? scope
+    /// 换当前对象：先让桥在锁里读名单定对象，再按回来的状态重读名单与提示。
+    private func applyScope(pick: ScopePick) {
+        engine?.setScope(pick: pick)
+        let next = engine?.scope ?? scope
         // 手写的草稿是记给原来那个人的，换了人就丢掉
-        if next.scene != scope.scene || next.contactId != scope.contactId { endComposedNote() }
+        if next.contactId != scope.contactId { endComposedNote() }
         scope = next
-        refresh()
+        reloadContacts()
+        refreshHint()
     }
 
     func openContactCard() {
@@ -583,7 +638,7 @@ final class KeyboardModel {
         saveNote([composer.text], source: "typed")
     }
 
-    /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
+    /// 点「新对象」：在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
     func startNamingContact() {
         guard fullAccess, !sink.isComposingNote else { return }
         namingContact = true
@@ -593,7 +648,7 @@ final class KeyboardModel {
 
     private func confirmNewContact(_ draft: String) {
         guard let name = ContactAdd.name(draft), let engine else { return }
-        switch engine.addContact(name: name, scene: scope.scene) {
+        switch engine.addContact(name: name) {
         case .success(let id):
             endComposedNote()
             reloadContacts()
@@ -707,7 +762,7 @@ final class KeyboardModel {
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var noteToastTask: Task<Void, Never>?
 
-    /// 换了引擎、键盘出现时：从桥取当前场景，重读名单与提示。
+    /// 换了引擎、键盘出现时：从桥取当前对象，重读名单与提示。
     private func syncScope() {
         scope = engine?.scope ?? MemoryScope()
         reloadContacts()
@@ -719,12 +774,10 @@ final class KeyboardModel {
               let snapshot = MemoryFiles.read(userDirectory: directory)
         else {
             contacts = []
-            scenes = []
             cardIndex = [:]
             return
         }
         contacts = snapshot.contacts
-        scenes = snapshot.scenes
         cardIndex = Dictionary(
             snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
@@ -815,7 +868,10 @@ final class KeyboardModel {
         preedit = next
         candidates = engine.candidates
         if !composing, panel == .candidates { panel = .keys }
-        if composing { quickOpen = false }
+        if composing {
+            quickOpen = false
+            showsRewriteSkills = false
+        }
         refreshHint()
     }
 }

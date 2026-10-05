@@ -1,6 +1,5 @@
-// 对象设置（02 的 1d）：名字与「在键盘上显示为」（代号，空着就显示名字）、所在场景（场景只是分组，可以换）、
-// 置顶（键盘的选择面板先摆置顶的人，一个场景最多 4 个）、称呼、这个人的两个提示开关（按人，只对 TA 生效）、
-// 导出记忆、忘掉这个人（底部弹层确认一次，桥连对象目录一起删）。
+// 对象设置（02 的 1d）：名字与「在键盘上显示为」（代号，空着就显示名字）、置顶（键盘上先摆置顶的人，全局最多 4 个）、
+// 称呼、这个人的两个提示开关（按人，只对 TA 生效）、导出记忆、忘掉这个人（底部弹层确认一次，桥连对象目录一起删）。
 // 每一项改了就交给后台写；写的时候界面先按改后的显示（pending），存不上就弹回 store 里的原样并弹原因。
 // 「忘掉」等弹层收起后（.sheet 的 onDismiss）才执行：在按钮回调里直接写，失败提示会撞上弹层的收起动画弹不出来（"already presenting"），变成静默失败。
 
@@ -71,15 +70,10 @@ struct ContactSettingsView: View {
             Text("名字只保存在这台手机上。键盘上可以改用代号。")
         }
         Section {
-            Picker("所在场景", selection: binding(contact, \.scene)) {
-                ForEach(store.scenes) { scene in
-                    Text(scene.name).tag(scene.id)
-                }
-            }
             Toggle(isOn: pinBinding(contact)) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("置顶")
-                    Text(MemoryStore.Wording.pinNote(store.pinnedCount(in: contact.scene)))
+                    Text(MemoryStore.Wording.pinNote(store.pinnedCount))
                         .font(AppFont.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -107,6 +101,16 @@ struct ContactSettingsView: View {
         } footer: {
             Text(store.saving ? MemoryStore.Wording.saving : MemoryStore.Wording.switchesNote(contact))
         }
+        if !store.skills.isEmpty {
+            Section {
+                Picker("改写用哪个技能", selection: skillBinding(contact)) {
+                    Text("用默认").tag(String?.none)
+                    ForEach(store.skills) { Text($0.name).tag(String?.some($0.id)) }
+                }
+            } footer: {
+                Text("在键盘上按一下就能改；这里选的是跟这个人说话时默认用哪个。")
+            }
+        }
         Section {
             ShareLink(item: store.exportText(contactId)) {
                 Label("导出记忆", systemImage: "square.and.arrow.up")
@@ -120,14 +124,14 @@ struct ContactSettingsView: View {
     }
 
     /// 置顶：勾上就是现在置顶（记时间，早置顶的排在前面），取消就是没置顶。
-    /// 一个场景最多几个由桥兜底（超了返回 pin_limit），这里先按本地数出来的人数把开关关掉，少一次来回。
+    /// 最多几个由桥兜底（超了返回 pin_limit），这里先按本地数出来的人数把开关关掉，少一次来回。
     private func pinBinding(_ contact: MemoryContact) -> Binding<Bool> {
         Binding(
             get: { (pending ?? store.contact(contactId) ?? contact).pinnedAt != nil },
             set: { pinned in
                 guard var next = store.contact(contactId) else { return }
                 if pinned {
-                    guard store.pinnedCount(in: next.scene) < MemoryScene.maxPinned else {
+                    guard store.pinnedCount < MemoryStore.pinLimit else {
                         store.message = MemoryStore.Wording.pinLimit()
                         return
                     }
@@ -135,6 +139,17 @@ struct ContactSettingsView: View {
                 } else {
                     next.pinnedAt = nil
                 }
+                save(next)
+            })
+    }
+
+    /// 改写技能：nil 是「用默认」（设置里那个）；选了就写回这个人。
+    private func skillBinding(_ contact: MemoryContact) -> Binding<String?> {
+        Binding(
+            get: { (pending ?? store.contact(contactId) ?? contact).skill },
+            set: { value in
+                guard var next = store.contact(contactId) else { return }
+                next.skill = value
                 save(next)
             })
     }

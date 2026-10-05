@@ -28,6 +28,11 @@ targets:
         buildPhase: resources
       - path: ../brand/third-party/MiSans-LICENSE.txt
         buildPhase: resources
+      # 改写技能包也要给 App 一份：对象设置里要列出技能名（读的是 App 包里的，键盘那份在扩展包的 Data/skills）。
+      # type: folder 保证整目录原样拷进包（名字就是 skills），App 用 Bundle.main 找它。
+      - path: ../../assets/skills
+        type: folder
+        buildPhase: resources
       - Shared
     dependencies:
       - target: Keyboard
@@ -101,6 +106,8 @@ targets:
       - Tests
       - Keyboard/Sources/EngineDisplay.swift
       - Keyboard/Sources/CandidateItem.swift
+      - Keyboard/Sources/RewriteState.swift
+      - Keyboard/Sources/RewriteWording.swift
     dependencies:
       - target: QingjianCloud
     settings:

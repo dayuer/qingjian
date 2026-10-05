@@ -10,15 +10,19 @@ use super::Session;
 use crate::clipboard::{ClipOffer, Clipboard};
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
-use crate::rewrite::Rewriter;
+use crate::rewrite::{Rewriter, Skill};
 
 /// 云端的词与整句插在第几格起：第 0 格留给本地首选。
 const CLOUD_POSITION: usize = 1;
 
 impl Session {
     pub(super) fn connect(&mut self, cloud: &CloudConfig) {
-        if cloud.llm {
-            self.rewriter = Some(Rewriter::new(Client::new(&cloud.server, &cloud.token)));
+        // 没有技能包就整个不建：改写按钮跟着不出现（打包漏了，`open` 里已经记过一条 error）
+        if cloud.llm && !self.skills.is_empty() {
+            self.rewriter = Some(Rewriter::new(
+                Client::new(&cloud.server, &cloud.token),
+                self.skills.clone(),
+            ));
         }
         if let (true, Some(user_dir)) = (cloud.clipboard, &self.user_dir) {
             let client = Client::new(&cloud.server, &cloud.token);
@@ -54,6 +58,11 @@ impl Session {
     /// 润色器；私密输入框里没有（光标前的文字不能发出去）。
     pub fn rewriter(&self) -> Option<&Rewriter> {
         self.rewriter.as_ref().filter(|_| !self.engine.is_private())
+    }
+
+    /// 随包的改写技能（C 接口 `qj_rewrite_skills` 用）。
+    pub fn rewrite_skills(&self) -> &[Skill] {
+        &self.skills
     }
 
     /// 焦点在验证码、密码、信用卡号这类输入框：不学习、不记日志、不发云端（引擎的私密输入），

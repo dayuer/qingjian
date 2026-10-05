@@ -1,7 +1,7 @@
 //! 对象的分区学习（spec「2A 本地记忆 · 分区学习」）：[`ScopedLearner`] 包全局与对象两层 `FrequencyLearner`，
-//! 会话用 [`ScopeHandle`] 换叠加层，当前场景与对象存在 [`ScopeState`]（`memory/state.json`）。
+//! 会话用 [`ScopeHandle`] 换叠加层，当前对象存在 [`ScopeState`]（`memory/state.json`）。
 //! 目录约定：对象层 `memory/<对象 id>/learning/`，文件名与全局层一样是 `user*.tsv`。
-//! 场景自 2026-10-05 起只是用户自建的分组，不再有场景层的分区学习（那时把写死的三个场景并成了一个）。
+//! 只有全局与对象两层：2026-10-05 起没有「场景」，也就没有场景层的分区学习。
 
 mod handle;
 mod overlay;

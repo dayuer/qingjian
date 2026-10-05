@@ -1,4 +1,4 @@
-//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切场景只留最新一次；补写被拒绝的按原因记条数、落盘、取走清零。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
+//! 键盘待办队列：「记一笔」按顺序、有上限、落盘，切人只留最新一次；补写被拒绝的按原因记条数、落盘、取走清零。拿不到文件锁的端到端行为见 `tests/memory_ffi.rs`。
 
 use std::path::PathBuf;
 
@@ -48,19 +48,20 @@ fn pending_notes_keep_order_and_drop_the_oldest_over_the_cap() {
 #[test]
 fn pending_scope_keeps_only_the_latest() {
     let mut pending = PendingWrites::default();
-    pending.set_scope("work", None);
-    pending.set_scope("dating", Some("a".repeat(32)));
+    pending.set_scope(None);
+    pending.set_scope(Some("a".repeat(32)));
     assert!(pending.has_scope());
-    assert_eq!(
-        pending.take_scope(),
-        Some(("dating".to_owned(), Some("a".repeat(32))))
-    );
+    assert_eq!(pending.take_scope(), Some(Some("a".repeat(32))));
     assert!(!pending.has_scope());
 
     // 重试失败放回时，不压过期间新来的一次
-    pending.set_scope("daily", None);
-    pending.restore_scope(("work".to_owned(), None));
-    assert_eq!(pending.take_scope(), Some(("daily".to_owned(), None)));
+    pending.set_scope(Some("b".repeat(32)));
+    pending.restore_scope(None);
+    assert_eq!(
+        pending.take_scope(),
+        Some(Some("b".repeat(32))),
+        "放回的不压过新的一次"
+    );
 }
 
 fn memory_dir(name: &str) -> PathBuf {

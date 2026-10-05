@@ -1,4 +1,4 @@
-// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（场景合法、一个场景置顶不超过 4 个、日期格式）在桥里。
+// 「键盘记住的事」的数据：经桥整份读写 App Group 里的 memory/，改一处写一次。校验（全局置顶不超过 4 个、日期格式）在桥里。
 // 任何读写失败都要变成界面上的一句中文（loadError 常驻首页、详情与设置页顶上，message 弹窗），不静默。
 // 读写都交给 MemoryWorker 在后台串行做（桥等锁最多 2 秒，不能卡界面），这里只管界面状态：loading / saving、结果回来后更新与弹提示。
 // conflict（键盘这期间「记一笔」改过）时 MemoryWorker 重读、用 MemoryMerge 合并上去再写，最多三轮；App 回到前台时重读（SetupView）。
@@ -31,6 +31,9 @@ final class MemoryStore {
     /// 正在后台写：编辑页显示「正在保存」、按钮置灰；这期间再提交的保存直接拒掉。
     private(set) var saving = false
 
+    /// 随包的改写技能（读一次；对象设置里那个「改写用哪个技能」列它）。包没打进来时为空。
+    private(set) var skills: [Skill] = []
+
     /// 要弹给用户的话（写失败、冲突已合并、文件损坏）。
     var message: String?
 
@@ -52,29 +55,15 @@ final class MemoryStore {
     /// 能不能改：容器在、读成功过、现在没有读失败。
     var canEdit: Bool { loaded && loadError == nil }
 
-    /// 用户自建的场景（分组），第一个是默认场景。
-    var scenes: [MemoryScene] { snapshot.scenes }
+    /// 最多置顶几个（与桥的 `MAX_PINNED` 一致）；文案在非隔离的 `Wording` 里也要用，所以 nonisolated。
+    nonisolated static let pinLimit = 4
 
-    /// 每个场景与它里面的人（补上素材时按它分组选人）。
-    var groups: [SceneGroup] {
-        snapshot.scenes.map { scene in
-            SceneGroup(
-                id: scene.id, name: scene.name,
-                people: SceneGroup.people(in: scene.id, from: snapshot.contacts))
-        }
-    }
+    /// 已经置顶了几个（全局最多 [`Self.pinLimit`] 个）。
+    var pinnedCount: Int { snapshot.contacts.filter { $0.pinnedAt != nil }.count }
 
-    /// 场景名；场景被删掉（或还没读到）时给一句兜底，界面上不出现空白。
-    func sceneName(of id: String) -> String {
-        snapshot.scenes.first { $0.id == id }?.name ?? Wording.unknownScene
-    }
-
-    /// 默认场景（列表里第一个）：删掉别的场景时人挪到它。
-    var defaultScene: MemoryScene? { snapshot.scenes.first }
-
-    /// 这个场景里已经置顶了几个。
-    func pinnedCount(in scene: String) -> Int {
-        snapshot.contacts.filter { $0.scene == scene && $0.pinnedAt != nil }.count
+    /// 名单里的人，按置顶与沟通情况排（补上素材时选人用）。
+    var people: [MemoryContact] {
+        ContactOrder.ordered(snapshot.contacts, used: snapshot.state.used)
     }
 
     func contact(_ id: String) -> MemoryContact? { snapshot.contacts.first { $0.id == id } }
@@ -82,6 +71,8 @@ final class MemoryStore {
     func cards(of id: String) -> [MemoryCard] { snapshot.cards[id] ?? [] }
 
     func reload() async {
+        // 技能包随 App 包走，与记忆目录能不能读无关，先取（对象设置里那一行要列技能名）
+        skills = await worker.skills()
         guard let directory = directory() else {
             loadError = Wording.noAppGroup
             return
@@ -170,72 +161,21 @@ final class MemoryStore {
         }
     }
 
-    /// 加一个场景（分组）。名字空着或过长时就地拒掉，不往桥上走（桥也会拒，文案一致）。
-    @discardableResult
-    func addScene(name: String) async -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count <= MemoryScene.maxNameChars else {
-            message = trimmed.isEmpty
-                ? "场景名不能是空的" : Wording.sceneNameTooLong()
-            return false
-        }
-        return await editScene(.put(MemoryScene.new(name: trimmed)))
-    }
-
-    @discardableResult
-    func renameScene(id: String, name: String) async -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count <= MemoryScene.maxNameChars else {
-            message = trimmed.isEmpty
-                ? "场景名不能是空的" : Wording.sceneNameTooLong()
-            return false
-        }
-        guard var scene = snapshot.scenes.first(where: { $0.id == id }) else { return false }
-        scene.name = trimmed
-        return await editScene(.put(scene))
-    }
-
-    /// 删一个场景：里面的人挪到默认场景（列表里第一个）、置顶一并取消（桥里做）。
-    /// 只剩一个场景不让删——桥也会拒（至少要留一个场景）。
-    @discardableResult
-    func deleteScene(id: String) async -> Bool {
-        guard snapshot.scenes.count > 1 else {
-            message = "至少要留一个场景"
-            return false
-        }
-        return await editScene(.delete(id))
-    }
-
-    /// 场景的增删改名单独走桥的场景接口（只写 scenes.json 与人的分组），不走整份快照写：整份写要校验每张卡、
-    /// 比每个人的修订号，一张不相干的坏卡或键盘刚记的一笔都会让改场景名失败。写完按磁盘重读。
-    private func editScene(_ edit: SceneEdit) async -> Bool {
-        guard !saving else { return false }
-        guard let directory = directory() else {
-            loadError = Wording.noAppGroup
-            message = Wording.noAppGroup
-            return false
-        }
-        guard canEdit else {
-            message = loadError ?? Wording.unreadable
-            return false
-        }
-        saving = true
-        saveGeneration += 1
-        let (failure, latest) = await worker.editScene(directory, edit)
-        saving = false
-        if let latest { apply(latest) }
-        if let failure {
-            message = Wording.failed(failure)
-            return false
-        }
-        return true
-    }
-
     @discardableResult
     func saveContact(_ contact: MemoryContact) async -> Bool {
         await update(contactId: contact.id) { snapshot in
             if let index = snapshot.contacts.firstIndex(where: { $0.id == contact.id }) {
                 snapshot.contacts[index] = contact
+            }
+        }
+    }
+
+    /// 给这个人指定 / 清掉改写技能（nil = 回到设置里的默认）。跟着人走：导出记忆、备份、换机都带着它。
+    @discardableResult
+    func setContactSkill(_ id: String, _ skill: String?) async -> Bool {
+        await update(contactId: id) { snapshot in
+            if let index = snapshot.contacts.firstIndex(where: { $0.id == id }) {
+                snapshot.contacts[index].skill = skill
             }
         }
     }
