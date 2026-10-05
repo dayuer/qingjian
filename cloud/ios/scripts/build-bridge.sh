@@ -47,7 +47,7 @@ data="${QINGJIAN_DATA:-$repo_dir/data/generated}"
 mkdir -p "$ios_dir/Keyboard/Data"
 for file in dict.qj lm.qj; do
   if [[ ! -f "$data/$file" ]]; then
-    echo "缺产品数据 $data/$file：先在仓库根目录跑 tools/release/data-fetch.sh" >&2
+    echo "缺产品数据 $data/${file}：先在仓库根目录跑 tools/release/data-fetch.sh" >&2
     exit 1
   fi
   # 只在变了时拷，免得每次构建都触发重新签名大文件
@@ -71,4 +71,4 @@ else
   mv "$seed.tmp" "$seed"
 fi
 "$ios_dir/scripts/fetch-fonts.sh"
-echo "QingjianBridge.xcframework（$profile）、产品数据与字体已就绪"
+echo "QingjianBridge.xcframework（${profile}）、产品数据与字体已就绪"

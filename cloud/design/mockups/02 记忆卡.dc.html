@@ -18,8 +18,9 @@
             <div class="ios">
               <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
               <div class="app">
-                <div class="nav"><span style="font:13px var(--sans);color:var(--ink-3)">10 月 · 第 40 周</span><span style="width:28px;height:28px;border-radius:14px;background:var(--accent);display:flex;align-items:center;justify-content:center;font:18px/1 var(--sans);color:var(--ink)">+</span></div>
+                <div class="nav"><span style="font:13px var(--sans);color:var(--ink-3)">10 月 · 第 40 周</span><span style="height:28px;padding:0 12px 0 10px;border-radius:14px;background:var(--accent);display:flex;align-items:center;gap:4px;font:500 13px var(--sans);color:var(--ink)"><span style="font:17px/1 var(--sans)">+</span>记一条</span></div>
                 <div class="big-t">记得</div>
+                <div style="display:flex;align-items:center;gap:8px;padding:0 20px 2px;font:12.5px var(--sans);color:var(--ink-3);flex:none"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:11px;background:#fff;box-shadow:0 0 0 1px var(--line);color:var(--ink-2)"><span class="dot"></span>记录中 · 恋爱</span><span>今天 04:12 整理过</span></div>
                 <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:6px 14px 0;flex:none">
                   <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
                     <div onClick="{{ d.pick }}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 0 8px;border-radius:12px;background:{{ d.bg }}">
@@ -48,10 +49,10 @@
                     <div style="position:absolute;left:28px;right:28px;top:23px;height:1px;background:var(--line)"></div>
                     <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;position:relative">
                       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识</span><span style="font:11px var(--sans);color:var(--ink-3)">3.4</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">第一次约会</span><span style="font:11px var(--sans);color:var(--ink-3)">5.20</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">约好看海</span><span style="font:11px var(--sans);color:var(--ink-3)">9.28</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">记满 46 条</span><span style="font:11px var(--sans);color:var(--ink-3)">今天</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)"></span><span style="font:500 12px var(--sans);color:var(--accent-ink)">一周年</span><span style="font:11px var(--sans);color:var(--ink-3)">还有 151 天</span></div>
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">记满 10 张</span><span style="font:11px var(--sans);color:var(--ink-3)">4.2</span></div>
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 100 天</span><span style="font:11px var(--sans);color:var(--ink-3)">6.12</span></div>
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 200 天</span><span style="font:11px var(--sans);color:var(--ink-3)">9.20</span></div>
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)"></span><span style="font:500 12px var(--sans);color:var(--accent-ink)">记满 50 张</span><span style="font:11px var(--sans);color:var(--ink-3)">还差 4 张</span></div>
                     </div>
                   </div>
                 </div>
@@ -59,7 +60,7 @@
               </div>
               <div class="home-ind"></div>
             </div>
-            <p class="dv-note">日历只显示 7 天（今天起），有事的日子下面有小点，点哪天下面就换成哪天的事件（可以试点）。功勋路展示和一个人走过的节点，黑点是已经走过的，浅绿点是下一站，左右滑可以换人。工作场景的事件不会出现在这里。</p>
+            <p class="dv-note">日历只显示 7 天（今天起），有事的日子下面有小点，点哪天下面就换成哪天的事件（可以试点）。「+ 记一条」用来手写一张卡。功勋路只用两种节点，点亮规则如下：一是认识天数，满 100、200 天和一周年各亮一次；二是确认过的卡片数，满 10、50、100、200 张各亮一次。不做连续打卡，断了也不扣，避免让人有负担。黑点是已经亮的，浅绿点是最近的下一站，左右滑可以换人。「记录中 · 恋爱」放在标题下方。「还没归到人的」作为当天事件出现。工作场景的事件不会出现在这里。</p>
           </div>
 
           <div class="dv-opt" id="2b">
@@ -67,16 +68,16 @@
             <div class="ios">
               <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
               <div class="app">
-                <div class="nav"><span></span><span style="color:var(--accent-ink)">编辑</span></div>
+                <div class="nav"><span></span><span title="加一个人" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font:24px/1 var(--sans);color:var(--ink)">+</span></div>
                 <div class="big-t">通讯录</div>
                 <div style="margin:6px 16px 0;height:36px;border-radius:10px;background:var(--paper-2);display:flex;align-items:center;padding:0 12px;font:14px var(--sans);color:var(--ink-3);flex:none">搜索 7 个人</div>
                 <div style="flex:1;min-height:0;display:flex;position:relative">
                   <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-top:8px">
                     <sc-for list="{{ contacts }}" as="g" hint-placeholder-count="5">
-                      <div style="font:600 13px/24px var(--sans);color:var(--ink-3);padding:4px 20px 0;border-bottom:0.5px solid var(--line)">{{ g.k }}</div>
+                      <div style="font:600 13px/24px var(--sans);color:var(--ink-3);margin:0 24px 0 20px;padding-top:4px;border-bottom:0.5px solid var(--line)">{{ g.k }}</div>
                       <sc-for list="{{ g.people }}" as="p" hint-placeholder-count="1">
-                        <div style="display:flex;align-items:center;gap:10px;padding-left:20px">
-                          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:44px;border-bottom:0.5px solid var(--line);padding-right:28px">
+                        <div style="display:flex;align-items:center;padding:0 24px 0 20px">
+                          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:44px;border-bottom:0.5px solid var(--line)">
                             <span style="font:17px var(--sans);color:var(--ink)">{{ p.name }}</span>
                             <span style="font:13px var(--sans);color:var(--ink-3)">{{ p.scene }}</span>
                             <span style="margin-left:auto;font:13px var(--sans);color:var(--accent-ink)">{{ p.note }}</span>
@@ -91,7 +92,37 @@
               </div>
               <div class="home-ind"></div>
             </div>
-            <p class="dv-note">参照系统通讯录：不用卡片，用通栏列表，行与行之间是细分隔线，字母做小节标题，右侧有字母索引。名字后面用灰字标场景，有事的人在行尾用浅绿字提示。场景设置挪到「我」里。点人进 <a class="dv-oid" href="#1b">1b</a>。</p>
+            <p class="dv-note">参照系统通讯录：不用卡片，用通栏列表，行与行之间是细分隔线，字母做小节标题，右侧有字母索引。名字后面用灰字标场景，有事的人在行尾用浅绿字提示。右上角「+」加一个人。首字母由输入法的拼音引擎算，App 不自己算。场景设置挪到「我」里。点人进 <a class="dv-oid" href="#1b">1b</a>。</p>
+          </div>
+
+          <div class="dv-opt" id="2c">
+            <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>iOS · 我（免费版）</div>
+            <div class="ios">
+              <div class="sb-ios"><span>08:20</span><span class="sb-dots"><i></i></span></div>
+              <div class="app">
+                <div class="nav"><span></span><span></span></div>
+                <div class="big-t">我</div>
+                <div class="scroll" style="gap:12px;padding-top:8px">
+                  <div class="group" style="box-shadow:none;background:var(--paper-2)">
+                    <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">懒得自己写？</span><span class="sub" style="line-height:1.6">开通素笺云服务后，键盘会在你选的场景里自己记、每天整理，你只用每周确认一下。</span><span style="font:500 13px var(--sans);color:var(--accent-ink);margin-top:6px">了解一下</span></div></div>
+                  </div>
+                  <div class="sec-t">场景</div>
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">恋爱</span><span class="sub">人设温和 · 2 个应用</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">日常</span><span class="sub">只用基础输入</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">工作</span><span class="sub">不提示、不叠加 · 4 个应用</span></div><span class="chev">›</span></div>
+                    <div class="row"><div class="main"><span class="ttl">哪些应用里自动切到哪个场景</span></div><span class="chev">›</span></div>
+                  </div>
+                  <div class="sec-t">数据</div>
+                  <div class="group">
+                    <div class="row"><div class="main"><span class="ttl">导出记忆卡</span><span class="sub">都是你写的 · 只存在这台手机上</span></div><span class="chev">›</span></div>
+                  </div>
+                </div>
+                <div class="tabbar"><div class="tab"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab on"><i class="i-me"></i>我</div></div>
+              </div>
+              <div class="home-ind"></div>
+            </div>
+            <p class="dv-note">「懒得自己写？」从首页挪到「我」，只在免费版显示。场景固定为恋爱、日常、工作三个，不提供添加。云服务版的「我」见 05 的 2j。</p>
           </div>
 
         </div>
@@ -263,7 +294,7 @@
       class Component extends DCLogic {
         state = { day: 0 };
         days = [
-          { wk: '今天', n: 4, label: '今天 · 10 月 4 日', ev: [{ ch: '美', av: 'r', t: '2 条新记忆待确认', s: '昨晚从小美的聊天里学到', tag: '去确认', tagCls: 'pill r' }] },
+          { wk: '今天', n: 4, label: '今天 · 10 月 4 日', ev: [{ ch: '美', av: 'r', t: '2 条新记忆待确认', s: '昨晚从小美的聊天里学到', tag: '去确认', tagCls: 'pill r' }, { ch: '?', av: '', t: '周五晚上订了两个人的位子', s: '还没归到人 · 和谁？', tag: '补上', tagCls: 'pill' }] },
           { wk: '一', n: 5, label: '明天 · 10 月 5 日', ev: [{ ch: '美', av: 'r', t: '小美生日', s: '去年送的是香水，她说太浓了', tag: '日子', tagCls: 'pill' }] },
           { wk: '二', n: 6, label: '10 月 6 日 周二', ev: [] },
           { wk: '三', n: 7, label: '10 月 7 日 周三', ev: [{ ch: '妈', av: '', t: '妈妈复查', s: '上次说膝盖还是疼', tag: '近况', tagCls: 'pill' }] },
