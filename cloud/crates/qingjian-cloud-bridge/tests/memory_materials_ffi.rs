@@ -385,12 +385,18 @@ fn quick_note_goes_to_the_unassigned_bucket_then_moves_to_a_contact() {
     let client_id = c(listing["materials"][0]["client_id"].as_str().unwrap());
     let contact = c(CONTACT);
     assert_eq!(
-        take(unsafe { qj_memory_assign_material(dir.as_ptr(), client_id.as_ptr(), contact.as_ptr()) }),
+        take(unsafe {
+            qj_memory_assign_material(dir.as_ptr(), client_id.as_ptr(), contact.as_ptr())
+        }),
         None,
         "「补上」成功也返回 NULL"
     );
 
-    assert_eq!(unassigned(&user)["unprocessed_count"], 0, "归完从无主桶摘掉");
+    assert_eq!(
+        unassigned(&user)["unprocessed_count"],
+        0,
+        "归完从无主桶摘掉"
+    );
     assert_eq!(texts(&materials(&user)), vec!["周五晚上订了两个人的位子"]);
 }
 
@@ -414,5 +420,9 @@ fn assign_rejects_an_unknown_contact() {
     .expect("名单上没有的人该被拒");
     let failure: Value = serde_json::from_str(&failure).expect("失败要回一份 JSON");
     assert_eq!(failure["code"], "invalid");
-    assert_eq!(unassigned(&user)["unprocessed_count"], 1, "没归成，素材还在原处");
+    assert_eq!(
+        unassigned(&user)["unprocessed_count"],
+        1,
+        "没归成，素材还在原处"
+    );
 }
