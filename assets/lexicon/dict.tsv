@@ -93236,3 +93236,7 @@ T台	t tai	1500
 加减乘除	jia jian cheng chu	16
 正负号	zheng fu hao	3
 加减号	jia jian hao	500
+# 2026-10-06 补：数字复合词一类在常用词表源里缺失（几十 亩田地 整句翻车的主因），几十/第六/几亿 当时语料挖词也没捞到；词频按 jieba 折算公式量级人工定（anchor：看看 92k、再也 16k）
+几十	ji shi	50000
+第六	di liu	3000
+几亿	ji yi	1200
