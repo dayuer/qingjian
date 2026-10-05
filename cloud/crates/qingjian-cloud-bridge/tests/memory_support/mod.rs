@@ -89,7 +89,7 @@ pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     (data, user)
 }
 
-/// 经 `qj_memory_write` 放一个恋爱场景的对象与一张带关键词「生日」的卡。
+/// 经 `qj_memory_write` 放两个场景、一个「恋爱」里的对象与一张带关键词「生日」的卡。
 pub fn seed(user: &Path) {
     let mut cards = serde_json::Map::new();
     cards.insert(
@@ -101,6 +101,7 @@ pub fn seed(user: &Path) {
         }]),
     );
     let snapshot = json!({
+        "scenes": scenes(),
         "contacts": [{"id": CONTACT, "name": "小美", "pronoun": "ta_f", "scene": "dating", "created_at": 1_791_043_200}],
         "cards": cards,
         "state": {"scene": "daily", "contact_id": null}
@@ -118,6 +119,15 @@ pub fn note(session: *mut Session, contact: &str, text: &str) -> Option<String> 
     let contact = c(contact);
     let text = c(text);
     take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr(), ptr::null()) })
+}
+
+/// 整份写回要带的场景（分组）那一项；空的不收，多数用例用这三个。
+pub fn scenes() -> serde_json::Value {
+    json!([
+        {"id": "daily", "name": "日常", "created_at": 1},
+        {"id": "dating", "name": "恋爱", "created_at": 1},
+        {"id": "work", "name": "工作", "created_at": 1},
+    ])
 }
 
 /// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。

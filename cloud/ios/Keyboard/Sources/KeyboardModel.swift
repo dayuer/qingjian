@@ -39,6 +39,9 @@ final class KeyboardModel {
     /// 三个场景的人（App 或键盘里建的）；开了完全访问才读得到 App Group。
     private(set) var contacts: [MemoryContact] = []
 
+    /// 用户自建的场景（分组）；键盘上的分段与牌子左半按它来。
+    private(set) var scenes: [MemoryScene] = []
+
     /// 点了牌子右半：工具栏里横着列本场景的其他人与「不指定」（ScopeDisplay.quickPicks）。
     private(set) var quickOpen = false
 
@@ -365,17 +368,17 @@ final class KeyboardModel {
         rewrite = .idle
     }
 
-    /// 提示行这一行在不在：恋爱或日常选了人且有提示，或有记一笔 / 起名字的输入条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
+    /// 提示行这一行在不在：选了人且有提示，或有记一笔 / 起名字的输入条时才在，键盘高度跟着加减一行（ScopeDisplay.hasHintRow）。
     /// 对象卡打开时这一行不画（设计稿 1b），高度让给对象卡，键盘总高不变。
     var hasHintRow: Bool {
         ScopeDisplay.hasHintRow(
-            scene: scope.scene, hasContact: currentContact != nil, hasHint: hint != nil,
+            hasContact: currentContact != nil, hasHint: hint != nil,
             hasNoteBar: noteDraft != nil || noteDone || sink.isComposingNote)
     }
 
     /// 首选候选用强调色（ScopeDisplay.accentFirstCandidate）。
     var accentFirstCandidate: Bool {
-        ScopeDisplay.accentFirstCandidate(scene: scope.scene, hasContact: currentContact != nil)
+        ScopeDisplay.accentFirstCandidate(hasContact: currentContact != nil)
     }
 
     /// 宿主换了输入框（控制器按 documentIdentifier 判断）：丢掉没上屏的拼音，清掉最近上屏的字与提示。
@@ -390,8 +393,17 @@ final class KeyboardModel {
         refresh()
     }
 
-    /// 当前场景的人。
-    var people: [MemoryContact] { SceneGroup.people(in: scope.scene, from: contacts) }
+    /// 当前场景的名字（用户自己起的）；场景还没读到或认不得时给一句兜底。
+    var sceneName: String {
+        scenes.first { $0.id == scope.scene }?.name ?? ScopeDisplay.unknownScene
+    }
+
+    /// 当前场景的人：置顶的先、其余按沟通情况，面板里最多摆 `panelCount` 个。
+    var people: [MemoryContact] {
+        ContactOrder.ordered(
+            SceneGroup.people(in: scope.scene, from: contacts), used: scope.used,
+            limit: ContactOrder.panelCount)
+    }
 
     /// 牌子右半展开时列的人（nil 是「不指定」）。
     var quickPicks: [String?] { ScopeDisplay.quickPicks(people: people, current: scope.contactId) }
@@ -447,7 +459,7 @@ final class KeyboardModel {
     }
 
     func openContactCard() {
-        guard let id = scope.contactId, MemoryScope.reminds(scope.scene) else { return }
+        guard let id = scope.contactId else { return }
         panelCards = engine?.memoryCards(id) ?? []
         panel = .contactCard
     }
@@ -573,10 +585,6 @@ final class KeyboardModel {
     /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
     func startNamingContact() {
         guard fullAccess, !sink.isComposingNote else { return }
-        guard people.count < ScopeDisplay.maxContacts else {
-            showNotice(MemoryFailure.contactLimit(scene: scope.scene).userMessage)
-            return
-        }
         namingContact = true
         namingError = nil
         beginComposedNote()
@@ -710,10 +718,12 @@ final class KeyboardModel {
               let snapshot = MemoryFiles.read(userDirectory: directory)
         else {
             contacts = []
+            scenes = []
             cardIndex = [:]
             return
         }
         contacts = snapshot.contacts
+        scenes = snapshot.scenes
         cardIndex = Dictionary(
             snapshot.cards.values.joined().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }

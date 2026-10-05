@@ -81,8 +81,7 @@ final class HintTextTests: XCTestCase {
     func testPanelTexts() {
         XCTAssertEqual(ScopeDisplay.cardFooter(count: 2), "只显示与今天有关的 2 条")
         XCTAssertEqual(ScopeDisplay.contactSubtitle(knownDays: 13), "认识 13 天")
-        XCTAssertEqual(ScopeDisplay.newContactSubtitle(count: 3), "3 / 8")
-        XCTAssertEqual(ScopeDisplay.maxContacts, 8)
+        XCTAssertEqual(ScopeDisplay.newContactSubtitle, "建在这个场景里")
         XCTAssertEqual(ScopeDisplay.noScopeSubtitle, "只用场景")
         XCTAssertEqual(ScopeDisplay.allMemoryNotice, "打开素笺 App → 记住的")
     }

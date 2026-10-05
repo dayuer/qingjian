@@ -173,9 +173,7 @@ struct RememberView: View {
     @ViewBuilder
     private func avatar(_ event: DayEvent) -> some View {
         if let contact = event.contact {
-            MemoryAvatar(
-                name: contact.name, size: 34, scene: contact.scene,
-                font: AppFont.font(size: 34 * 0.4, weight: .medium))
+            MemoryAvatar(name: contact.name, size: 34, font: AppFont.font(size: 34 * 0.4, weight: .medium))
         } else {
             Text(event.avatarText)
                 .font(AppFont.font(size: 15, weight: .medium))
@@ -338,8 +336,8 @@ struct RememberView: View {
             }
             .max { $0.1 < $1.1 }
         if let latest { return latest.0 }
-        for scene in MemoryScope.homeOrder {
-            if let person = contacts.first(where: { $0.scene == scene }) { return person }
+        for scene in store.scenes {
+            if let person = contacts.first(where: { $0.scene == scene.id }) { return person }
         }
         return contacts.first
     }
