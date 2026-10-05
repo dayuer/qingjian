@@ -163,6 +163,15 @@ char *qj_memory_unassigned_note(const char *user_dir, const char *text, const ch
 // （invalid：人不在名单上或无主素材里没有这条；lock_timeout / io）。
 char *qj_memory_assign_material(const char *user_dir, const char *client_id, const char *contact_id);
 
+// App 用：这个人改写用哪个技能。技能 id 定在技能包里，指定跟着人走——导出记忆、备份、换机都带着它；
+// 没指定就用设置里的默认（qj_settings_read 的 rewrite_skill）。
+// 读：{"skill":"tactful"}，没指定时 {"skill":null}；参数无效、名单上没有这个人或读不了时为 NULL。
+char *qj_memory_contact_skill(const char *user_dir, const char *contact_id);
+// 指定 / 清掉（skill_id 为 NULL = 清掉，回到设置里的默认）：成功返回 NULL，失败返回 {"code","message"}
+// （invalid：技能编号不对或名单上没有这个人；lock_timeout / io）。
+char *qj_memory_contact_skill_set(const char *user_dir, const char *contact_id,
+                                  const char *skill_id);
+
 void qj_string_free(char *text);
 
 #endif

@@ -41,6 +41,13 @@ pub(super) fn validate_contacts(contacts: &[Contact]) -> Result<(), MemoryError>
         {
             return Err(MemoryError::Invalid("键盘上的代号最多 12 个字"));
         }
+        if contact
+            .skill
+            .as_deref()
+            .is_some_and(|id| !crate::rewrite::is_skill_id(id))
+        {
+            return Err(MemoryError::Invalid("技能编号不对"));
+        }
         if !seen.insert(contact.id.as_str()) {
             return Err(MemoryError::Invalid("同一个人出现了两次"));
         }

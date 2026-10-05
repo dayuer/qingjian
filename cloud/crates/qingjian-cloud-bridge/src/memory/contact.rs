@@ -27,6 +27,10 @@ pub struct Contact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial: Option<String>,
 
+    /// 这个人改写时用哪个技能（技能包 id）；`None` = 用设置里的默认。旧文件没有这个字段。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill: Option<String>,
+
     #[serde(default)]
     pub pronoun: Pronoun,
 

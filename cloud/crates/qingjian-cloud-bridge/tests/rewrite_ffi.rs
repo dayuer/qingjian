@@ -1,13 +1,18 @@
-//! 改写的 C 接口：技能列表与默认技能（每个人自己的技能在 Task 6 补上）。
+//! 改写的 C 接口：技能列表、默认技能、每个人自己的技能。
 
 mod memory_support;
+
+use std::ptr;
 
 use qingjian_cloud_bridge::{
     qj_rewrite_skills, qj_session_free, qj_settings_read, qj_settings_write,
 };
 use serde_json::{Value, json};
 
-use memory_support::{c, dirs, json_of, open, take};
+use memory_support::{
+    CONTACT, c, dirs, json_of, open, qj_memory_contact_skill, qj_memory_contact_skill_set, seed,
+    take,
+};
 
 #[test]
 fn skills_come_from_the_bundled_packs() {
@@ -63,5 +68,49 @@ fn the_default_skill_lives_in_settings() {
     let settings = read();
     assert_eq!(settings["scheme"], "xiaohe", "别的设置照读");
     assert_eq!(settings["rewrite_skill"], "polish");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+/// 每个人可以指定自己的技能；不指定（或清掉）就用设置里的默认。
+#[test]
+fn a_contact_can_pick_their_own_skill() {
+    let (_, user) = dirs("contact-skill");
+    seed(&user);
+    let dir = c(user.to_str().unwrap());
+    let contact = c(CONTACT);
+
+    let read = || json_of(unsafe { qj_memory_contact_skill(dir.as_ptr(), contact.as_ptr()) });
+    assert_eq!(read()["skill"], Value::Null, "一开始没指定");
+
+    let tactful = c("tactful");
+    assert_eq!(
+        take(unsafe {
+            qj_memory_contact_skill_set(dir.as_ptr(), contact.as_ptr(), tactful.as_ptr())
+        }),
+        None
+    );
+    assert_eq!(read()["skill"], "tactful");
+
+    // 清掉：空指针 = 回到默认
+    assert_eq!(
+        take(unsafe { qj_memory_contact_skill_set(dir.as_ptr(), contact.as_ptr(), ptr::null()) }),
+        None
+    );
+    assert_eq!(read()["skill"], Value::Null);
+
+    // 不合法的技能 id 不收
+    let bad = c("X Y");
+    let failure = json_of(unsafe {
+        qj_memory_contact_skill_set(dir.as_ptr(), contact.as_ptr(), bad.as_ptr())
+    });
+    assert_eq!(failure["code"], "invalid");
+
+    // 名单上没有这个人
+    let ghost = c("ffffffffffffffffffffffffffffffff");
+    assert!(unsafe { qj_memory_contact_skill(dir.as_ptr(), ghost.as_ptr()) }.is_null());
+    let failure = json_of(unsafe {
+        qj_memory_contact_skill_set(dir.as_ptr(), ghost.as_ptr(), tactful.as_ptr())
+    });
+    assert_eq!(failure["code"], "invalid");
     std::fs::remove_dir_all(&user).ok();
 }
