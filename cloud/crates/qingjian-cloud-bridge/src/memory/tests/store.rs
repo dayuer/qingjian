@@ -334,3 +334,60 @@ fn card_limits_count_characters() {
     ));
     std::fs::remove_dir_all(&user).ok();
 }
+
+#[test]
+fn unassigned_defaults_to_empty() {
+    let user = temp_dir("unassigned-empty");
+    let store = MemoryStore::open(&user);
+    assert!(store.snapshot().unwrap().unassigned.is_empty(), "没有文件时为空");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn unassigned_round_trips() {
+    let user = temp_dir("unassigned-roundtrip");
+    let store = MemoryStore::open(&user);
+    store.put_contact(contact(1, Scene::Dating)).unwrap();
+
+    let mut snapshot = store.snapshot().unwrap();
+    snapshot.unassigned = vec![card(7, CardKind::Other, "她不吃香菜", &[], None, 1)];
+    store.write_snapshot(&snapshot).unwrap();
+
+    let read_back = store.snapshot().unwrap();
+    assert_eq!(read_back.unassigned.len(), 1);
+    assert_eq!(read_back.unassigned[0].text, "她不吃香菜");
+    // 归到人之后从桶里摘掉
+    snapshot.unassigned.clear();
+    store.write_snapshot(&snapshot).unwrap();
+    assert!(store.snapshot().unwrap().unassigned.is_empty());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn broken_unassigned_file_reads_empty_without_failing() {
+    let user = temp_dir("unassigned-broken");
+    let store = MemoryStore::open(&user);
+    std::fs::create_dir_all(user.join("memory")).unwrap();
+    std::fs::write(user.join("memory").join("unassigned.json"), b"{ not json").unwrap();
+
+    // 一张坏卡不该把整个首页拖垮：读出空，也不记进 broken
+    let snapshot = store.snapshot().unwrap();
+    assert!(snapshot.unassigned.is_empty());
+    assert!(snapshot.broken.is_empty());
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn unassigned_validates() {
+    let user = temp_dir("unassigned-validate");
+    let store = MemoryStore::open(&user);
+    let too_long = MemorySnapshot {
+        unassigned: vec![card(8, CardKind::Other, &"字".repeat(201), &[], None, 1)],
+        ..MemorySnapshot::default()
+    };
+    assert!(matches!(
+        store.write_snapshot(&too_long),
+        Err(MemoryError::Invalid(_))
+    ));
+    std::fs::remove_dir_all(&user).ok();
+}

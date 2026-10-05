@@ -63,17 +63,46 @@ enum ColorUsage: CaseIterable {
     /// 待整理快满（180 条）时对象详情顶上的提示。
     case materialsNudge
 
+    /// 首页日历条里选中那天的底（设计稿 02 的 2a：`--accent-soft`）。
+    case calendarSelectedDay
+
+    /// 日历条里「有事那天」的小圆点（设计稿 2a：`--ink`）。
+    case calendarEventDot
+
+    /// 功勋路已经亮的点与名字（设计稿 2a：`--ink`）。
+    case milestoneEarned
+
+    /// 功勋路「最近的下一站」的点与名字（设计稿 2a：`--accent` / `--accent-ink`）。
+    case milestoneNext
+
+    /// 「下一站」那个点外圈的光晕（设计稿 2a：`--accent-soft`）。
+    case milestoneNextHalo
+
+    /// 事件行尾的种类标记（日子 / 约定 / 近况）：中性灰字 + 线框。
+    case eventKindTag
+
+    /// 事件行尾可点的动作标记（「去确认」「补上」）的底与字（设计稿 `.pill.r`）。
+    case eventActionTag
+    case eventActionTagInk
+
+    /// 首页右上「+ 记一条」的底（灰绿实底，设计稿 2a）。
+    case quickNoteButton
+
     var role: ColorRole {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
              .allMemoryButton, .onboardingCurrentPlan: .accent
         case .appLink: .accent
+        case .milestoneNext, .eventActionTagInk: .accent
         case .onboardingStepNumber: .ink
+        case .milestoneEarned, .calendarEventDot: .ink
         case .reminderCard, .chipBackground, .onboardingPlanBadge: .accentSoft
-        case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress: .accentFill
+        case .calendarSelectedDay, .milestoneNextHalo, .eventActionTag: .accentSoft
+        case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress, .quickNoteButton: .accentFill
         case .addContactButton, .addCardButton,
              .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner, .materialsCloudLink, .materialsNudge: .ink
-        case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete: .ink2
+        case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete,
+             .eventKindTag: .ink2
         }
     }
 

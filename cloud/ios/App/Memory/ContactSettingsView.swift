@@ -39,7 +39,7 @@ struct ContactSettingsView: View {
                 ) { forgetChosen = true }
             }
         }
-        // 成功后首页看到名单变了，会把这个人的详情与设置页一起退掉（MemoryHomeView）
+        // 成功后首页看到名单变了，会把这个人的详情与设置页一起退掉（RememberView）
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

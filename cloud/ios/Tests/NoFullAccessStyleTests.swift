@@ -33,7 +33,10 @@ final class NoFullAccessStyleTests: XCTestCase {
             accent,
             [.chipBackground, .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .noteConfirm, .reminderCard, .reminderDay,
              .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink, .onboardingProgress,
-             .onboardingCurrentPlan, .onboardingPlanBadge])
+             .onboardingCurrentPlan, .onboardingPlanBadge,
+             // 首页「记得」（02 的 2a）：日历选中那天、功勋路的下一站、事件行可点的动作标记、「+ 记一条」
+             .calendarSelectedDay, .milestoneNext, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
+             .quickNoteButton])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
