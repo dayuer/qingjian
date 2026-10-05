@@ -135,14 +135,21 @@ impl QingjianInputController {
         true
     }
 
-    /// 上下键。高亮逐个移动，越过页边自动翻页；横排矩阵开着（`[general] horizontal_grid`）时改为：
-    /// 单行先展开成矩阵，在矩阵里换行（视口跟着滚）。
+    /// 上下键。算式（↑/↓ 加 Space 选第二项）与英文模式照旧移动高亮，越过页边自动翻页；
+    /// 横排矩阵开着（`[general] horizontal_grid`）时展开矩阵换行；其余单行直接翻页
+    /// （sujian 自定义，见 docs/superpowers/specs/2026-10-06-mac-candidates-customization-design.md）。
     pub(super) fn move_highlight(&self, delta: isize, client: TextClient<'_>) {
         let changed = host::with(|h| {
-            if h.grid_keys() {
+            if h.engine.expression_mode() || h.engine.english_mode() {
+                h.session.move_highlight(delta)
+            } else if h.grid_keys() {
                 h.session.move_rows(delta)
             } else {
-                h.session.move_highlight(delta)
+                let turned = h.session.turn_page(delta);
+                if turned {
+                    h.engine.note_page_turn();
+                }
+                turned
             }
         })
         .unwrap_or(false);
