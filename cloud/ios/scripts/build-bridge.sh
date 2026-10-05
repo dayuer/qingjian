@@ -60,6 +60,16 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
+# 本地神经整句模型：只带通变（44MB）；知微 53MB 必超键盘扩展内存上限，不进包。
+# 模型是增强件不是承重件——没有它键盘照常（词图 + 静态 LM），所以缺了只警告不阻断构建。
+mkdir -p "$ios_dir/Keyboard/Data/models/hanzhang-tongbian"
+model="$repo_dir/data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm"
+if [[ -f "$model" ]]; then
+  target="$ios_dir/Keyboard/Data/models/hanzhang-tongbian/$(basename "$model")"
+  cmp -s "$model" "$target" || cp "$model" "$target"
+else
+  echo "警告：缺本地模型 $model，这包的键盘没有神经重打分（data-fetch 或模型导出后重跑）" >&2
+fi
 # 改写技能包：随包走，桥在运行时从 data_dir/skills 读。
 mkdir -p "$ios_dir/Keyboard/Data/skills"
 skills=()
