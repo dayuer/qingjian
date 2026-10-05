@@ -113,16 +113,23 @@ fi
 - [ ] **Step 5: 跑一遍脚本，确认文件到位**
 
 ```bash
-bash cloud/ios/scripts/build-bridge.sh
-ls cloud/ios/Keyboard/Data/skills/
+# 整只脚本要 data/generated（gitignore 的），本地没有时会在「缺产品数据」那步先失败。
+# 只验新加的那一段就够：把变量按脚本里的算法摆好，跑技能包那几行。
+repo_dir=$PWD; ios_dir=$PWD/cloud/ios
+mkdir -p "$ios_dir/Keyboard/Data/skills"
+for skill in "$repo_dir"/assets/skills/*.toml; do
+  [ -e "$skill" ] || continue
+  cp "$skill" "$ios_dir/Keyboard/Data/skills/$(basename "$skill")"
+done
+ls "$ios_dir/Keyboard/Data/skills/"
 ```
 
-预期：列出 `polish.toml` 与 `tactful.toml`。
+预期：列出 `polish.toml` 与 `tactful.toml`（那个目录本身是 gitignore 的，不进仓库）。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add assets/skills scripts/build-bridge.sh
+git add assets/skills cloud/ios/scripts/build-bridge.sh
 git commit -m "feat(cloud): 加改写技能包（润色、高情商）与构建时检查"
 ```
 
@@ -178,7 +185,9 @@ mod tests {
         write(&dir, "a.toml", "id = \"a\"\nname = \"甲\"\nprompt = \"改\"\norder = 5\n");
         write(&dir, "c.toml", "id = \"c\"\nname = \"丙\"\nprompt = \"改\"\n");
         let ids: Vec<String> = load_skills(&dir).into_iter().map(|s| s.id).collect();
-        assert_eq!(ids, ["c", "a", "b"], "order 缺省是 0 排最前，同为 5 的按名字");
+        // order 缺省是 0 排最前；同为 5 的按名字，而名字是 `&str` 的字节序（= 码点序），
+        // 乙 U+4E59 排在 甲 U+7532 前面 —— 所以是 b 在前（2026-10-05 执行时实测，计划原来写的 a 在前是错的）
+        assert_eq!(ids, ["c", "b", "a"]);
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -256,6 +265,7 @@ cargo test --manifest-path cloud/Cargo.toml -p qingjian-cloud-bridge skill::test
 ```
 
 预期：编译失败 `cannot find function load_skills`。
+（先把 `mod skill;` 加上，否则测试文件根本不被编，Step 2 会跑 0 条而不是报错。）
 
 - [ ] **Step 3: 写实现**
 
@@ -382,7 +392,7 @@ fn load_one(path: &Path) -> Option<Skill> {
     }
 }
 
-/// 字段约束见 [规格](../../../docs/specs/rewrite-skills.md)。
+/// 字段约束见 [规格](../../../../docs/specs/rewrite-skills.md)。
 fn validate(skill: &Skill) -> Result<(), &'static str> {
     if !is_skill_id(&skill.id) {
         return Err("技能编号不对");
@@ -427,6 +437,18 @@ pub fn is_skill_id(id: &str) -> bool {
 ```rust
 pub use self::skill::{DEFAULT_SKILL_ID, MAX_NAME_CHARS, Skill, is_skill_id, load_skills};
 ```
+
+> **中间态会有死代码**：`load_skills` 的调用方在 Task 4（会话读目录）、`is_skill_id` 在 Task 5/6，
+> 所以 Task 2/3 单独一个提交时整块没有引用方，`clippy -D warnings` 会红。
+> 加两个**带 TODO 的** allow 挡住，并写明「接上后去掉」：
+> ```rust
+> // TODO(Task 4/5/6)：技能包先落文件、调用方后接。接上后连同下面 re-export 的 allow 一起去掉。
+> #[allow(dead_code)]
+> mod skill;
+> #[allow(unused_imports)]
+> pub use self::skill::{…};
+> ```
+> Task 4/5 做完**必须回来删掉这两行**（验收时会查）。
 
 - [ ] **Step 4: 跑测试，确认通过**
 
@@ -983,6 +1005,10 @@ fn default_rewrite_skill() -> String {
 
 `include/qingjian_bridge.h`：`qj_rewrite_start` 加参数、加 `qj_rewrite_skills` 与下面 Task 6 的两个，
 注释写清返回约定（`qj_rewrite_skills` 返回 JSON 数组、空指针表示没有；其余成功返回 NULL）。
+
+**`lib.rs` 里那个调用点也要跟着改**（`qj_rewrite_start` 的实现现在调 `rewriter.start(&text)`）：
+`lib.rs` 是 Task 3 那一步临时改成 `start(&text, None)` 的（带 `// TODO(Task 5)`），这里按新签名收口、
+把 TODO 去掉。
 
 - [ ] **Step 5: 跑测试，确认通过**
 
