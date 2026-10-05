@@ -141,6 +141,9 @@ pub fn reason(error: &ClientError) -> String {
         // Mac 只走网页登录，不会发出这个请求；兜底文案
         ClientError::ConsentRequired(_) => "需要先同意把数据发到境外服务器".to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
+        // Mac 这一版只出码、不输码，匹配码与满员只会出现在新设备那一侧；兜底文案
+        ClientError::BadCode(_) => "匹配码不对或已经过期".to_owned(),
+        ClientError::DeviceLimit(_) => "空间里的设备已经满了".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级输入法".to_owned(),
     }

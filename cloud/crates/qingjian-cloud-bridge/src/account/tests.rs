@@ -57,6 +57,8 @@ fn client_errors_map_to_codes() {
         (ClientError::NotConfigured("x".into()), "not_configured"),
         (ClientError::RateLimited, "rate_limited"),
         (ClientError::Forbidden("x".into()), "forbidden"),
+        (ClientError::BadCode("x".into()), "bad_code"),
+        (ClientError::DeviceLimit("x".into()), "device_limit"),
         (ClientError::Unreachable("x".into()), "unreachable"),
         (ClientError::Io(std::io::Error::other("x")), "unreachable"),
         (
