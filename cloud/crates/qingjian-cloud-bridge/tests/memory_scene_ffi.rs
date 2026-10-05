@@ -1,5 +1,5 @@
-//! 场景（C 接口）：键盘按场景新建、人数不限；切场景回到上次选的人；
-//! 每个场景一样——都出提示、都写全局与对象层（场景自 2026-10-05 起只是用户自建的分组）。
+//! 场景（C 接口）：键盘按场景新建、人数不限；切场景回到上次选的人；每个场景一样（都出提示）。
+//! 学习按人隔离：选了人写这个人的对象层、不写全局；不指定写全局（场景自 2026-10-05 起只是分组）。
 
 mod memory_support;
 
@@ -218,22 +218,37 @@ fn learned(dir: &Path, word: &str) -> bool {
 }
 
 #[test]
-fn every_scene_learns_into_global_and_contact_layers() {
-    for (name, scene, who) in [("daily", "daily", DAILY), ("dating", "dating", DATING)] {
-        let (data, user) = dirs(&format!("scene-learn-{name}"));
-        seed_scenes(&user);
-        let session = open(&data, Some(&user));
-        set_scope(session, scene, Some(who));
-        assert_eq!(type_and_commit(session, "shengri"), "生日");
-        unsafe { qj_flush(session) };
-        let memory = user.join("memory");
-        assert!(learned(&user, "生日"), "{scene} 写全局");
-        assert!(
-            learned(&memory.join(who).join("learning"), "生日"),
-            "{scene} 写对象层"
-        );
-        assert!(!memory.join("scene-daily").exists(), "不再有场景层");
-        assert!(!memory.join("scene-dating").exists(), "不再有场景层");
-        unsafe { qj_session_free(session) };
-    }
+fn learning_is_isolated_per_person() {
+    let (data, user) = dirs("scene-learn");
+    seed_scenes(&user);
+    let session = open(&data, Some(&user));
+    let memory = user.join("memory");
+
+    // 选了人：只写这个人的对象层，不碰全局，也不再有场景层
+    set_scope(session, "daily", Some(DAILY));
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    unsafe { qj_flush(session) };
+    assert!(
+        learned(&memory.join(DAILY).join("learning"), "生日"),
+        "写对象层"
+    );
+    assert!(!learned(&user, "生日"), "选了人不写全局");
+    assert!(!memory.join("scene-daily").exists(), "不再有场景层");
+    assert!(!memory.join("scene-dating").exists(), "不再有场景层");
+
+    // 换个人：他的层还是空的，上一个人学的没串过来
+    set_scope(session, "work", Some(WORK));
+    assert!(
+        !learned(&memory.join(WORK).join("learning"), "生日"),
+        "别人学的不串过来"
+    );
+    unsafe { qj_session_free(session) };
+
+    // 不指定：写全局
+    let session = open(&data, Some(&user));
+    set_scope(session, "daily", Some(""));
+    assert_eq!(type_and_commit(session, "shengri"), "生日");
+    unsafe { qj_flush(session) };
+    assert!(learned(&user, "生日"), "不指定写全局");
+    unsafe { qj_session_free(session) };
 }

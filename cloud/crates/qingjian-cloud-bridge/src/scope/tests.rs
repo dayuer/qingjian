@@ -1,6 +1,7 @@
-//! 分区学习：全局层之外只在选了对象时开对象层（场景自 2026-10-05 起只是用户自建的分组，不再有场景层），
-//! 计数类读两层加权、写两层都写、对象之间互不相通、计数类以外的读全局、删词连叠加层一起删、
-//! 落盘两层都刷、对象目录不在就不开对象层（也不重建）。
+//! 分区学习：全局层之外只在选了对象时开对象层（场景自 2026-10-05 起只是用户自建的分组，不再有场景层）。
+//! **按人隔离**：选了人时写只进这个人的对象层、不碰全局、不记个人 n-gram；没选人时写全局。
+//! 计数类读两层加权、对象之间互不相通、计数类以外的读全局、删词连叠加层一起删、落盘刷全部层、
+//! 对象目录不在就不开对象层（也不重建，那时当没选人）。
 
 use std::path::PathBuf;
 
@@ -35,37 +36,51 @@ fn dirs(name: &str) -> (PathBuf, PathBuf) {
 }
 
 #[test]
-fn a_contact_layer_sits_on_top_of_global() {
+fn someone_picked_writes_only_their_layer() {
     let (user, memory) = dirs("contact");
     let mut learner = ScopedLearner::open(&user, &memory, Some(A));
     let handle = learner.handle();
     for _ in 0..10 {
         learner.record(&candidate("宝贝"));
     }
-    assert_eq!(learner.weight("宝贝"), 10 + K * 10, "全局 + k×对象层");
+    assert_eq!(learner.weight("宝贝"), K * 10, "只进 A 的对象层，不碰全局");
     handle.switch(Some(B));
-    assert_eq!(learner.weight("宝贝"), 10, "对象 B 只剩全局");
+    assert_eq!(learner.weight("宝贝"), 0, "对象 B 读不到 A 那份");
     handle.switch(None);
-    assert_eq!(learner.weight("宝贝"), 10, "不指定只剩全局");
+    assert_eq!(learner.weight("宝贝"), 0, "不指定也读不到");
     handle.switch(Some(A));
     assert_eq!(
         learner.weight("宝贝"),
-        10 + K * 10,
+        K * 10,
         "换层时落过盘，换回同一对象读得到"
     );
     std::fs::remove_dir_all(&user).ok();
 }
 
 #[test]
-fn contacts_are_isolated() {
-    let (user, memory) = dirs("contacts");
+fn nobody_picked_writes_global_and_everyone_reads_it() {
+    let (user, memory) = dirs("global");
+    let mut learner = ScopedLearner::open(&user, &memory, None);
+    let handle = learner.handle();
+    for _ in 0..3 {
+        learner.record(&candidate("开会"));
+    }
+    assert_eq!(learner.weight("开会"), 3, "不指定写全局");
+    handle.switch(Some(A));
+    assert_eq!(learner.weight("开会"), 3, "选了人也读得到全局");
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn what_you_type_for_one_person_does_not_leak() {
+    let (user, memory) = dirs("isolation");
     let mut learner = ScopedLearner::open(&user, &memory, Some(A));
     let handle = learner.handle();
-    for _ in 0..10 {
-        learner.record(&candidate("宝贝"));
-    }
+    learner.record(&candidate("宝贝"));
     handle.switch(Some(B));
-    assert_eq!(learner.weight("宝贝"), 10, "对象 B 读不到 A 那份");
+    assert_eq!(learner.weight("宝贝"), 0, "换个人就看不到了");
+    handle.switch(None);
+    assert_eq!(learner.weight("宝贝"), 0, "不指定也看不到");
     std::fs::remove_dir_all(&user).ok();
 }
 
@@ -76,9 +91,9 @@ fn counts_overlay_for_choices_raw_and_typos() {
     learner.record_choice("bb", "宝贝");
     learner.record_raw("bb");
     learner.record_typo("bv", "bei");
-    assert_eq!(learner.choice_weight("bb", "宝贝"), 1 + K);
-    assert_eq!(learner.raw_count("bb"), 1 + K);
-    assert_eq!(learner.typo_count("bv", "bei"), 1 + K);
+    assert_eq!(learner.choice_weight("bb", "宝贝"), K, "选了人只算对象层");
+    assert_eq!(learner.raw_count("bb"), K);
+    assert_eq!(learner.typo_count("bv", "bei"), K);
     learner.unrecord_choice("bb", "宝贝");
     learner.unrecord_typo("bv", "bei");
     assert_eq!(learner.choice_weight("bb", "宝贝"), 0);
@@ -110,13 +125,18 @@ fn forwarding_is_complete() {
 }
 
 #[test]
-fn transitions_go_to_global() {
+fn transitions_go_to_global_only_when_nobody_is_picked() {
     let (user, memory) = dirs("transition");
-    let mut learner = ScopedLearner::open(&user, &memory, Some(A));
+    let mut learner = ScopedLearner::open(&user, &memory, None);
     learner.record_transition(Context::START, "你好", 1);
-    assert!(learner.user_ngram().is_some(), "记转移");
+    assert!(learner.user_ngram().is_some(), "不指定时记转移");
     learner.unrecord_transition(Context::START, "你好", 1);
     assert!(learner.user_ngram().is_none(), "撤的也是全局那份");
+
+    // 选了人就一个字都不记：个人 n-gram 只读全局，记了会在别的对象下冒出来
+    let mut learner = ScopedLearner::open(&user, &memory, Some(A));
+    learner.record_transition(Context::START, "宝贝", 1);
+    assert!(learner.user_ngram().is_none(), "选了人不记转移");
     std::fs::remove_dir_all(&user).ok();
 }
 
@@ -126,7 +146,7 @@ fn forget_clears_the_open_overlay_layers() {
     let mut learner = ScopedLearner::open(&user, &memory, Some(A));
     learner.record(&candidate("宝贝"));
     learner.learn_english("honey");
-    assert_eq!(learner.weight("宝贝"), 1 + K);
+    assert_eq!(learner.weight("宝贝"), K);
     let forgotten = learner.forget("宝贝");
     assert!(forgotten.learning);
     assert_eq!(learner.weight("宝贝"), 0, "全局与对象层一起删");
@@ -148,13 +168,21 @@ fn missing_contact_dir_is_not_recreated() {
 }
 
 #[test]
-fn flush_writes_both_layers() {
+fn flush_writes_the_layers_that_got_the_writes() {
     let (user, memory) = dirs("flush");
     let mut learner = ScopedLearner::open(&user, &memory, Some(A));
     learner.record(&candidate("宝贝"));
     learner.flush();
-    assert!(user.join("user.tsv").is_file(), "写了全局");
-    assert!(contact_learning_dir(&memory, A).join("user.tsv").is_file());
+    assert!(
+        contact_learning_dir(&memory, A).join("user.tsv").is_file(),
+        "写了对象层"
+    );
+    assert!(!user.join("user.tsv").exists(), "选了人不写全局");
+
+    let mut learner = ScopedLearner::open(&user, &memory, None);
+    learner.record(&candidate("开会"));
+    learner.flush();
+    assert!(user.join("user.tsv").is_file(), "不指定写全局");
     std::fs::remove_dir_all(&user).ok();
 }
 
@@ -166,7 +194,7 @@ fn bad_contact_ids_are_ignored() {
     let (user, memory) = dirs("bad-id");
     let mut learner = ScopedLearner::open(&user, &memory, Some("../x"));
     learner.record(&candidate("宝贝"));
-    assert_eq!(learner.weight("宝贝"), 1, "不合格的 id 当没选对象");
+    assert_eq!(learner.weight("宝贝"), 1, "不合格的 id 当没选对象，写全局");
     assert!(!memory.join("..").join("x").join("learning").exists());
     std::fs::remove_dir_all(&user).ok();
 }
