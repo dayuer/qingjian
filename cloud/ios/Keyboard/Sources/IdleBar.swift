@@ -1,6 +1,6 @@
-// 没在组字时的工具栏（设计稿 .k-bar）：私密输入框只亮一把锁；场景选择打开时是牌子加「完成」，对象卡打开时是不拆开的牌子加向下箭头；
+// 没在组字时的工具栏（设计稿 .k-bar）：私密输入框只亮一把锁；对象卡打开时是不拆开的牌子加向下箭头；
 // 有别的设备刚复制的文字就提示它；否则左边牌子，右边依次「发到其他设备」（本机剪贴板变了才有）「记一笔」「改写」（配了素笺云才有）和收起键盘的向下箭头。
-// 点了牌子右半时，右边这些让出位置，横列本场景的其他人与「不指定」。改写进行中整栏交给 RewriteBar。
+// 点了牌子时，右边这些让出位置，横列其他人与「不指定」。改写进行中整栏交给 RewriteBar。
 // 「记一笔」的确认条与手写条在提示行的位置（NoteBar / NoteComposeBar），这一行的牌子照常在；
 // 手写时只留牌子：改写、插入剪贴板、发到其他设备都是对宿主的操作，此时不该出。
 
@@ -16,7 +16,7 @@ struct IdleBar: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-            } else if model.panel == .scope || model.panel == .contactCard {
+            } else if model.panel == .contactCard {
                 panelBar
             } else if model.composedNote != nil {
                 HStack(spacing: 0) {
@@ -61,7 +61,7 @@ struct IdleBar: View {
         }
     }
 
-    /// 牌子右半展开的人：白胶囊（设计稿 .chip），点一个就切过去并收起。
+    /// 牌子展开的人：白胶囊（设计稿 .chip），点一个就切过去并收起。
     private var quickPicks: some View {
         HStack(spacing: 6) {
             ScopeChip(model: model)
@@ -86,18 +86,13 @@ struct IdleBar: View {
         .padding(.trailing, 8)
     }
 
-    /// 选择面板与对象卡打开时的工具栏。
+    /// 对象卡打开时的工具栏：不拆开的牌子加「收起对象卡」。
     private var panelBar: some View {
         HStack(spacing: 0) {
-            ScopeChip(model: model, split: model.panel == .scope, interactive: false)
+            ScopeChip(model: model, interactive: false)
             Spacer()
-            if model.panel == .contactCard {
-                ToolbarArrow(up: false, label: "收起对象卡") { model.closePanel() }
-                    .padding(.trailing, 2)
-            } else {
-                tool(model.fullAccess ? "完成" : "收起") { model.closePanel() }
-                    .padding(.trailing, 4)
-            }
+            ToolbarArrow(up: false, label: "收起对象卡") { model.closePanel() }
+                .padding(.trailing, 2)
         }
     }
 
