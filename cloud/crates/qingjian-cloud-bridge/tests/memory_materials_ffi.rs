@@ -14,7 +14,7 @@ use memory_support::{
     CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_assign_material,
     qj_memory_dropped, qj_memory_material_delete, qj_memory_materials, qj_memory_note,
     qj_memory_read, qj_memory_unassigned_materials, qj_memory_unassigned_note, qj_memory_write,
-    seed, take,
+    scenes, seed, take,
 };
 
 /// App 读到的 `{"unprocessed_count","materials"}`。
@@ -189,7 +189,7 @@ fn forgetting_the_contact_deletes_materials() {
     assert_eq!(note(session, CONTACT, "喜欢猫"), None);
     assert!(materials_file(&user).exists());
     let dir = c(user.to_str().unwrap());
-    let empty = c(r#"{"contacts":[],"cards":{}}"#);
+    let empty = c(&json!({"scenes": scenes(), "contacts": [], "cards": {}}).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
         None
@@ -290,7 +290,7 @@ fn restored_note_for_a_forgotten_contact_is_dropped() {
     drop(lock);
 
     let dir = c(user.to_str().unwrap());
-    let empty = c(r#"{"contacts":[],"cards":{}}"#);
+    let empty = c(&json!({"scenes": scenes(), "contacts": [], "cards": {}}).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
         None

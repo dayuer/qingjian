@@ -25,17 +25,17 @@ pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::memory::{
-    CONTACT_PLACEHOLDER, Card, CloudState, Consent, Contact, DEFAULT_LOCK_TIMEOUT, Hint, HintIndex,
-    HintReason, KEYBOARD_LOCK_TIMEOUT, LocalDate, MAX_CONTACTS, MAX_UNPROCESSED_MATERIALS,
+    CONTACT_PLACEHOLDER, Card, CloudState, Consent, Contact, DEFAULT_LOCK_TIMEOUT,
+    DEFAULT_SCENE_ID, DEFAULT_SCENE_NAME, Hint, HintIndex, HintReason, KEYBOARD_LOCK_TIMEOUT,
+    LocalDate, MAX_DISPLAY_NAME_CHARS, MAX_PINNED, MAX_SCENE_NAME_CHARS, MAX_UNPROCESSED_MATERIALS,
     MEMORY_DIR, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore,
-    PROCESSED_KEEP_DAYS, Pronoun, RECENT_CHARS, RecentText, UploadDecision, days_away, has_date,
-    mask_contact_names, new_id, now_unix, panel_cards, reminder_text, should_upload, split_note,
-    unprocessed,
+    PROCESSED_KEEP_DAYS, Pronoun, RECENT_CHARS, RecentText, Scene, UploadDecision, days_away,
+    has_date, is_scene_id, mask_contact_names, new_id, now_unix, panel_cards, reminder_text,
+    should_upload, split_note, unprocessed, validate_scenes,
 };
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
     ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
-    parse_scene, scene_label, scene_learning_dir, scene_name,
 };
 pub use self::session::{DroppedNotes, Session};
 pub use self::settings::{DomainSetting, SchemeOption, Settings};
