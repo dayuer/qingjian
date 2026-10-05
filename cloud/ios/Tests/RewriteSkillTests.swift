@@ -67,4 +67,21 @@ final class RewriteSkillTests: XCTestCase {
             RewriteSkill.options(skills: [], current: nil).map(\.selected), [true],
             "没选人（身上没指定）时「用默认」是选中那个")
     }
+
+    // MARK: 设置里的全局默认技能（键盘读过桥的 qj_rewrite_default）
+
+    func testTheGlobalDefaultDecodesTheBridgeJSON() {
+        XCTAssertEqual(
+            RewriteDefault.decode(#"{"skill":"tactful"}"#), RewriteDefault(skill: "tactful"))
+        XCTAssertEqual(
+            RewriteDefault.decode(#"{"skill":"tactful","extra":1}"#), RewriteDefault(skill: "tactful"),
+            "多出来的字段忽略")
+    }
+
+    func testTheGlobalDefaultFallsBackWhenTheBridgeGivesNothing() {
+        // 读不是用户刚做的动作：桥返回 NULL（没有配置文件）或给的不是那个 JSON 时按缺省，不弹错
+        XCTAssertEqual(RewriteDefault.decode(nil), RewriteDefault(skill: "polish"))
+        XCTAssertEqual(RewriteDefault.decode("not json"), RewriteDefault(skill: "polish"))
+        XCTAssertEqual(RewriteDefault.decode(#"{"other":1}"#), RewriteDefault(skill: "polish"))
+    }
 }
