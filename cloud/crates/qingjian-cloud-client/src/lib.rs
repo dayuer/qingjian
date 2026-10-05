@@ -12,8 +12,9 @@ mod outbox;
 mod sse_reader;
 mod supervise;
 mod sync_state;
-#[cfg(test)]
-mod test_support;
+// 假服务：本 crate 的单测与依赖方的集成测试共用同一份（见 `test-support` feature）
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 pub use client::Client;
 pub use clipboard_sync::{ClipboardSync, Incoming, Status, SyncConfig};
