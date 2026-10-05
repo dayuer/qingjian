@@ -31,6 +31,9 @@ final class MemoryStore {
     /// 正在后台写：编辑页显示「正在保存」、按钮置灰；这期间再提交的保存直接拒掉。
     private(set) var saving = false
 
+    /// 随包的改写技能（读一次；对象设置里那个「改写用哪个技能」列它）。包没打进来时为空。
+    private(set) var skills: [Skill] = []
+
     /// 要弹给用户的话（写失败、冲突已合并、文件损坏）。
     var message: String?
 
@@ -68,6 +71,8 @@ final class MemoryStore {
     func cards(of id: String) -> [MemoryCard] { snapshot.cards[id] ?? [] }
 
     func reload() async {
+        // 技能包随 App 包走，与记忆目录能不能读无关，先取（对象设置里那一行要列技能名）
+        skills = await worker.skills()
         guard let directory = directory() else {
             loadError = Wording.noAppGroup
             return
@@ -161,6 +166,16 @@ final class MemoryStore {
         await update(contactId: contact.id) { snapshot in
             if let index = snapshot.contacts.firstIndex(where: { $0.id == contact.id }) {
                 snapshot.contacts[index] = contact
+            }
+        }
+    }
+
+    /// 给这个人指定 / 清掉改写技能（nil = 回到设置里的默认）。跟着人走：导出记忆、备份、换机都带着它。
+    @discardableResult
+    func setContactSkill(_ id: String, _ skill: String?) async -> Bool {
+        await update(contactId: id) { snapshot in
+            if let index = snapshot.contacts.firstIndex(where: { $0.id == id }) {
+                snapshot.contacts[index].skill = skill
             }
         }
     }

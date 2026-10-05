@@ -47,4 +47,20 @@ extension Engine {
         let raw = name.withCString { qj_memory_add_contact(session, $0, nil) }
         return ContactAdd.parse(take(raw))
     }
+
+    /// 可用的改写技能（随包的技能包，会话打开时读一次）；包没打进来时为空。
+    var rewriteSkills: [Skill] { MemoryFiles.decode(take(qj_rewrite_skills(session))) ?? [] }
+
+    /// 给这个人指定 / 清掉改写技能（nil = 回到设置里的默认）；成功给 nil。
+    func setContactSkill(_ contactId: String, skillId: String?) -> MemoryFailure? {
+        guard let userDirectory else {
+            return MemoryFailure(code: .invalid, message: "记忆目录不可用")
+        }
+        let raw = userDirectory.path.withCString { dir in
+            contactId.withCString { id in
+                Self.withOptionalCString(skillId) { qj_memory_contact_skill_set(dir, id, $0) }
+            }
+        }
+        return MemoryFailure.decode(take(raw))
+    }
 }
