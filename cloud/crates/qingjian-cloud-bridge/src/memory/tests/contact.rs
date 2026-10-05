@@ -1,8 +1,8 @@
 //! `Contact` 与 `ScopeState` 去场景之后的形状：老文件里的 `scene` / `last` 读得进、写出去就没有了。
 
-use super::{id, temp_dir};
+use super::{id, pick, temp_dir};
 use crate::memory::{Contact, MAX_PINNED, MemoryError, MemoryStore};
-use crate::scope::ScopeState;
+use crate::scope::{ContactPick, ScopeState};
 
 #[test]
 fn an_old_contact_with_a_scene_reads_and_writes_without_it() {
@@ -73,6 +73,36 @@ fn pinning_is_counted_globally() {
         store.put_contact(sixth).unwrap_err().message(),
         "最多置顶 4 个人"
     );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+/// 切人时 `used` 怎么记（列人时按沟通情况排用它）：选中某人记下时间，明确不指定不记，忘掉的人跟着清掉。
+#[test]
+fn picking_someone_records_when_they_were_used() {
+    let user = temp_dir("used");
+    let store = MemoryStore::open(&user);
+    store.put_contact(super::contact(1)).unwrap();
+    store.put_contact(super::contact(2)).unwrap();
+
+    let state = store.update_contact(&pick(1), 1_791_043_200).unwrap();
+    assert_eq!(state.used.get(&id(1)), Some(&1_791_043_200));
+    assert_eq!(state.used.get(&id(2)), None, "没选过的人不记");
+
+    // 明确不指定：不记时间，别人记下的留着
+    let state = store
+        .update_contact(&ContactPick::Nobody, 1_791_043_300)
+        .unwrap();
+    assert_eq!(state.contact_id, None);
+    assert_eq!(state.used.get(&id(1)), Some(&1_791_043_200));
+
+    // 忘掉这个人：再切一次人时 `used` 里也没有他了
+    store.forget_contact(&id(1)).unwrap();
+    let state = store
+        .update_contact(&ContactPick::Keep, 1_791_043_400)
+        .unwrap();
+    assert_eq!(state.contact_id, None, "选中的人被忘掉，当前对象跟着置空");
+    assert_eq!(state.used.get(&id(1)), None, "忘掉的人不再记");
+    assert_eq!(store.state().used.get(&id(1)), None, "落盘的也没有他");
     std::fs::remove_dir_all(&user).ok();
 }
 

@@ -40,6 +40,10 @@ pub struct Settings {
     pub domains: Vec<DomainSetting>,
 
     pub phrases: Vec<CustomPhrase>,
+
+    /// 改写用的默认技能（技能包 id）；某个人身上指定了就用他的。旧配置文件没有这一项时按 `polish`。
+    #[serde(default = "default_rewrite_skill")]
+    pub rewrite_skill: String,
 }
 
 impl Settings {
@@ -79,6 +83,7 @@ impl Settings {
             cloud_prediction: config.predict.enabled,
             domains,
             phrases: config.custom_phrases,
+            rewrite_skill: read_rewrite_skill(config_path),
         }
     }
 
@@ -113,8 +118,35 @@ impl Settings {
             .collect();
         Config::set_value(config_path, "dictionaries", "domains", domains)
             .map_err(|e| e.to_string())?;
+        Config::set_value(
+            config_path,
+            "rewrite",
+            "skill",
+            settings.rewrite_skill.as_str(),
+        )
+        .map_err(|e| e.to_string())?;
         Config::set_custom_phrases(config_path, &settings.phrases)
     }
+}
+
+fn default_rewrite_skill() -> String {
+    crate::rewrite::DEFAULT_SKILL_ID.to_owned()
+}
+
+/// `[rewrite] skill`：只有 iOS 用，Mac 的 [`Config`] 按分节读，多出来的分节与键都忽略。
+/// 文件不在、读不了、这一项没写或写得不是字符串时都按缺省——认不得的技能 id 由键盘那边回退。
+fn read_rewrite_skill(config_path: &Path) -> String {
+    std::fs::read_to_string(config_path)
+        .ok()
+        .and_then(|source| source.parse::<toml_edit::DocumentMut>().ok())
+        .and_then(|document| {
+            document
+                .get("rewrite")?
+                .get("skill")?
+                .as_str()
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(default_rewrite_skill)
 }
 
 fn domain_label(path: &Path) -> Option<String> {

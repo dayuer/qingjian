@@ -297,6 +297,60 @@ pub unsafe extern "C" fn qj_memory_assign_material(
     }
 }
 
+/// App 用：这个人改写用哪个技能：`{"skill":"tactful"}` 或 `{"skill":null}`（用设置里的默认）。
+/// 参数无效、名单上没有这个人或读不了时返回空指针。
+///
+/// # Safety
+/// 两个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_contact_skill(
+    user_dir: *const c_char,
+    contact_id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(contact_id)) = (unsafe { path_arg(user_dir) }, unsafe {
+        path_arg(contact_id)
+    }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        MemoryStore::open(Path::new(user_dir))
+            .contacts()
+            .into_iter()
+            .find(|contact| contact.id == contact_id)
+            .map(|contact| serde_json::json!({ "skill": contact.skill }).to_string())
+    })
+    .ok()
+    .flatten()
+    .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// App 用：给这个人指定 / 清掉改写技能（`skill_id` 为空指针 = 清掉，回到设置里的默认）。
+/// 成功返回空指针，失败返回 `{"code","message"}`（`invalid` / `lock_timeout` / `io`）。
+///
+/// # Safety
+/// 三个参数为有效 UTF-8 C 字符串（第三个可为空指针）。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_contact_skill_set(
+    user_dir: *const c_char,
+    contact_id: *const c_char,
+    skill_id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(contact_id)) = (unsafe { path_arg(user_dir) }, unsafe {
+        path_arg(contact_id)
+    }) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let skill = unsafe { path_arg(skill_id) }.map(str::to_owned);
+    let set = catch_unwind(|| {
+        MemoryStore::open(Path::new(user_dir)).set_contact_skill(contact_id, skill)
+    });
+    match set {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("设置时出错").to_json()),
+    }
+}
+
 /// 键盘里新建一个对象（名字与称呼，称呼由 App 里改）。成功返回 `{"id":"…"}`，失败返回 `{"code","message"}`
 /// （`lock_timeout`：App 正占着锁，再点一次；`invalid` / `io`）。
 /// `pronoun` 取 `ta` / `ta_m` / `ta_f` / `name`，认不得或为空指针时按 `ta`。
