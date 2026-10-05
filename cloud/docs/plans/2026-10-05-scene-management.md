@@ -32,7 +32,7 @@
 | 删场景时里面的人 | **自动挪到默认场景** |
 | 已有数据 | **一律归并成一个「日常」** |
 | 键盘选择面板 | 只摆置顶与最常用的几个，不提供看全部（其余在 App 里切） |
-| 分区学习 | **取消**，全部并进全局 |
+| 分区学习 | 场景不再分区；**按人隔离**（2026-10-05 用户定，审计意见）：选了人时只写这个人的对象层，不写全局、不记个人 n-gram；没选人（「不指定」）才写全局 |
 
 ## 模型
 
@@ -57,7 +57,7 @@
 
 **桥**：`scope/mod.rs` 的 `scene_name` / `scene_label` / `parse_scene` / `scene_learning_dir`；
 `scope/overlay.rs` 的场景层与 `exclusive`（只留对象层）；`scope/scoped_learner.rs` 的 exclusive 三个分支
-（`write` / `record_transition` / `unrecord_transition` 直接作用于全局 + 对象层）；
+（改成按「有没有选人」分流，见 Task 2）；
 `session/memory/live.rs` 的 `shows_hints()` 去掉场景判断（只留「选了人」）；
 `memory/store.rs` 的 `check_limit`（每场景 8 人）与 `check_scenes_kept`（不许换场景）；`memory/mod.rs` 的 `MAX_CONTACTS`；
 `memory/error.rs` 的 `ContactLimit`（换成 `PinLimit`）。
@@ -78,7 +78,10 @@
 
 ## 代价（会发生，先说明）
 
-- **恋爱场景单独学过的词会丢**：`memory/scene-dating/learning/` 整个删掉。只影响已装机的（维护者与测试机）。
+- **未定（审计意见，动手前要定）**：2B「按场景开记录」作废后，上传同意挂在哪（全局一个开关 / 按人），以及服务端素材的 scene 字段怎么办；工作场景原有的「不提示、中性色」要不要换成按场景或按人的「安静」开关。
+- 迁移按审计意见改成：`scene-*/` 改名为 `scene-*.migrated-<日期>` 保留 30 天；三个文件 `scenes.json` 最后写作完成标记、可重跑；读到不在 `scenes.json` 里的场景 id 一律归默认场景（新旧版本并存时旧键盘可能写回 `dating`）。
+
+- **恋爱场景单独学过的词不再生效**：`memory/scene-dating/learning/` 改名保留 30 天后清掉（对象层不受影响）。只影响已装机的。
 - **设计稿被推翻**：「我」页的场景组、增删改名界面设计稿从没画过，是本计划拼的，要交 UI 审计员过一遍。
 
 ## Task 1：桥的场景模型与迁移
@@ -101,12 +104,13 @@
 ## Task 2：桥删分区学习与场景行为分支
 
 - [ ] `scope/mod.rs`：删 `scene_name` / `scene_label` / `parse_scene` / `scene_learning_dir`；`overlay.rs` 只留对象层。
-- [ ] `scoped_learner.rs`：`open(user_dir, memory_dir, contact)`；`write` 一律全局 + 对象层；`record_transition` / `unrecord_transition` 回到全局。
+- [ ] `scoped_learner.rs`：`open(user_dir, memory_dir, contact)`；按人隔离：选了人时 `write` / `record_transition` / `unrecord_transition` 只作用于对象层（不碰全局、不记个人 n-gram，即原 `exclusive` 的行为改挂在「选了人」上）；没选人时作用于全局。读照旧是全局 + 对象层叠加。
 - [ ] `handle.rs`：`switch(contact: Option<&str>)`。
 - [ ] `session/`：`set_scope(scene: &str, pick)`、`memory_add_contact(..., scene: &str)`、`LiveMemory` 跟着改；
   `live.rs` 的 `shows_hints()` 只看有没有选人。
 - [ ] FFI 与头文件：`qj_scope_set` 的 scene 参数语义从「三选一」改成「场景 id，认不得就用默认」；
   `qj_memory_add_contact` 的兜底从 `Scene::Daily` 改成 `DEFAULT_SCENE_ID`。
+- [ ] 测试：选了人时打的词不出现在「不指定」与其他人的候选里（隔离）；没选人时写全局；换人后前一个人的词不出现。
 - [ ] 测试：`scope/tests.rs` 里 `dating_writes_do_not_reach_work` / `daily_and_work_share_global` /
   `dating_does_not_write_transitions` 这类按场景分岔的用例删掉或改成「所有场景一致」；
   `memory/tests/scene.rs`、`tests/memory_scene_ffi.rs` 按新模型重写。
