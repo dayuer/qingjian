@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::domain::DomainSetting;
 pub use self::scheme_option::SchemeOption;
+use crate::memory::MemoryError;
 
 /// 领域词库元数据名字里统一的前缀。
 const DOMAIN_PREFIX: &str = "青简领域词库：";
@@ -83,7 +84,7 @@ impl Settings {
             cloud_prediction: config.predict.enabled,
             domains,
             phrases: config.custom_phrases,
-            rewrite_skill: read_rewrite_skill(config_path),
+            rewrite_skill: rewrite_skill(config_path),
         }
     }
 
@@ -133,9 +134,10 @@ fn default_rewrite_skill() -> String {
     crate::rewrite::DEFAULT_SKILL_ID.to_owned()
 }
 
-/// `[rewrite] skill`：只有 iOS 用，Mac 的 [`Config`] 按分节读，多出来的分节与键都忽略。
-/// 文件不在、读不了、这一项没写或写得不是字符串时都按缺省——认不得的技能 id 由键盘那边回退。
-fn read_rewrite_skill(config_path: &Path) -> String {
+/// 改写用的默认技能（`[rewrite] skill`）：只有 iOS 用，Mac 的 [`Config`] 按分节读，多出来的分节与键都忽略。
+/// 文件不在、读不了、这一项没写或写得不是字符串时都按缺省（[`crate::rewrite::DEFAULT_SKILL_ID`]）；
+/// 值本身合不合法（[`crate::rewrite::is_skill_id`]）由调用方判，认不得的技能由键盘那边回退。
+pub fn rewrite_skill(config_path: &Path) -> String {
     std::fs::read_to_string(config_path)
         .ok()
         .and_then(|source| source.parse::<toml_edit::DocumentMut>().ok())
@@ -147,6 +149,38 @@ fn read_rewrite_skill(config_path: &Path) -> String {
                 .map(str::to_owned)
         })
         .unwrap_or_else(default_rewrite_skill)
+}
+
+/// 把 `[rewrite] skill` 改成 `skill`，文件里别的内容、注释与顺序原样保留（整节不存在时只加这一节）。
+/// 文件不在时从空文档起步，只写这一项——其余设置由设置页或 Mac 同步补上。
+///
+/// 只校验 id 的形状（[`crate::rewrite::is_skill_id`]），不校验这个技能现在在不在：技能包随版本增删，
+/// 写进来一个暂时认不得的 id 由壳按当前技能列表回退。
+pub fn set_rewrite_skill(config_path: &Path, skill: &str) -> Result<(), MemoryError> {
+    if !crate::rewrite::is_skill_id(skill) {
+        return Err(MemoryError::Invalid("技能编号不对"));
+    }
+    // 读-改-写原始 TOML，与上面的 [`rewrite_skill`] 对称：`Config::set_value` 也能写这个键，
+    // 但它给不存在的文件铺的是一整套模板，这里只加这一项（其余设置由设置页或 Mac 同步补上）
+    let source = match std::fs::read_to_string(config_path) {
+        Ok(source) => source,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(MemoryError::Io(error)),
+    };
+    let mut document: toml_edit::DocumentMut = source
+        .parse()
+        .map_err(|_| MemoryError::Invalid("设置文件读不了，没有改动"))?;
+    // 分节不存在时先建成标准表，否则 toml_edit 会写成顶层的行内表 `rewrite = { skill = "…" }`
+    if !document
+        .get("rewrite")
+        .is_some_and(toml_edit::Item::is_table)
+    {
+        document["rewrite"] = toml_edit::table();
+    }
+    document["rewrite"]["skill"] = toml_edit::value(skill);
+    // 写临时文件再改名：键盘随时可能被杀，不能留半个配置文件
+    crate::cloud_config::write_atomic(config_path, document.to_string().as_bytes(), true)
+        .map_err(MemoryError::Io)
 }
 
 fn domain_label(path: &Path) -> Option<String> {
