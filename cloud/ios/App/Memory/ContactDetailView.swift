@@ -76,6 +76,7 @@ struct ContactDetailView: View {
                 #endif
             }
         }
+        .contentMargins(.bottom, RootTab.listBottomMargin, for: .scrollContent)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
