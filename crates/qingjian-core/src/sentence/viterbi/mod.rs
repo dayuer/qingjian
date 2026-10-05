@@ -12,6 +12,8 @@ use super::{
 };
 use crate::ranking::weight_bonus;
 
+mod admission;
+
 /// 词库里没有的孤立音节（罕见音节没有单字）按这个 log 概率兜底，让路径总能走通。
 const UNKNOWN_LOG_PROB: f64 = -30.0;
 
@@ -193,7 +195,25 @@ pub fn convert_paths(
             } else {
                 hits.len().min(SPAN_CANDIDATES)
             };
-            for hit in &hits[..head] {
+            let extras: Vec<&SpanWord> = if hits.len() > head {
+                let ceilings: Vec<(Option<&str>, f64)> = nodes[start]
+                    .iter()
+                    .map(|p| {
+                        let previous = (start > 0).then_some(p.text.as_str());
+                        (
+                            previous,
+                            admission::head_ceiling(&hits[..head], previous, model, log_total),
+                        )
+                    })
+                    .collect();
+                hits[head..]
+                    .iter()
+                    .filter(|w| admission::admits(w, &ceilings, model, log_total))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            for hit in hits[..head].iter().chain(extras) {
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
