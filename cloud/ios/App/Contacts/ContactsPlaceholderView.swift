@@ -5,10 +5,14 @@ import SwiftUI
 struct ContactsPlaceholderView: View {
     var body: some View {
         NavigationStack {
-            Text("通讯录正在做")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("通讯录")
+            VStack(spacing: 0) {
+                // 与另外两页共用同一个标题件，高度才对得齐
+                PageHeader(title: "通讯录")
+                Text("通讯录正在做")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }
