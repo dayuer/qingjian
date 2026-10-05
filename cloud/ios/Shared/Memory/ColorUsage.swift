@@ -88,6 +88,18 @@ enum ColorUsage: CaseIterable {
     /// 首页右上「+ 记一条」的底（灰绿实底，设计稿 2a）。
     case quickNoteButton
 
+    /// 草稿卡里「拿不准」那项的说明与虚线（设计稿 01 的 1e-2）：一律中性。
+    case draftUnsure
+
+    /// 冲突屏里新卡那圈的描边（设计稿 1e-3：`--accent` 的 1.5px 环）。
+    case conflictNewRing
+
+    /// 冲突屏里新卡的时间标签「新的 · 今天」（`--accent-ink`）。
+    case conflictNewLabel
+
+    /// 冲突屏里「两条都留」这个线框按钮的字（`.btn.line`）。
+    case conflictBoth
+
     var role: ColorRole {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
@@ -98,11 +110,14 @@ enum ColorUsage: CaseIterable {
         case .milestoneEarned, .calendarEventDot: .ink
         case .reminderCard, .chipBackground, .onboardingPlanBadge: .accentSoft
         case .calendarSelectedDay, .milestoneNextHalo, .eventActionTag: .accentSoft
+        case .conflictNewRing: .accentFill
+        case .conflictNewLabel: .accent
         case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress, .quickNoteButton: .accentFill
         case .addContactButton, .addCardButton,
              .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner, .materialsCloudLink, .materialsNudge: .ink
         case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete,
-             .eventKindTag: .ink2
+             .eventKindTag, .draftUnsure: .ink2
+        case .conflictBoth: .ink
         }
     }
 

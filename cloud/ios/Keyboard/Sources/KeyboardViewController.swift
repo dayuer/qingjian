@@ -271,7 +271,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         touchView.slots = slots
         let top = hinted ? KeyStyle.hintRowHeight : 0
         // 对象卡与选择面板打开时候选栏那一行换成它们的工具栏，没有 ⌄（CandidateBar）
-        let showsChevron = composing && panel != .contactCard && panel != .scope
+        let showsChevron = composing && !CandidateBar.panelTakesTheBar(panel)
         touchView.chevron = showsChevron
             ? CGRect(
                 x: view.bounds.width - CandidateBar.chevronWidth, y: top,
@@ -300,7 +300,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         }
         // 展开面板与候选栏是同一套样式，首选那个的强调色一起同步
         panelView.accentFirst = accentFirst
-        barView.isHidden = !(composing && panel != .contactCard && panel != .scope)
+        barView.isHidden = !(composing && !CandidateBar.panelTakesTheBar(panel))
         // 拼音变了从头显示；只是云端词插进来时别跳
         let fromStart = preedit != lastPreedit
         lastPreedit = preedit
