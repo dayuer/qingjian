@@ -35,6 +35,10 @@ struct IdleBar: View {
                 RewriteBar(model: model)
             } else if model.quickOpen {
                 quickPicks
+            } else if model.showsRewriteSkills {
+                RewriteSkillRow(
+                    skills: model.rewriteSkills, current: model.rewriteSkillPick,
+                    onPick: { model.pickRewriteSkill($0) })
             } else {
                 actions
             }
@@ -93,7 +97,8 @@ struct IdleBar: View {
                 tool("记一笔") { model.startNote() }
             }
             if model.rewriteAvailable {
-                tool("改写") { model.startRewrite() }
+                // 按钮写着当前技能的（没读到技能表时为「改写」）；点一下用技能名右边的样子展开技能排
+                tool(model.rewriteSkill?.name ?? "改写") { model.toggleRewriteSkills() }
             }
             ToolbarArrow(up: false, label: "收起键盘") { model.dismissKeyboard() }
                 .padding(.trailing, 2)
