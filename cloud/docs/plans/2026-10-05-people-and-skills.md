@@ -44,14 +44,14 @@
 | `memory/ffi.rs` | **`qj_memory_add_contact(session, name, pronoun, scene)`** | 去掉 `scene` 参数（建人不再指定分组） |
 | `session/memory/mod.rs` | `set_scope(scene, pick)` / `memory_add_contact(..., scene)` | 改签名，去掉场景 |
 | `session/memory/live.rs` | `sweep_migrated_dirs` 那次调用 | 删掉 |
-| `scope/pick.rs` | `ContactPick::Last` 的注释「回到这个场景上次选的人」 | 见下「两处待定」 |
+| `scope/pick.rs` | `ContactPick::Last`（「回到这个场景上次选的人」，靠 `state.last`） | 改成 `ContactPick::Keep`：**保持现在选的人不变**（幂等），见下「两处定下来的」 |
 | `include/qingjian_bridge.h` | 上面几处接口的注释与签名 | 同步 |
 
 ### proto 与服务端
 
 | 在哪 | 现在是什么 | 改成 |
 |---|---|---|
-| `docs/specs/memory-scene-field.md` | 请服务端把 `MemoryItem.scene` / `ContactRegistration.scene` **从枚举改成字符串** | **这份整份作废**：客户端连场景都没有了，改成「请服务端把 `scene` 字段去掉（或留着不收）」——这份是给服务端的，要重写并把新结论发过去 |
+| `docs/specs/memory-scene-field.md` | 请服务端把 `MemoryItem.scene` / `ContactRegistration.scene` **从枚举改成字符串** | **已在本 PR 重写成「请服务端去掉这个字段」**（这一版为准）；还差**把它发给服务端**那一步（对外动作，先问） |
 | proto `Scene` 枚举 | 桥里没人用，但类型还在 | 这次仍不动（等服务端一起改），在规格里写明 |
 
 ### App
@@ -82,7 +82,7 @@
 | `IdleBar.swift` | `model.panel == .scope` 的两处判断；`ScopeChip(split:)` | 删掉（牌子不再有「左半」） |
 | `CandidateBar.swift` | `panelTakesTheBar` 里的 `.scope` | 删掉 |
 | `ScopeChip.swift` | `split`、左半的场景名、`chipShowsPerson`、点左半 `toggleQuickPicks` | 牌子只剩圆点 + 人名（设计稿 1a 那种），点它列其他人 + 「不指定」；`split` 删掉 |
-| **没开完全访问时** | 牌子上只剩场景名，点它进面板看「开启完全访问后才能用记忆」那段说明 | **说明没地方放了**（面板删了）——见下「两处待定」 |
+| **没开完全访问时** | 牌子上只剩场景名，点它进面板看「开启完全访问后才能用记忆」那段说明 | 面板删了，说明改成挂在**牌子上**：读不到名单时牌子上没有人名，那一块就是说明入口，点它**在工具栏里展开**同一段话 +「去开启」+ 设置路径，见下「两处定下来的」 |
 | `KeyboardModel.swift` | `chooseScene(_:)` / `applyScope(scene:pick:)` / `openScopePicker()` / `confirmNewContact` 里的 `engine.addContact(name:scene:)` | 前三个删掉 / 改签名；建人不再传场景 |
 | `MemoryBridge.swift` | `setScope(scene:pick:)` / `addContact(name:scene:)` | 去掉 `scene` 参数 |
 | `Engine.swift` | `setScope` / `addContact` 的包装 | 同上 |
@@ -109,20 +109,24 @@
 **命名**：`ScopeState` / `ScopeHandle` / `ScopedLearner` / `sanitize_scope` 里的「scope」现在只剩「当前选中的对象」一个意思。
 **这一版不改名**（动静大、收益小），只把注释与文档改准。
 
-## 两处待定（开工前要定）
+## 两处定下来的（2026-10-05，按自查时的建议）
 
-1. **`qj_scope_set` 的 `NULL` 是什么语义**。原来是「回到这个场景上次选的人」（靠 `state.last`），`last` 没了之后就没有「上次」可回。
-   建议：`NULL` = **保持现在选的人不变**（幂等），`""` = 不指定，其余 = 指定某个 id。键盘那边切人时直接传 id，不再用「回到上次」。
-2. **没开完全访问时，那段说明放哪**。原来挂在选择面板里（`ScopePicker.noAccess`：「开启完全访问后才能用记忆」+「去开启」+ 路径）。
-   面板删掉之后没有落点。建议：**点牌子的位置**（工具栏里那颗）展开同一段说明 —— 反正没开完全访问时牌子上也没有人名，
-   那一块正好空着。这条影响审核指南 4.4.1 那条路径，要有明确落点，不能就这么没了。
+1. **`qj_scope_set` 的三态**（`state.last` 没了之后「回到上次」没有意义）：
+   - `NULL` = **保持现在选的人不变**（幂等）——键盘只在自己要切的时候传 id，不需要「回到上次」；
+   - `""` = 明确不指定；
+   - 其余 = 指定某个对象 id（不在名单上时当不指定，与现在一样）。
+2. **没开完全访问时那段说明挂在牌子上**：读不到名单时（`chipShowsPerson` 为假）牌子上没有人名，
+   那一块就是**说明入口**——点它在工具栏里展开「开启完全访问后才能用记忆」+「去开启」+ 设置路径
+   （键盘扩展打不开系统设置，照旧只给文字）。这条保住审核指南 4.4.1 那条路径。
+   **注意**：改写不依赖完全访问（它读的是宿主光标前那段字，不是 App Group 里的记忆），所以没开时技能按钮照旧在。
 
 ## Task 1：桥去掉场景
 
 按上面「桥」那张表逐条改。要点：
 
 - [ ] 删 `memory/scene.rs`、`Contact.scene`、`ScopeState.scene` / `last`、`MemorySnapshot.scenes`。
-- [ ] `check_pinned` 改成数全局；`update_scope(scene, pick, now)` → `update_contact(pick, now)`。
+- [ ] `check_pinned` 改成数全局；`update_scope(scene, pick, now)` → `update_contact(pick, now)`；
+  `ContactPick::Last` → `ContactPick::Keep`（保持现在选的人不变）。
 - [ ] FFI：`qj_scope_set(session, contact_id)`、`qj_scope_get` 去 `scene`/`last`、`qj_memory_add_contact(session, name, pronoun)`；
   头文件同步。
 - [ ] 测试：`memory/tests/scene.rs` 删；其他测试文件里的场景参数与断言删；
@@ -163,7 +167,7 @@
   选了人写这个人，没选人写全局默认。
 - [ ] `KeyboardModel`：缓存技能列表与当前技能、`startRewrite(skillId:)`、`setRewriteSkill(id)`；列表为空时 `rewriteAvailable` 为假。
 - [ ] `RewriteState` 带技能名；`failed` 分两种（网络 / `Rejected`）；`RewriteBar` 三种状态带技能排。
-- [ ] **没开完全访问时**按「两处待定」第 2 条落一处说明。
+- [ ] **没开完全访问时**：牌子上没有人名，那一块当说明入口（点它在工具栏里展开同一段话 +「去开启」+ 路径）。
 - [ ] 测试：当前技能怎么算；列表为空时按钮不出现；私密输入框里 `rewriteAvailable` 为假；两种失败文案分得开。
 
 ## Task 6：App
@@ -176,7 +180,8 @@
 ## Task 7：文档与截图走查
 
 - [ ] 按上面「测试与文档」那张表清理。
-- [ ] **重写 `specs/memory-scene-field.md`**（给服务端的那份）：结论从「改成字符串」变成「去掉这个字段」。
+- [x] 重写 `specs/memory-scene-field.md`（给服务端的那份）——**已做**，结论改成「去掉这个字段」。
+- [ ] 把新结论**发给服务端**（对外动作，先问过再发）。
 - [ ] 截图走查（浅深各一套）：工具栏只有人 + 技能按钮 / 点技能列出技能 / 选了人改写用他的技能 / 两种没成功。
   需要一个假服务端（或把 `llm` 指向本地），否则只能验到「改写中」。
 
