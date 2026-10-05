@@ -106,6 +106,8 @@ targets:
       - Tests
       - Keyboard/Sources/EngineDisplay.swift
       - Keyboard/Sources/CandidateItem.swift
+      - Keyboard/Sources/RewriteState.swift
+      - Keyboard/Sources/RewriteWording.swift
     dependencies:
       - target: QingjianCloud
     settings:
