@@ -1,10 +1,10 @@
-# 改写做成可切换的技能包（润色 / 高情商 / 用户自己写的）
+# 改写做成可切换的技能包（润色 / 高情商）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > 审计会话给出的**任务大纲**。执行前用 writing-plans 展开成逐步代码与命令，先发审计会话「素笺输入法」审过再动手。
 
 **Goal:** 把「改写」从一份硬编码提示词改成**随包的数据文件**（技能包：名字 + 说明 + 提示词 + 一组词），
-默认两个（**润色**、**高情商**），**用户还能自己写一个**，键盘上**点技能名直接开始、结果条上可换**。
+默认两个（**润色**、**高情商**），**用户只能选、不能自己写**（2026-10-05 用户定），键盘上**点技能名直接开始、结果条上可换**。
 
 **依赖与顺序：** 与[场景改成用户可管理](2026-10-05-scene-management.md)互不耦合，但那件先做。本计划自己能让键盘一起编译。
 
@@ -30,36 +30,33 @@
 | 问题 | 决定 |
 |---|---|
 | 包里装什么 | **提示词 + 一组词**（话术词库，随请求发给模型） |
-| 增删 | 随包的可增删（加文件即可）；**用户能自己写一个** |
+| 增删 | 随包的可增删（加文件即可）；**这一版不做用户自定义**，只能在随包的技能里选（2026-10-05 用户定，审计意见：自写提示词可被用来写诈骗话术） |
 | 键盘上怎么切 | **点技能名直接开始，结果条上可换** |
 | 旧的改写 | **润色就是其中一个技能** |
 
 ## Task 1：技能包格式与桥
 
 - [ ] 新 `assets/skills/polish.toml`（把现有 `const PROMPT` 的原话搬进去，`phrases = []`）与 `assets/skills/tactful.toml`
-  （「高情商」，提示词与一组词由维护者起草后再定稿）；`assets/skills/README.md` 写格式、来源与许可（提示词是自己写的，无第三方内容）。
+  （「高情商」，提示词与一组词由维护者起草后再定稿；审计要求：只改语气与措辞，不改事实、不编造承诺、不替人隐瞒，定稿后交审计会话再审）；`assets/skills/README.md` 写格式、来源与许可（提示词是自己写的，无第三方内容）。
 - [ ] `scripts/build-bridge.sh` 照 `dicts` 的做法把 `assets/skills/*.toml` 拷进 `Keyboard/Data/skills/`。
 - [ ] 新 `rewrite/skill.rs`：`Skill { id, name, summary, prompt, phrases, temperature, order }`、
-  `load_skills(builtin_dir, user_dir) -> Vec<Skill>`（坏文件跳过并记日志，按 `order` 再名字排）、`DEFAULT_SKILL_ID = "polish"`、
-  `validate_skill`（id 是安全 slug、名字非空 ≤ 12 字、提示词非空 ≤ 2000 字、词 ≤ 20 条每条 ≤ 12 字）；
-  用户自己的包读写 `user_dir/skills/<id>.toml`（随包的只读）。
+  `load_skills(builtin_dir) -> Vec<Skill>`（坏文件跳过并记日志，按 `order` 再名字排）、`DEFAULT_SKILL_ID = "polish"`、
+  `validate_skill`（id 是安全 slug、名字非空 ≤ 12 字、提示词非空 ≤ 2000 字、词 ≤ 20 条每条 ≤ 12 字）。
 - [ ] `rewrite/mod.rs`：请求体抽成纯函数 `fn body(skill: &Skill, text: &str) -> Value`（**为了能单测**）——
   system message = 技能提示词（有词表时再接一句「尽量自然地用上这些说法：…（不合适就不用）」）；
   `Rewriter::start(&self, text, skill_id: Option<&str>)`，id 认不得时回退默认。
-- [ ] `session/mod.rs`：`Session::open` 读技能列表（内置 `data_dir/skills` + 用户 `user_dir/skills`）交给 `Rewriter`。
+- [ ] `session/mod.rs`：`Session::open` 读技能列表（随包的 `data_dir/skills`）交给 `Rewriter`。
 - [ ] 测试：临时目录放两个 TOML → 顺序与字段对；id 认不得回退默认；坏文件跳过；`body()` 的 system message 含提示词与词表；
   用户包的写 / 读 / 删往返与校验（空名字、超长提示词、非法 id 都拒）。
 
 ## Task 2：C 接口与设置
 
-- [ ] FFI（照 `qj_memory_*` 那套形状；App 没有会话，所以走 `user_dir` 参数）：
+- [ ] FFI：
   - [ ] `char *qj_rewrite_skills(QjSession *)` → JSON `[{"id","name","summary"}]`
   - [ ] `void qj_rewrite_start(QjSession *, const char *text, const char *skill_id)`（加第三个参数，NULL = 默认）
-  - [ ] `char *qj_skills_read(const char *user_dir)` / `char *qj_skill_write(const char *user_dir, const char *json)` /
-    `char *qj_skill_delete(const char *user_dir, const char *id)`——**成功返回 NULL**，与 `qj_memory_*` 一致
   - [ ] `include/qingjian_bridge.h` 同步，头文件的注释写清返回约定
 - [ ] 设置加 `rewrite_skill`：桥的 `settings::Settings` 与 Swift 的 `KeyboardSettings` 各加一项，缺省 `"polish"`。
-- [ ] 测试：`qj_rewrite_skills` 的 JSON；`qj_skill_*` 三个往返；设置随包读写带上新字段（老设置文件缺这个字段时按缺省）。
+- [ ] 测试：`qj_rewrite_skills` 的 JSON；设置随包读写带上新字段（老设置文件缺这个字段时按缺省）。
 
 ## Task 3：键盘
 
@@ -71,13 +68,9 @@
   原来只有一颗 ✕。
 - [ ] 测试：技能列表解析；当前技能回退；`RewriteState` 带技能。
 
-## Task 4：App 里写自己的技能
+## Task 4：（取消）App 里写自己的技能
 
-- [ ] 新 `App/Settings/SkillListSection.swift` + `App/Settings/SkillEditor.swift`：列**用户自己写的**技能，可增可删可改；
-  顶部一句说明「随包的技能（润色、高情商）在键盘上直接用，不能改」。
-  App 读不到随包那份（它在键盘 bundle 里），所以 App 只列用户的。
-- [ ] 走 `SettingsBridge` 那套读写，校验在桥里（`qj_skill_write` 的报错文案直接给用户看）。
-- [ ] 测试：编辑器的校验提示；删掉正在用的技能后当前技能回退。
+这一版不做（用户定）。以后要做，先补服务端「改写用途固定外层 system prompt」与桥里的技能校验（禁止词表），再开。
 
 ## Task 5：文档与截图走查
 
@@ -85,7 +78,7 @@
 - [ ] `cloud/docs/plans/2026-10-05-ui-implementation.md`：工具栏按钮从「改写」变成技能名、结果条上的技能排，
   记进约束 7 的差异表（设计稿画的是「改写」两个字，且从没画点击后的样子）。
 - [ ] 键盘 README 加一节「技能包」：文件格式、放哪、怎么加一个。
-- [ ] 截图走查（浅深各一套）：工具栏显示当前技能名 / 结果条上换技能重改 / 失败态重试 / App 里写一个新技能。
+- [ ] 截图走查（浅深各一套）：工具栏显示当前技能名 / 结果条上换技能重改 / 失败态重试。
   需要一个假服务端（或把 `llm` 指向本地），否则只能验到「改写中」。
 
 ## 验证
@@ -93,7 +86,7 @@
 1. `cargo fmt --manifest-path cloud/Cargo.toml --all`、`cargo clippy --manifest-path cloud/Cargo.toml --all-targets -- -D warnings`、
    `cargo test --manifest-path cloud/Cargo.toml -p qingjian-cloud-bridge`。
 2. 技能包：临时目录两个 TOML 的顺序与字段；id 认不得回退默认；坏文件跳过；`body()` 的 system message 含提示词与词表；
-   `qj_skill_write` / `qj_skill_delete` / `qj_skills_read` 往返 + 校验。
+   `qj_rewrite_skills` 的 JSON。
 3. `xcodebuild ... -only-testing:QingjianCloudTests test`。
 4. 模拟器：起一个假服务端（或用 `qingjian-cloud-client/tests/support` 的假服务端思路）跑通「点技能名 → 出结果 → 换个技能重改 → 上屏」。
 5. Core 没动，`apps/cli` 不用跑。
