@@ -19,12 +19,16 @@ struct MemoryBackend: Sendable {
     /// 把无主桶里的一条归到某个人；成功为 nil。
     var assign: @Sendable (URL, String, String) -> MemoryFailure? = { _, _, _ in nil }
 
+    /// 随包的改写技能（App 包里的 skills/）；读不出为空。
+    var skills: @Sendable () -> [Skill] = { [] }
+
     static var bridge: MemoryBackend {
         MemoryBackend(
             read: { MemoryFiles.read(userDirectory: $0) },
             write: { MemoryFiles.write($0, userDirectory: $1) },
             unassigned: { MaterialFiles.unassignedList(userDirectory: $0)?.materials },
             addUnassigned: { MaterialFiles.addUnassigned(userDirectory: $0, text: $1, source: $2) },
-            assign: { MaterialFiles.assign(userDirectory: $0, clientId: $1, contactId: $2) })
+            assign: { MaterialFiles.assign(userDirectory: $0, clientId: $1, contactId: $2) },
+            skills: { SkillFiles.list() })
     }
 }

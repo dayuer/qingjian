@@ -378,6 +378,35 @@ pub unsafe extern "C" fn qj_memory_add_contact(
     }
 }
 
+/// App 用：读 `skills_dir` 下随包的改写技能（App 包里那份，见 `cloud/ios/project.yml`）：
+/// `[{"id","name","summary"}]`，按 `order` 排；提示词不下发到壳里；目录里一个都没有或参数无效时返回空指针。
+/// 与 [`crate::qj_rewrite_skills`] 是同一份数据，只是键盘读扩展包里的 `Data/skills`、App 读自己包里的 `skills`。
+///
+/// # Safety
+/// `skills_dir` 为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_skills(skills_dir: *const c_char) -> *mut c_char {
+    let Some(skills_dir) = (unsafe { path_arg(skills_dir) }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        let skills = crate::rewrite::load_skills(Path::new(skills_dir));
+        if skills.is_empty() {
+            return None;
+        }
+        let list: Vec<serde_json::Value> = skills
+            .iter()
+            .map(|skill| {
+                serde_json::json!({"id": skill.id, "name": skill.name, "summary": skill.summary})
+            })
+            .collect();
+        Some(serde_json::Value::Array(list).to_string())
+    })
+    .ok()
+    .flatten()
+    .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
 /// App 用：整份读出 `{"contacts","cards","revs","state","broken"}`；参数无效或有文件读不了（开机后还没解锁过）时返回空指针。
 ///
 /// # Safety

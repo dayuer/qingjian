@@ -40,6 +40,9 @@ actor MemoryWorker {
         backend.assign(directory, clientId, contactId)
     }
 
+    /// 随包的改写技能（App 包里的 skills/）；读不出为空。
+    func skills() -> [Skill] { backend.skills() }
+
     /// 写 `next`；conflict 时重读、三方合并后再写，最多三轮。写成功后重读一遍拿新的修订号。`contactId` 只给日志用。
     /// `forgetting` 是这次要忘掉的人：写失败后重读，若那人还在名单上但卡片已经没了，就报 `forgetPartial`。
     func save(
