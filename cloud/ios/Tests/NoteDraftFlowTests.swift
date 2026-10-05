@@ -70,4 +70,20 @@ final class NoteDraftFlowTests: XCTestCase {
             "设计稿 1e-2 / 1e-3 顶上没有提示行")
         XCTAssertFalse(ScopeDisplay.hasHintRow(hasContact: true, hasHint: false, hasNoteBar: true, noteCardOpen: true))
     }
+
+    func testDraftAndConflictCardsKeepTheKeyboardHeight() {
+        // 确认条 49pt 时点「记到」：行不画了，49pt 让给草稿卡，候选栏与键区不下移，键盘总高不变。
+        let card = ScopeDisplay.rowHeights(
+            live: 0, held: 49, noteCardOpen: true, contactCardOpen: false)
+        XCTAssertEqual(card.total, 49)
+        XCTAssertEqual(card.inset, 0)
+        let contact = ScopeDisplay.rowHeights(
+            live: 34, held: 0, noteCardOpen: false, contactCardOpen: true)
+        XCTAssertEqual(contact.total, 34)
+        XCTAssertEqual(contact.inset, 0)
+        let keys = ScopeDisplay.rowHeights(
+            live: 34, held: 49, noteCardOpen: false, contactCardOpen: false)
+        XCTAssertEqual(keys.total, 34)
+        XCTAssertEqual(keys.inset, 34)
+    }
 }

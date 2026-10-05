@@ -4,10 +4,21 @@
 import Foundation
 
 enum ScopeDisplay {
+    /// 草稿卡、冲突屏、对象卡这类占键区的面板打开时，提示行那一行的高度：键盘总高不变（宿主界面不跳），
+    /// 记一笔的两个面板沿用打开前那一刻的行高（`held`，确认条比提示行高），对象卡沿用当前行高（`live`）；
+    /// 这一行不画，高度让给面板（`total`），候选栏与键区也不往下挪（`inset` 为 0）。别的面板照常：行高就是 `live`。
+    static func rowHeights(live: CGFloat, held: CGFloat, noteCardOpen: Bool, contactCardOpen: Bool)
+        -> (total: CGFloat, inset: CGFloat)
+    {
+        if noteCardOpen { return (held, 0) }
+        if contactCardOpen { return (live, 0) }
+        return (live, live)
+    }
+
     /// 提示行这一行在不在：选了人且有提示，或有记一笔 / 起名字的输入条时才在，没东西就不占行（设计稿）；
     /// 代价是提示出现与消失时键盘高度变 34pt、宿主界面跟着动，用户把常驻的空行当成了 bug，2026-10-04 改定。
     /// 每个场景一样，输入条也不看场景。记一笔的草稿卡、冲突屏打开时（`noteCardOpen`）这一行收起：设计稿 1e-2、1e-3
-    /// 那两屏顶上直接是牌子那一行，没有提示行。
+    /// 那两屏顶上直接是牌子那一行，不画提示行，高度让给面板（`rowHeights`）。
     static func hasHintRow(hasContact: Bool, hasHint: Bool, hasNoteBar: Bool, noteCardOpen: Bool = false) -> Bool {
         !noteCardOpen && ((hasContact && hasHint) || hasNoteBar)
     }
