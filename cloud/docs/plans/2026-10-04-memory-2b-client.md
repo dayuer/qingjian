@@ -24,6 +24,8 @@
 ```rust
 pub struct MemoryItem { pub client_id: String, pub contact_id: Option<String>, pub scene: Scene, pub kind: MemoryKind, pub text: String, pub at: i64 }
 pub enum Scene { Daily, Dating, Work }          // serde: "daily" / "dating" / "work"
+// 2026-10-05 作废：场景改成用户自建的分组（`memory/scenes.json` 的 {id, name}），
+// `Contact.scene` 是那串 id；「按场景开记录 / 恋爱 default 开」那套要重想（见 2026-10-05-scene-management.md）。
 pub enum MemoryKind { Sent, Note }              // serde: "sent" / "note"
 pub struct MemoryPush { pub items: Vec<MemoryItem> }
 pub struct MemoryAccepted { pub accepted: u32 }
