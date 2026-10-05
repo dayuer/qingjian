@@ -1,4 +1,4 @@
-//! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切场景与对象、取提示、对象卡、「记一笔」、「知道了」，
+//! 会话里的本地记忆接口（C 接口在 `crate::memory::ffi`）：切场景与对象、取提示、对象卡、「记一笔」（存成待整理素材）、「知道了」，
 //! 以及上屏路径喂进来的最近 24 字、换输入框时清空、按修改时间重载。读-改-写都交给 `MemoryStore`（文件锁里读磁盘再写）。
 //! 键盘只等 200 毫秒的锁：拿不到时「记一笔」与切场景进内存待办，下次 refresh / poll / flush 或下一次记一笔时重试，主线程不卡。
 
@@ -8,14 +8,14 @@ mod pending;
 #[cfg(test)]
 mod tests;
 
-use qingjian_cloud_proto::{MAX_CARD_TEXT_CHARS, Scene};
+use qingjian_cloud_proto::Scene;
 use qingjian_core::sentence::{LanguageModel, segment_text};
 
 use super::Session;
 use crate::entry::Entry;
 use crate::memory::{
-    Card, Contact, Hint, LocalDate, MemoryError, Pronoun, new_id, now_unix, panel_cards,
-    sanitized_scope, scope_with,
+    Card, Contact, Hint, LocalDate, MaterialSource, MemoryError, Pronoun, new_id, now_unix,
+    panel_cards, sanitized_scope, scope_with,
 };
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
 
@@ -117,18 +117,21 @@ impl Session {
         panel_cards(cards, LocalDate::today(), focus)
     }
 
-    /// 键盘「记一笔」：交给 `MemoryStore::add_note`（锁里按磁盘名单判断这个人还在、读卡片失败就不写）。
+    /// 键盘「记一笔」：交给 `MemoryStore::add_material` 存成待整理素材（锁里按磁盘名单判断这个人还在、读素材失败就不写，
+    /// 超过 2000 字节的切成几条，没整理的满 200 条时报 `MaterialLimit`）。不碰卡片，所以不用重读卡片与提示。
     /// 拿不到锁（`LockTimeout`）时不报错，进内存待办稍后补写（视同成功）；前面还有没写进去的就排在后面，保持顺序。
-    pub fn memory_note(&mut self, contact_id: &str, text: &str) -> Result<(), MemoryError> {
+    pub fn memory_note(
+        &mut self,
+        contact_id: &str,
+        text: &str,
+        source: MaterialSource,
+    ) -> Result<(), MemoryError> {
         if self.memory.is_none() {
             return Err(MemoryError::Invalid("这个键盘没有记忆目录"));
         }
         let text = text.trim();
         if text.is_empty() {
             return Err(MemoryError::Invalid("没有要记的文字"));
-        }
-        if text.chars().count() > MAX_CARD_TEXT_CHARS {
-            return Err(MemoryError::Invalid("一张卡最多 200 个字"));
         }
         if !is_contact_id(contact_id) {
             return Err(MemoryError::Invalid("对象编号不对"));
@@ -142,24 +145,20 @@ impl Session {
             contact_id: contact_id.to_owned(),
             text: text.to_owned(),
             at: now,
+            source,
         };
         if memory.pending.note_count() > 0 {
             memory.pending.push_note(later);
             return Ok(());
         }
-        match memory.store.add_note(contact_id, text, now) {
-            Ok(_) => {}
+        match memory.store.add_material(contact_id, text, source, now) {
+            Ok(_) => Ok(()),
             Err(MemoryError::LockTimeout) => {
                 memory.pending.push_note(later);
-                return Ok(());
+                Ok(())
             }
-            Err(error) => return Err(error),
+            Err(error) => Err(error),
         }
-        if memory.state.contact_id.as_deref() == Some(contact_id) {
-            memory.reload_cards();
-            self.rebuild_hints();
-        }
-        Ok(())
     }
 
     /// 键盘里在 `scene` 新建一个对象（名字与称呼），建好返回 id。和 App 一样经 `MemoryStore::put_contact` 在锁里写名单、建目录，
@@ -192,7 +191,7 @@ impl Session {
         Ok(id)
     }
 
-    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写（成功才出队，被拒绝的丢掉），再补写最新一次切场景，
+    /// 重试拿不到锁时放进待办的写入：「记一笔」按顺序补写成素材（成功才出队，被拒绝的丢掉），再补写最新一次切场景，
     /// 最后补读换对象时没读成的卡片。仍拿不到锁或读写不了就留着，这一轮到此为止（最多再等一个 200 毫秒）；
     /// 补写的场景换了叠加层返回 true。
     pub(super) fn retry_pending(&mut self) -> bool {
@@ -202,21 +201,23 @@ impl Session {
         if memory.pending.is_empty() && !memory.cards_stale {
             return false;
         }
-        let mut wrote_note = false;
         let mut blocked = false;
         while let Some(note) = memory.pending.front_note() {
-            match memory.store.add_note(&note.contact_id, &note.text, note.at) {
+            match memory
+                .store
+                .add_material(&note.contact_id, &note.text, note.source, note.at)
+            {
                 Ok(_) => {
-                    wrote_note = true;
                     memory.pending.pop_note();
                 }
                 Err(error @ (MemoryError::LockTimeout | MemoryError::Io(_))) => {
-                    tracing::warn!(%error, "待写的记一笔先留着");
+                    tracing::warn!(code = error.code(), "待写的记一笔先留着");
                     blocked = true;
                     break;
                 }
                 Err(error) => {
-                    tracing::warn!(%error, "待写的记一笔被拒绝，丢掉");
+                    // 对象被忘掉、素材满了：补写时已经没法告诉用户，只记错误码
+                    tracing::warn!(code = error.code(), "待写的记一笔被拒绝，丢掉");
                     memory.pending.pop_note();
                 }
             }
@@ -248,7 +249,7 @@ impl Session {
         let Some(memory) = self.memory.as_mut() else {
             return false;
         };
-        if wrote_note || (memory.cards_stale && !blocked) {
+        if memory.cards_stale && !blocked {
             memory.reload_cards();
             self.rebuild_hints();
         }

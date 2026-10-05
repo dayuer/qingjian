@@ -465,7 +465,7 @@ final class KeyboardModel {
         guard let cards = noteDraft else { return }
         noteDraft = nil
         markNoteSourceHandled()
-        saveNote(cards)
+        saveNote(cards, source: "clipboard")
     }
 
     /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。
@@ -477,7 +477,7 @@ final class KeyboardModel {
     /// 手写的草稿（只读，视图用）。
     var composedNote: NoteComposer? { sink.composer }
 
-    /// 「记到」：存成 other 卡（桥的 qj_memory_note），成败都退出手写；没上屏的拼音不算进去，直接丢掉。
+    /// 「记到」：存成待整理素材（桥的 qj_memory_note），成败都退出手写；没上屏的拼音不算进去，直接丢掉。
     /// 起名字时是「好了」：建对象并切过去，没建成（锁被 App 占着、满 8 个）就留在输入条里显示原因。
     func confirmComposedNote() {
         guard let composer = sink.composer, composer.canSave else { return }
@@ -486,7 +486,7 @@ final class KeyboardModel {
             return
         }
         endComposedNote()
-        saveNote([composer.text])
+        saveNote([composer.text], source: "typed")
     }
 
     /// 选择面板里点「新对象」：建在面板当前的场景里。在提示行的位置打名字，键区照常打字，字只进输入条、不进宿主（同手写记一笔）。
@@ -548,14 +548,14 @@ final class KeyboardModel {
         namingError = nil
     }
 
-    /// 一张张记下（每张走一次 qj_memory_note，拿不到锁的进桥的待办）；记下了几张显示在 toast 里。
-    private func saveNote(_ cards: [String]) {
+    /// 一条条记下（每条走一次 qj_memory_note 存成素材，拿不到锁的进桥的待办）；记下了几条显示在 toast 里。
+    private func saveNote(_ cards: [String], source: String) {
         guard let id = scope.contactId else { return }
         var saved = 0
         for text in cards {
             // nil 即成功（含桥「已接受、稍后写入」）；写不进（App Group 不可写、对象刚被删）时不弹错，不打断打字
-            let failure = engine?.memoryNote(id, text: text)
-            // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记卡片文字
+            let failure = engine?.memoryNote(id, text: text, source: source)
+            // 真机核对 App 与键盘并发写时两边的笔数；只记成败与错误码，不记原话
             let outcome = failure.map { "失败 \($0.code.rawValue)" } ?? "已接受"
             Self.log.info("记一笔 \(outcome, privacy: .public)")
             if failure == nil { saved += 1 }

@@ -85,7 +85,7 @@ char *qj_account_sign_out(const char *path);
 // 删账号：服务器删成功才清本机令牌。
 char *qj_account_delete(const char *path);
 
-// 本地记忆（素笺 2A）：场景、对象、打字提示、对象卡、「记一笔」。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
+// 本地记忆（素笺 2A）：场景、对象、打字提示、对象卡、「记一笔」（存成待整理素材）。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。
 // 每个场景各有一组人（各自最多 8 个，互不相通），对象建好后不能换场景。
 // scene 取 daily / dating / work；contact_id 是 32 位十六进制；NULL 表示回到这个场景上次选的人，空字符串 "" 表示明确不指定；
@@ -104,11 +104,13 @@ char *qj_memory_hint(QjSession *session);
 void qj_memory_dismiss(QjSession *session, const char *card_id, bool today);
 // 键盘内对象卡面板：今日相关最多 3 张卡的 JSON 数组。
 char *qj_memory_cards(QjSession *session, const char *contact_id);
-// 「记一笔」：给磁盘名单上的对象建一张 other 卡。成功返回 NULL，失败返回 {"code","message"}
-// （invalid：没有这个人、没有文字或超过 200 字；io：卡片读不了，例如开机后还没解锁过，此时什么都不写）。
-// 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在内存待办里
-// （最多 32 条，满了丢最旧的），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
-char *qj_memory_note(QjSession *session, const char *contact_id, const char *text);
+// 「记一笔」：原话原样存成这个对象的一条待整理素材（memory/<对象 id>/materials.jsonl），不再写卡；超过 2000 字节的先按空行、
+// 单段再按字节（不切断字符）切成几条，一个字不丢。source 取 clipboard / typed，NULL 或认不得按 typed。
+// 成功返回 NULL，失败返回 {"code","message"}（invalid：没有这个人或没有文字；material_limit：这个人没整理的素材已满 200 条，
+// message 是「这个人还有 200 条没整理，先去 App 里看看」，这次一条都不写；io：素材读不了，例如开机后还没解锁过，此时什么都不写）。
+// 键盘只等 200 毫秒的锁：另一个进程占着锁（lock_timeout）时也返回 NULL，表示已接受、稍后写入：这条记在待办里
+// （最多 32 条，满了丢最旧的，落盘在 memory/pending-keyboard.jsonl），下次按键、qj_poll、qj_flush 或下一次记一笔时按顺序补写，主线程不会卡住。
+char *qj_memory_note(QjSession *session, const char *contact_id, const char *text, const char *source);
 // 键盘里在 scene 新建一个对象：成功返回 {"id":"…"}，失败返回 {"code","message"}（contact_limit：这个场景已满 8 个，
 // message 带场景名，如「日常最多 8 个人」；lock_timeout：App 正占着锁，请再点一次；invalid：名字为空）。
 // pronoun 取 ta / ta_m / ta_f / name，NULL 或认不得按 ta；scene 为 NULL 或认不得时用会话当前的场景。
@@ -117,10 +119,18 @@ char *qj_memory_add_contact(QjSession *session, const char *name, const char *pr
 // {"contacts":[…],"cards":{id:[…]},"revs":{id:n},"state":{…},"broken":[id…]}（revs 是各对象卡片的修订号；broken 是卡片文件损坏、
 // 已备份的对象；参数无效或有文件读不了时为 NULL）。
 // write 整份写回：成功返回 NULL，失败返回 {"code","message"}，code 取 contact_limit / invalid / conflict / lock_timeout / io（lock_timeout：App 等了 2 秒还拿不到锁，稍后再试）。
-// 某个对象磁盘上的修订号比 revs 新（键盘这期间记过一笔）就整份不写、返回 conflict，App 重读合并后再写；
-// 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删；已有的对象换了场景返回 invalid（换场景需要忘掉后重新加）。
+// 某个对象磁盘上的修订号比 revs 新（这期间别处改过卡片）就整份不写、返回 conflict，App 重读合并后再写；
+// 只重写有变化的对象；state 不采纳；名单上没了的对象连目录一起删（卡片、素材、分区学习都在里面）；已有的对象换了场景返回 invalid（换场景需要忘掉后重新加）。
 char *qj_memory_read(const char *user_dir);
 char *qj_memory_write(const char *user_dir, const char *json);
+// App 用：一个对象没整理的素材，按时间倒序（同一秒的按写入倒序），整理过 30 天的顺手删掉：
+// {"unprocessed_count":n,"materials":[{"client_id":"…","kind":"note","text":"原话","at":1791043200,
+//   "source":"clipboard"|"typed","uploaded":false,"processed":false},…]}
+// unprocessed_count 等于 materials 的条数（App 的「待整理 · n 条」与 180 条提示按它）；没有素材时 materials 为空数组；
+// 参数无效或读不了（开机后还没解锁过、等了 2 秒没拿到锁）时为 NULL。
+char *qj_memory_materials(const char *user_dir, const char *contact_id);
+// App 用：删一条素材，没有这条也算成功。成功返回 NULL，失败返回 {"code","message"}（invalid / lock_timeout / io）。
+char *qj_memory_material_delete(const char *user_dir, const char *contact_id, const char *client_id);
 
 void qj_string_free(char *text);
 

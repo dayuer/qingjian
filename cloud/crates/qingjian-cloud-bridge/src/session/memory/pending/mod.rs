@@ -1,4 +1,4 @@
-//! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」按顺序排队，切场景只留最新一次。
+//! 键盘拿不到 `memory/.lock`（200 毫秒超时）时先记在内存里的写入：「记一笔」（补写成素材）按顺序排队，切场景只留最新一次。
 //! 下次 refresh、poll、flush 或下一次写入时重试；卡片与场景在内存里已经生效，只是磁盘上晚几步。
 //! 笔记队列同时落在 `memory/pending-keyboard.jsonl`（一行一条），键盘扩展被系统杀掉也不丢，下次启动读回来接着补写；切场景不落盘。
 //! 只有键盘这一个进程写这个文件，不需要 flock：每次队列变了就整份写临时文件再改名（读到的不会是半截），
@@ -42,7 +42,10 @@ impl PendingWrites {
                 for line in text.lines().filter(|line| !line.trim().is_empty()) {
                     match serde_json::from_str::<PendingNote>(line) {
                         Ok(note) => notes.push_back(note),
-                        Err(error) => tracing::warn!(%error, "待写笔记里有一行坏了，跳过"),
+                        // serde_json 的报错可能带上原话，只记种类
+                        Err(error) => {
+                            tracing::warn!(kind = ?error.classify(), "待写笔记里有一行坏了，跳过");
+                        }
                     }
                 }
                 while notes.len() > MAX_PENDING_NOTES {

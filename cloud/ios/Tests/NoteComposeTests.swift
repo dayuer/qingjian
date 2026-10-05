@@ -179,7 +179,10 @@ final class NoteComposeTests: XCTestCase {
     func testEntryOffersNewClipboard() {
         let handled = NoteEntry.digest("上一条")
         XCTAssertEqual(NoteEntry.decide(clipboard: " 她不吃香菜 ", lastHandledDigest: handled), .clipboard(["她不吃香菜"]))
-        let long = String(repeating: "长", count: 250)
-        XCTAssertEqual(NoteEntry.decide(clipboard: long, lastHandledDigest: nil), .clipboard([String(repeating: "长", count: 200), String(repeating: "长", count: 50)]), "超过 200 字拆成两张，不丢")
+        let medium = String(repeating: "长", count: 250)
+        XCTAssertEqual(NoteEntry.decide(clipboard: medium, lastHandledDigest: nil), .clipboard([medium]), "750 字节还是一条")
+        // 一个汉字 3 字节：2000 字节装 666 个，第 667 个起是下一条
+        let long = String(repeating: "长", count: 700)
+        XCTAssertEqual(NoteEntry.decide(clipboard: long, lastHandledDigest: nil), .clipboard([String(repeating: "长", count: 666), String(repeating: "长", count: 34)]), "超过 2000 字节拆成两条，不丢")
     }
 }

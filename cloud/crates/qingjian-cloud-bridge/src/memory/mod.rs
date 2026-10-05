@@ -1,4 +1,4 @@
-//! 本地记忆（spec「2A 本地记忆」）：对象、记忆卡、当前场景的存储，打字时的提示，以及 C 接口。
+//! 本地记忆（spec「2A 本地记忆」）：对象、记忆卡、「记一笔」的待整理素材、当前场景的存储，打字时的提示，以及 C 接口。
 //! 数据在学习数据目录的 `memory/` 下（iOS 开了完全访问时是 App Group 的 `Qingjian/memory/`）；
 //! App 整份读写，键盘只读（「记一笔」「知道了」与当前场景除外）；两个进程的读-改-写都在 `memory/.lock` 的文件锁里。
 //! 卡片的种类与来源用 proto 的 `CardKind`、`CardSource`。
@@ -11,6 +11,7 @@ mod error;
 mod ffi;
 mod hint;
 mod local_date;
+mod materials;
 mod pronoun;
 mod recent;
 mod snapshot;
@@ -32,6 +33,11 @@ pub use self::contact::{Contact, MAX_DISPLAY_NAME_CHARS};
 pub use self::error::MemoryError;
 pub use self::hint::{Hint, HintIndex, HintReason, days_away, panel_cards, reminder_text};
 pub use self::local_date::LocalDate;
+pub use self::materials::{
+    CONTACT_PLACEHOLDER, CloudState, Consent, MAX_UNPROCESSED_MATERIALS, Material, MaterialSource,
+    PROCESSED_KEEP_DAYS, UploadDecision, mask_contact_names, should_upload, split_note,
+    unprocessed,
+};
 pub use self::pronoun::Pronoun;
 pub use self::recent::RecentText;
 pub use self::snapshot::MemorySnapshot;

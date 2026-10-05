@@ -1,10 +1,11 @@
 //! 本地记忆 C 接口测试共用：按 C 签名声明导出函数、临时目录（只有样例词库 `assets/sample/dict.tsv`，按内容认格式，起名 dict.qj 也能读）、
-//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs` 与 `memory_scene_ffi.rs` 各用一部分，所以关掉未使用的告警。
+//! 样例对象与卡片、会话与按键的小工具。`memory_ffi.rs`、`memory_scene_ffi.rs` 与 `memory_materials_ffi.rs` 各用一部分，所以关掉未使用的告警。
 #![allow(dead_code)]
 
 use std::ffi::{CStr, CString, c_char};
 use std::path::{Path, PathBuf};
 use std::ptr;
+use std::time::Duration;
 
 use qingjian_cloud_bridge::{Session, qj_commit, qj_push, qj_session_open, qj_string_free};
 use serde_json::{Value, json};
@@ -22,6 +23,7 @@ unsafe extern "C" {
         session: *mut Session,
         contact_id: *const c_char,
         text: *const c_char,
+        source: *const c_char,
     ) -> *mut c_char;
     pub fn qj_memory_add_contact(
         session: *mut Session,
@@ -31,6 +33,12 @@ unsafe extern "C" {
     ) -> *mut c_char;
     pub fn qj_memory_read(user_dir: *const c_char) -> *mut c_char;
     pub fn qj_memory_write(user_dir: *const c_char, json: *const c_char) -> *mut c_char;
+    pub fn qj_memory_materials(user_dir: *const c_char, contact_id: *const c_char) -> *mut c_char;
+    pub fn qj_memory_material_delete(
+        user_dir: *const c_char,
+        contact_id: *const c_char,
+        client_id: *const c_char,
+    ) -> *mut c_char;
 }
 
 pub const CONTACT: &str = "0123456789abcdef0123456789abcdef";
@@ -92,6 +100,30 @@ pub fn seed(user: &Path) {
         None
     );
 }
+
+/// 键盘「记一笔」（手写来源）；NULL 即成功，这里给 `None`。
+pub fn note(session: *mut Session, contact: &str, text: &str) -> Option<String> {
+    let contact = c(contact);
+    let text = c(text);
+    take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr(), ptr::null()) })
+}
+
+/// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。
+pub fn hold_lock(user: &Path) -> std::fs::File {
+    let dir = user.join("memory");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join(".lock"))
+        .unwrap();
+    file.lock().unwrap();
+    file
+}
+
+/// 键盘等锁的上限是 200 毫秒；主线程上一次调用最多容忍这么久（加调度与慢机器的余量）。
+pub const KEYBOARD_BUDGET: Duration = Duration::from_millis(900);
 
 pub fn open(data: &Path, user: Option<&Path>) -> *mut Session {
     let data = c(data.to_str().unwrap());

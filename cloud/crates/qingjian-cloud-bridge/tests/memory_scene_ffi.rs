@@ -10,7 +10,7 @@ use qingjian_cloud_bridge::{qj_flush, qj_session_free};
 use serde_json::{Value, json};
 
 use memory_support::{
-    c, dirs, json_of, open, qj_memory_add_contact, qj_memory_hint, qj_memory_note, qj_memory_read,
+    c, dirs, json_of, note, open, qj_memory_add_contact, qj_memory_hint, qj_memory_read,
     qj_memory_write, qj_scope_get, seed, set_scope, take, type_and_commit,
 };
 
@@ -214,14 +214,10 @@ fn daily_shows_hints_and_work_does_not() {
     );
 
     // 记一笔三个场景都能用
-    let contact = c(WORK);
-    let text = c("周五前交方案");
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-    let cards = std::fs::read_to_string(user.join("memory").join(WORK).join("cards.json")).unwrap();
-    assert!(cards.contains("周五前交方案"));
+    assert_eq!(note(session, WORK, "周五前交方案"), None);
+    let materials =
+        std::fs::read_to_string(user.join("memory").join(WORK).join("materials.jsonl")).unwrap();
+    assert!(materials.contains("周五前交方案"));
     unsafe { qj_session_free(session) };
 }
 

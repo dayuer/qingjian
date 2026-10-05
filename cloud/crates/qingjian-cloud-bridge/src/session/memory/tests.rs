@@ -4,6 +4,8 @@ use qingjian_cloud_proto::Scene;
 
 use std::path::PathBuf;
 
+use crate::memory::MaterialSource;
+
 use super::pending::{MAX_PENDING_NOTES, PENDING_FILE, PendingNote, PendingWrites};
 
 fn note(n: usize) -> PendingNote {
@@ -11,6 +13,7 @@ fn note(n: usize) -> PendingNote {
         contact_id: "0123456789abcdef0123456789abcdef".to_owned(),
         text: format!("第 {n} 条"),
         at: i64::try_from(n).unwrap(),
+        source: MaterialSource::Clipboard,
     }
 }
 

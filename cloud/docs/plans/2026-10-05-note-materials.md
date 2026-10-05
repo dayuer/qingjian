@@ -40,9 +40,13 @@
 ## 任务
 
 ### Task M1：proto 与桥的素材库
-- [ ] 桥 `memory/materials.rs`：`MaterialsFile` 读写、追加、分段、上限、标记 uploaded / processed、随对象一起删；单测（不丢字、2000 字节切分、上限提示、忘掉时删除、旧目录没有文件时为空）。
-- [ ] C 接口：`qj_memory_note` 改为写素材（返回值不变：NULL 成功 / `{"code","message"}`）；新增 `qj_memory_materials(user_dir, contact_id)` 给 App 读（JSON 数组）与 `qj_memory_material_delete(user_dir, contact_id, client_id)`；头文件与 FFI 测试同步。
-- [ ] `ClipMessages` 改成按 2000 字节分段（不再按 200 字），删掉过渡代码。
+- [x] 桥 `memory/materials/`（按「同词干收进目录」放成目录：`material.rs`、`source.rs`、`file.rs` 等）：读写、分段、上限、标记 uploaded / processed、30 天清理、随对象一起删；
+  上传前替换对象名字 `mask_contact_names` 与补传判断 `should_upload` 两个纯函数（M3 再接）；单测在 `memory/tests/materials.rs`。
+  存法是每次整份原子重写，不追加（删、标记、清理都要重写；键盘被杀时追加会留半行）。
+- [x] C 接口：`qj_memory_note` 改为写素材（返回值不变，新增 code `material_limit`），**加了第 4 个参数 `source`**（`clipboard` / `typed`，NULL 按 typed）；
+  新增 `qj_memory_materials(user_dir, contact_id)` → `{"unprocessed_count","materials":[…]}`（只含未整理的、按时间倒序）与 `qj_memory_material_delete`；
+  拿不到锁的待办（`pending-keyboard.jsonl`）补写成素材；头文件与 FFI 测试（`tests/memory_materials_ffi.rs`）同步。
+- [x] `ClipMessages` 改成按 2000 字节分段（不再按 200 字），删掉过渡代码；`MemoryFailure` 认 `material_limit`。
 
 ### Task M2：iOS 键盘与 App
 - [ ] 键盘 toast 文案按是否开了素笺云（`cloud.toml` 有没有令牌，沿用 `IdleBar` 判断「改写」的办法）二选一；单测锁文案。

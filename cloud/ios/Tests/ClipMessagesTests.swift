@@ -1,4 +1,5 @@
-// 「记一笔」拆剪贴板：原话原样保留（名字、时间都留着），长文按段拼成每张不超过 200 字、一个字不丢；最多 10 张。消息全是合成的。
+// 「记一笔」拆剪贴板：原话原样保留（名字、时间都留着），每条素材不超过 2000 字节，一次复制通常就是一条；
+// 超过的按段拼、单段按字节硬切，一个字不丢；最多 10 条。消息全是合成的。
 
 import XCTest
 @testable import QingjianCloud
@@ -25,30 +26,53 @@ final class ClipMessagesTests: XCTestCase {
     不是做不下来，是做不过来。
     """
 
-    func testWechatMultiCopyKeepsNamesAndTimes() {
-        let cards = ClipMessages.split(wechat)
-        let joined = cards.joined(separator: "\n")
-        XCTAssertTrue(cards.allSatisfy { MemoryLimits.count($0) <= MemoryLimits.maxTextChars })
-        XCTAssertTrue(joined.contains("2026年10月05日 09:34"), "时间留着，交给大模型整理时要用")
-        XCTAssertTrue(joined.contains("阿杰"), "名字留着")
-        XCTAssertTrue(joined.contains("不是做不下来，是做不过来。"), "最后一条不丢")
+    /// 去掉空白后的全部字，核对切前切后一个字不丢。
+    private func letters(_ text: String) -> String {
+        String(String.UnicodeScalarView(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }))
     }
 
-    func testPlainShortTextIsOneCard() {
-        XCTAssertEqual(ClipMessages.split("她不吃香菜"), ["她不吃香菜"])
+    func testWechatMultiCopyIsOnePieceWithNamesAndTimes() {
+        let pieces = ClipMessages.split(wechat)
+        XCTAssertEqual(pieces.count, 1, "一次复制通常就是一条素材")
+        XCTAssertTrue(pieces[0].contains("2026年10月05日 09:34"), "时间留着，交给大模型整理时要用")
+        XCTAssertTrue(pieces[0].hasPrefix("阿杰"), "名字留着")
+        XCTAssertTrue(pieces[0].hasSuffix("不是做不下来，是做不过来。"), "最后一条不丢")
     }
 
-    func testLongPlainTextPacksParagraphsUnderTheLimit() {
-        let paragraph = String(repeating: "字", count: 120)
-        let cards = ClipMessages.split([paragraph, paragraph, paragraph].joined(separator: "\n\n"))
-        XCTAssertEqual(cards.count, 3)
-        XCTAssertTrue(cards.allSatisfy { MemoryLimits.count($0) <= MemoryLimits.maxTextChars })
-        XCTAssertEqual(cards.joined().count, 360, "一个字都不丢")
+    func testPlainShortTextIsOnePiece() {
+        XCTAssertEqual(ClipMessages.split("  她不吃香菜\r\n"), ["她不吃香菜"])
+        XCTAssertEqual(ClipMessages.split(" \n\n "), [])
     }
 
-    func testCapsAtTenCards() {
-        let many = (1...15).map { _ in String(repeating: "字", count: 190) }.joined(separator: "\n\n")
-        XCTAssertEqual(ClipMessages.split(many).count, ClipMessages.maxCards)
+    func testExactlyTheLimitStaysWhole() {
+        let text = String(repeating: "a", count: ClipMessages.maxBytes)
+        XCTAssertEqual(ClipMessages.split(text), [text])
+        XCTAssertEqual(ClipMessages.split(text + "b").count, 2)
+    }
+
+    func testLongTextPacksParagraphsUnderTheByteLimit() {
+        // 每段 300 个汉字 = 900 字节：两段加空行 1802 字节装得下一条，三段装不下
+        let paragraph = String(repeating: "字", count: 300)
+        let text = Array(repeating: paragraph, count: 5).joined(separator: "\n\n")
+        let pieces = ClipMessages.split(text)
+        XCTAssertEqual(pieces.count, 3)
+        XCTAssertTrue(pieces.allSatisfy { $0.utf8.count <= ClipMessages.maxBytes })
+        XCTAssertEqual(pieces[0], paragraph + "\n\n" + paragraph, "段之间的空行留着")
+        XCTAssertEqual(letters(pieces.joined()), letters(text), "一个字都不丢")
+    }
+
+    func testHardCutKeepsCharactersWhole() {
+        // 3 字节的汉字与 4 字节的 emoji、带肤色的组合 emoji 混着
+        let text = String(repeating: "中😀👍🏽", count: 200)
+        let pieces = ClipMessages.split(text)
+        XCTAssertGreaterThan(pieces.count, 1)
+        XCTAssertTrue(pieces.allSatisfy { $0.utf8.count <= ClipMessages.maxBytes })
+        XCTAssertEqual(pieces.joined(), text, "不丢字、不切断字符")
+    }
+
+    func testCapsAtTenPieces() {
+        let many = (1...15).map { _ in String(repeating: "字", count: 600) }.joined(separator: "\n\n")
+        XCTAssertEqual(ClipMessages.split(many).count, ClipMessages.maxPieces)
     }
 
     func testBarTexts() {
