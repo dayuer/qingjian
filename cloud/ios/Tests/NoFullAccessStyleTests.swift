@@ -22,9 +22,17 @@ final class NoFullAccessStyleTests: XCTestCase {
 
     /// 审核指南 4.4.1：不开完全访问时只给说明，「去开启」只展开文字路径（键盘扩展不能跳设置、不能借响应链开 App）。
     func testNoFullAccessTexts() {
-        XCTAssertEqual(ScopeDisplay.pickerMode(fullAccess: false), .needsFullAccess)
         XCTAssertEqual(ScopeDisplay.needsFullAccessText, "开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上")
         XCTAssertEqual(ScopeDisplay.fullAccessPath, "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问")
+    }
+
+    /// 没开完全访问时改写也用不了（iOS 键盘扩展没网络），说明要写清「改写和记忆都要它」。
+    func testRewriteAlsoNeedsFullAccess() {
+        XCTAssertEqual(
+            ScopeDisplay.needsFullAccessForRewrite,
+            "改写和记忆都要开完全访问。开了也不会上传你没让它上传的内容。")
+        XCTAssertFalse(ScopeDisplay.chipShowsPerson(fullAccess: false))
+        XCTAssertTrue(ScopeDisplay.chipShowsPerson(fullAccess: true))
     }
 
     func testAccentOnlyOnElementsThatStandForAPerson() {

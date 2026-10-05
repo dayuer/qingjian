@@ -42,6 +42,9 @@ final class KeyboardModel {
     /// 点了牌子：工具栏里横着列其他人与「不指定」（ScopeDisplay.quickPicks）。
     private(set) var quickOpen = false
 
+    /// 没开完全访问时点牌子展开的说明（改写与记忆都要完全访问）。
+    private(set) var showsFullAccessNote = false
+
     /// 确认条里待记的几条素材（剪贴板拆出来的）；nil 时不出确认条。
     private(set) var noteDraft: [String]?
 
@@ -430,6 +433,9 @@ final class KeyboardModel {
     var canNote: Bool {
         ScopeDisplay.canNote(fullAccess: fullAccess, privateField: privateField, hasContact: currentContact != nil)
     }
+
+    /// 没开完全访问时点牌子：展开 / 收起那段说明（键盘里只有这里能说清为什么要开）。
+    func toggleFullAccessNote() { showsFullAccessNote.toggle() }
 
     /// 点牌子：列出 / 收起其他人。没开完全访问时读不到名单，不做（牌子那时是说明入口）。
     func toggleQuickPicks() {
