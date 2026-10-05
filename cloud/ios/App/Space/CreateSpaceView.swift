@@ -37,6 +37,7 @@ struct CreateSpaceView: View {
         .navigationTitle(SpaceWording.createTitle)
         .navigationBarTitleDisplayMode(.inline)
         .disabled(store.busy)
+        .onAppear { store.clearMessage() }
         .onChange(of: store.finished) { _, done in
             if done { dismiss() }
         }

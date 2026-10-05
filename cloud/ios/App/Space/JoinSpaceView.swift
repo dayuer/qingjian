@@ -48,6 +48,7 @@ struct JoinSpaceView: View {
         }
         .navigationTitle(SpaceWording.joinTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { store.clearMessage() }
         .onChange(of: store.finished) { _, done in
             if done { dismiss() }
         }
