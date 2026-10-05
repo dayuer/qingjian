@@ -25,15 +25,15 @@ struct NoteComposeBar: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 14)
                 .frame(height: 28)
-                .background(Capsule().fill(ColorUsage.noteConfirm.role(in: model.scope.scene).color))
+                .background(Capsule().fill(ColorUsage.noteConfirm.role.color))
                 .opacity(composer.canSave ? 1 : 0.4)
                 .padding(.trailing, 12)
                 .onKeyboardPress { model.confirmComposedNote() }
         }
         .frame(height: KeyStyle.hintRowHeight)
-        .background(MemoryScope.usesAccent(model.scope.scene) ? Theme.accentSoft.color : KeyStyle.keyFill)
+        .background(Theme.accentSoft.color)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(MemoryScope.usesAccent(model.scope.scene) ? Theme.hintLine.color : Color.primary.opacity(0.08))
+            Rectangle().fill(Theme.hintLine.color)
                 .frame(height: 1)
         }
     }

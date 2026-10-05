@@ -109,7 +109,7 @@ struct ContactDetailView: View {
 
     private func header(_ contact: MemoryContact) -> some View {
         HStack(spacing: 14) {
-            MemoryAvatar(name: contact.name, size: 56, scene: contact.scene, font: AppFont.font(size: 56 * 0.4, weight: .medium))
+            MemoryAvatar(name: contact.name, size: 56, font: AppFont.font(size: 56 * 0.4, weight: .medium))
             VStack(alignment: .leading, spacing: 4) {
                 Text(contact.name).font(AppFont.font(size: 26, weight: .semibold))
                 Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count))

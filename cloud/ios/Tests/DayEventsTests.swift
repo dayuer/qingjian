@@ -5,7 +5,7 @@ import XCTest
 @testable import QingjianCloud
 
 final class DayEventsTests: XCTestCase {
-    private func contact(_ name: String = "小美", scene: String = MemoryScope.dating) -> MemoryContact {
+    private func contact(_ name: String = "小美", scene: String = "dating") -> MemoryContact {
         MemoryContact(id: name, name: name, pronoun: .taF, scene: scene, createdAt: 0)
     }
 
