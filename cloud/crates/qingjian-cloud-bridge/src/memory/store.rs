@@ -1,4 +1,4 @@
-//! `memory/` 下的文件：`scenes.json`、`contacts.json`、`state.json`、`dismissed.json`、`<对象 id>/cards.json`（素材 `materials.jsonl` 在 `materials/file.rs`）。
+//! `memory/` 下的文件：`contacts.json`、`state.json`、`dismissed.json`、`<对象 id>/cards.json`（素材 `materials.jsonl` 在 `materials/file.rs`）。
 //! App 与键盘是两个进程，都会读-改-写，所以每个操作都在 `memory/.lock` 的文件锁（flock）里完成，读也在锁里；
 //! 写走 `cloud_config::write_atomic`（同目录临时文件加改名），而且不建父目录：对象目录只在建对象时创建。
 //! 解析不了的文件改名为 `<文件>.broken-<unix 秒>` 再按空处理；读不了的（开机后还没解锁过时的数据保护、权限）不改名，读-改-写直接报错，
@@ -15,14 +15,11 @@ use serde::de::DeserializeOwned;
 
 use super::validate::{check_pinned, validate_cards, validate_contacts};
 use super::{
-    Card, CardsFile, Contact, DEFAULT_SCENE_ID, DEFAULT_SCENE_NAME, DismissedFile, LocalDate,
-    MEMORY_DIR, MemoryError, MemorySnapshot, Scene, now_unix, sanitized_scope, scope_with,
-    validate_scenes,
+    Card, CardsFile, Contact, DismissedFile, LocalDate, MEMORY_DIR, MemoryError, MemorySnapshot,
+    now_unix, sanitized_scope, scope_with,
 };
 use crate::cloud_config::write_atomic;
 use crate::scope::{ContactPick, ScopeState, is_contact_id};
-
-const SCENES_FILE: &str = "scenes.json";
 
 const CONTACTS_FILE: &str = "contacts.json";
 
@@ -87,41 +84,6 @@ impl MemoryStore {
     pub fn try_contacts(&self) -> Result<Vec<Contact>, MemoryError> {
         let _lock = self.lock()?;
         self.read_contacts()
-    }
-
-    /// 用户自建的场景（分组）；读不了时为空（只给显示用）。第一个是默认场景（删场景时人挪到它）。
-    pub fn scenes(&self) -> Vec<Scene> {
-        self.try_scenes().unwrap_or_default()
-    }
-
-    pub fn try_scenes(&self) -> Result<Vec<Scene>, MemoryError> {
-        let _lock = self.lock()?;
-        self.read_scenes()
-    }
-
-    /// 加一个场景或改已有的（同 id 只改名，建的时间不动）。名字重复不拦——两个叫「家人」的分组是用户自己的事；
-    /// 一个都不剩时报错（见 [`validate_scenes`]）。只写 `scenes.json`：不碰卡片，所以也不校验卡片
-    /// （哪张卡不合格都不该挡住改场景名）。
-    pub fn put_scene(&self, scene: Scene) -> Result<(), MemoryError> {
-        let scene = scene.normalized();
-        let _lock = self.lock()?;
-        let mut scenes = self.read_scenes()?;
-        match scenes.iter_mut().find(|s| s.id == scene.id) {
-            Some(existing) => existing.name = scene.name,
-            None => scenes.push(scene),
-        }
-        validate_scenes(&scenes)?;
-        write_json(&self.scenes_path(), &scenes)
-    }
-
-    /// 删一个场景，只写 `scenes.json`（场景自 2026-10-05 起只是分组，名单上的人不再挂在它上面）。
-    /// 只剩一个场景时不让删（[`validate_scenes`] 会拒）。
-    pub fn delete_scene(&self, id: &str) -> Result<(), MemoryError> {
-        let _lock = self.lock()?;
-        let mut scenes = self.read_scenes()?;
-        scenes.retain(|scene| scene.id != id);
-        validate_scenes(&scenes)?;
-        write_json(&self.scenes_path(), &scenes)
     }
 
     /// 一个人的卡片；读不了时为空（只给显示用）。
@@ -193,13 +155,8 @@ impl MemoryStore {
     }
 
     /// 键盘切当前对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象；对象不在磁盘名单上就当不指定；
-    /// 切到了某人时把 `now` 记进 `used`。（`_scene` 是上一版留下的场景参数，这一版已经不看它。）
-    pub fn update_scope(
-        &self,
-        _scene: &str,
-        pick: &ContactPick,
-        now: i64,
-    ) -> Result<ScopeState, MemoryError> {
+    /// 切到了某人时把 `now` 记进 `used`。
+    pub fn update_contact(&self, pick: &ContactPick, now: i64) -> Result<ScopeState, MemoryError> {
         let _lock = self.lock()?;
         let contacts = self.read_contacts()?;
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
@@ -216,7 +173,6 @@ impl MemoryStore {
         let _lock = self.lock()?;
         let contacts = self.read_contacts()?;
         let mut snapshot = MemorySnapshot {
-            scenes: self.read_scenes()?,
             state: read_json(&self.state_path())?.0,
             ..MemorySnapshot::default()
         };
@@ -232,16 +188,9 @@ impl MemoryStore {
         Ok(snapshot)
     }
 
-    /// App 整份写回。先校验（场景合法、人都在名单上的场景里、置顶不超过上限）；锁里逐个比修订号，磁盘上比快照新（键盘这期间改过）就整份不写、返回 [`MemoryError::Conflict`]；
+    /// App 整份写回。先校验（名单合法、置顶不超过上限、卡片合格）；锁里逐个比修订号，磁盘上比快照新（键盘这期间改过）就整份不写、返回 [`MemoryError::Conflict`]；
     /// 名单上没了的人连目录一起删；只重写卡片有变化的对象（修订号加一）；`state` 不采纳，当前对象被删了就置空。
     pub fn write_snapshot(&self, snapshot: &MemorySnapshot) -> Result<(), MemoryError> {
-        let scenes: Vec<Scene> = snapshot
-            .scenes
-            .iter()
-            .cloned()
-            .map(Scene::normalized)
-            .collect();
-        validate_scenes(&scenes)?;
         let contacts: Vec<Contact> = snapshot
             .contacts
             .iter()
@@ -280,10 +229,6 @@ impl MemoryStore {
         }
         for (id, rev, cards) in changed {
             self.write_cards(id, rev, cards)?;
-        }
-        // 场景没变就不写：App 每次写回都带一份，白写一遍就多占一次锁（键盘只等 200 毫秒）
-        if scenes != self.read_scenes()? {
-            write_json(&self.scenes_path(), &scenes)?;
         }
         write_json(&self.contacts_path(), &contacts)?;
         self.fix_state(&contacts)
@@ -356,12 +301,7 @@ impl MemoryStore {
         let started = Instant::now();
         loop {
             match file.try_lock() {
-                Ok(()) => {
-                    // 拿锁之后、交给调用方之前：老数据还没有 scenes.json 就在这里并一次（幂等，只有第一次真写）。
-                    // 每个读写入口都走 lock()，所以谁也看不到没并过的数据。
-                    self.migrate_if_needed()?;
-                    return Ok(file);
-                }
+                Ok(()) => return Ok(file),
                 Err(TryLockError::WouldBlock) if started.elapsed() < self.lock_timeout => {
                     std::thread::sleep(LOCK_RETRY);
                 }
@@ -371,44 +311,6 @@ impl MemoryStore {
                 Err(TryLockError::Error(error)) => return Err(error.into()),
             }
         }
-    }
-
-    /// 老数据（那时场景是写死的恋爱/日常/工作三个）并成一个「日常」，只做一次：`scenes.json` 在就不再走。
-    /// 各场景单独学过的那层词（`memory/scene-*/`）改名留着、不当场删。
-    /// **`scenes.json` 最后一个写**，所以它存在就说明上一次迁移跑完了；写到一半断了下次重跑整段（幂等）。
-    /// 由 [`Self::lock`] 在拿锁之后调，不能再回头拿锁。
-    fn migrate_if_needed(&self) -> Result<(), MemoryError> {
-        if !self.read_scenes()?.is_empty() {
-            return Ok(());
-        }
-        self.park_legacy_scene_dirs()?;
-        write_json(
-            &self.scenes_path(),
-            &[Scene::new(
-                DEFAULT_SCENE_ID.to_owned(),
-                DEFAULT_SCENE_NAME.to_owned(),
-                now_unix(),
-            )],
-        )
-    }
-
-    /// `memory/scene-<场景>/` 是老的分区学习目录，改名成 `scene-<场景>.migrated-<日期>` 留着：
-    /// 里面的词已经不再生效，但用户想找回时文件还在。[`Self::sweep_migrated_dirs`] 过 30 天再清。
-    fn park_legacy_scene_dirs(&self) -> Result<(), MemoryError> {
-        let today = LocalDate::today().to_string();
-        for entry in self.memory_entries()? {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if name.starts_with("scene-") && !name.contains(".migrated-") {
-                let parked = entry
-                    .path()
-                    .with_file_name(format!("{name}.migrated-{today}"));
-                if let Err(error) = std::fs::rename(entry.path(), &parked) {
-                    tracing::warn!(%error, "老的场景学习目录没改成保留名，先留着");
-                }
-            }
-        }
-        Ok(())
     }
 
     /// 删掉改名满 [`MIGRATED_KEEP_DAYS`] 天的老场景学习目录（键盘每次起来调一次，不在拿锁的路径上）。
@@ -458,10 +360,6 @@ impl MemoryStore {
         read_json(&self.contacts_path()).map(|(contacts, _)| contacts)
     }
 
-    fn read_scenes(&self) -> Result<Vec<Scene>, MemoryError> {
-        read_json(&self.scenes_path()).map(|(scenes, _)| scenes)
-    }
-
     fn read_cards(&self, contact_id: &str) -> Result<(CardsFile, bool), MemoryError> {
         read_with(&self.cards_path(contact_id), parse_cards)
     }
@@ -472,10 +370,6 @@ impl MemoryStore {
             cards: cards.to_vec(),
         };
         write_json(&self.cards_path(contact_id), &file)
-    }
-
-    fn scenes_path(&self) -> PathBuf {
-        self.root.join(SCENES_FILE)
     }
 
     fn contacts_path(&self) -> PathBuf {

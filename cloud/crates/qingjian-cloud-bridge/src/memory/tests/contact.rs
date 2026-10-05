@@ -1,7 +1,7 @@
 //! `Contact` 与 `ScopeState` 去场景之后的形状：老文件里的 `scene` / `last` 读得进、写出去就没有了。
 
 use super::{id, temp_dir};
-use crate::memory::{Contact, MemoryStore};
+use crate::memory::{Contact, MAX_PINNED, MemoryError, MemoryStore};
 use crate::scope::ScopeState;
 
 #[test]
@@ -48,6 +48,43 @@ fn an_old_state_with_scene_and_last_reads_without_them() {
         state.contact_id,
         Some(id(1)),
         "多出来的 scene / last 忽略，contact_id 留着"
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn pinning_is_counted_globally() {
+    let user = temp_dir("pin-global");
+    let store = MemoryStore::open(&user);
+    for n in 0..MAX_PINNED as u32 {
+        let mut who = super::contact(n);
+        who.pinned_at = Some(i64::from(n));
+        store.put_contact(who).unwrap();
+    }
+    let mut fifth = super::contact(9);
+    fifth.pinned_at = Some(9);
+    assert!(matches!(
+        store.put_contact(fifth),
+        Err(MemoryError::PinLimit)
+    ));
+    let mut sixth = super::contact(8);
+    sixth.pinned_at = Some(8);
+    assert_eq!(
+        store.put_contact(sixth).unwrap_err().message(),
+        "最多置顶 4 个人"
+    );
+    std::fs::remove_dir_all(&user).ok();
+}
+
+#[test]
+fn the_snapshot_has_no_scenes() {
+    let user = temp_dir("snapshot-no-scenes");
+    let store = MemoryStore::open(&user);
+    store.put_contact(super::contact(1)).unwrap();
+    let json = serde_json::to_string(&store.snapshot().unwrap()).unwrap();
+    assert!(
+        !json.contains("scenes"),
+        "整份读写的 JSON 里不该再有 scenes：{json}"
     );
     std::fs::remove_dir_all(&user).ok();
 }

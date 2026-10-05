@@ -6,8 +6,8 @@ use super::{MAX_PINNED, MAX_UNPROCESSED_MATERIALS};
 
 #[derive(Debug, Error)]
 pub enum MemoryError {
-    /// 一个场景里置顶的超过 [`MAX_PINNED`] 个。
-    #[error("too many pinned contacts in one scene")]
+    /// 全局置顶的超过 [`MAX_PINNED`] 个。
+    #[error("too many pinned contacts")]
     PinLimit,
 
     /// 数据不合格；里面是给用户看的原因。
@@ -57,7 +57,7 @@ impl MemoryError {
 
     pub fn message(&self) -> String {
         match self {
-            Self::PinLimit => format!("一个场景最多置顶 {MAX_PINNED} 个人"),
+            Self::PinLimit => format!("最多置顶 {MAX_PINNED} 个人"),
             Self::Invalid(reason) => (*reason).to_owned(),
             Self::InvalidCard {
                 contact,

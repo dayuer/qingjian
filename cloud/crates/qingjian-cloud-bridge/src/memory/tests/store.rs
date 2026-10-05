@@ -3,14 +3,14 @@
 
 use qingjian_cloud_proto::CardKind;
 
-use super::{card, contact, id, open_with_scenes, pick, temp_dir};
-use crate::memory::{MemoryError, MemorySnapshot};
-use crate::scope::ScopeState;
+use super::{card, contact, id, pick, temp_dir};
+use crate::memory::{MemoryError, MemorySnapshot, MemoryStore};
+use crate::scope::{ContactPick, ScopeState};
 
 #[test]
 fn round_trips_contacts_cards_and_state() {
     let user = temp_dir("round-trip");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     assert!(store.contacts().is_empty());
     assert_eq!(store.state(), ScopeState::default());
 
@@ -33,12 +33,12 @@ fn round_trips_contacts_cards_and_state() {
     assert_eq!(store.cards(&id(1)), cards);
     assert!(store.cards("../x").is_empty());
 
-    let state = store.update_scope("dating", &pick(1), 0).unwrap();
+    let state = store.update_contact(&pick(1), 0).unwrap();
     assert_eq!(state.contact_id, Some(id(1)));
     assert_eq!(store.state(), state);
-    let state = store.update_scope("work", &pick(1), 0).unwrap();
-    assert_eq!(state.contact_id, Some(id(1)), "选谁不再分场景");
-    let state = store.update_scope("dating", &pick(9), 0).unwrap();
+    let state = store.update_contact(&ContactPick::Keep, 0).unwrap();
+    assert_eq!(state.contact_id, Some(id(1)), "保持现在选的人");
+    let state = store.update_contact(&pick(9), 0).unwrap();
     assert_eq!(state.contact_id, None, "名单上没有的对象当不指定");
     std::fs::remove_dir_all(&user).ok();
 }
@@ -46,7 +46,7 @@ fn round_trips_contacts_cards_and_state() {
 #[test]
 fn a_contact_may_be_added_again_without_counting_twice() {
     let user = temp_dir("limit");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     for n in 0..8 {
         store.put_contact(contact(n)).unwrap();
     }
@@ -59,7 +59,7 @@ fn a_contact_may_be_added_again_without_counting_twice() {
 #[test]
 fn forget_contact_removes_the_directory() {
     let user = temp_dir("forget");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
@@ -79,7 +79,7 @@ fn forget_contact_removes_the_directory() {
 #[test]
 fn broken_files_are_renamed_and_read_as_empty() {
     let user = temp_dir("broken");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     let memory = user.join("memory");
     std::fs::create_dir_all(&memory).unwrap();
     std::fs::write(memory.join("contacts.json"), "{not json").unwrap();
@@ -106,7 +106,7 @@ fn broken_files_are_renamed_and_read_as_empty() {
 #[test]
 fn concurrent_writes_leave_a_parseable_file() {
     let user = temp_dir("concurrent");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     let threads: Vec<_> = (0..2u32)
         .map(|t| {
@@ -148,13 +148,13 @@ fn concurrent_writes_leave_a_parseable_file() {
 #[test]
 fn snapshot_write_keeps_the_keyboard_state() {
     let user = temp_dir("snapshot");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     store.put_contact(contact(2)).unwrap();
     store
         .put_cards(&id(2), &[card(2, CardKind::Other, "x", &[], None, 1)])
         .unwrap();
-    store.update_scope("dating", &pick(2), 0).unwrap();
+    store.update_contact(&pick(2), 0).unwrap();
 
     let mut snapshot = store.snapshot().unwrap();
     snapshot.contacts.retain(|c| c.id == id(1));
@@ -180,7 +180,7 @@ fn snapshot_write_keeps_the_keyboard_state() {
 #[test]
 fn snapshot_write_only_rewrites_changed_contacts() {
     let user = temp_dir("changed");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     store.put_contact(contact(2)).unwrap();
     store
@@ -201,7 +201,7 @@ fn snapshot_write_only_rewrites_changed_contacts() {
 #[test]
 fn legacy_card_arrays_read_as_revision_zero() {
     let user = temp_dir("legacy");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     let legacy = vec![card(1, CardKind::Other, "旧格式", &[], None, 1)];
     std::fs::write(
@@ -218,9 +218,8 @@ fn legacy_card_arrays_read_as_revision_zero() {
 #[test]
 fn snapshot_write_validates() {
     let user = temp_dir("validate");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     let ok = MemorySnapshot {
-        scenes: store.scenes(),
         contacts: vec![contact(1)],
         ..MemorySnapshot::default()
     };
@@ -261,7 +260,7 @@ fn snapshot_write_validates() {
 fn errors_have_codes_for_swift() {
     let json: serde_json::Value = serde_json::from_str(&MemoryError::PinLimit.to_json()).unwrap();
     assert_eq!(json["code"], "pin_limit");
-    assert_eq!(json["message"], "一个场景最多置顶 4 个人");
+    assert_eq!(json["message"], "最多置顶 4 个人");
     assert_eq!(MemoryError::Invalid("x").code(), "invalid");
     assert_eq!(MemoryError::Conflict.code(), "conflict");
     assert_eq!(MemoryError::Io(std::io::Error::other("x")).code(), "io");
@@ -271,7 +270,7 @@ fn errors_have_codes_for_swift() {
 #[test]
 fn card_limits_count_characters() {
     let user = temp_dir("limits");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     store.put_contact(contact(1)).unwrap();
     let text_ok = |text: &str| {
         store
@@ -312,7 +311,10 @@ fn card_limits_count_characters() {
     };
     assert!(matches!(
         store.write_snapshot(&too_long),
-        Err(MemoryError::Invalid(_))
+        Err(MemoryError::InvalidCard {
+            reason: "一张卡最多 200 个字",
+            ..
+        })
     ));
     std::fs::remove_dir_all(&user).ok();
 }
