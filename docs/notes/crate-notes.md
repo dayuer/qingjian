@@ -15,6 +15,9 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 解析 Rime `.dict.yaml` 的 `columns`（缺省 text / code / weight）与 `import_tables`（相对主文件目录合表），
 「有词无码」与非法码进统计返回、不静默跳过；一个可用条目都没有时报 `NoCodeEntries`。
 
+`Dictionary::text_frequency` 是「这个词文本在本词库全部读音下的词频之和」，第一次用到时懒建一张
+词文本 → 词频和的表（`dictionary/text_totals.rs`）。整句格子按它算读音占比，挡住多音字的冷门读音。
+
 `CodeTable` 是形码码表（五笔），与词库并列的另一类查表：键是编码本身（`ggll`），不是拼音音节序列，
 格式 `词\t编码\t词频`（`assets/wubi/wubi86.tsv`，8.9 万条），按 `(编码, 词频降序)` 排好、`lookup` 二分定位前缀区间。
 编码打全的词（`exact`）排在同前缀的更长编码词前面，这就是一级 / 二级简码的取法，不需要另做简码表。
@@ -151,6 +154,15 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 `GENERATE_BEAM` = 5、`GENERATE_MAX_CHARS` = 32、`GENERATED_CANDIDATES` = 2、`MIN_GENERATED_LETTERS` = 6；双拼 / 注音不走（按键不是模型见过的字母）。
 生成的候选没有音节对齐，上屏吃掉整段作用域、不记学习。漏的是「英文词本身就是合法拼音」那种（`zhegeapihenhaoyong` 的 `api` 读成 `a pi`），
 光看切分分不出来。
+
+整句格子的候选分两段（2026-10-05）：首段 `SPAN_CANDIDATES` = 6 个按词频无条件进词图，
+往后再查到 `SPAN_POOL` = 16 个当候补，候补要同时满足两条才进——读音占比 ≥ `MIN_READING_SHARE` = 0.5
+（该读音的词频 ÷ `Dictionary::text_frequency`，挡住 和/huo、没/mo 这类借常用读音的文本概率混进来的冷门读音），
+且在某个前驱后面的静态 log 概率严格高于首段里最好的词（`viterbi/admission.rs`，只看静态模型，
+个人常用的词已经靠用户次数进了首段）。改前 `jishimu` 首选 即使木、`jishimude` 即使穆德 / 即使姆的，
+改后是 几十亩 / 几十亩地，`jishige` 几十个 与常见多音字（或者 / 模式 / 合适 / 没有）都不变；
+800 个三音节以上常用词扫查零差异。逐键平均 0.73 → 0.94 ms，最慢一键 4.9 ms。
+设计见 `docs/superpowers/specs/2026-10-05-sentence-context-admission-design.md`。
 
 整句候选不止一条：`SENTENCE_CANDIDATES` = 3 条，重排后的前几条路径都进候选表，四个音节
 （`ALTERNATE_MIN_SYLLABLES`）以下不给备选（那几格留给词级候选）。冻结集上前三 42.4% → 45.5%，无模型时 38.1% → 43.2%。
