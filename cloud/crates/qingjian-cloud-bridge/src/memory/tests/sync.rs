@@ -36,7 +36,7 @@ fn edit_first_card(snapshot: &mut MemorySnapshot, text: &str) {
 fn stale_snapshot_conflicts_and_merges() {
     let user = temp_dir("conflict");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "原来的", &[], None, 1)])
         .unwrap();
@@ -63,9 +63,7 @@ fn stale_snapshot_conflicts_and_merges() {
 #[test]
 fn two_processes_lose_no_notes() {
     let user = temp_dir("two-processes");
-    open_with_scenes(&user)
-        .put_contact(contact(1, "dating"))
-        .unwrap();
+    open_with_scenes(&user).put_contact(contact(1)).unwrap();
     MemoryStore::open(&user)
         .put_cards(&id(1), &[card(1, CardKind::Other, "第一张", &[], None, 1)])
         .unwrap();
@@ -107,7 +105,7 @@ fn two_processes_lose_no_notes() {
 fn unreadable_files_abort_writes() {
     let user = temp_dir("unreadable");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "真文件", &[], None, 1)])
         .unwrap();
@@ -135,7 +133,7 @@ fn unreadable_files_abort_writes() {
     let contacts = memory.join("contacts.json");
     deny(&contacts, 0o000);
     assert!(matches!(
-        store.put_contact(contact(2, "dating")),
+        store.put_contact(contact(2)),
         Err(MemoryError::Io(_))
     ));
     assert!(matches!(
@@ -152,7 +150,7 @@ fn unreadable_files_abort_writes() {
 fn forgotten_contact_is_not_recreated() {
     let user = temp_dir("forgotten");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
         .unwrap();
@@ -192,7 +190,7 @@ fn keyboard_lock_wait_times_out_quickly() {
     let user = temp_dir("lock-timeout");
     let keyboard = MemoryStore::open_with_lock_timeout(&user, Duration::from_millis(200));
     memory_scenes(&keyboard);
-    keyboard.put_contact(contact(1, "dating")).unwrap();
+    keyboard.put_contact(contact(1)).unwrap();
 
     let lock_path = user.join("memory").join(".lock");
     let (held_tx, held_rx) = mpsc::channel();
@@ -242,7 +240,7 @@ fn forced_interleaving(
 ) -> (Result<(), MemoryError>, usize, Vec<crate::memory::Card>) {
     let user = temp_dir(name);
     let setup = open_with_scenes(&user);
-    setup.put_contact(contact(1, "dating")).unwrap();
+    setup.put_contact(contact(1)).unwrap();
     setup
         .put_cards(
             &id(1),

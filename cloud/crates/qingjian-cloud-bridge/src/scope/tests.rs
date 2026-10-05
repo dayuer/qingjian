@@ -204,30 +204,22 @@ fn bad_contact_ids_are_ignored() {
 fn scope_state_defaults() {
     let state: ScopeState =
         serde_json::from_str(r#"{"scene":"dating","contact_id":null,"hints":false}"#).unwrap();
-    assert_eq!(state.scene, "dating", "旧文件里多出的开关字段忽略");
-    assert_eq!(state.contact_id, None);
-    assert!(state.last.is_empty(), "旧文件没有 last");
-    assert_eq!(ScopeState::default().scene, "daily");
+    assert_eq!(state.contact_id, None, "旧文件里多出的场景字段忽略");
+    assert!(state.used.is_empty(), "旧文件没有 used");
 
     let state = ScopeState {
-        scene: "daily".to_owned(),
         contact_id: Some(A.to_owned()),
-        last: [
-            ("daily".to_owned(), A.to_owned()),
-            ("dating".to_owned(), B.to_owned()),
-        ]
-        .into(),
         used: [(A.to_owned(), 1_791_043_200)].into(),
     };
     let json = serde_json::to_value(&state).unwrap();
-    assert_eq!(json["last"]["dating"], B, "last 按场景 id 存");
+    assert!(json.get("scene").is_none(), "不再写场景：{json}");
     assert_eq!(json["used"][A], 1_791_043_200);
     assert_eq!(serde_json::from_value::<ScopeState>(json).unwrap(), state);
 }
 
 #[test]
 fn contact_pick_follows_the_c_convention() {
-    assert_eq!(ContactPick::from_arg(None), ContactPick::Last);
+    assert_eq!(ContactPick::from_arg(None), ContactPick::Keep);
     assert_eq!(ContactPick::from_arg(Some("")), ContactPick::Nobody);
     assert_eq!(
         ContactPick::from_arg(Some(A)),

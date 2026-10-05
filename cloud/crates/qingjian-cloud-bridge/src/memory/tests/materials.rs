@@ -72,7 +72,7 @@ fn wechat_multi_copy_keeps_names_and_times() {
 fn notes_go_to_materials_not_cards() {
     let user = temp_dir("materials-add");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let added = store
         .add_material(&id(1), "  周末一起看电影 ", MaterialSource::Clipboard, 100)
         .unwrap();
@@ -107,7 +107,7 @@ fn notes_go_to_materials_not_cards() {
 fn notes_need_a_contact_on_the_list_and_some_text() {
     let user = temp_dir("materials-reject");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "daily")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     assert!(matches!(
         store.add_material(&id(2), "x", MaterialSource::Typed, 1),
         Err(MemoryError::Invalid(_))
@@ -128,7 +128,7 @@ fn notes_need_a_contact_on_the_list_and_some_text() {
 fn old_contact_dir_without_a_file_reads_empty() {
     let user = temp_dir("materials-empty");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     assert!(store.materials(&id(1), 1).unwrap().is_empty());
     assert!(
         store.materials(&id(9), 1).unwrap().is_empty(),
@@ -142,7 +142,7 @@ fn old_contact_dir_without_a_file_reads_empty() {
 fn unprocessed_limit_rejects_without_dropping() {
     let user = temp_dir("materials-limit");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     for n in 0..MAX_UNPROCESSED_MATERIALS - 1 {
         store
             .add_material(&id(1), &format!("第 {n} 条"), MaterialSource::Typed, 1)
@@ -201,7 +201,7 @@ fn unprocessed_limit_rejects_without_dropping() {
 fn processed_materials_are_pruned_after_thirty_days() {
     let user = temp_dir("materials-prune");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let a = store
         .add_material(&id(1), "早整理的", MaterialSource::Typed, 0)
         .unwrap()
@@ -257,7 +257,7 @@ fn processed_materials_are_pruned_after_thirty_days() {
 fn delete_one_material() {
     let user = temp_dir("materials-delete");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let a = store
         .add_material(&id(1), "删掉的", MaterialSource::Typed, 1)
         .unwrap()
@@ -281,7 +281,7 @@ fn delete_one_material() {
 fn forgetting_a_contact_deletes_its_materials() {
     let user = temp_dir("materials-forget");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .add_material(&id(1), "喜欢猫", MaterialSource::Typed, 1)
         .unwrap();
@@ -305,7 +305,7 @@ fn forgetting_a_contact_deletes_its_materials() {
 fn a_corrupt_file_is_quarantined() {
     let user = temp_dir("materials-corrupt");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let dir = user.join("memory").join(id(1));
     std::fs::write(dir.join("materials.jsonl"), "{坏了\n").unwrap();
     assert!(store.materials(&id(1), 1).unwrap().is_empty());
@@ -326,7 +326,7 @@ fn a_corrupt_file_is_quarantined() {
 
 #[test]
 fn contact_names_are_masked_longest_first() {
-    let mut person = contact(1, "dating");
+    let mut person = contact(1);
     person.name = "王小美".to_owned();
     person.display_name = Some("小美".to_owned());
     let text = "王小美\n2026年10月05日 09:34\n小美说周末去看海，阿杰也去";
@@ -398,7 +398,7 @@ fn unassigned_bucket_starts_empty() {
 fn unassigned_note_stores_and_assigns() {
     let user = temp_dir("unassigned-assign");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
 
     let added = store
         .add_unassigned_material("周五晚上订了两个人的位子", MaterialSource::Typed, 100)
@@ -425,7 +425,7 @@ fn unassigned_note_stores_and_assigns() {
 fn assign_requires_a_known_contact_and_a_stored_material() {
     let user = temp_dir("unassigned-errors");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let added = store
         .add_unassigned_material("一句原话", MaterialSource::Typed, 100)
         .unwrap();
@@ -451,7 +451,7 @@ fn assign_requires_a_known_contact_and_a_stored_material() {
 fn unassigned_survives_a_snapshot_write() {
     let user = temp_dir("unassigned-snapshot");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .add_unassigned_material("别被写快照冲掉", MaterialSource::Typed, 100)
         .unwrap();
@@ -500,7 +500,7 @@ fn set_writable(path: &std::path::Path, writable: bool) {
 fn assign_never_loses_a_material_when_a_write_fails() {
     let user = temp_dir("unassigned-write-fails");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let added = store
         .add_unassigned_material("周六下午三点在老地方见", MaterialSource::Typed, 100)
         .unwrap();
@@ -538,7 +538,7 @@ fn assign_never_loses_a_material_when_a_write_fails() {
 fn assign_respects_the_unprocessed_limit() {
     let user = temp_dir("assign-over-limit");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     for n in 0..MAX_UNPROCESSED_MATERIALS {
         store
             .add_material(&id(1), &format!("第 {n} 条"), MaterialSource::Typed, 1)

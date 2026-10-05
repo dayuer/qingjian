@@ -1,12 +1,12 @@
 //! 本地记忆的单元测试，按主题分文件；这里放共用的临时目录与样例对象、卡片。
 
 mod bad_card;
+mod contact;
 mod date;
 mod display_name;
 mod hint;
 mod initial;
 mod materials;
-mod scene;
 mod store;
 mod sync;
 
@@ -53,14 +53,13 @@ fn memory_scenes(store: &MemoryStore) {
     }
 }
 
-fn contact(n: u32, scene: &str) -> Contact {
+fn contact(n: u32) -> Contact {
     Contact {
         id: id(n),
         name: format!("人{n}"),
         display_name: None,
         initial: None,
         pronoun: Pronoun::Ta,
-        scene: scene.to_owned(),
         pinned_at: None,
         created_at: 1_791_043_200,
         hint_on: true,

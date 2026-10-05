@@ -7,14 +7,13 @@ use qingjian_cloud_proto::CardKind;
 
 use super::{card, contact, id, open_with_scenes, temp_dir};
 use crate::memory::ffi::{qj_memory_delete_scene, qj_memory_put_scene};
-use crate::memory::{DEFAULT_SCENE_ID, MemoryError, MemoryStore, Scene};
-use crate::scope::ContactPick;
+use crate::memory::{MemoryError, MemoryStore, Scene};
 
 /// 人 1 在「work」场景，卡片文件里写一张关键词只有 1 个字的卡（绕过校验直接落盘）。
 fn store_with_bad_card(name: &str) -> (std::path::PathBuf, MemoryStore) {
     let user = temp_dir(name);
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "work")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let bad = card(
         1,
         CardKind::Preference,
@@ -47,11 +46,7 @@ fn scene_edits_succeed_while_a_bad_card_sits_on_disk() {
     assert_eq!(work.created_at, 0, "改名不动建的时间");
 
     store.delete_scene("work").unwrap();
-    assert_eq!(
-        store.contacts()[0].scene,
-        DEFAULT_SCENE_ID,
-        "人挪到默认场景"
-    );
+    assert!(store.scenes().iter().all(|s| s.id != "work"));
     assert_eq!(store.try_cards(&id(1)).unwrap().len(), 1, "坏卡原样留着");
     std::fs::remove_dir_all(&user).ok();
 }
@@ -76,22 +71,6 @@ fn scene_ffi_skips_card_validation() {
         .to_owned();
     unsafe { crate::qj_string_free(refused) };
     assert!(text.contains("\"invalid\""), "{text}");
-    std::fs::remove_dir_all(&user).ok();
-}
-
-#[test]
-fn deleting_the_current_scene_moves_the_keyboard_state() {
-    let (user, store) = store_with_bad_card("bad-card-state");
-    store
-        .update_scope("work", &ContactPick::Contact(id(1)), 5)
-        .unwrap();
-    store.delete_scene("work").unwrap();
-    let state = store.state();
-    assert_eq!(state.scene, DEFAULT_SCENE_ID);
-    assert_eq!(
-        state.contact_id, None,
-        "人换了场景，当前对象按场景对不上处理"
-    );
     std::fs::remove_dir_all(&user).ok();
 }
 

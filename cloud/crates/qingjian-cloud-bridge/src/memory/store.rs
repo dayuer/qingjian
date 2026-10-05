@@ -13,7 +13,7 @@ use std::time::{Duration, Instant, SystemTime};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use super::validate::{adopt_unknown_scenes, check_pinned, validate_cards, validate_contacts};
+use super::validate::{check_pinned, validate_cards, validate_contacts};
 use super::{
     Card, CardsFile, Contact, DEFAULT_SCENE_ID, DEFAULT_SCENE_NAME, DismissedFile, LocalDate,
     MEMORY_DIR, MemoryError, MemorySnapshot, Scene, now_unix, sanitized_scope, scope_with,
@@ -114,29 +114,14 @@ impl MemoryStore {
         write_json(&self.scenes_path(), &scenes)
     }
 
-    /// 删一个场景：里面的人挪到默认场景（列表里剩下的第一个），场景文件与人都一起写回去。
-    /// 只剩一个场景时不让删（[`validate_scenes`] 会拒），否则用户的记忆就没地方归了。
+    /// 删一个场景，只写 `scenes.json`（场景自 2026-10-05 起只是分组，名单上的人不再挂在它上面）。
+    /// 只剩一个场景时不让删（[`validate_scenes`] 会拒）。
     pub fn delete_scene(&self, id: &str) -> Result<(), MemoryError> {
         let _lock = self.lock()?;
         let mut scenes = self.read_scenes()?;
         scenes.retain(|scene| scene.id != id);
         validate_scenes(&scenes)?;
-        let fallback = scenes
-            .first()
-            .map(|scene| scene.id.clone())
-            .unwrap_or_else(|| DEFAULT_SCENE_ID.to_owned());
-        let mut contacts = self.read_contacts()?;
-        for contact in &mut contacts {
-            if contact.scene == id {
-                contact.scene = fallback.clone();
-                // 换了个分组，置顶就不带过去了：目标分组可能已经站满 4 个，静悄悄挤掉别人更糟
-                contact.pinned_at = None;
-            }
-        }
-        check_pinned(&contacts, &scenes)?;
-        write_json(&self.contacts_path(), &contacts)?;
-        write_json(&self.scenes_path(), &scenes)?;
-        self.fix_state(&scenes, &contacts)
+        write_json(&self.scenes_path(), &scenes)
     }
 
     /// 一个人的卡片；读不了时为空（只给显示用）。
@@ -162,22 +147,19 @@ impl MemoryStore {
         Ok(read_json(&self.state_path())?.0)
     }
 
-    /// 加一个对象或改已有的（同 id，可以换场景）。场景认不得时归默认场景，置顶不超过 [`MAX_PINNED`] 个。
+    /// 加一个对象或改已有的（同 id）。置顶全局不超过 [`MAX_PINNED`] 个。
     /// 对象目录在这里建，别处写卡片都不建目录。
     pub fn put_contact(&self, contact: Contact) -> Result<(), MemoryError> {
         let contact = contact.normalized();
         validate_contacts(std::slice::from_ref(&contact))?;
         let _lock = self.lock()?;
-        let scenes = self.read_scenes()?;
-        let mut contact = contact;
-        adopt_unknown_scenes(std::slice::from_mut(&mut contact), &scenes);
         let mut contacts = self.read_contacts()?;
         let id = contact.id.clone();
         match contacts.iter_mut().find(|c| c.id == contact.id) {
             Some(existing) => *existing = contact,
             None => contacts.push(contact),
         }
-        check_pinned(&contacts, &scenes)?;
+        check_pinned(&contacts)?;
         std::fs::create_dir_all(self.root.join(&id))?;
         write_json(&self.contacts_path(), &contacts)
     }
@@ -210,26 +192,18 @@ impl MemoryStore {
         self.write_cards(contact_id, file.rev + 1, cards)
     }
 
-    /// 键盘切场景与对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象（`Last` 回到这个场景上次选的人）；
-    /// 对象不在磁盘名单上或不是这个场景的人就当不指定；切到了某人时把 `now` 记进 `used`。
-    /// `scene` 是场景 id，名册上没有时用默认场景。
+    /// 键盘切当前对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象；对象不在磁盘名单上就当不指定；
+    /// 切到了某人时把 `now` 记进 `used`。（`_scene` 是上一版留下的场景参数，这一版已经不看它。）
     pub fn update_scope(
         &self,
-        scene: &str,
+        _scene: &str,
         pick: &ContactPick,
         now: i64,
     ) -> Result<ScopeState, MemoryError> {
         let _lock = self.lock()?;
-        let scenes = self.read_scenes()?;
-        let scene = match scenes.iter().find(|one| one.id == scene) {
-            Some(one) => one.id.clone(),
-            None => scenes
-                .first()
-                .map_or_else(|| scene.to_owned(), |one| one.id.clone()),
-        };
         let contacts = self.read_contacts()?;
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        let mut state = scope_with(state, &scene, pick, &contacts);
+        let mut state = scope_with(state, pick, &contacts);
         if let Some(id) = state.contact_id.clone() {
             state.used.insert(id, now);
         }
@@ -268,15 +242,14 @@ impl MemoryStore {
             .map(Scene::normalized)
             .collect();
         validate_scenes(&scenes)?;
-        let mut contacts: Vec<Contact> = snapshot
+        let contacts: Vec<Contact> = snapshot
             .contacts
             .iter()
             .cloned()
             .map(Contact::normalized)
             .collect();
         validate_contacts(&contacts)?;
-        adopt_unknown_scenes(&mut contacts, &scenes);
-        check_pinned(&contacts, &scenes)?;
+        check_pinned(&contacts)?;
         for (id, cards) in &snapshot.cards {
             let owner = contacts
                 .iter()
@@ -313,19 +286,13 @@ impl MemoryStore {
             write_json(&self.scenes_path(), &scenes)?;
         }
         write_json(&self.contacts_path(), &contacts)?;
-        self.fix_state(&scenes, &contacts)
+        self.fix_state(&contacts)
     }
 
-    /// 名单或场景变了之后理顺 `state.json`：当前对象不在了就置空，当前场景没了就回默认场景；没变不写。调用方已拿着锁。
-    fn fix_state(&self, scenes: &[Scene], contacts: &[Contact]) -> Result<(), MemoryError> {
+    /// 名单变了之后理顺 `state.json`：当前对象不在了就置空；没变不写。调用方已拿着锁。
+    fn fix_state(&self, contacts: &[Contact]) -> Result<(), MemoryError> {
         let (state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        let mut fixed = sanitized_scope(state.clone(), contacts);
-        if !scenes.iter().any(|scene| scene.id == fixed.scene)
-            && let Some(first) = scenes.first()
-        {
-            fixed.scene.clone_from(&first.id);
-            fixed = sanitized_scope(fixed, contacts);
-        }
+        let fixed = sanitized_scope(state.clone(), contacts);
         if fixed != state {
             write_json(&self.state_path(), &fixed)?;
         }
@@ -407,30 +374,12 @@ impl MemoryStore {
     }
 
     /// 老数据（那时场景是写死的恋爱/日常/工作三个）并成一个「日常」，只做一次：`scenes.json` 在就不再走。
-    /// 三个场景的人全归到 `daily`；各场景单独学过的那层词（`memory/scene-*/`）改名留着、不当场删。
+    /// 各场景单独学过的那层词（`memory/scene-*/`）改名留着、不当场删。
     /// **`scenes.json` 最后一个写**，所以它存在就说明上一次迁移跑完了；写到一半断了下次重跑整段（幂等）。
     /// 由 [`Self::lock`] 在拿锁之后调，不能再回头拿锁。
     fn migrate_if_needed(&self) -> Result<(), MemoryError> {
         if !self.read_scenes()?.is_empty() {
             return Ok(());
-        }
-        let mut contacts = self.read_contacts()?;
-        if contacts
-            .iter()
-            .any(|contact| contact.scene != DEFAULT_SCENE_ID)
-        {
-            for contact in &mut contacts {
-                contact.scene = DEFAULT_SCENE_ID.to_owned();
-            }
-            write_json(&self.contacts_path(), &contacts)?;
-        }
-        let (mut state, _): (ScopeState, bool) = read_json(&self.state_path())?;
-        if state.scene != DEFAULT_SCENE_ID
-            || state.last.keys().any(|scene| scene != DEFAULT_SCENE_ID)
-        {
-            state.scene = DEFAULT_SCENE_ID.to_owned();
-            state.last.retain(|scene, _| scene == DEFAULT_SCENE_ID);
-            write_json(&self.state_path(), &state)?;
         }
         self.park_legacy_scene_dirs()?;
         write_json(

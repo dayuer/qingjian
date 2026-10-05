@@ -33,7 +33,7 @@ pub unsafe extern "C" fn qj_scope_set(
     with(session, (), |s| s.set_scope(scene, &pick));
 }
 
-/// `{"scene":"dating","contact_id":"…"|null,"last":{"daily":"…",…},"used":{"<id>":秒,…}}`；没有记忆的会话返回空指针。
+/// `{"contact_id":"…"|null,"used":{"<id>":秒,…}}`；没有记忆的会话返回空指针。
 ///
 /// # Safety
 /// 同 [`qj_scope_set`]。
@@ -42,9 +42,7 @@ pub unsafe extern "C" fn qj_scope_get(session: *mut Session) -> *mut c_char {
     with(session, ptr::null_mut(), |s| {
         s.scope().map_or(ptr::null_mut(), |state| {
             let json = serde_json::json!({
-                "scene": state.scene,
                 "contact_id": state.contact_id,
-                "last": state.last,
                 "used": state.used,
             });
             owned(&json.to_string())
@@ -330,9 +328,7 @@ pub unsafe extern "C" fn qj_memory_add_contact(
         .filter(|scene| is_scene_id(scene))
         .map(str::to_owned);
     let added = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
-        let scene = scene
-            .clone()
-            .unwrap_or_else(|| s.scope().map_or(DEFAULT_SCENE_ID.to_owned(), |s| s.scene));
+        let scene = scene.clone().unwrap_or_else(|| DEFAULT_SCENE_ID.to_owned());
         s.memory_add_contact(&name, pronoun, &scene)
     });
     match added {

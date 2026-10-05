@@ -14,9 +14,9 @@ fn round_trips_contacts_cards_and_state() {
     assert!(store.contacts().is_empty());
     assert_eq!(store.state(), ScopeState::default());
 
-    store.put_contact(contact(1, "dating")).unwrap();
-    assert_eq!(store.contacts(), vec![contact(1, "dating")]);
-    let mut renamed = contact(1, "dating");
+    store.put_contact(contact(1)).unwrap();
+    assert_eq!(store.contacts(), vec![contact(1)]);
+    let mut renamed = contact(1);
     renamed.name = "小美".to_owned();
     store.put_contact(renamed.clone()).unwrap();
     assert_eq!(store.contacts(), vec![renamed], "同 id 是改，不是加");
@@ -37,7 +37,7 @@ fn round_trips_contacts_cards_and_state() {
     assert_eq!(state.contact_id, Some(id(1)));
     assert_eq!(store.state(), state);
     let state = store.update_scope("work", &pick(1), 0).unwrap();
-    assert_eq!(state.contact_id, None, "不是这个场景的人当不指定");
+    assert_eq!(state.contact_id, Some(id(1)), "选谁不再分场景");
     let state = store.update_scope("dating", &pick(9), 0).unwrap();
     assert_eq!(state.contact_id, None, "名单上没有的对象当不指定");
     std::fs::remove_dir_all(&user).ok();
@@ -48,10 +48,10 @@ fn a_contact_may_be_added_again_without_counting_twice() {
     let user = temp_dir("limit");
     let store = open_with_scenes(&user);
     for n in 0..8 {
-        store.put_contact(contact(n, "dating")).unwrap();
+        store.put_contact(contact(n)).unwrap();
     }
-    store.put_contact(contact(9, "daily")).unwrap();
-    store.put_contact(contact(0, "dating")).unwrap();
+    store.put_contact(contact(9)).unwrap();
+    store.put_contact(contact(0)).unwrap();
     assert_eq!(store.contacts().len(), 9, "改已有的不算新增");
     std::fs::remove_dir_all(&user).ok();
 }
@@ -60,7 +60,7 @@ fn a_contact_may_be_added_again_without_counting_twice() {
 fn forget_contact_removes_the_directory() {
     let user = temp_dir("forget");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
         .unwrap();
@@ -94,7 +94,7 @@ fn broken_files_are_renamed_and_read_as_empty() {
     );
     assert!(!memory.join("contacts.json").exists());
 
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     std::fs::create_dir_all(memory.join(id(1))).unwrap();
     std::fs::write(memory.join(id(1)).join("cards.json"), "[{").unwrap();
     let snapshot = store.snapshot().unwrap();
@@ -107,7 +107,7 @@ fn broken_files_are_renamed_and_read_as_empty() {
 fn concurrent_writes_leave_a_parseable_file() {
     let user = temp_dir("concurrent");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let threads: Vec<_> = (0..2u32)
         .map(|t| {
             let store = store.clone();
@@ -146,11 +146,11 @@ fn concurrent_writes_leave_a_parseable_file() {
 }
 
 #[test]
-fn snapshot_write_replaces_all_but_the_current_scene() {
+fn snapshot_write_keeps_the_keyboard_state() {
     let user = temp_dir("snapshot");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
-    store.put_contact(contact(2, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
+    store.put_contact(contact(2)).unwrap();
     store
         .put_cards(&id(2), &[card(2, CardKind::Other, "x", &[], None, 1)])
         .unwrap();
@@ -163,20 +163,16 @@ fn snapshot_write_replaces_all_but_the_current_scene() {
         id(1),
         vec![card(5, CardKind::Preference, "喜欢草莓", &[], None, 2)],
     );
-    snapshot.state = ScopeState {
-        scene: "work".to_owned(),
-        ..ScopeState::default()
-    };
+    snapshot.state = ScopeState::default();
     store.write_snapshot(&snapshot).unwrap();
 
-    assert_eq!(store.contacts(), vec![contact(1, "dating")]);
+    assert_eq!(store.contacts(), vec![contact(1)]);
     assert!(
         !user.join("memory").join(id(2)).exists(),
         "名单上没了的人连目录一起删"
     );
     assert_eq!(store.cards(&id(1)).len(), 1);
     let state = store.state();
-    assert_eq!(state.scene, "dating", "场景以键盘写的为准");
     assert_eq!(state.contact_id, None, "当前对象被删就退回不指定");
     std::fs::remove_dir_all(&user).ok();
 }
@@ -185,8 +181,8 @@ fn snapshot_write_replaces_all_but_the_current_scene() {
 fn snapshot_write_only_rewrites_changed_contacts() {
     let user = temp_dir("changed");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
-    store.put_contact(contact(2, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
+    store.put_contact(contact(2)).unwrap();
     store
         .put_cards(&id(1), &[card(1, CardKind::Other, "a", &[], None, 1)])
         .unwrap();
@@ -206,7 +202,7 @@ fn snapshot_write_only_rewrites_changed_contacts() {
 fn legacy_card_arrays_read_as_revision_zero() {
     let user = temp_dir("legacy");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let legacy = vec![card(1, CardKind::Other, "旧格式", &[], None, 1)];
     std::fs::write(
         user.join("memory").join(id(1)).join("cards.json"),
@@ -225,7 +221,7 @@ fn snapshot_write_validates() {
     let store = open_with_scenes(&user);
     let ok = MemorySnapshot {
         scenes: store.scenes(),
-        contacts: vec![contact(1, "dating")],
+        contacts: vec![contact(1)],
         ..MemorySnapshot::default()
     };
 
@@ -276,7 +272,7 @@ fn errors_have_codes_for_swift() {
 fn card_limits_count_characters() {
     let user = temp_dir("limits");
     let store = open_with_scenes(&user);
-    store.put_contact(contact(1, "dating")).unwrap();
+    store.put_contact(contact(1)).unwrap();
     let text_ok = |text: &str| {
         store
             .put_cards(&id(1), &[card(1, CardKind::Other, text, &[], None, 1)])
@@ -305,7 +301,7 @@ fn card_limits_count_characters() {
     assert!(!keywords_ok(&["  "]));
 
     let too_long = MemorySnapshot {
-        contacts: vec![contact(1, "dating")],
+        contacts: vec![contact(1)],
         cards: [(
             id(1),
             vec![card(2, CardKind::Other, &"字".repeat(201), &[], None, 1)],
