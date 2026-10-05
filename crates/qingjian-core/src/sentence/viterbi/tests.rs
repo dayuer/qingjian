@@ -318,3 +318,56 @@ fn typo_alternatives_are_penalized_edges() {
     assert_eq!(conversion.text, "感谢");
     assert_eq!(conversion.penalty, 0.0);
 }
+
+/// `mu` 下有 7 个比 亩 常用的字，亩 落在首段之外；和 有冷门读音 huo。
+const MU: &str = "几\tji\t70000\n即\tji\t30000\n十\tshi\t70000\n使\tshi\t40000\n即使\tji shi\t11000\n\
+    木\tmu\t33000\n姆\tmu\t17000\n母\tmu\t14000\n穆\tmu\t8000\n目\tmu\t8000\n墓\tmu\t5000\n牧\tmu\t3000\n亩\tmu\t1000\n\
+    或\thuo\t100000\n和\the\t900000\n和\thuo\t3000\n火\thuo\t50000\n活\thuo\t40000\n货\thuo\t30000\n获\thuo\t20000\n伙\thuo\t10000\n";
+
+/// 只认 十 → 亩、我 → 和 两个强接续的假模型，其余都兜底。
+struct MuModel;
+
+impl LanguageModel for MuModel {
+    fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
+        match (previous, word) {
+            (None, "几") => Some(-3.0),
+            (Some("几"), "十") => Some(-1.0),
+            (Some("十"), "亩") => Some(-1.0),
+            (None, "我") => Some(-1.0),
+            (Some("我"), "和") => Some(-1.0),
+            _ => None,
+        }
+    }
+}
+
+fn with_mu_model(syllables: &[&str]) -> String {
+    let dictionary = Dictionary::parse(&format!("{MU}我\two\t900000\n")).unwrap();
+    convert(
+        &[&dictionary],
+        &complete(syllables),
+        &MuModel,
+        Personal::NONE,
+        |_| 0,
+        |_, _| 0.0,
+        &mut SpanCache::default(),
+    )
+    .unwrap()
+    .text
+}
+
+#[test]
+fn context_admits_a_rare_single_reading_word() {
+    assert_eq!(with_mu_model(&["ji", "shi", "mu"]), "几十亩");
+}
+
+#[test]
+fn context_does_not_admit_a_rare_reading_of_a_polyphone() {
+    // 和/huo 占 和 全部读音不到 1%：模型给 我 → 和 再高也不能拿来读 huo
+    assert_ne!(with_mu_model(&["wo", "huo"]), "我和");
+}
+
+#[test]
+fn rare_word_without_context_stays_out() {
+    // 句首没有前文抬举，亩 进不了格子
+    assert_ne!(with_mu_model(&["mu"]), "亩");
+}
