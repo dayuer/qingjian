@@ -86,4 +86,23 @@ final class VisualWalkthrough: XCTestCase {
         wait()
         shot(name)
     }
+
+    /// 「记得」的标题、状态行与日历条要钉住不滚（设计稿里它们在滚动区外面）。
+    /// 往上滑一屏，前后各截一张，回来量标题的字顶有没有动。
+    func testRememberHeaderStaysFixed() throws {
+        let app = XCUIApplication()
+        app.launch()
+        wait(3)
+        for label in ["开始", "先跳过", "先用免费版", "取消"] {
+            let button = app.buttons[label]
+            if button.waitForExistence(timeout: 3) { button.tap(); wait(1) }
+        }
+        let remember = app.tabBars.buttons["记得"]
+        if remember.waitForExistence(timeout: 5) { remember.tap() }
+        wait(2)
+        shot("fixed-before")
+        app.swipeUp()
+        wait(2)
+        shot("fixed-after")
+    }
 }
