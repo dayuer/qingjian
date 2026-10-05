@@ -20,6 +20,11 @@ pub struct Contact {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 
+    /// 名字首字的拼音首字母（大写）：通讯录按字母分组与右侧索引用它（设计稿 02 的 2b）。
+    /// 由键盘一侧算好写进来（词库只有它那儿有），App 只读；旧文件没有这个字段时按「#」归。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial: Option<String>,
+
     #[serde(default)]
     pub pronoun: Pronoun,
 

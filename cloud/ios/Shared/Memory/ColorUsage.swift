@@ -88,6 +88,9 @@ enum ColorUsage: CaseIterable {
     /// 首页右上「+ 记一条」的底（灰绿实底，设计稿 2a）。
     case quickNoteButton
 
+    /// 通讯录行尾的事件提示（设计稿 2b：「有事的人在行尾用浅绿字提示」）。
+    case contactEventNote
+
     /// 草稿卡里「拿不准」那项的说明与虚线（设计稿 01 的 1e-2）：一律中性。
     case draftUnsure
 
@@ -105,7 +108,7 @@ enum ColorUsage: CaseIterable {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
              .allMemoryButton, .onboardingCurrentPlan: .accent
         case .appLink: .accent
-        case .milestoneNext, .eventActionTagInk: .accent
+        case .milestoneNext, .eventActionTagInk, .contactEventNote: .accent
         case .onboardingStepNumber: .ink
         case .milestoneEarned, .calendarEventDot: .ink
         case .reminderCard, .chipBackground, .onboardingPlanBadge: .accentSoft
