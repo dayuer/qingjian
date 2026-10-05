@@ -207,6 +207,22 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 | `apps/cli/src/eval/continuation.rs` | 新文件 | `--eval-continuation` |
 | `apps/cli/src/eval/mod.rs`、`args.rs`、`main.rs` | 各加几行 | 挂进去 |
 
+### 按人隔离也包括新造词（素笺，Core 只加缺省为空的挂钩）
+
+审计 2026-10-05：`ScopedLearner` 的 `learn_word` / `learn_english` 一律写全局，在某个人那里造的词在别人那里也出。
+对象层锁在 `Mutex` 里，`Learner::user_words(&self)` 只能返回一份引用，所以 Core 加三个缺省为空的方法，桥里存对象层用户词的快照（`scope/snapshot.rs`）。
+上游已有的 `Learner` 实现（`FrequencyLearner`、`MutedLearner`、`NoLearner`）一行不改：Engine 经 `MutedLearner::inner()` 直接问里面那个学习器，
+`scope_changed` 经 `Engine::learner_mut()`（本来就给的是里面那个）调。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-core/src/engine/learning/learner.rs` | 加 3 个缺省方法 | `scoped_user_words` / `scoped_user_english` 缺省 `None`，`scope_changed` 缺省什么都不做 |
+| `crates/qingjian-core/src/engine/setup.rs` | 加 4 行 | `all_dictionaries` 多推一份 `inner().scoped_user_words()` |
+| `crates/qingjian-core/src/engine/extras.rs` | 改 3 行 | `english_lists` 把 `inner().scoped_user_english()` 放最前 |
+| `crates/qingjian-core/src/engine/query/english_tail.rs` | 加 2 行 | 句尾英文的「个人表里有」也看叠加层那份 |
+
+缺省实现下没有叠加层，`--eval-text`（1878 句）与 `--replay`（2026-10-04 日志）改前改后逐字相同，逐键计时 p99 不变（数字在提交说明里）。
+
 ## 合并上游时
 
 1. 冲突只可能出在上表「加 N 行」的那几个文件，按上游的新写法把挂钩行重新加回去。

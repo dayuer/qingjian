@@ -77,6 +77,7 @@ impl Engine {
             }
         }
         let personal = self.learner.user_english();
+        let scoped = self.learner.inner().scoped_user_english();
         let longest = scope.len() - MIN_ENGLISH_TAIL_HEAD_LETTERS;
         (MIN_ENGLISH_TAIL_LETTERS..=longest).rev().find_map(|len| {
             let head_len = scope.len() - len;
@@ -84,7 +85,8 @@ impl Engine {
             let words = lists.iter().find(|words| words.get(tail).is_some())?;
             let word = words.get(tail)?;
             let acronym = word.bytes().any(|b| b.is_ascii_uppercase());
-            let known = personal.is_some_and(|words| words.get(tail).is_some());
+            let known = personal.is_some_and(|words| words.get(tail).is_some())
+                || scoped.is_some_and(|words| words.get(tail).is_some());
             if len == MIN_ENGLISH_TAIL_LETTERS && !acronym && !known {
                 return None;
             }
