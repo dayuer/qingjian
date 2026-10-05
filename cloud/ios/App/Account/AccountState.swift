@@ -18,5 +18,5 @@ struct AccountState: Codable, Equatable {
     var error: String?
 
     /// `error` 的种类；没有错误时没有。
-    var errorCode: AccountFailure.Code?
+    var errorCode: BridgeFailure.Code?
 }

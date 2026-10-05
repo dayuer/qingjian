@@ -27,7 +27,7 @@ final class AccountStoreTests: XCTestCase {
         let store = AccountStore()
         store.fileProvider = { dir.appendingPathComponent("cloud.toml") }
         let counter = Counter()
-        let work: @Sendable (URL) -> AccountFailure? = { _ in
+        let work: @Sendable (URL) -> BridgeFailure? = { _ in
             counter.bump()
             Thread.sleep(forTimeInterval: 0.2)
             return nil

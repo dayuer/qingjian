@@ -1,8 +1,9 @@
-// 桥的账号操作失败时返回的 JSON：`{"code": "...", "message": "..."}`。message 是给用户看的中文，原样显示；code 给界面分支用。
+// 桥的 `qj_*` 操作用得上的失败 JSON：`{"code": "...", "message": "..."}`。message 是给用户看的中文，原样显示；code 给界面分支用。
+// 账号与空间共用这一份（记忆那套走 `qj_memory_*`，另有自己的形状）。
 
 import Foundation
 
-struct AccountFailure: Equatable {
+struct BridgeFailure: Error, Equatable {
     let code: Code
 
     let message: String
@@ -19,6 +20,8 @@ struct AccountFailure: Equatable {
         case invalidArgument = "invalid_argument"
         case notSignedIn = "not_signed_in"
         case consentRequired = "consent_required"
+        case badCode = "bad_code"
+        case deviceLimit = "device_limit"
         case other
 
         init(from decoder: any Decoder) throws {
@@ -28,7 +31,7 @@ struct AccountFailure: Equatable {
     }
 
     /// nil 表示成功。解析不了（如旧版桥返回的纯文案）时整段当 message、code 为 other。
-    static func decode(_ json: String?) -> AccountFailure? {
+    static func decode(_ json: String?) -> BridgeFailure? {
         guard let json else { return nil }
         struct Wire: Decodable {
             let code: Code
@@ -36,8 +39,8 @@ struct AccountFailure: Equatable {
         }
         if let data = json.data(using: .utf8),
            let wire = try? JSONDecoder().decode(Wire.self, from: data) {
-            return AccountFailure(code: wire.code, message: wire.message)
+            return BridgeFailure(code: wire.code, message: wire.message)
         }
-        return AccountFailure(code: .other, message: json)
+        return BridgeFailure(code: .other, message: json)
     }
 }

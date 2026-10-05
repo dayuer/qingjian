@@ -82,13 +82,14 @@ final class AccountStore {
     }
 
     /// 失败的 code 加登录步骤 → 界面动作；message 总是显示。
-    nonisolated static func reaction(for failure: AccountFailure, step: LoginStep) -> AccountReaction {
+    nonisolated static func reaction(for failure: BridgeFailure, step: LoginStep) -> AccountReaction {
         switch failure.code {
         case .authFailed: step == .code ? .retryCode : .showMessage
         case .lockedToday: .lockEmail
         case .unauthorized: .signOutLocally
+        // 空间那条路的两种说法在 App/Space 里处理（那边自己认 code），账号这页只把原文显示出来
         case .notConfigured, .rateLimited, .forbidden, .unreachable, .invalidArgument, .notSignedIn,
-             .consentRequired, .other:
+             .consentRequired, .badCode, .deviceLimit, .other:
             .showMessage
         }
     }
@@ -197,7 +198,7 @@ final class AccountStore {
     /// 在后台跑一次桥的操作；失败时按 code 处理并显示 message。成功后默认整页重取。
     @discardableResult
     func perform(
-        _ work: @escaping @Sendable (URL) -> AccountFailure?, refreshAfter: Bool = true
+        _ work: @escaping @Sendable (URL) -> BridgeFailure?, refreshAfter: Bool = true
     ) async -> Bool {
         guard Self.mayEnter(busy: busy) else { return false }
         guard let file = fileProvider() else {
