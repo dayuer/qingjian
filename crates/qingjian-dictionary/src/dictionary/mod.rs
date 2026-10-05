@@ -1,5 +1,6 @@
 use std::ops::Range;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use qingjian_format::{Container, Kind, Metadata, Table, Text, Writer};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
@@ -7,6 +8,9 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 use crate::error::DictionaryError;
 use crate::matching::Match;
 use crate::pattern::{SyllablePattern, canonical_syllable};
+use text_totals::TextTotals;
+
+mod text_totals;
 
 /// 收窄到多小的区间就改成逐键比对。
 const LINEAR_SCAN_LIMIT: usize = 48;
@@ -82,6 +86,9 @@ pub struct Dictionary {
 
     /// `.qj` 里的来历（名称、许可证、署名）；TSV 解析的没有。
     metadata: Option<Metadata>,
+
+    /// 词文本 → 全部读音词频和，第一次用到时才建（不拖慢启动，也不改 `.qj` 格式）。
+    text_totals: OnceLock<TextTotals>,
 }
 
 impl Dictionary {
@@ -193,6 +200,7 @@ impl Dictionary {
             slots: Table::Owned(slots),
             total_frequency,
             metadata: None,
+            text_totals: OnceLock::new(),
         }
     }
 
@@ -293,6 +301,7 @@ impl Dictionary {
             slots,
             total_frequency,
             metadata: Some(container.metadata().clone()),
+            text_totals: OnceLock::new(),
         })
     }
 
@@ -327,6 +336,13 @@ impl Dictionary {
     /// 全部词频之和。
     pub fn total_frequency(&self) -> u64 {
         self.total_frequency
+    }
+
+    /// 这个词文本在本词库所有读音下的词频之和；没有这个词是 0。
+    pub fn text_frequency(&self, text: &str) -> u64 {
+        self.text_totals
+            .get_or_init(|| TextTotals::build(self.entries()))
+            .get(text)
     }
 
     /// 全部词目，按拼音键的字节序、同一个键下按词频降序。给反查（汉字 → 读音）建索引用。
