@@ -36,19 +36,19 @@ struct PlanStep: View {
         VStack(alignment: .leading, spacing: 14) {
             OnboardingProgressBar(step: .plan).padding(.horizontal, 4).padding(.top, 16)
             Text(Self.title)
-                .font(SerifFont.font(size: 26, weight: .semibold))
+                .font(AppFont.font(size: 26, weight: .semibold))
                 .padding(.horizontal, 4)
                 .padding(.top, 18)
             plan(Self.freeTitle, items: Self.freeItems, current: true) {
                 Text(Self.freeBadge)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AppFont.font(size: 11, weight: .medium))
                     .foregroundStyle(ColorUsage.onboardingCurrentPlan.role.color)
                     .padding(.horizontal, 8)
                     .frame(height: 20)
                     .background(ColorUsage.onboardingPlanBadge.role.color, in: Capsule())
             }
             plan(Self.cloudTitle, items: Self.cloudItems, current: false) {
-                Text(Self.cloudPrice).font(.system(size: 15, weight: .semibold))
+                Text(Self.cloudPrice).font(AppFont.font(size: 15, weight: .semibold))
             }
             Spacer(minLength: 0)
             VStack(spacing: 0) {
@@ -66,7 +66,7 @@ struct PlanStep: View {
     private func plan(_ title: String, items: [String], current: Bool, @ViewBuilder trailing: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(title).font(SerifFont.font(size: 18, weight: .semibold))
+                Text(title).font(AppFont.font(size: 18, weight: .semibold))
                 Spacer()
                 trailing()
             }
@@ -76,7 +76,7 @@ struct PlanStep: View {
                         Text("•")
                         Text(item)
                     }
-                    .font(.system(size: 13.5))
+                    .font(AppFont.font(size: 13.5))
                     .lineSpacing(6)
                     .padding(.vertical, 2.5)
                     .foregroundStyle(Theme.ink2)

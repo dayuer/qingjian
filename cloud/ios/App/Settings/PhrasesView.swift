@@ -57,11 +57,11 @@ struct PhrasesView: View {
             VStack(alignment: .leading) {
                 Text(phrase.text).lineLimit(1)
                 Text("\(phrase.code) · 第 \(phrase.position) 位")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(AppFont.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if !phrase.enabled {
-                Text("停用").font(.caption).foregroundStyle(.secondary)
+                Text("停用").font(AppFont.caption).foregroundStyle(.secondary)
             }
         }
     }

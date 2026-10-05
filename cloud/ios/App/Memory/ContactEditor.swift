@@ -1,4 +1,4 @@
-// 加一个人（05 的 2g），建在首页点进来的那一组的场景里（建好后不能换）。弹层里照设计稿排：衬线大标题「想记得谁？」、名字或代号、「只保存在这台手机上。」、
+// 加一个人（05 的 2g），建在首页点进来的那一组的场景里（建好后不能换）。弹层里照设计稿排：大标题「想记得谁？」、名字或代号、「只保存在这台手机上。」、
 // 提示里怎么称呼（他 / 她 / TA / 直接用名字，缺省 TA）、可以跳过的几件已知的事、底部大按钮「好了」。
 // 生日就叫「生日」，日子按年重复，填出生日期也会每年提醒。保存在后台做，期间按钮换成「正在保存」；存不上时弹层不关、填的留着。
 
@@ -35,16 +35,16 @@ struct ContactEditor: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Button("取消") { dismiss() }
-                        .font(SerifFont.font(size: 15))
+                        .font(AppFont.font(size: 15, weight: .semibold))
                         .foregroundStyle(ColorUsage.cardNotice.role.color)
                     Spacer()
                 }
                 Text("想记得谁？")
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(AppFont.font(size: 26, weight: .semibold))
                     .padding(.top, 20)
                 label("名字或代号").padding(.top, 24)
                 TextField("", text: $name)
-                    .font(.system(size: 16))
+                    .font(AppFont.font(size: 16))
                     .focused($nameFocused)
                     .modifier(MemoryFieldStyle())
                     // 内边距在 TextField 外面，点到边上也要能聚焦
@@ -52,7 +52,7 @@ struct ContactEditor: View {
                     .onTapGesture { nameFocused = true }
                     .padding(.top, 8)
                 Text("加在「\(MemoryScope.title(of: scene))」里 · 只保存在这台手机上。")
-                    .font(.system(size: 12.5))
+                    .font(AppFont.font(size: 12.5))
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
                 label("提示里怎么称呼").padding(.top, 20)
@@ -75,7 +75,7 @@ struct ContactEditor: View {
     }
 
     private func label(_ text: String) -> some View {
-        Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+        Text(text).font(AppFont.font(size: 12, weight: .medium)).foregroundStyle(.secondary)
     }
 
     /// 设计稿的 .group：白底圆角、行间细线，左边灰字标题，右边填的内容。
@@ -108,7 +108,7 @@ struct ContactEditor: View {
             TextField("+ 再写一条", text: $extra)
                 .frame(minHeight: 44)
         }
-        .font(.system(size: 15))
+        .font(AppFont.font(size: 15))
         .padding(.horizontal, 14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(.separator).opacity(0.5)))
@@ -132,7 +132,7 @@ struct ContactEditor: View {
                     Text("好了")
                 }
             }
-            .font(.system(size: 16, weight: .medium))
+            .font(AppFont.font(size: 16, weight: .medium))
             .foregroundStyle(ColorRole.accent.color)
             .frame(maxWidth: .infinity, minHeight: 50)
             .background(ColorUsage.addContactDone.role.color, in: Capsule())

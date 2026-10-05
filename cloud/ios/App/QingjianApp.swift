@@ -6,6 +6,8 @@ import SwiftUI
 struct QingjianApp: App {
     init() {
         TabBarStyle.apply()
+        NavigationBarStyle.apply()
+        SegmentedControlStyle.apply()
     }
 
     var body: some Scene {

@@ -23,7 +23,7 @@ struct MeView: View {
                 Section {
                     Text(ScopeDisplay.fullAccessExplanation)
                     Text(ScopeDisplay.fullAccessPath)
-                        .font(.footnote)
+                        .font(AppFont.footnote)
                         .foregroundStyle(.secondary)
                     Button("去开启") {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -48,7 +48,7 @@ struct MeView: View {
                 }
                 Section {
                     Button(Self.replayOnboardingTitle, action: replayOnboarding)
-                        .font(.footnote)
+                        .font(AppFont.footnote)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .listRowBackground(Color.clear)

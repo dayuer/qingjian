@@ -31,15 +31,24 @@ SwiftUI 只画键，触摸由盖在键区上的 UIKit 视图 `KeyTouchView` 统�
 ```bash
 brew install xcodegen
 cd cloud/ios
+scripts/build-bridge.sh           # 编桥、拷产品数据、取 MiSans 字体（首次下载约 228MB）
 xcodegen generate                 # 生成 QingjianCloud.xcodeproj（不进仓库）
 open QingjianCloud.xcodeproj
 ```
 
-Keyboard target 的 preBuildScript 会跑 `scripts/build-bridge.sh`，它做三件事：
+Keyboard target 的 preBuildScript 也会跑 `scripts/build-bridge.sh`，它做这几件事：
 
 - 编出真机加模拟器的 `Frameworks/QingjianBridge.xcframework`；
 - 把 `dict.qj`、`lm.qj` 与领域词库 `dicts/*.qj` 拷进 `Keyboard/Data/`；
-- 往 `Keyboard/Data/cloud.toml` 写服务器地址（缺省 `https://pinyin.synon.ai`，环境变量 `QJ_SERVER` 可换），**不带令牌**：构建与安装都不需要令牌，令牌由主 App 的账号页登录写入。
+- 往 `Keyboard/Data/cloud.toml` 写服务器地址（缺省 `https://pinyin.synon.ai`，环境变量 `QJ_SERVER` 可换），**不带令牌**：构建与安装都不需要令牌，令牌由主 App 的账号页登录写入；
+- 取主 App 的 MiSans 字体放进 `App/Fonts/`（见下）。
+
+主 App 的字体是小米 MiSans（`build-bridge.sh` 最后调 `scripts/fetch-fonts.sh`）：第一次构建会从小米官方下载 `MiSans.zip`（约 228MB，只下载一次），
+按 SHA256 校验后解出 `MiSansVF.ttf` 放进 `App/Fonts/`（不进仓库）。缓存目录缺省 `~/Library/Caches/sujian-fonts`，可用 `QJ_FONT_CACHE` 换；
+下载或校验失败时构建直接报错，把官方的 `MiSans.zip` 放进缓存目录即可离线构建。MiSans 许可不许单独分发字体文件、不许改字体，
+所以字体原样随 App 打包，协议全文 `cloud/brand/third-party/MiSans-LICENSE.txt` 一并打进包里，关于页注明并可点开看。
+App target 的构建后脚本 `scripts/check-app-fonts.sh` 检查包里有原样的字体与协议、键盘扩展里没有字体（键盘照旧用系统字体）。
+因为 Xcode 在构建开始前就定下拷哪些资源，新检出的仓库要先跑一遍 `scripts/build-bridge.sh` 再 `xcodegen generate`。
 
 产品数据默认取仓库根的 `data/generated/`，没有就先跑 `tools/release/data-fetch.sh`。Rust 工具链要有 `aarch64-apple-ios` 与 `aarch64-apple-ios-sim` 两个 target。
 

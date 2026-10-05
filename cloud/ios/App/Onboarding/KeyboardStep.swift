@@ -37,22 +37,22 @@ struct KeyboardStep: View {
         VStack(alignment: .leading, spacing: 0) {
             OnboardingProgressBar(step: .keyboard).padding(.top, 16)
             Text(Self.title)
-                .font(SerifFont.font(size: 26, weight: .semibold))
+                .font(AppFont.font(size: 26, weight: .semibold))
                 .padding(.top, 32)
             HStack(alignment: .top, spacing: 12) {
                 // 普通编号，不画对勾：App 检测不到键盘加没加，不能假装已完成
                 Text("1")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(AppFont.font(size: 12, weight: .semibold))
                     .foregroundStyle(Color(.systemBackground))
                     .frame(width: 24, height: 24)
                     .background(ColorUsage.onboardingStepNumber.role.color, in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     (Text(Self.path).foregroundStyle(Theme.ink2)
                         + Text("素笺").fontWeight(.medium).foregroundStyle(Theme.ink))
-                        .font(.system(size: 14.5))
+                        .font(AppFont.font(size: 14.5))
                         .lineSpacing(4)
                     Text(Self.comeBack)
-                        .font(.system(size: 12.5))
+                        .font(AppFont.font(size: 12.5))
                         .foregroundStyle(Theme.ink3)
                 }
             }
@@ -63,7 +63,7 @@ struct KeyboardStep: View {
                 row(Self.fullAccessTitle) {
                     detail(Self.fullAccessText)
                     Text(Self.fullAccessPath)
-                        .font(.system(size: 12.5))
+                        .font(AppFont.font(size: 12.5))
                         .foregroundStyle(Theme.ink3)
                         .padding(.top, 4)
                 }
@@ -93,7 +93,7 @@ struct KeyboardStep: View {
 
     private func row(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 15, weight: .medium))
+            Text(title).font(AppFont.font(size: 15, weight: .medium))
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -103,7 +103,7 @@ struct KeyboardStep: View {
 
     private func detail(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13.5))
+            .font(AppFont.font(size: 13.5))
             .lineSpacing(5)
             .foregroundStyle(Theme.ink3)
     }

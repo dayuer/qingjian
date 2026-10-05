@@ -19,7 +19,16 @@ targets:
   QingjianCloud:
     type: application
     platform: iOS
-    sources: [App, Shared]
+    sources:
+      - path: App
+        excludes: ["Fonts/**"]
+      # MiSans 字体只给主 App，键盘仍用系统字体。文件不进仓库，由 scripts/fetch-fonts.sh 下载放好；
+      # 显式列出，缺了 xcodegen 直接报错，不会悄悄打出没字体的包。许可要求随字体附带协议全文（关于页可看）
+      - path: App/Fonts/MiSansVF.ttf
+        buildPhase: resources
+      - path: ../brand/third-party/MiSans-LICENSE.txt
+        buildPhase: resources
+      - Shared
     dependencies:
       - target: Keyboard
       # 设置页与账号页用桥读写 config.toml / cloud.toml
@@ -35,12 +44,18 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: 素笺
+        UIAppFonts: [MiSansVF.ttf]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    postBuildScripts:
+      - name: 检查字体只在主 App 里
+        script: '"${PROJECT_DIR}/scripts/check-app-fonts.sh" "${TARGET_BUILD_DIR}/${WRAPPER_NAME}"'
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: sujian.synon.ai
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
   Keyboard:
     type: app-extension
     platform: iOS

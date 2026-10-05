@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 把 qingjian-cloud-bridge 编成真机 + 模拟器的静态库，打成 Frameworks/QingjianBridge.xcframework，
-# 再把产品数据（dict.qj、lm.qj、领域词库）与只写了服务器地址的 cloud.toml 放进 Keyboard/Data/。Xcode 工程的 preBuildScript 会调它，也可手动跑。
+# 再把产品数据（dict.qj、lm.qj、领域词库）与只写了服务器地址的 cloud.toml 放进 Keyboard/Data/，主 App 的 MiSans 字体经 fetch-fonts.sh 放进 App/Fonts/。
+# Xcode 工程的 preBuildScript 会调它，也可手动跑；Xcode 在构建开始前就定下拷哪些资源，新出现的文件要先跑一遍它再 xcodegen / xcodebuild。
 # 用法：scripts/build-bridge.sh [--debug]；数据目录默认取仓库根的 data/generated，可用 QINGJIAN_DATA 覆盖；服务器地址缺省 https://pinyin.synon.ai，可用 QJ_SERVER 覆盖。
 set -euo pipefail
 
@@ -69,4 +70,5 @@ if cmp -s "$seed.tmp" "$seed"; then
 else
   mv "$seed.tmp" "$seed"
 fi
-echo "QingjianBridge.xcframework（$profile）与产品数据已就绪"
+"$ios_dir/scripts/fetch-fonts.sh"
+echo "QingjianBridge.xcframework（$profile）、产品数据与字体已就绪"

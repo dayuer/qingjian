@@ -23,11 +23,11 @@ struct SignInSections: View {
         Section {
             Toggle(isOn: $store.crossBorderConsent) {
                 Text("同意将我的账号信息和我开启的云功能数据，存储在位于新加坡的服务器（腾讯云）并在那里处理，用于登录、同步与整理记忆。可随时在本页关闭功能或删除账号。")
-                    .font(.footnote)
+                    .font(AppFont.footnote)
             }
             .toggleStyle(CheckboxToggleStyle())
             Link("了解更多", destination: PrivacyLinks.dataLocation)
-                .font(.footnote)
+                .font(AppFont.footnote)
         }
         Section {
             SignInWithAppleButton(.signIn) { request in

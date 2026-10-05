@@ -19,11 +19,11 @@ struct WeekView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.card.text)
                         Text("\(item.contact.name) · \(item.card.kind.title)")
-                            .font(.caption)
+                            .font(AppFont.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Text(item.dayLabel).font(.caption).foregroundStyle(.secondary)
+                    Text(item.dayLabel).font(AppFont.caption).foregroundStyle(.secondary)
                 }
             }
         }

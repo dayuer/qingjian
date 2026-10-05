@@ -16,14 +16,14 @@ struct DeviceRow: View {
                     Text(device.name)
                     if device.current {
                         Text("本机")
-                            .font(.caption)
+                            .font(AppFont.caption)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
                             .background(.tint, in: Capsule())
                     }
                 }
-                Text(device.detail).font(.caption).foregroundStyle(.secondary)
+                Text(device.detail).font(AppFont.caption).foregroundStyle(.secondary)
             }
             Spacer()
             if !device.current {
