@@ -46,7 +46,8 @@ struct KeyboardView: View {
         .animation(.easeOut(duration: 0.2), value: model.hintRowHeight)
     }
 
-    private var cardOpen: Bool { model.panel == .contactCard }
+    /// 占键区、把提示行那一行高度也拿去的面板：对象卡、记一笔的草稿卡与冲突屏（键盘总高不变）。
+    private var cardOpen: Bool { [.contactCard, .draft, .conflict].contains(model.panel) }
 
     private var keys: some View {
         GeometryReader { geometry in

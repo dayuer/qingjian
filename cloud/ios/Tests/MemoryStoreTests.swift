@@ -204,6 +204,16 @@ final class MemoryStoreTests: XCTestCase {
             "里面有 2 个人，删掉后他们会挪到「日常」。")
     }
 
+    func testDeletingTheDefaultSceneNamesTheNextOne() {
+        let scenes = [
+            MemoryScene(id: "daily", name: "日常", createdAt: 0),
+            MemoryScene(id: "dating", name: "恋爱", createdAt: 0),
+        ]
+        XCTAssertEqual(MemoryScene.fallback(in: scenes, deleting: "daily")?.name, "恋爱", "删默认场景时人挪去删完后的新默认")
+        XCTAssertEqual(MemoryScene.fallback(in: scenes, deleting: "dating")?.name, "日常")
+        XCTAssertNil(MemoryScene.fallback(in: [scenes[0]], deleting: "daily"))
+    }
+
     // 场景单独写：不走整份写，坏卡挡不住
 
     private func twoScenes() -> MemorySnapshot {

@@ -327,7 +327,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     private var baseHeight: CGFloat { KeyStyle.candidateBarHeight + KeyboardView.keyAreaHeight }
 
     /// 提示行占掉的高度：键区与 ⌄ 往下挪这么多。
-    private var hintInset: CGFloat { model.hintRowHeight }
+    private var hintInset: CGFloat { model.hintRowInset }
 
     private var currentSignature: String {
         let modified = SharedStore.cloudFile.flatMap {

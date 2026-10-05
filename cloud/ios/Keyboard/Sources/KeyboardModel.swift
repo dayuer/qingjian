@@ -380,11 +380,26 @@ final class KeyboardModel {
             noteCardOpen: panel == .draft || panel == .conflict)
     }
 
-    /// 提示行这一行占多高：没有时为 0；记一笔确认条比提示行高（KeyStyle.clipRowHeight）。键盘高度、键区与 ⌄ 的下移都按它。
-    var hintRowHeight: CGFloat {
+    /// 提示行这一行实际画出来的高度：没有时为 0；记一笔确认条比提示行高（KeyStyle.clipRowHeight）。
+    private var liveRowHeight: CGFloat {
         guard hasHintRow else { return 0 }
         return noteDraft != nil && !sink.isComposingNote ? KeyStyle.clipRowHeight : KeyStyle.hintRowHeight
     }
+
+    /// 打开草稿卡那一刻的行高：草稿卡、冲突屏打开期间键盘总高按它，宿主界面不跳。
+    @ObservationIgnored private var heldRowHeight: CGFloat = 0
+
+    private var rowHeights: (total: CGFloat, inset: CGFloat) {
+        ScopeDisplay.rowHeights(
+            live: liveRowHeight, held: heldRowHeight,
+            noteCardOpen: panel == .draft || panel == .conflict, contactCardOpen: panel == .contactCard)
+    }
+
+    /// 提示行这一行占的高度（键盘总高按它加减）：草稿卡、冲突屏、对象卡打开时这一行不画，高度让给面板。
+    var hintRowHeight: CGFloat { rowHeights.total }
+
+    /// 候选栏与键区往下挪多少：画出来的提示行有多高。
+    var hintRowInset: CGFloat { rowHeights.inset }
 
     /// 首选候选用强调色（ScopeDisplay.accentFirstCandidate）。
     var accentFirstCandidate: Bool {
@@ -507,6 +522,7 @@ final class KeyboardModel {
     /// 真正的抽取要等 2C 的云端整理——Task 10 的本地抽取已被审计会话正式暂缓。
     func confirmNote() {
         guard let cards = noteDraft else { return }
+        heldRowHeight = liveRowHeight
         noteDraft = nil
         markNoteSourceHandled()
         noteFlow.open(cards: cards)
