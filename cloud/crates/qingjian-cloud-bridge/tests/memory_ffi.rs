@@ -15,7 +15,7 @@ use memory_support::{
     CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_add_contact,
     qj_memory_cards, qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete,
     qj_memory_materials, qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context,
-    qj_scope_get, qj_scope_set, scenes, seed, set_scope, take, type_and_commit,
+    qj_scope_get, qj_scope_set, seed, set_scope, take, type_and_commit,
 };
 
 #[test]
@@ -169,7 +169,7 @@ fn forgotten_contact_stays_forgotten() {
     let session = open(&data, Some(&user));
     set_scope(session, "dating", Some(CONTACT));
     let dir = c(user.to_str().unwrap());
-    let empty = c(&json!({"scenes": scenes(), "contacts": [], "cards": {}}).to_string());
+    let empty = c(&json!({"contacts": [], "cards": {}}).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
         None
@@ -189,15 +189,15 @@ fn forgotten_contact_stays_forgotten() {
 }
 
 #[test]
-fn a_scene_holds_any_number_of_people() {
+fn the_roster_holds_any_number_of_people() {
     let (_, user) = dirs("limit");
     let contacts: Vec<Value> = (0..12)
-        .map(|n| json!({"id": format!("{n:032x}"), "name": format!("人{n}"), "pronoun": "ta", "scene": "dating", "created_at": 0}))
+        .map(|n| {
+            json!({"id": format!("{n:032x}"), "name": format!("人{n}"), "pronoun": "ta", "created_at": 0})
+        })
         .collect();
     let dir = c(user.to_str().unwrap());
-    let many = c(
-        &json!({"scenes": scenes(), "contacts": contacts, "cards": {}, "state": {}}).to_string(),
-    );
+    let many = c(&json!({"contacts": contacts, "cards": {}, "state": {}}).to_string());
     assert_eq!(
         take(unsafe { qj_memory_write(dir.as_ptr(), many.as_ptr()) }),
         None
@@ -206,12 +206,7 @@ fn a_scene_holds_any_number_of_people() {
     assert_eq!(
         snapshot["contacts"].as_array().unwrap().len(),
         12,
-        "不再有每场景 8 个的上限"
-    );
-    assert_eq!(
-        snapshot["scenes"].as_array().unwrap().len(),
-        3,
-        "整份读带上场景"
+        "人数不限"
     );
 }
 

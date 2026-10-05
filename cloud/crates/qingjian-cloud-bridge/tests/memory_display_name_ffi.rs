@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use memory_support::{
     CONTACT, c, dirs, json_of, open, qj_memory_add_contact, qj_memory_hint, qj_memory_read,
-    qj_memory_write, scenes, seed, set_scope, take,
+    qj_memory_write, seed, set_scope, take,
 };
 
 fn read(user: &Path) -> Value {
@@ -89,9 +89,8 @@ fn reminder_uses_display_name_instead_of_name() {
         }]),
     );
     let snapshot = json!({
-        "scenes": scenes(),
         "contacts": [{"id": CONTACT, "name": "小美", "display_name": "阿美", "pronoun": "name",
-                      "scene": "dating", "created_at": 1_791_043_200}],
+                      "created_at": 1_791_043_200}],
         "cards": cards,
     });
     assert_eq!(write(&user, &snapshot), None);

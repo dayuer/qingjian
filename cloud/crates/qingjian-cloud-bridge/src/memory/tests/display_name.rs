@@ -1,7 +1,7 @@
 //! 键盘上的代号 `display_name`：旧文件兼容、写盘前去空白、超长拒绝、键盘称呼的回退。
 
-use super::{contact, open_with_scenes, temp_dir};
-use crate::memory::{Contact, MemoryError, MemorySnapshot};
+use super::{contact, temp_dir};
+use crate::memory::{Contact, MemoryError, MemorySnapshot, MemoryStore};
 
 #[test]
 fn old_contacts_without_display_name_read_as_none_and_stay_absent() {
@@ -19,12 +19,11 @@ fn old_contacts_without_display_name_read_as_none_and_stay_absent() {
 #[test]
 fn display_name_round_trips_through_the_store() {
     let user = temp_dir("display-round-trip");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     let mut named = contact(1);
     named.display_name = Some(" 阿美 ".to_owned());
     store
         .write_snapshot(&MemorySnapshot {
-            scenes: store.scenes(),
             contacts: vec![named],
             ..MemorySnapshot::default()
         })
@@ -47,7 +46,7 @@ fn display_name_round_trips_through_the_store() {
 #[test]
 fn blank_display_name_counts_as_none() {
     let user = temp_dir("display-blank");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     let mut blank = contact(1);
     blank.display_name = Some(" \u{3000} ".to_owned());
     assert_eq!(blank.chip_name(), "人1", "全是空白时键盘显示名字");
@@ -61,7 +60,7 @@ fn blank_display_name_counts_as_none() {
 #[test]
 fn display_name_over_twelve_chars_is_rejected() {
     let user = temp_dir("display-long");
-    let store = open_with_scenes(&user);
+    let store = MemoryStore::open(&user);
     let mut ok = contact(1);
     ok.display_name = Some("一二三四五六七八九十一二".to_owned());
     store.put_contact(ok).unwrap();
