@@ -1,6 +1,7 @@
 //! 套用 `config.toml`：iOS 键盘用得上的设置推给 Engine，与 Mac 壳的 `host::config::apply_config` 同一套字段。
 //! 文件可能被主 App 的设置页改、也可能被同步从 Mac 拉下来改，所以按修改时间判断要不要重读。
 
+use std::path::Path;
 use std::time::SystemTime;
 
 use qingjian_core::NoPredictor;
@@ -10,6 +11,12 @@ use qingjian_predict::{CloudPredictor, PredictConfig, PredictProvider};
 use super::Session;
 
 impl Session {
+    /// 配置文件路径（App 指定的那份，没指定就是 `user_dir/config.toml`）；没有学习数据目录时为 `None`。
+    /// 键盘改默认技能这类要落进配置的动作从它取路径（见 [`crate::qj_rewrite_default_set`]）。
+    pub fn config_path(&self) -> Option<&Path> {
+        self.config_path.as_deref()
+    }
+
     /// 修改时间变了（或第一次）就重读并套用，套用了返回 true；读不了按缺省，键盘照常能用。
     pub fn reload_config(&mut self) -> bool {
         let Some(path) = self.config_path.clone() else {

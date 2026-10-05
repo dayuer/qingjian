@@ -60,6 +60,20 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
+# 改写技能包：随包走，桥在运行时从 data_dir/skills 读。
+mkdir -p "$ios_dir/Keyboard/Data/skills"
+skills=()
+for skill in "$repo_dir"/assets/skills/*.toml; do
+  [ -e "$skill" ] || continue
+  skills+=("$skill")
+  target="$ios_dir/Keyboard/Data/skills/$(basename "$skill")"
+  cmp -s "$skill" "$target" || cp "$skill" "$target"
+done
+# 打包前挡住「没有技能」：缺了 polish 就直接失败，别让用户装上以后才发现按钮没了
+if [ ${#skills[@]} -eq 0 ] || [ ! -f "$ios_dir/Keyboard/Data/skills/polish.toml" ]; then
+  echo "assets/skills/ 里没有技能包（至少要有 polish.toml）：改写会整个用不了" >&2
+  exit 1
+fi
 # 素笺云 只在构建时定服务器地址；令牌由主 App 的账号页登录后写进 App Group 的 cloud.toml，不进安装包。
 # 随包的这份只作种子：主 App 第一次打开时拷进 App Group
 server="${QJ_SERVER:-https://pinyin.synon.ai}"

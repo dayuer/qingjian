@@ -1,4 +1,4 @@
-// 键盘与 App 上每个带颜色的元素用哪个角色：灰绿 accent 只给「代表某个人」的元素（牌子的人那半边与底、提示行底与圆点、选中的对象格、头像、
+// 键盘与 App 上每个带颜色的元素用哪个角色：灰绿 accent 只给「代表某个人」的元素（牌子的底与人名、提示行底与圆点、头像、
 // App 首页关于某人的今日提醒卡）、「记到 {对象}」这个把内容记到某人身上的动作、对象卡页脚的「全部记忆」（设计稿 1b）；
 // 键盘的文字按钮与面板控件（.tool、.arw、.btn.ghost）是 ink-2，App 的控件与失败提示是 ink。
 // 例外：App 里的开关（appToggle）与「加一个人」的「好了」（addContactDone，设计稿 btn.acc：灰绿底、accentInk 字）打开时用灰绿底，照设计稿 theme.css 的 .toggle 用 Theme.accent（浅 #C0E7C6、深 #34563B，不是 accentInk）；「控件一律中性色」只管键盘面板。
@@ -7,10 +7,7 @@
 // App 对象详情的「待整理」一节设计稿没画（UI 清单约束 7 第 17 条）：原话是素材不是卡，一律中性色，删除与开通引导是 ink / ink2。
 
 enum ColorUsage: CaseIterable {
-    /// 牌子左半的场景名（任何场景都是 ink2）。
-    case chipScene
-
-    /// 牌子左半的底（恋爱、日常是灰绿浅底）。
+    /// 牌子的底（关于某个人的，用灰绿浅底）。
     case chipBackground
 
     /// 牌子右半的圆点与人名。
@@ -117,7 +114,7 @@ enum ColorUsage: CaseIterable {
         case .appToggle, .addContactDone, .noteConfirm, .onboardingProgress, .quickNoteButton: .accentFill
         case .addContactButton, .addCardButton,
              .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner, .materialsCloudLink, .materialsNudge: .ink
-        case .cardNotice, .chipScene, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete,
+        case .cardNotice, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete,
              .eventKindTag, .draftUnsure: .ink2
         case .conflictBoth: .ink
         }

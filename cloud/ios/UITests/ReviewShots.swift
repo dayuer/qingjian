@@ -1,6 +1,6 @@
 // PR #4 修完后给审计对稿用的截图：记一笔的确认条（1e）、草稿卡（1e-2，没有提示行）、冲突屏（1e-3，原话在、人名对），
-// 「我」页顶部、场景删除确认（alert，「算了」要在）、三页与对象详情的列表末尾（让出浮动 Tab 栏），以及坏卡在时场景改名照样成功。
-// 数据：`UITests/seed/seed.py`（坏卡那条用 `--bad-card`）；键盘那条另要素笺键盘已加、完全访问已开（见 UITests/README.md）。
+// 「我」页顶部、三页与对象详情的列表末尾（让出浮动 Tab 栏）。
+// 数据：`UITests/seed/seed.py`；键盘那条另要素笺键盘已加、完全访问已开（见 UITests/README.md）。
 // 深色另跑一次（先 `xcrun simctl ui <设备> appearance dark`）。
 
 import UIKit
@@ -55,7 +55,7 @@ final class ReviewShots: XCTestCase {
         wait(1)
     }
 
-    /// 「我」页顶部、场景删除确认、四个列表的末尾。
+    /// 「我」页顶部、四个列表的末尾。
     func testAppPages() throws {
         let app = launch()
 
@@ -85,46 +85,6 @@ final class ReviewShots: XCTestCase {
             scrollToEnd(app)
             shot("detail-end")
         }
-
-        // 场景删除确认：iOS 26 上要是 alert，「算了」得在
-        tab(app, "我")
-        app.tabBars.buttons["我"].tap()
-        wait()
-        app.staticTexts["工作"].firstMatch.tap()
-        wait(1.5)
-        app.buttons["删掉这个场景"].tap()
-        wait(1.5)
-        shot("scene-delete-alert")
-        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 3), "删场景的确认不是 alert")
-        XCTAssertTrue(app.alerts.buttons["算了"].exists, "确认框里没有「算了」")
-        XCTAssertTrue(app.alerts.buttons["删掉"].exists, "确认框里没有「删掉」")
-        app.alerts.buttons["算了"].tap()
-        wait()
-    }
-
-    /// 种了坏卡（`seed.py --bad-card`）时给「日常」改名：照样成功，不弹「每个关键词要 2 到 8 个字」。
-    func testRenameSceneWithBadCard() throws {
-        let app = launch()
-        tab(app, "我")
-        app.staticTexts["日常"].firstMatch.tap()
-        wait(1.5)
-        app.buttons["改名"].tap()
-        wait()
-        let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5), "没有场景名输入框")
-        field.tap()
-        let current = field.value as? String ?? ""
-        for _ in 0..<current.count { field.typeText(XCUIKeyboardKey.delete.rawValue) }
-        app.typeText("家里")
-        app.buttons["存好"].tap()
-        wait(2)
-        shot("bad-card-rename")
-        XCTAssertFalse(app.alerts.firstMatch.exists, "改名弹了错误提示")
-        let renamed = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '家里'")).firstMatch
-        XCTAssertTrue(renamed.exists, "改名没成")
-        app.navigationBars.buttons.firstMatch.tap()
-        wait(1.5)
-        shot("bad-card-rename-list")
     }
 
     /// 记一笔：确认条（1e）→ 草稿卡（1e-2）→ 冲突屏（1e-3）。键盘的坐标量自 390×844 的截图（键盘底部锚定）。

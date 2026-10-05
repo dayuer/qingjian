@@ -1,7 +1,5 @@
 // 「通讯录」Tab（设计稿 02 的 2b）：衬线大标题与右上「+」、搜索框、按首字母分的通栏列表与右侧字母索引。
-// 行是 17pt 名字 + 13pt 灰字场景 + 行尾灰绿事件提示；点一行在下面展开这个人的几张记忆卡（见 `ContactRow`）。
-//
-// 场景是用户自建的分组（「我」页里增删改名），所以「+」建人时要先问建在哪个场景。
+// 行是 17pt 名字 + 行尾灰绿事件提示；点一行在下面展开这个人的几张记忆卡（见 `ContactRow`）。
 
 import SwiftUI
 
@@ -14,9 +12,6 @@ struct ContactsView: View {
 
     /// 展开了记忆卡的那个人；同时只展开一个。
     @State private var expanded: String?
-
-    /// 「+」选完场景后建在哪个场景（默认第一个）。
-    @State private var newScene = ""
 
     /// 弹建人页。
     @State private var adding = false
@@ -42,22 +37,17 @@ struct ContactsView: View {
                 if let id = expanded, !ids.contains(id) { expanded = nil }
             }
             .sheet(isPresented: $adding) {
-                ContactEditor(store: store, scene: newScene.isEmpty ? (store.defaultScene?.id ?? "") : newScene)
+                ContactEditor(store: store)
             }
         }
     }
 
     // MARK: - 顶部
 
-    /// 「+」：先选建在哪个场景，再开建人页。
+    /// 「+」：直接开建人页。
     private var addButton: some View {
-        Menu {
-            ForEach(store.scenes) { scene in
-                Button(scene.name) {
-                    newScene = scene.id
-                    adding = true
-                }
-            }
+        Button {
+            adding = true
         } label: {
             Image(systemName: "plus")
                 .font(AppFont.font(size: 22))
@@ -122,7 +112,6 @@ struct ContactsView: View {
                             ForEach(section.people) { contact in
                                 ContactRow(
                                     contact: contact,
-                                    sceneName: store.sceneName(of: contact.scene),
                                     note: notes[contact.id],
                                     cards: store.cards(of: contact.id),
                                     expanded: expanded == contact.id,
@@ -179,7 +168,7 @@ struct ContactsView: View {
     }
 
     private var visible: [MemoryContact] {
-        ContactIndex.search(store.snapshot.contacts, text: search) { store.sceneName(of: $0) }
+        ContactIndex.search(store.snapshot.contacts, text: search)
     }
 
     private var sections: [ContactSection] { ContactIndex.sections(visible) }

@@ -54,7 +54,7 @@ impl ScopedLearner {
         }
     }
 
-    /// 会话换场景、换对象用的把手。
+    /// 会话换人、换对象用的把手。
     pub fn handle(&self) -> ScopeHandle {
         ScopeHandle::new(Arc::clone(&self.overlay), self.memory_dir.clone())
     }

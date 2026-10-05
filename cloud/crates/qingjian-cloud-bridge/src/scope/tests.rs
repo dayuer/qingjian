@@ -1,4 +1,4 @@
-//! 分区学习：全局层之外只在选了对象时开对象层（场景自 2026-10-05 起只是用户自建的分组，不再有场景层）。
+//! 分区学习：全局层之外只在选了对象时开对象层（2026-10-05 起没有场景层）。
 //! **按人隔离**：选了人时写只进这个人的对象层、不碰全局、不记个人 n-gram；没选人时写全局。
 //! 计数类读两层加权、对象之间互不相通、计数类以外的读全局、删词连叠加层一起删、落盘刷全部层、
 //! 对象目录不在就不开对象层（也不重建，那时当没选人）。
@@ -204,30 +204,22 @@ fn bad_contact_ids_are_ignored() {
 fn scope_state_defaults() {
     let state: ScopeState =
         serde_json::from_str(r#"{"scene":"dating","contact_id":null,"hints":false}"#).unwrap();
-    assert_eq!(state.scene, "dating", "旧文件里多出的开关字段忽略");
-    assert_eq!(state.contact_id, None);
-    assert!(state.last.is_empty(), "旧文件没有 last");
-    assert_eq!(ScopeState::default().scene, "daily");
+    assert_eq!(state.contact_id, None, "旧文件里多出的场景字段忽略");
+    assert!(state.used.is_empty(), "旧文件没有 used");
 
     let state = ScopeState {
-        scene: "daily".to_owned(),
         contact_id: Some(A.to_owned()),
-        last: [
-            ("daily".to_owned(), A.to_owned()),
-            ("dating".to_owned(), B.to_owned()),
-        ]
-        .into(),
         used: [(A.to_owned(), 1_791_043_200)].into(),
     };
     let json = serde_json::to_value(&state).unwrap();
-    assert_eq!(json["last"]["dating"], B, "last 按场景 id 存");
+    assert!(json.get("scene").is_none(), "不再写场景：{json}");
     assert_eq!(json["used"][A], 1_791_043_200);
     assert_eq!(serde_json::from_value::<ScopeState>(json).unwrap(), state);
 }
 
 #[test]
 fn contact_pick_follows_the_c_convention() {
-    assert_eq!(ContactPick::from_arg(None), ContactPick::Last);
+    assert_eq!(ContactPick::from_arg(None), ContactPick::Keep);
     assert_eq!(ContactPick::from_arg(Some("")), ContactPick::Nobody);
     assert_eq!(
         ContactPick::from_arg(Some(A)),

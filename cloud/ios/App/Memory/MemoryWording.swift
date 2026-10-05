@@ -17,31 +17,15 @@ extension MemoryStore {
 
         static let loading = "正在读取"
 
-        /// 场景被删掉、或还没读到时的兜底（界面上不出现空白）。
-        static let unknownScene = "场景"
-
-        /// 场景名最多几个字。
-        static func sceneNameTooLong() -> String { "场景名最多 \(MemoryScene.maxNameChars) 个字" }
-
-        /// 「n 个人」。
-        static func peopleCount(_ count: Int) -> String { "\(count) 个人" }
-
         /// 对象设置里「置顶」下面的小字。
         static func pinNote(_ count: Int) -> String {
             count == 0
-                ? "键盘的选择面板会先摆置顶的人（一个场景最多 \(MemoryScene.maxPinned) 个）"
-                : "这个场景已经置顶 \(count) / \(MemoryScene.maxPinned) 个"
+                ? "键盘上会先摆置顶的人（最多 \(MemoryStore.pinLimit) 个）"
+                : "已经置顶 \(count) / \(MemoryStore.pinLimit) 个"
         }
 
-        /// 一个场景最多置顶几个。
-        static func pinLimit() -> String { "一个场景最多置顶 \(MemoryScene.maxPinned) 个人" }
-
-        /// 场景设置页脚：删掉这个场景会怎么处理里面的人。
-        static func sceneHasPeople(_ count: Int, fallback: String) -> String {
-            count == 0
-                ? "这个场景里没有人，删掉不影响任何人。"
-                : "里面有 \(count) 个人，删掉后他们会挪到「\(fallback)」。"
-        }
+        /// 全局最多置顶几个。
+        static func pinLimit() -> String { "最多置顶 \(MemoryStore.pinLimit) 个人" }
 
         /// 两个开关下面的小字。
         static func switchesNote(_ contact: MemoryContact) -> String {

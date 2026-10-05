@@ -12,12 +12,12 @@ final class ContactAddTests: XCTestCase {
 
     func testParseSuccessAndFailure() {
         XCTAssertEqual(try ContactAdd.parse(#"{"id":"0123456789abcdef0123456789abcdef"}"#).get(), "0123456789abcdef0123456789abcdef")
-        guard case .failure(let limit) = ContactAdd.parse(#"{"code":"pin_limit","message":"一个场景最多置顶 4 个人"}"#) else {
+        guard case .failure(let limit) = ContactAdd.parse(#"{"code":"pin_limit","message":"最多置顶 4 个人"}"#) else {
             return XCTFail("置顶超了应当是失败")
         }
         XCTAssertEqual(limit.code, .pinLimit)
-        XCTAssertEqual(limit.userMessage, "一个场景最多置顶 4 个人", "照桥给的")
-        XCTAssertEqual(MemoryFailure(code: .pinLimit, message: "").userMessage, "一个场景最多置顶 4 个人")
+        XCTAssertEqual(limit.userMessage, "最多置顶 4 个人", "照桥给的")
+        XCTAssertEqual(MemoryFailure(code: .pinLimit, message: "").userMessage, "最多置顶 4 个人")
         guard case .failure(let busy) = ContactAdd.parse(#"{"code":"lock_timeout","message":"x"}"#) else {
             return XCTFail("锁被占应当是失败")
         }
