@@ -1,5 +1,5 @@
 //! 本地记忆的 C 接口，与 `include/qingjian_bridge.h` 一一对应。`qj_scope_*` 与键盘用的 `qj_memory_*` 带会话（只在主线程上用）；
-//! `qj_memory_read` / `qj_memory_write` 是 App 用的，按学习数据目录传（与 `qj_settings_*` 同一做法）。
+//! `qj_memory_read` / `qj_memory_write` / `qj_memory_materials` / `qj_memory_material_delete` 是 App 用的，按学习数据目录传（与 `qj_settings_*` 同一做法）。
 //! 返回的字符串都用 `qj_string_free` 释放；失败返回 `{"code","message"}`（见 [`MemoryError`]）。全部折掉 panic。
 
 use std::ffi::c_char;
@@ -9,7 +9,9 @@ use std::ptr;
 
 use qingjian_cloud_proto::Scene;
 
-use super::{MemoryError, MemorySnapshot, MemoryStore};
+use super::{
+    Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore, now_unix, unprocessed,
+};
 use crate::scope::{ContactPick, parse_scene, scene_name};
 use crate::session::Session;
 use crate::{owned, path_arg, with};
@@ -109,16 +111,18 @@ pub unsafe extern "C" fn qj_memory_cards(
     })
 }
 
-/// 键盘「记一笔」：给对象建一张 `other` 卡。成功返回空指针，失败返回 `{"code","message"}`。
+/// 键盘「记一笔」：原话存成这个对象的待整理素材（超过 2000 字节切成几条），不再写卡。成功返回空指针，失败返回 `{"code","message"}`
+/// （`material_limit`：没整理的满 200 条）。`source` 取 `clipboard` / `typed`，为空指针或认不得时按 `typed`。
 /// 键盘只等 200 毫秒的锁：拿不到（`lock_timeout`）时也返回空指针，表示已接受、稍后写入（内存待办，下次按键、poll、flush 时补写）。
 ///
 /// # Safety
-/// 同 [`qj_scope_set`]；两个字符串参数为有效 UTF-8 C 字符串。
+/// 同 [`qj_scope_set`]；`contact_id`、`text` 为有效 UTF-8 C 字符串，`source` 为空或同上。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_memory_note(
     session: *mut Session,
     contact_id: *const c_char,
     text: *const c_char,
+    source: *const c_char,
 ) -> *mut c_char {
     let (Some(contact_id), Some(text)) = (
         unsafe { path_arg(contact_id) }.map(str::to_owned),
@@ -126,13 +130,75 @@ pub unsafe extern "C" fn qj_memory_note(
     ) else {
         return owned(&MemoryError::Invalid("参数无效").to_json());
     };
+    let source = unsafe { path_arg(source) }.map_or(MaterialSource::Typed, MaterialSource::parse);
     // 会话为空或 panic 时 with 给的是这个兜底；不能用空指针兜底，空指针在这里表示成功
     let noted = with(session, Err(MemoryError::Invalid("参数无效")), |s| {
-        s.memory_note(&contact_id, &text)
+        s.memory_note(&contact_id, &text, source)
     });
     match noted {
         Ok(()) => ptr::null_mut(),
         Err(error) => owned(&error.to_json()),
+    }
+}
+
+/// App 用：一个对象没整理的素材 `{"unprocessed_count":n,"materials":[…]}`，按时间倒序（同一时间的按写入倒序）；
+/// 整理过 30 天的顺手删掉。参数无效或读不了（开机后还没解锁过、锁超时）时返回空指针。
+///
+/// # Safety
+/// 两个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_materials(
+    user_dir: *const c_char,
+    contact_id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(contact_id)) = (unsafe { path_arg(user_dir) }, unsafe {
+        path_arg(contact_id)
+    }) else {
+        return ptr::null_mut();
+    };
+    catch_unwind(|| {
+        let all = MemoryStore::open(Path::new(user_dir))
+            .materials(contact_id, now_unix())
+            .ok()?;
+        let mut pending: Vec<Material> = all.into_iter().filter(|m| !m.processed).collect();
+        // 先倒过来再稳定排序：同一秒切出来的几条按写入倒序，与整体「新的在上」一致
+        pending.reverse();
+        pending.sort_by_key(|m| std::cmp::Reverse(m.at));
+        let json = serde_json::json!({
+            "unprocessed_count": unprocessed(&pending),
+            "materials": pending,
+        });
+        Some(json.to_string())
+    })
+    .ok()
+    .flatten()
+    .map_or(ptr::null_mut(), |json| owned(&json))
+}
+
+/// App 用：删一条素材；没有这条也算成功。成功返回空指针，失败返回 `{"code","message"}`（`invalid` / `lock_timeout` / `io`）。
+///
+/// # Safety
+/// 三个参数为有效 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_material_delete(
+    user_dir: *const c_char,
+    contact_id: *const c_char,
+    client_id: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(contact_id), Some(client_id)) = (
+        unsafe { path_arg(user_dir) },
+        unsafe { path_arg(contact_id) },
+        unsafe { path_arg(client_id) },
+    ) else {
+        return owned(&MemoryError::Invalid("参数无效").to_json());
+    };
+    let deleted = catch_unwind(|| {
+        MemoryStore::open(Path::new(user_dir)).delete_material(contact_id, client_id, now_unix())
+    });
+    match deleted {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(error)) => owned(&error.to_json()),
+        Err(_) => owned(&MemoryError::Invalid("删除时出错").to_json()),
     }
 }
 
@@ -185,7 +251,7 @@ pub unsafe extern "C" fn qj_memory_read(user_dir: *const c_char) -> *mut c_char 
 }
 
 /// App 用：整份写回。成功返回空指针，失败返回 `{"code","message"}`，code 取 `contact_limit` / `invalid` / `conflict` / `lock_timeout`（等了 2 秒没拿到锁）/ `io`；
-/// `conflict` 表示键盘这期间改过，App 重读、合并后再写。
+/// `conflict` 表示这期间别处改过卡片，App 重读、合并后再写。
 ///
 /// # Safety
 /// 两个参数为有效 UTF-8 C 字符串。

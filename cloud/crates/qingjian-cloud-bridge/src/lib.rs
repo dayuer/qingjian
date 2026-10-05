@@ -25,9 +25,12 @@ pub use self::cloud_config::{CloudConfig, DEFAULT_SERVER, parse_failure_note};
 pub use self::entry::Entry;
 pub use self::error::BridgeError;
 pub use self::memory::{
-    Card, Contact, DEFAULT_LOCK_TIMEOUT, Hint, HintIndex, HintReason, KEYBOARD_LOCK_TIMEOUT,
-    LocalDate, MAX_CONTACTS, MEMORY_DIR, MemoryError, MemorySnapshot, MemoryStore, Pronoun,
-    RECENT_CHARS, RecentText, days_away, has_date, new_id, now_unix, panel_cards, reminder_text,
+    CONTACT_PLACEHOLDER, Card, CloudState, Consent, Contact, DEFAULT_LOCK_TIMEOUT, Hint, HintIndex,
+    HintReason, KEYBOARD_LOCK_TIMEOUT, LocalDate, MAX_CONTACTS, MAX_UNPROCESSED_MATERIALS,
+    MEMORY_DIR, Material, MaterialSource, MemoryError, MemorySnapshot, MemoryStore,
+    PROCESSED_KEEP_DAYS, Pronoun, RECENT_CHARS, RecentText, UploadDecision, days_away, has_date,
+    mask_contact_names, new_id, now_unix, panel_cards, reminder_text, should_upload, split_note,
+    unprocessed,
 };
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{

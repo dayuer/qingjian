@@ -31,10 +31,13 @@ extension Engine {
     /// 宿主换了输入框：桥清掉最近上屏的字，免得 A 聊天里打的字在 B 里触发提示（键盘收起时 flush 也会清）。
     func resetContext() { qj_reset_context(session) }
 
-    /// 「记一笔」。桥返回 NULL 表示成功（这里得到 nil），失败才返回 `{"code","message"}`：
-    /// invalid 是没有这个人或没有文字，io 是卡片读不了（开机后还没解锁过），此时桥什么都没写。
-    func memoryNote(_ contactId: String, text: String) -> MemoryFailure? {
-        let raw = contactId.withCString { c in text.withCString { qj_memory_note(session, c, $0) } }
+    /// 「记一笔」：桥把原话存成待整理素材。`source` 是 clipboard（剪贴板确认条）或 typed（手写）。
+    /// 桥返回 NULL 表示成功（这里得到 nil），失败才返回 `{"code","message"}`：invalid 是没有这个人或没有文字，
+    /// material_limit 是这个人没整理的已满 200 条，io 是素材读不了（开机后还没解锁过），此时桥什么都没写。
+    func memoryNote(_ contactId: String, text: String, source: String) -> MemoryFailure? {
+        let raw = contactId.withCString { c in
+            text.withCString { t in source.withCString { qj_memory_note(session, c, t, $0) } }
+        }
         return MemoryFailure.decode(take(raw))
     }
 

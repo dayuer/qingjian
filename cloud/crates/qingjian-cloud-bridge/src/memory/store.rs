@@ -1,4 +1,4 @@
-//! `memory/` 下的文件：`contacts.json`、`state.json`、`dismissed.json`、`<对象 id>/cards.json`。
+//! `memory/` 下的文件：`contacts.json`、`state.json`、`dismissed.json`、`<对象 id>/cards.json`（素材 `materials.jsonl` 在 `materials/file.rs`）。
 //! App 与键盘是两个进程，都会读-改-写，所以每个操作都在 `memory/.lock` 的文件锁（flock）里完成，读也在锁里；
 //! 写走 `cloud_config::write_atomic`（同目录临时文件加改名），而且不建父目录：对象目录只在建对象时创建。
 //! 解析不了的文件改名为 `<文件>.broken-<unix 秒>` 再按空处理；读不了的（开机后还没解锁过时的数据保护、权限）不改名，读-改-写直接报错，
@@ -153,25 +153,6 @@ impl MemoryStore {
         self.write_cards(contact_id, file.rev + 1, cards)
     }
 
-    /// 键盘「记一笔」：给磁盘名单上的人加一张手写的 `other` 卡（修订号加一）。读不了就报错、不写。
-    pub fn add_note(&self, contact_id: &str, text: &str, now: i64) -> Result<Card, MemoryError> {
-        let text = text.trim();
-        if text.is_empty() {
-            return Err(MemoryError::Invalid("没有要记的文字"));
-        }
-        if !is_contact_id(contact_id) {
-            return Err(MemoryError::Invalid("对象编号不对"));
-        }
-        let _lock = self.lock()?;
-        self.require_contact(contact_id)?;
-        let card = Card::note(text, now)?;
-        validate_cards(std::slice::from_ref(&card))?;
-        let (mut file, _) = self.read_cards(contact_id)?;
-        file.cards.push(card.clone());
-        self.write_cards(contact_id, file.rev + 1, &file.cards)?;
-        Ok(card)
-    }
-
     /// 键盘切场景与对象：在锁里重读 `state.json` 与名单，按 `pick` 定对象（`Last` 回到这个场景上次选的人）；
     /// 对象不在磁盘名单上或不是这个场景的人就当不指定；切到了某人时把 `now` 记进 `used`。
     pub fn update_scope(
@@ -309,7 +290,7 @@ impl MemoryStore {
 
     /// 拿 `memory/.lock` 的文件锁：`try_lock` 加重试，最多等 `lock_timeout`。返回的文件关掉时锁就放了。
     /// flock 锁的是打开的文件，同一进程里两个 `MemoryStore` 也互斥。
-    fn lock(&self) -> Result<File, MemoryError> {
+    pub(super) fn lock(&self) -> Result<File, MemoryError> {
         std::fs::create_dir_all(&self.root)?;
         let file = OpenOptions::new()
             .create(true)
@@ -331,7 +312,7 @@ impl MemoryStore {
         }
     }
 
-    fn require_contact(&self, contact_id: &str) -> Result<(), MemoryError> {
+    pub(super) fn require_contact(&self, contact_id: &str) -> Result<(), MemoryError> {
         if self.read_contacts()?.iter().any(|c| c.id == contact_id) {
             Ok(())
         } else {
@@ -412,7 +393,7 @@ fn write_json<T: Serialize + ?Sized>(path: &Path, value: &T) -> Result<(), Memor
     Ok(())
 }
 
-fn quarantine(path: &Path) {
+pub(super) fn quarantine(path: &Path) {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(format!(".broken-{}", now_unix()));
     if let Err(error) = std::fs::rename(path, path.with_file_name(name)) {

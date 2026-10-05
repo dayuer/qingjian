@@ -1,18 +1,19 @@
 //! 本地记忆的 C 接口：按 C 签名直接调，不需要产品数据。最后一个测试核对头文件与导出符号逐个一致。
-//! 每个场景各一组人的部分在 `memory_scene_ffi.rs`。
+//! 每个场景各一组人的部分在 `memory_scene_ffi.rs`，「记一笔」素材在 `memory_materials_ffi.rs`。
 
 mod memory_support;
 
 use std::collections::BTreeSet;
 use std::path::Path;
 use std::ptr;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use qingjian_cloud_bridge::{qj_flush, qj_poll, qj_push, qj_session_free, qj_set_private};
 use serde_json::{Value, json};
 
 use memory_support::{
-    CARD, CONTACT, c, dirs, json_of, open, qj_memory_cards, qj_memory_dismiss, qj_memory_hint,
+    CARD, CONTACT, KEYBOARD_BUDGET, c, dirs, hold_lock, json_of, note, open, qj_memory_cards,
+    qj_memory_dismiss, qj_memory_hint, qj_memory_material_delete, qj_memory_materials,
     qj_memory_note, qj_memory_read, qj_memory_write, qj_reset_context, qj_scope_get, qj_scope_set,
     seed, set_scope, take, type_and_commit,
 };
@@ -173,9 +174,8 @@ fn forgotten_contact_stays_forgotten() {
         take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
         None
     );
-    let contact = c(CONTACT);
-    let text = c("又记一笔");
-    let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) });
+    let failure: Value =
+        serde_json::from_str(&note(session, CONTACT, "又记一笔").unwrap()).unwrap();
     assert_eq!(
         failure["code"], "invalid",
         "键盘内存里的名单还没刷新，按磁盘判断"
@@ -185,41 +185,6 @@ fn forgotten_contact_stays_forgotten() {
         !user.join("memory").join(CONTACT).exists(),
         "对象目录没被重新建出来"
     );
-    unsafe { qj_session_free(session) };
-}
-
-#[test]
-fn note_creates_a_manual_card() {
-    let (data, user) = dirs("note");
-    seed(&user);
-    let session = open(&data, Some(&user));
-    let contact = c(CONTACT);
-    let text = c("  周末一起看电影 ");
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-
-    let dir = c(user.to_str().unwrap());
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    let cards = snapshot["cards"][CONTACT].as_array().unwrap();
-    assert_eq!(cards.len(), 2);
-    let note = &cards[1];
-    assert_eq!(note["kind"], "other");
-    assert_eq!(note["text"], "周末一起看电影");
-    assert_eq!(note["source"], "manual");
-    assert_eq!(note["confirmed"], true);
-    assert_eq!(note["id"].as_str().unwrap().len(), 32);
-
-    let panel = json_of(unsafe { qj_memory_cards(session, contact.as_ptr()) });
-    assert_eq!(panel.as_array().unwrap().len(), 2);
-
-    let stranger = c("ffffffffffffffffffffffffffffffff");
-    let failure = json_of(unsafe { qj_memory_note(session, stranger.as_ptr(), text.as_ptr()) });
-    assert_eq!(failure["code"], "invalid");
-    let blank = c("   ");
-    let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), blank.as_ptr()) });
-    assert_eq!(failure["code"], "invalid");
     unsafe { qj_session_free(session) };
 }
 
@@ -254,9 +219,14 @@ fn bad_arguments_do_not_crash() {
     unsafe { qj_memory_dismiss(ptr::null_mut(), ptr::null(), true) };
     assert!(take(unsafe { qj_memory_cards(ptr::null_mut(), ptr::null()) }).is_none());
     assert!(take(unsafe { qj_memory_read(ptr::null()) }).is_none());
+    assert!(take(unsafe { qj_memory_materials(ptr::null(), ptr::null()) }).is_none());
+    let failure =
+        json_of(unsafe { qj_memory_material_delete(ptr::null(), ptr::null(), ptr::null()) });
+    assert_eq!(failure["code"], "invalid");
     let failure = json_of(unsafe { qj_memory_write(ptr::null(), ptr::null()) });
     assert_eq!(failure["code"], "invalid");
-    let failure = json_of(unsafe { qj_memory_note(ptr::null_mut(), ptr::null(), ptr::null()) });
+    let failure =
+        json_of(unsafe { qj_memory_note(ptr::null_mut(), ptr::null(), ptr::null(), ptr::null()) });
     assert_eq!(failure["code"], "invalid");
 
     let (data, user) = dirs("bad-args");
@@ -270,98 +240,8 @@ fn bad_arguments_do_not_crash() {
     assert!(take(unsafe { qj_scope_get(session) }).is_none());
     set_scope(session, "dating", Some(CONTACT));
     assert!(take(unsafe { qj_memory_hint(session) }).is_none());
-    let contact = c(CONTACT);
-    let text = c("x");
-    let failure = json_of(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) });
+    let failure: Value = serde_json::from_str(&note(session, CONTACT, "x").unwrap()).unwrap();
     assert_eq!(failure["code"], "invalid");
-    unsafe { qj_session_free(session) };
-}
-
-/// 模拟 App 占着 `memory/.lock`：持有返回的文件就是持有锁，丢掉即释放。
-fn hold_lock(user: &Path) -> std::fs::File {
-    let dir = user.join("memory");
-    std::fs::create_dir_all(&dir).unwrap();
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(dir.join(".lock"))
-        .unwrap();
-    file.lock().unwrap();
-    file
-}
-
-/// 键盘等锁的上限是 200 毫秒；主线程上一次调用最多容忍这么久（加调度与慢机器的余量）。
-const KEYBOARD_BUDGET: Duration = Duration::from_millis(900);
-
-#[test]
-fn keyboard_note_is_deferred_while_the_lock_is_held() {
-    let (data, user) = dirs("note-locked");
-    seed(&user);
-    let session = open(&data, Some(&user));
-    let contact = c(CONTACT);
-    let cards_path = user.join("memory").join(CONTACT).join("cards.json");
-
-    let lock = hold_lock(&user);
-    for text in ["周末一起看电影", "她喜欢喝茶"] {
-        let text = c(text);
-        let started = Instant::now();
-        let failure = take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) });
-        let elapsed = started.elapsed();
-        eprintln!("锁被占着时 qj_memory_note 用了 {elapsed:?}");
-        assert_eq!(failure, None, "拿不到锁视同已接受，不报错");
-        assert!(elapsed >= Duration::from_millis(150), "应当等满键盘的超时");
-        assert!(elapsed < KEYBOARD_BUDGET, "主线程不能卡 2 秒：{elapsed:?}");
-    }
-    let on_disk = std::fs::read_to_string(&cards_path).unwrap();
-    assert!(!on_disk.contains("周末一起看电影"), "锁没放，还没写进磁盘");
-
-    drop(lock);
-    unsafe { qj_push(session, 'n' as u32) };
-    let dir = c(user.to_str().unwrap());
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    let texts: Vec<&str> = snapshot["cards"][CONTACT]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|card| card["text"].as_str().unwrap())
-        .collect();
-    assert_eq!(
-        texts,
-        ["想要一个生日蛋糕", "周末一起看电影", "她喜欢喝茶"],
-        "下一次按键补写成功，顺序不变"
-    );
-    unsafe { qj_session_free(session) };
-}
-
-#[test]
-fn keyboard_note_retries_on_poll_and_flush_too() {
-    let (data, user) = dirs("note-poll");
-    seed(&user);
-    let session = open(&data, Some(&user));
-    let contact = c(CONTACT);
-    let text = c("经 poll 补写");
-    let lock = hold_lock(&user);
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-    drop(lock);
-    unsafe { qj_poll(session) };
-    let dir = c(user.to_str().unwrap());
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    assert_eq!(snapshot["cards"][CONTACT].as_array().unwrap().len(), 2);
-
-    let lock = hold_lock(&user);
-    let text = c("经 flush 补写");
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-    drop(lock);
-    unsafe { qj_flush(session) };
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    assert_eq!(snapshot["cards"][CONTACT].as_array().unwrap().len(), 3);
     unsafe { qj_session_free(session) };
 }
 
@@ -405,78 +285,6 @@ fn keyboard_scope_switch_is_deferred_and_keeps_only_the_latest() {
             .unwrap();
     assert_eq!(state["scene"], "dating", "待办只留最后一次，补写成功");
     assert_eq!(state["contact_id"], CONTACT);
-    unsafe { qj_session_free(session) };
-}
-
-/// 键盘扩展被系统杀掉：Session 丢了，待办笔记靠 `pending-keyboard.jsonl` 在下次启动时补写。
-#[test]
-fn pending_note_survives_the_session_being_dropped() {
-    let (data, user) = dirs("note-restart");
-    seed(&user);
-    let pending_file = user.join("memory/pending-keyboard.jsonl");
-    let session = open(&data, Some(&user));
-    let contact = c(CONTACT);
-    let text = c("被杀前记的");
-    let lock = hold_lock(&user);
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-    assert!(
-        std::fs::read_to_string(&pending_file)
-            .unwrap()
-            .contains("被杀前记的"),
-        "入队时就落盘"
-    );
-    unsafe { qj_session_free(session) };
-    drop(lock);
-
-    let session = open(&data, Some(&user));
-    unsafe { qj_poll(session) };
-    let dir = c(user.to_str().unwrap());
-    let snapshot = json_of(unsafe { qj_memory_read(dir.as_ptr()) });
-    let texts: Vec<&str> = snapshot["cards"][CONTACT]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|card| card["text"].as_str().unwrap())
-        .collect();
-    assert_eq!(texts, ["想要一个生日蛋糕", "被杀前记的"]);
-    assert!(!pending_file.exists(), "补写成功后文件清掉");
-    unsafe { qj_session_free(session) };
-}
-
-#[test]
-fn restored_note_for_a_forgotten_contact_is_dropped() {
-    let (data, user) = dirs("note-forgotten");
-    seed(&user);
-    let session = open(&data, Some(&user));
-    let contact = c(CONTACT);
-    let text = c("忘掉的人的笔记");
-    let lock = hold_lock(&user);
-    assert_eq!(
-        take(unsafe { qj_memory_note(session, contact.as_ptr(), text.as_ptr()) }),
-        None
-    );
-    unsafe { qj_session_free(session) };
-    drop(lock);
-
-    let dir = c(user.to_str().unwrap());
-    let empty = c(r#"{"contacts":[],"cards":{}}"#);
-    assert_eq!(
-        take(unsafe { qj_memory_write(dir.as_ptr(), empty.as_ptr()) }),
-        None
-    );
-    let session = open(&data, Some(&user));
-    unsafe { qj_poll(session) };
-    assert!(
-        !user.join("memory").join(CONTACT).exists(),
-        "对象目录没被复活"
-    );
-    assert!(
-        !user.join("memory/pending-keyboard.jsonl").exists(),
-        "被拒绝的待办丢掉"
-    );
     unsafe { qj_session_free(session) };
 }
 

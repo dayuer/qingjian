@@ -1,4 +1,5 @@
 //! App 与键盘两个进程同时写：文件锁、修订号冲突与重读合并、读不了时不覆盖、忘掉的人不复活、「知道了」的记录。
+//! 键盘记一笔现在写素材（`materials.jsonl`），卡片的修订号冲突改由测试里的另一个实例直接改卡片来制造。
 //! 键盘侧只等 200 毫秒的锁：别的进程占着时返回 `LockTimeout`，不卡 2 秒。
 //! 「两个进程」用两个线程各持一个 `MemoryStore` 模拟：flock 锁的是打开的文件，同一进程里两个实例也互斥。
 
@@ -11,7 +12,14 @@ use std::time::{Duration, Instant};
 use qingjian_cloud_proto::{CardKind, Scene};
 
 use super::{card, contact, id, pick, temp_dir};
-use crate::memory::{LocalDate, MemoryError, MemorySnapshot, MemoryStore};
+use crate::memory::{LocalDate, MaterialSource, MemoryError, MemorySnapshot, MemoryStore};
+
+/// 另一个进程往卡片末尾加一张（读与写各拿一次锁，只在不并发的地方用）；记一笔现在写素材，不再碰卡片。
+fn append_card(store: &MemoryStore, n: u32, text: &str, touched_at: i64) {
+    let mut cards = store.try_cards(&id(1)).unwrap();
+    cards.push(card(n, CardKind::Other, text, &[], None, touched_at));
+    store.put_cards(&id(1), &cards).unwrap();
+}
 
 /// 测试里的 App：在快照上把第一张卡改成 `text`。
 fn edit_first_card(snapshot: &mut MemorySnapshot, text: &str) {
@@ -33,7 +41,7 @@ fn stale_snapshot_conflicts_and_merges() {
         .put_cards(&id(1), &[card(1, CardKind::Other, "原来的", &[], None, 1)])
         .unwrap();
     let mut stale = store.snapshot().unwrap();
-    store.add_note(&id(1), "键盘记的", 2).unwrap();
+    append_card(&store, 2, "另一处加的", 2);
     edit_first_card(&mut stale, "App 改的");
     assert!(matches!(
         store.write_snapshot(&stale),
@@ -47,10 +55,11 @@ fn stale_snapshot_conflicts_and_merges() {
         .into_iter()
         .map(|card| card.text)
         .collect();
-    assert_eq!(texts, vec!["App 改的", "键盘记的"]);
+    assert_eq!(texts, vec!["App 改的", "另一处加的"]);
     std::fs::remove_dir_all(&user).ok();
 }
 
+/// 键盘记一笔写 `materials.jsonl`、App 整份写回卡片与名单，两边在同一把锁里交错，谁的都不丢。
 #[test]
 fn two_processes_lose_no_notes() {
     let user = temp_dir("two-processes");
@@ -64,41 +73,33 @@ fn two_processes_lose_no_notes() {
     let keyboard = std::thread::spawn(move || {
         let store = MemoryStore::open(&keyboard_dir);
         for i in 0..40 {
-            store.add_note(&id(1), &format!("记一笔 {i}"), i).unwrap();
+            store
+                .add_material(&id(1), &format!("记一笔 {i}"), MaterialSource::Typed, i)
+                .unwrap();
         }
     });
     let app_dir = user.clone();
     let app = std::thread::spawn(move || {
         let store = MemoryStore::open(&app_dir);
-        let mut conflicts = 0;
         for i in 0..40 {
             let mut snapshot = store.snapshot().unwrap();
-            for _ in 0..100 {
-                edit_first_card(&mut snapshot, &format!("App 改 {i}"));
-                match store.write_snapshot(&snapshot) {
-                    Ok(()) => break,
-                    Err(MemoryError::Conflict) => {
-                        conflicts += 1;
-                        snapshot = store.snapshot().unwrap();
-                    }
-                    Err(error) => panic!("{error}"),
-                }
-            }
+            edit_first_card(&mut snapshot, &format!("App 改 {i}"));
+            store.write_snapshot(&snapshot).unwrap();
         }
-        conflicts
     });
     keyboard.join().unwrap();
-    let conflicts = app.join().unwrap();
-    let texts: HashSet<String> = MemoryStore::open(&user)
-        .cards(&id(1))
+    app.join().unwrap();
+    let store = MemoryStore::open(&user);
+    let texts: HashSet<String> = store
+        .materials(&id(1), 40)
+        .unwrap()
         .into_iter()
-        .map(|card| card.text)
+        .map(|m| m.text)
         .collect();
     for i in 0..40 {
         assert!(texts.contains(&format!("记一笔 {i}")), "第 {i} 条丢了");
     }
-    assert!(texts.contains("App 改 39"));
-    eprintln!("写回冲突 {conflicts} 次，都重读合并成功");
+    assert_eq!(store.cards(&id(1))[0].text, "App 改 39");
     std::fs::remove_dir_all(&user).ok();
 }
 
@@ -119,7 +120,7 @@ fn unreadable_files_abort_writes() {
 
     deny(&cards, 0o000);
     assert!(matches!(
-        store.add_note(&id(1), "新卡", 2),
+        store.put_cards(&id(1), &[card(2, CardKind::Other, "新卡", &[], None, 2)]),
         Err(MemoryError::Io(_))
     ));
     assert!(store.try_cards(&id(1)).is_err());
@@ -152,11 +153,13 @@ fn forgotten_contact_is_not_recreated() {
     let user = temp_dir("forgotten");
     let store = MemoryStore::open(&user);
     store.put_contact(contact(1, Scene::Dating)).unwrap();
-    store.add_note(&id(1), "喜欢猫", 1).unwrap();
+    store
+        .put_cards(&id(1), &[card(1, CardKind::Other, "喜欢猫", &[], None, 1)])
+        .unwrap();
     store.forget_contact(&id(1)).unwrap();
     let dir = user.join("memory").join(id(1));
     assert!(matches!(
-        store.add_note(&id(1), "又记一笔", 2),
+        store.add_material(&id(1), "又记一笔", MaterialSource::Typed, 2),
         Err(MemoryError::Invalid(_))
     ));
     assert!(matches!(
@@ -202,7 +205,7 @@ fn keyboard_lock_wait_times_out_quickly() {
     held_rx.recv_timeout(Duration::from_secs(5)).unwrap();
 
     let started = Instant::now();
-    let result = keyboard.add_note(&id(1), "拿不到锁", 1);
+    let result = keyboard.add_material(&id(1), "拿不到锁", MaterialSource::Typed, 1);
     let waited = started.elapsed();
     assert!(
         matches!(result, Err(MemoryError::LockTimeout)),
@@ -215,8 +218,10 @@ fn keyboard_lock_wait_times_out_quickly() {
 
     release_tx.send(()).unwrap();
     holder.join().unwrap();
-    keyboard.add_note(&id(1), "锁放了就能写", 2).unwrap();
-    assert_eq!(keyboard.cards(&id(1)).len(), 1);
+    keyboard
+        .add_material(&id(1), "锁放了就能写", MaterialSource::Typed, 2)
+        .unwrap();
+    assert_eq!(keyboard.materials(&id(1), 2).unwrap().len(), 1);
 
     assert_eq!(
         MemoryStore::open(&user).lock_timeout(),
@@ -283,9 +288,7 @@ fn forced_interleaving(
 fn forced_interleaving_conflicts_then_merges() {
     let (result, conflicts, cards) = forced_interleaving(
         "forced",
-        |store| {
-            store.add_note(&id(1), "键盘记的", 2).unwrap();
-        },
+        |store| append_card(store, 3, "另一处加的", 2),
         |snapshot| {
             snapshot.cards.get_mut(&id(1)).unwrap()[1].text = "App 改的第二张".to_owned();
         },
@@ -304,7 +307,7 @@ fn forced_interleaving_conflicts_then_merges() {
     assert!(result.is_ok(), "{result:?}");
     assert!(conflicts >= 1, "旧快照写回必须收到 Conflict");
     let texts: Vec<&str> = cards.iter().map(|c| c.text.as_str()).collect();
-    assert_eq!(texts, vec!["第一张", "App 改的第二张", "键盘记的"]);
+    assert_eq!(texts, vec!["第一张", "App 改的第二张", "另一处加的"]);
 }
 
 /// 同一张卡两边都改：合并时 `touched_at` 新者为准。

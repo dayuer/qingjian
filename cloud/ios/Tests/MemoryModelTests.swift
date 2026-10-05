@@ -114,6 +114,9 @@ final class MemoryModelTests: XCTestCase {
         let failure = MemoryFailure.decode(#"{"code":"io","message":"读不了"}"#)
         XCTAssertEqual(failure, MemoryFailure(code: .io, message: "读不了"))
         XCTAssertEqual(MemoryFailure.decode(#"{"code":"contact_limit","message":"日常最多 8 个人"}"#)?.userMessage, "日常最多 8 个人")
+        let full = MemoryFailure.decode(#"{"code":"material_limit","message":"桥给的"}"#)
+        XCTAssertEqual(full?.code, .materialLimit)
+        XCTAssertEqual(full?.userMessage, "这个人还有 200 条没整理，先去 App 里看看")
         XCTAssertEqual(MemoryFailure.decode(#"{"code":"zzz","message":"m"}"#)?.code, .other)
         XCTAssertEqual(MemoryFailure.decode("not json")?.message, "not json")
     }

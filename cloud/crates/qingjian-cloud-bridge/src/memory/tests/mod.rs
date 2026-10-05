@@ -3,6 +3,7 @@
 mod date;
 mod display_name;
 mod hint;
+mod materials;
 mod scene;
 mod store;
 mod sync;

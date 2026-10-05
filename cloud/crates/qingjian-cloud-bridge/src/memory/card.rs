@@ -4,8 +4,6 @@
 use qingjian_cloud_proto::{CardKind, CardSource};
 use serde::{Deserialize, Serialize};
 
-use super::{MemoryError, new_id};
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Card {
     pub id: String,
@@ -46,24 +44,4 @@ pub struct Card {
 
     /// 本地最后一次改这张卡的时间，Unix 秒；App 写回冲突时两边都改了以它新者为准。
     pub touched_at: i64,
-}
-
-impl Card {
-    /// 键盘「记一笔」：一张手写的 `other` 卡。
-    pub fn note(text: &str, now: i64) -> Result<Self, MemoryError> {
-        Ok(Self {
-            id: new_id()?,
-            kind: CardKind::Other,
-            text: text.to_owned(),
-            keywords: Vec::new(),
-            when: None,
-            source: CardSource::Manual,
-            confirmed: true,
-            faded: false,
-            seq: 0,
-            updated_at: 0,
-            created_at: now,
-            touched_at: now,
-        })
-    }
 }

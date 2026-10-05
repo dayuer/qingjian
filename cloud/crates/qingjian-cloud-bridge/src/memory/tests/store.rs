@@ -318,10 +318,6 @@ fn card_limits_count_characters() {
     assert!(!keywords_ok(&["九个字的关键词呀呀"]), "至多 8 字");
     assert!(!keywords_ok(&["  "]));
 
-    assert!(matches!(
-        store.add_note(&id(1), &"记".repeat(201), 2),
-        Err(MemoryError::Invalid(_))
-    ));
     let too_long = MemorySnapshot {
         contacts: vec![contact(1, Scene::Dating)],
         cards: [(
