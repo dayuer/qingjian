@@ -36,11 +36,6 @@ enum KeyStyle {
         traits.userInterfaceStyle == .dark ? UIColor(white: 0.3, alpha: 1) : UIColor(white: 0.82, alpha: 1)
     })
 
-    /// 候选栏首选的灰底。
-    static let highlightFill = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.18) : UIColor(white: 0, alpha: 0.07)
-    })
-
     /// 字母键宽：一行 10 个键加两侧边距正好铺满。
     static func unit(for width: CGFloat) -> CGFloat {
         (width - sideMargin * 2 - keySpacing * 9) / 10
