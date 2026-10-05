@@ -17,10 +17,21 @@ pub fn fake_server_with_body(
     status_line: &'static str,
     body: &'static str,
 ) -> (String, mpsc::Receiver<String>) {
+    fake_server_sequence(vec![(status_line, body)])
+}
+
+/// 每次连接按顺序取一条 `(状态行, 响应体)`；用完之后一直用最后一条。
+/// 一个操作要发好几条请求、每条的回应不同时用它（例如建空间之后接着问一次开关）。
+pub fn fake_server_sequence(
+    responses: Vec<(&'static str, &'static str)>,
+) -> (String, mpsc::Receiver<String>) {
+    assert!(!responses.is_empty(), "至少给一条响应");
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
+        let mut responses = responses.into_iter();
+        let mut current = responses.next().unwrap();
         for stream in listener.incoming().flatten() {
             let mut head = String::new();
             let mut reader = BufReader::new(&stream);
@@ -52,12 +63,14 @@ pub fn fake_server_with_body(
             head.push_str("\r\n");
             head.push_str(&request_body);
             tx.send(head).ok();
+            let (status_line, body) = current;
             write!(
                 &stream,
                 "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
                 body.len()
             )
             .ok();
+            current = responses.next().unwrap_or(current);
         }
     });
     (url, rx)

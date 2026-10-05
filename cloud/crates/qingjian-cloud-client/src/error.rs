@@ -36,6 +36,15 @@ pub enum ClientError {
     #[error("cross-border consent required: {0}")]
     ConsentRequired(String),
 
+    /// 匹配码不对、过期或已用过（404 带 `bad_code`）：让用户重新输一张，重试没用。
+    #[error("pair code rejected: {0}")]
+    BadCode(String),
+
+    /// 空间里的设备已经满了（409 带 `device_limit`）：让用户在旧设备上删一台再加，重试没用。
+    /// 这一版不给出口，界面上说明白。
+    #[error("space is full: {0}")]
+    DeviceLimit(String),
+
     /// 服务端拒绝了这个请求（其余 4xx），重试也没用。
     #[error("request rejected ({status}): {message}")]
     Rejected { status: u16, message: String },
@@ -112,6 +121,8 @@ mod tests {
         assert!(!ClientError::LockedToday("x".to_owned()).is_retryable());
         assert!(!ClientError::ConsentRequired("x".to_owned()).is_retryable());
         assert!(!ClientError::Unauthorized.is_retryable());
+        assert!(!ClientError::BadCode("x".to_owned()).is_retryable());
+        assert!(!ClientError::DeviceLimit("x".to_owned()).is_retryable());
         assert!(ClientError::Unreachable("x".to_owned()).is_retryable());
     }
 }

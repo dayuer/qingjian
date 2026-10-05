@@ -1,4 +1,6 @@
-//! 集成测试共用：定位产品数据。`QINGJIAN_REQUIRE_DATA=1` 时缺数据直接失败，不静默跳过。
+//! 集成测试共用：定位产品数据、传进 C 接口的字符串。每个集成测试二进制各引一份，用不到的会被当死代码。
+
+#![allow(dead_code)]
 
 use std::path::PathBuf;
 
@@ -26,4 +28,9 @@ pub fn data_dir() -> Option<PathBuf> {
         dir.display()
     );
     Some(dir)
+}
+
+/// 传进 C 接口的字符串，活得比调用久（调用方持有它）。
+pub fn c_string(text: &str) -> std::ffi::CString {
+    std::ffi::CString::new(text).unwrap()
 }

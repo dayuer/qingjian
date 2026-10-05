@@ -1,4 +1,5 @@
 //! 操作失败的样子：`{"code": "…", "message": "…"}`，code 给 Swift 区分种类，message 是给用户看的中文。
+//! 所有 `qj_*` 操作都用这一份，成功的返回值与它不许有同名字段（Swift 按字段分成功与失败）。
 //! `ClientError` 到 code 与文案的映射是纯函数，不联网就能测。
 
 use qingjian_cloud_client::ClientError;
@@ -16,7 +17,7 @@ pub const OUTDATED_CONSENT: &str = "需要先同意把数据发到境外服务�
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Failure {
     /// `auth_failed` `locked_today` `unauthorized` `not_configured` `rate_limited` `forbidden`
-    /// `consent_required` `unreachable` `invalid_argument` `not_signed_in` `other`。
+    /// `consent_required` `bad_code` `device_limit` `unreachable` `invalid_argument` `not_signed_in` `other`。
     pub code: &'static str,
 
     pub message: String,
@@ -64,6 +65,8 @@ pub fn code_of(error: &ClientError) -> &'static str {
         ClientError::NotConfigured(_) => "not_configured",
         ClientError::RateLimited => "rate_limited",
         ClientError::Forbidden(_) => "forbidden",
+        ClientError::BadCode(_) => "bad_code",
+        ClientError::DeviceLimit(_) => "device_limit",
         ClientError::Unreachable(_) | ClientError::Io(_) => "unreachable",
         ClientError::Rejected { .. } | ClientError::BadResponse(_) => "other",
     }
@@ -112,6 +115,8 @@ pub fn message(error: &ClientError) -> String {
         ClientError::LockedToday(_) => LOCKED_TODAY.to_owned(),
         ClientError::ConsentRequired(_) => OUTDATED_CONSENT.to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
+        ClientError::BadCode(_) => "匹配码不对或已经过期，请重新输一张".to_owned(),
+        ClientError::DeviceLimit(_) => "空间里的设备已经满了，先在旧设备上删一台再加".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级 App".to_owned(),
     }

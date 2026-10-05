@@ -1,6 +1,7 @@
 //! 账号类请求的响应检查：关掉 ureq 的「状态码即错误」后自己判，读出服务端 `{"error": "…", "code": "…"}` 里的文案与代号，
 //! 再按调用场景映射成 [`ClientError`]（登录类与账号类对 401 / 503 的含义不同）。
 
+use qingjian_cloud_proto::{CODE_BAD_CODE, CODE_DEVICE_LIMIT};
 use ureq::Body;
 use ureq::http::Response;
 
@@ -72,6 +73,9 @@ fn map_status(status: u16, message: String, code: Option<&str>, context: Context
         (Context::Login, 400) if code == Some(CODE_CONSENT_REQUIRED) => {
             ClientError::ConsentRequired(message)
         }
+        // 这两个代号服务端全局唯一，出现在哪个上下文都这么解释；放在泛 4xx 之前
+        (_, 404) if code == Some(CODE_BAD_CODE) => ClientError::BadCode(message),
+        (_, 409) if code == Some(CODE_DEVICE_LIMIT) => ClientError::DeviceLimit(message),
         (_, 429) => ClientError::RateLimited,
         (_, 400..=499) => ClientError::Rejected { status, message },
         _ => ClientError::Unreachable(format!("http {status}: {message}")),
@@ -138,6 +142,27 @@ mod tests {
         assert!(matches!(
             map_status(429, "m".into(), Some("locked_today"), Context::Account),
             ClientError::RateLimited
+        ));
+    }
+
+    #[test]
+    fn pair_codes_are_read_by_code_not_status() {
+        assert!(matches!(
+            map_status(404, "m".into(), Some("bad_code"), Context::Login),
+            ClientError::BadCode(m) if m == "m"
+        ));
+        assert!(matches!(
+            map_status(409, "m".into(), Some("device_limit"), Context::Account),
+            ClientError::DeviceLimit(m) if m == "m"
+        ));
+        // 没有代号就还是普通的 4xx：轮询到已取过的申请是这一种
+        assert!(matches!(
+            map_status(404, String::new(), None, Context::Login),
+            ClientError::Rejected { status: 404, .. }
+        ));
+        assert!(matches!(
+            map_status(409, String::new(), Some("other"), Context::Account),
+            ClientError::Rejected { status: 409, .. }
         ));
     }
 

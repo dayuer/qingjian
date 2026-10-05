@@ -85,6 +85,8 @@ char *qj_settings_write(const char *config_path, const char *json);
 // 其余成功返回 NULL，失败返回 JSON {"code":"…","message":"…"}：message 是给用户看的中文，code 取值
 // auth_failed / locked_today / consent_required / unauthorized / not_configured / rate_limited / forbidden / unreachable /
 // invalid_argument / not_signed_in / other；status 的 error_code 取值相同。键盘下次弹出时按新的 cloud.toml 重连。
+// 本机有没有拿到过会话：只读 cloud.toml 的令牌，不联网。App 用它决定「我」页那一行显示已开通还是没开通。
+bool qj_cloud_signed_in(const char *path);
 char *qj_account_status(const char *path);
 // nonce 是原始值（交给 Apple 的是它的 SHA-256 十六进制）；device 是设备名，可为 NULL。
 // 三个登录函数的 cross_border_consented 是用户是否勾选了「同意把数据发到境外服务器」：false 时不联网，
@@ -102,6 +104,24 @@ char *qj_account_revoke_session(const char *path, int64_t session_id);
 char *qj_account_sign_out(const char *path);
 // 删账号：服务器删成功才清本机令牌。
 char *qj_account_delete(const char *path);
+
+// 空间与匹配码（素笺 1b「不要账号」，取代登录）：开通云服务时建空间，新设备用匹配码申请加入，旧设备上允许之后才拿到会话。
+// path 同上；都是阻塞的网络请求，在后台线程调。令牌与登录一样只在 cloud.toml 与桥之间流转。
+// 成功的返回值里没有令牌，也不含失败 JSON 的那个 code 字段：qj_pair_code 给的是 pair_code。
+// 建空间成功后这台设备就已登录（令牌写进 cloud.toml），qj_pair_poll 收到 approved 时同样。
+// device 是设备名，可为 NULL（缺省 "iPhone"）；cross_border_consented 为假时不联网，直接返回 consent_required。
+char *qj_space_create(const char *path, const char *device, bool cross_border_consented);
+// 出一张匹配码（要已登录）：成功 {"pair_code":"K7P2-9QXM","expires_at":…}（毫秒）。
+char *qj_pair_code(const char *path);
+// 新设备输码申请加入：成功 {"request_id":…,"secret":…,"expires_at":…}，secret 轮询时回传。
+// 码不对、过期返回 code 为 bad_code 的失败；空间满 5 台返回 device_limit（码不被消费，还能给别人用）。
+char *qj_pair_join(const char *path, const char *code, const char *device);
+// 轮询这次申请：成功 {"state":"pending"|"denied"|"approved"}；approved 时会话已写进 cloud.toml。
+char *qj_pair_poll(const char *path, const char *request_id, const char *secret);
+// 等这台设备处理的加入申请（要已登录）：成功是 JSON 数组 [{"id","name","platform","at"}]。
+char *qj_pair_requests(const char *path);
+// 允许或拒绝一条加入申请（要已登录）：allow 为真之后新设备才取得到令牌。
+char *qj_pair_decide(const char *path, const char *request_id, bool allow);
 
 // 本地记忆（素笺 2A）：对象、打字提示、对象卡、「记一笔」（存成待整理素材）。会话没有学习数据目录（user_dir 为 NULL）时都是空操作 / 返回 NULL。
 // App 与键盘的读-改-写都在 memory/.lock 的文件锁里做。名单是一张平铺的人，人数不限，全局可以置顶最多 4 个人。

@@ -3,6 +3,13 @@
 > 2026-10-03：Mac 端从独立的菜单栏常驻程序（`mac-agent`）改成链进输入法进程的库 `qingjian-cloud-mac`，
 > 不再多一个常驻进程；状态与操作在「中☁ → 青简 Cloud ›」子菜单里。下文涉及进程边界的描述以此为准。
 
+> 2026-10-06：**默认不要账号**（决定 D6 / D7）。开通云服务时**建一个空间**，新设备输一张 8 位匹配码申请加入、
+> 在旧设备上允许后才拿到会话；邮箱、Apple、微信只作将来的找回方式，可以不绑，这一轮不做。
+> **下文「定位」「鉴权」里以登录为中心的说法以这条为准**：iOS 的入口已经换成「我 → 素笺云服务」与引导第三步的
+> 「了解云服务」（[plans/2026-10-06-ios-open-space.md](plans/2026-10-06-ios-open-space.md)），
+> 账号页与网页登录的代码还在但已经没有入口，随 Mac 那一侧（1b Task 5 / 6）一起收。
+> 客户端的 proto 与桥接口见 [plans/2026-10-05-no-account-client.md](plans/2026-10-05-no-account-client.md)。
+
 > 2026-10-04：素笺子项目 1。青简 Cloud 从「一人一台自建服务器、设备令牌」改成素笺的多用户服务（`https://pinyin.synon.ai`）：
 > Apple ID 或邮箱登录拿会话令牌，四项云功能各自同意、缺省全关，服务端按用户加密存储。下文「定位」「鉴权」两处以此为准；
 > 服务端设计见 synon-ime 仓库的 `docs/superpowers/specs/2026-10-04-account-multitenant-design.md`，客户端计划见 [plans/2026-10-04-account-client.md](plans/2026-10-04-account-client.md)。
@@ -67,13 +74,15 @@
 
 ## 定位
 
-- **素笺多用户服务。** 服务端闭源（synon-ime），部署在 `pinyin.synon.ai`（新加坡）；用户用 Apple ID 或邮箱登录，账号之间数据隔离。
+- **素笺多用户服务。** 服务端闭源（synon-ime），部署在 `pinyin.synon.ai`（新加坡）。
+  2026-10-06 起**默认不要账号**：开通云服务的那一下就地建一个空间，空间之间数据隔离（服务端内部仍按一个用户存），
+  新设备用匹配码加入并在旧设备上允许；登录（Apple / 邮箱 / 微信）只作将来的找回方式。
   每个用户一把数据密钥，敏感字段（剪贴板、学习数据、输入日志、配置）入库前加密，删账号即销毁密钥；服务端处理请求时能解密，这一点写进隐私政策。
   剪贴板、同步、输入日志、大模型四项各自单独同意、缺省全关；关掉一项即删除云端这部分数据，本机数据不动。
   Google、X 等其他登录方式以后再加。
-- **登录前先取得出境同意。** 服务器在境外，登录前必须有单独的出境同意，客户端随登录请求带同意文本的版本号
+- **开通前先取得出境同意。** 服务器在境外，第一次把数据交出去之前必须有单独的出境同意，客户端随请求带同意文本的版本号
   （`qingjian_cloud_proto::CROSS_BORDER_CONSENT_VERSION`，改了文本就换版本）；服务端缺同意或不认这个版本返回 400 `consent_required`。
-  iOS 账号页有默认不勾选的勾选框，Apple 与邮箱登录都要先勾（没勾桥不联网）；Mac 在服务端渲染的网页登录页里勾选。
+  iOS 在开通页（`App/Space/CreateSpaceView.swift`）有一个默认不勾选的勾选框，没勾桥不联网；建空间与输码加入都要先勾。
 - **平台**：macOS 与 iOS。协议与平台无关，以后可以给 Windows 和 Linux 写同样的常驻小程序。
 - **要解决的问题，按优先级排：**
   1. 跨设备剪贴板：在 A 设备复制，在 B 设备能粘贴。
@@ -101,7 +110,12 @@ synon-ime/（独立的闭源仓库，与本检出并排）
 ```
 
 - **服务端**：axum 提供 HTTP，SQLite（`rusqlite`）存储。TLS 交给前面的 nginx。
-- **鉴权**：账号登录。iOS 在主 App 的「账号」页用 Sign in with Apple（带 nonce）或邮箱 6 位验证码登录，由 Rust 桥发请求，
+- **鉴权**：**默认是空间 + 匹配码**（2026-10-06）。iOS 在「我 → 素笺云服务」或引导第三步开通：`POST /v1/space` 建空间，
+  或者 `POST /v1/pair/join` 拿匹配码申请加入、轮询到旧设备允许；两种都当场拿到这台设备的会话，由 Rust 桥写盘、不交给 Swift。
+  出码、列申请、允许 / 拒绝在已登录的设备上做（`GET /v1/pair/requests`、`POST /v1/pair/requests/{id}`）。
+  匹配码是 8 位 Crockford Base32，展示成 `K7P2-9QXM`；轮询时凭据走 `X-Pair-Secret` 请求头，不放查询串。
+  **下面这段登录仍然在代码里，但 iOS 已经没有了入口**，等 Mac 那一侧一起收：
+  账号登录。iOS 在主 App 的「账号」页用 Sign in with Apple（带 nonce）或邮箱 6 位验证码登录，由 Rust 桥发请求，
   会话令牌（`sjt_…`）只写进 App Group 的 `cloud.toml`、不交给 Swift；Mac 在输入法菜单里点「登录…」，用 `ASWebAuthenticationSession`
   打开服务端的网页登录页，PKCE（verifier 只在输入法进程里）换回一次性码，再换会话令牌写进 `QingjianCloud/config.toml`。
   `cloud.toml` 与 Mac 的 `config.toml` 同时存 `user_id`，用来判断是不是换了账号；都是原子写、权限 0600。
