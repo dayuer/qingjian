@@ -10,6 +10,7 @@ mod dismissed_file;
 mod error;
 mod ffi;
 mod hint;
+mod initial;
 mod local_date;
 mod materials;
 mod pronoun;
@@ -32,6 +33,7 @@ pub use self::card::Card;
 pub use self::contact::{Contact, MAX_DISPLAY_NAME_CHARS};
 pub use self::error::MemoryError;
 pub use self::hint::{Hint, HintIndex, HintReason, days_away, panel_cards, reminder_text};
+pub use self::initial::initial_of;
 pub use self::local_date::LocalDate;
 pub use self::materials::{
     CONTACT_PLACEHOLDER, CloudState, Consent, MAX_UNPROCESSED_MATERIALS, Material, MaterialSource,

@@ -3,6 +3,7 @@
 mod date;
 mod display_name;
 mod hint;
+mod initial;
 mod materials;
 mod scene;
 mod store;
@@ -37,6 +38,7 @@ fn contact(n: u32, scene: Scene) -> Contact {
         id: id(n),
         name: format!("人{n}"),
         display_name: None,
+        initial: None,
         pronoun: Pronoun::Ta,
         scene,
         created_at: 1_791_043_200,

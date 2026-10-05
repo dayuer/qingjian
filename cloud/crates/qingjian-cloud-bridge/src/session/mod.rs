@@ -74,13 +74,18 @@ impl Session {
         cloud: Option<CloudConfig>,
     ) -> Result<Self, BridgeError> {
         let dictionary = Dictionary::from_path(data_dir.join("dict.qj"))?;
-        let (learner, memory): (Box<dyn Learner>, Option<LiveMemory>) = match user_dir {
+        let (learner, mut memory): (Box<dyn Learner>, Option<LiveMemory>) = match user_dir {
             Some(dir) => {
                 let (learner, memory) = LiveMemory::open(dir);
                 (Box::new(learner), Some(memory))
             }
             None => (Box::new(FrequencyLearner::default()), None),
         };
+        // 名单里还没有首字母的对象补上（通讯录按字母分组要用，见 memory::initial）。
+        // 这是唯一还拿着词库的地方——再往下 dictionary 就被 move 进引擎了。
+        if let Some(memory) = memory.as_mut() {
+            memory.fill_contact_initials(|name| crate::memory::initial_of(&dictionary, name));
+        }
         let mut engine = Engine::new(dictionary).with_learner(learner);
         let lm = data_dir.join("lm.qj");
         if lm.is_file() {

@@ -11,6 +11,10 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
     /// 键盘上显示的代号（桥的 display_name，最多 12 字）；nil 时键盘显示名字。
     var displayName: String?
 
+    /// 名字首字的首字母（桥的 `initial`）：通讯录按它分组、做右侧索引（设计稿 02 的 2b）。
+    /// 由键盘那侧用词库算好写进 contacts.json（D4：App 不自己算拼音）；旧数据与词库不认得的名字没有，按「#」归。
+    var initial: String?
+
     var pronoun: MemoryPronoun
 
     var scene: String
@@ -24,7 +28,7 @@ struct MemoryContact: Codable, Identifiable, Hashable, Sendable {
     var remindOn = true
 
     enum CodingKeys: String, CodingKey {
-        case id, name, pronoun, scene
+        case id, name, initial, pronoun, scene
         case displayName = "display_name"
         case createdAt = "created_at"
         case hintOn = "hint_on"
@@ -60,6 +64,7 @@ extension MemoryContact {
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
             displayName: try container.decodeIfPresent(String.self, forKey: .displayName),
+            initial: try container.decodeIfPresent(String.self, forKey: .initial),
             pronoun: try container.decodeIfPresent(MemoryPronoun.self, forKey: .pronoun) ?? .ta,
             scene: try container.decode(String.self, forKey: .scene),
             createdAt: try container.decode(Int64.self, forKey: .createdAt),

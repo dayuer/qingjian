@@ -117,6 +117,31 @@ impl LiveMemory {
         }
     }
 
+    /// 给名字还没有首字母的对象补上（通讯录按字母分组要用，见 `memory::initial`）。
+    /// 词库只有在会话那一侧才有，所以由 [`Session::open`] 把 `initial` 交进来。
+    /// 一个都没缺时不写盘——键盘每次出现都会走这里，不该每次都碰 contacts.json。
+    pub(in crate::session) fn fill_contact_initials(
+        &mut self,
+        initial: impl Fn(&str) -> Option<char>,
+    ) {
+        let mut filled: Vec<Contact> = Vec::new();
+        for contact in &mut self.contacts {
+            if contact.initial.is_some() {
+                continue;
+            }
+            let Some(letter) = initial(&contact.name) else {
+                continue;
+            };
+            contact.initial = Some(letter.to_string());
+            filled.push(contact.clone());
+        }
+        for contact in filled {
+            if let Err(error) = self.store.put_contact(contact) {
+                tracing::warn!(code = error.code(), "首字母没写回去");
+            }
+        }
+    }
+
     /// 重读当前对象的卡片与修改时间（换对象、「记一笔」、App 改了之后）；读不了时留着原来的，返回是否读成了。
     pub(super) fn reload_cards(&mut self) -> bool {
         let id = self.state.contact_id.clone();

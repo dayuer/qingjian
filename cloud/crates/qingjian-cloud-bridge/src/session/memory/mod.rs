@@ -183,6 +183,8 @@ impl Session {
             id: id.clone(),
             name: name.to_owned(),
             display_name: None,
+            // 首字母由下面那次补写算（`Session::open` 里词库还在手上）；这里先留空
+            initial: None,
             pronoun,
             scene,
             created_at: now_unix(),

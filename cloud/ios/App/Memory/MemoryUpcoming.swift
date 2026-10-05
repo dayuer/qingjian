@@ -24,6 +24,11 @@ struct MemoryUpcoming: Identifiable, Equatable {
         }
     }
 
+    /// 通讯录行尾的短提示（设计稿 02 的 2b）：日子「明天生日」，约定与别的「明天 · 看电影」。
+    var rowNote: String {
+        card.kind == .date ? "\(shortDay)\(card.text)" : "\(shortDay) · \(card.text)"
+    }
+
     /// 「今天」「明天」「3 天后 · 10-07」。
     var dayLabel: String {
         switch days {

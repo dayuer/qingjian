@@ -38,7 +38,9 @@ final class NoFullAccessStyleTests: XCTestCase {
              .calendarSelectedDay, .milestoneNext, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
              .quickNoteButton,
              // 记一笔的草稿卡与冲突屏（01 的 1e-2 / 1e-3）：冲突屏新卡那圈描边与「新的」标签
-             .conflictNewRing, .conflictNewLabel])
+             .conflictNewRing, .conflictNewLabel,
+             // 通讯录行尾的事件提示（02 的 2b：关于某个人的事，用浅绿字）
+             .contactEventNote])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {
