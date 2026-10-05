@@ -43,9 +43,14 @@ bool qj_cloud_enabled(QjSession *session);
 bool qj_memory_cloud_ready(const char *path);
 void qj_sync_now(QjSession *session);
 
-// 润色。status：0 空闲、1 等待中、2 就绪、3 失败。
+// 润色。status：0 空闲、1 等待中、2 就绪、3 失败（网络失败、服务器没开大模型）、4 模型给的不合用（已丢掉，换一个技能再试）。
+// 技能包随 App 包走（Data/skills），会话打开时读一次。包里的技能一个都没有时改整个用不了：available 为 false、skills 为 NULL。
 bool qj_rewrite_available(QjSession *session);
-void qj_rewrite_start(QjSession *session, const char *text);
+// 可用的改写技能：JSON 数组 [{"id","name","summary"}]，按 order 排；提示词不下发到壳里（壳只用来显示名字）。
+// 一个都没有或会话无效时为 NULL。用了哪个技能由键盘自己算（它知道当前选的人），桥不回传。
+char *qj_rewrite_skills(QjSession *session);
+// skill_id 为空指针或认不得时用当前生效的那个（选中的人的技能 → 设置里的默认 → 列表第一个）。
+void qj_rewrite_start(QjSession *session, const char *text, const char *skill_id);
 uint32_t qj_rewrite_status(QjSession *session);
 char *qj_rewrite_take(QjSession *session);
 void qj_rewrite_cancel(QjSession *session);
@@ -63,6 +68,8 @@ void qj_clip_push(QjSession *session, const char *text);
 
 // 主 App 设置页。读返回 JSON（失败为 NULL）；写成功返回 NULL，失败返回原因。
 // config.toml 与 Mac 同格式并经青简 Cloud 同步，键盘每次轮询按修改时间重读。
+// JSON 里的 rewrite_skill 是改写用的默认技能（技能包 id，缺省 polish；某个人身上指定了就用他的），
+// 落在 config.toml 的 [rewrite] skill——这个分节只有 iOS 用，Mac 读配置时按分节取，多出来的忽略。
 char *qj_settings_read(const char *config_path, const char *dicts_dir);
 char *qj_settings_write(const char *config_path, const char *json);
 // 账号（主 App 用）：path 是 App Group 里的 cloud.toml；都是阻塞的网络请求，在后台线程调。令牌只在 cloud.toml 与桥之间流转。

@@ -75,7 +75,7 @@ pub fn c(text: &str) -> CString {
     CString::new(text).unwrap()
 }
 
-/// 临时的数据目录（只有样例词库）与学习数据目录。
+/// 临时的数据目录（样例词库与随包技能包）与学习数据目录。
 pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join(format!("qj-memory-ffi-{name}-{}", std::process::id()));
     std::fs::remove_dir_all(&root).ok();
@@ -83,8 +83,14 @@ pub fn dirs(name: &str) -> (PathBuf, PathBuf) {
     let user = root.join("user");
     std::fs::create_dir_all(&data).unwrap();
     std::fs::create_dir_all(&user).unwrap();
-    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/sample/dict.tsv");
-    std::fs::copy(sample, data.join("dict.qj")).unwrap();
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets");
+    std::fs::copy(assets.join("sample/dict.tsv"), data.join("dict.qj")).unwrap();
+    // 技能包：桥从 data_dir/skills 读，打包时由 scripts/build-bridge.sh 拷进去
+    let skills = data.join("skills");
+    std::fs::create_dir_all(&skills).unwrap();
+    for entry in std::fs::read_dir(assets.join("skills")).unwrap().flatten() {
+        std::fs::copy(entry.path(), skills.join(entry.file_name())).unwrap();
+    }
     (data, user)
 }
 
