@@ -22,10 +22,9 @@ impl ScopeHandle {
     }
 
     /// 换到 `contact`：旧叠加层先落盘再从磁盘开新的，换回同一对象时读得到刚记的。
-    /// 换完调用方要调一次 `Engine::learner_mut()`，作废格子缓存里按旧叠加层排的候选。
+    /// 换完调用方要调一次 `Engine::learner_mut().scope_changed()`：作废格子缓存里按旧叠加层排的候选，
+    /// 并让学习器重建这个人的用户词快照（不调的话快照按代数作废，这个人的新词先查不到，但不会串到别人那里）。
     pub fn switch(&self, contact: Option<&str>) {
-        let mut overlay = lock(&self.overlay);
-        overlay.flush();
-        *overlay = Overlay::open(&self.memory_dir, contact);
+        lock(&self.overlay).replace(&self.memory_dir, contact);
     }
 }

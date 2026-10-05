@@ -1,7 +1,8 @@
 //! 分区学习器：全局层（学习数据目录的 `user.tsv`）之外，选了对象时叠对象层。
 //! **按人隔离**：选了人时写只进这个人的对象层（不碰全局，也不记个人 n-gram——那个只读全局、写不进去）；
 //! 没选人（「不指定」）时写全局。读一律是全局 + 对象层加权求和。
-//! 用户词、个人 n-gram、英文词表要返回引用，没法现场叠加，一律读全局。删词连当前打开的叠加层一起删。
+//! 新造的中文词、英文词也按人隔离：选了人只进对象层，经 `scoped_user_words` / `scoped_user_english` 与全局那份一起查
+//! （对象层借不出引用，查的是 [`Snapshot`] 副本，换人后由 `scope_changed` 重建）。个人 n-gram 只读全局。删词连当前打开的叠加层一起删。
 //! 包装层必须逐个转发 `Learner` 的全部方法，漏一个就会被 trait 的缺省实现悄悄吞掉。私密输入由外面的 `MutedLearner` 挡写。
 
 use std::path::{Path, PathBuf};
@@ -12,12 +13,15 @@ use qingjian_core::{Candidate, Forgotten, Learner};
 use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::FrequencyLearner;
 
-use super::{Overlay, ScopeHandle, load_layer, lock};
+use super::{Overlay, ScopeHandle, Snapshot, load_layer, lock};
 
 pub struct ScopedLearner {
     global: FrequencyLearner,
 
     overlay: Arc<Mutex<Overlay>>,
+
+    /// 对象层用户词与英文词的副本。
+    snapshot: Snapshot,
 
     /// 叠加层的倍数：产品里是 [`Self::OVERLAY_WEIGHT`]，回放调参时经 [`Self::open_with_weight`] 换。
     weight: u32,
@@ -40,9 +44,11 @@ impl ScopedLearner {
         contact: Option<&str>,
         weight: u32,
     ) -> Self {
+        let overlay = Overlay::open(memory_dir, contact);
         Self {
             global: load_layer(user_dir),
-            overlay: Arc::new(Mutex::new(Overlay::open(memory_dir, contact))),
+            snapshot: Snapshot::of(&overlay),
+            overlay: Arc::new(Mutex::new(overlay)),
             weight,
             memory_dir: memory_dir.to_path_buf(),
         }
@@ -65,6 +71,21 @@ impl ScopedLearner {
         } else {
             f(&mut self.global);
         }
+    }
+
+    /// 写对象层的用户词或英文词：选了人时写完重建快照，返回 `true`；没选人返回 `false`，由调用方写全局。
+    fn write_contact_words(&mut self, f: impl FnMut(&mut FrequencyLearner)) -> bool {
+        let mut overlay = lock(&self.overlay);
+        if !overlay.isolated() {
+            return false;
+        }
+        overlay.write(f);
+        self.snapshot = Snapshot::of(&overlay);
+        true
+    }
+
+    fn generation(&self) -> u64 {
+        lock(&self.overlay).generation()
     }
 }
 
@@ -109,19 +130,35 @@ impl Learner for ScopedLearner {
     }
 
     fn learn_word(&mut self, text: &str, syllables: &[String]) {
-        self.global.learn_word(text, syllables);
+        if !self.write_contact_words(|layer| layer.learn_word(text, syllables)) {
+            self.global.learn_word(text, syllables);
+        }
     }
 
     fn user_words(&self) -> Option<&Dictionary> {
         self.global.user_words()
     }
 
+    fn scoped_user_words(&self) -> Option<&Dictionary> {
+        self.snapshot.words(self.generation())
+    }
+
     fn learn_english(&mut self, word: &str) {
-        self.global.learn_english(word);
+        if !self.write_contact_words(|layer| layer.learn_english(word)) {
+            self.global.learn_english(word);
+        }
     }
 
     fn user_english(&self) -> Option<&WordList> {
         self.global.user_english()
+    }
+
+    fn scoped_user_english(&self) -> Option<&WordList> {
+        self.snapshot.english(self.generation())
+    }
+
+    fn scope_changed(&mut self) {
+        self.snapshot = Snapshot::of(&lock(&self.overlay));
     }
 
     fn record_transition(&mut self, context: Context<'_>, word: &str, times: u32) {
@@ -149,18 +186,30 @@ impl Learner for ScopedLearner {
 
     fn forget(&mut self, text: &str) -> Forgotten {
         let mut forgotten = self.global.forget(text);
-        lock(&self.overlay).write(|layer| {
+        let mut overlay = lock(&self.overlay);
+        let mut contact_word = false;
+        overlay.write(|layer| {
             let more = layer.forget(text);
+            contact_word = more.user_word;
             forgotten.user_word |= more.user_word;
             forgotten.learning |= more.learning;
         });
+        // 删的是这个人的用户词：快照里也得没有，否则候选里还在
+        if contact_word {
+            self.snapshot = Snapshot::of(&overlay);
+        }
         forgotten
     }
 
     fn forget_english(&mut self, word: &str) -> bool {
-        let mut found = self.global.forget_english(word);
-        lock(&self.overlay).write(|layer| found |= layer.forget_english(word));
-        found
+        let found = self.global.forget_english(word);
+        let mut overlay = lock(&self.overlay);
+        let mut contact_word = false;
+        overlay.write(|layer| contact_word = layer.forget_english(word));
+        if contact_word {
+            self.snapshot = Snapshot::of(&overlay);
+        }
+        found || contact_word
     }
 
     fn merge_remote(&mut self, inbox: &str) -> usize {
