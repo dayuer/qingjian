@@ -32,14 +32,8 @@ struct RewriteBar: View {
                     .onKeyboardTap { model.applyRewrite() }
                 skills
                 close
-            case .failed:
-                Text("改写没成功，检查网络后再试").font(.system(size: 15)).foregroundStyle(.secondary)
-                    .padding(.leading, 12)
-                Spacer(minLength: 0)
-                skills
-                close
-            case .rejected:
-                Text("没改好，换一个试试").font(.system(size: 15)).foregroundStyle(.secondary)
+            case .failed, .rejected:
+                Text(RewriteWording.note(for: model.rewrite) ?? "").font(.system(size: 15)).foregroundStyle(.secondary)
                     .padding(.leading, 12)
                 Spacer(minLength: 0)
                 skills
