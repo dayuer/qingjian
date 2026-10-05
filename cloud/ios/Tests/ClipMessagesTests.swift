@@ -1,4 +1,4 @@
-// 「记一笔」拆剪贴板：微信多选复制一条一张、去掉名字与时间；长文按段拼成每张不超过 200 字；最多 10 张。消息全是合成的。
+// 「记一笔」拆剪贴板：原话原样保留（名字、时间都留着），长文按段拼成每张不超过 200 字、一个字不丢；最多 10 张。消息全是合成的。
 
 import XCTest
 @testable import QingjianCloud
@@ -25,21 +25,13 @@ final class ClipMessagesTests: XCTestCase {
     不是做不下来，是做不过来。
     """
 
-    func testWechatMultiCopySplitsIntoOneCardPerMessage() {
+    func testWechatMultiCopyKeepsNamesAndTimes() {
         let cards = ClipMessages.split(wechat)
-        XCTAssertEqual(cards.count, 3)
-        XCTAssertEqual(cards[0], "这一两个月业务还可以，一点点来，但还是要把事情做扎实。")
-        XCTAssertTrue(cards[1].hasPrefix("你周围如果有类似的客户"))
-        XCTAssertTrue(cards[1].hasSuffix("2. 陪练"), "一条消息里的空行与列表留着")
-        XCTAssertEqual(cards[2], "不是做不下来，是做不过来。")
-        XCTAssertFalse(cards.joined().contains("2026年10月05日"), "时间行去掉")
-        XCTAssertFalse(cards.joined().contains("阿杰\n"), "名字行去掉")
-    }
-
-    func testTimestampFormats() {
-        XCTAssertTrue(ClipMessages.isTimestamp("2026年10月05日 09:34"))
-        XCTAssertTrue(ClipMessages.isTimestamp("2026/10/5 9:34:12"))
-        XCTAssertFalse(ClipMessages.isTimestamp("下午 3 点见"))
+        let joined = cards.joined(separator: "\n")
+        XCTAssertTrue(cards.allSatisfy { MemoryLimits.count($0) <= MemoryLimits.maxTextChars })
+        XCTAssertTrue(joined.contains("2026年10月05日 09:34"), "时间留着，交给大模型整理时要用")
+        XCTAssertTrue(joined.contains("阿杰"), "名字留着")
+        XCTAssertTrue(joined.contains("不是做不下来，是做不过来。"), "最后一条不丢")
     }
 
     func testPlainShortTextIsOneCard() {
@@ -55,7 +47,7 @@ final class ClipMessagesTests: XCTestCase {
     }
 
     func testCapsAtTenCards() {
-        let many = (1...15).map { "阿杰\n2026年10月05日 09:\(String(format: "%02d", $0))\n第 \($0) 条" }.joined(separator: "\n\n")
+        let many = (1...15).map { _ in String(repeating: "字", count: 190) }.joined(separator: "\n\n")
         XCTAssertEqual(ClipMessages.split(many).count, ClipMessages.maxCards)
     }
 
