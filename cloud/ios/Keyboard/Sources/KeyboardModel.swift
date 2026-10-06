@@ -419,11 +419,11 @@ final class KeyboardModel {
             let offer = engine.clipOffer
             if offer != clipOffer { clipOffer = offer }
         }
-        guard case .pending(let original, let skill, let target) = rewrite else { return }
+        guard case .pending(let span, let skill) = rewrite else { return }
         switch engine.rewriteStatus {
         case 2:
             if let result = engine.takeRewrite() {
-                rewrite = .ready(original: original, skill: skill, result: result, target: target)
+                rewrite = .ready(span: span, skill: skill, result: result)
             }
         case 3:
             rewrite = .failed
@@ -441,57 +441,38 @@ final class KeyboardModel {
         }
     }
 
-    /// 改写用此刻生效的技能。选哪段是确定的：宿主里有选中就**只改选中**；没有就改**当前整句**
-    /// ——从光标往前到最近的句末标点（。！？!?；; 或换行）为止，再往前是上一句的事。
+    /// 改写用此刻生效的技能。选哪段见 [`RewriteSpan.select`]：选中优先，否则当前整句。
     func startRewrite() {
         guard let engine, let skill = rewriteSkill, !composing, !sink.isComposingNote,
               output != nil
         else { return }
-        let selected = sink.selectedText.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        var original: String
-        let target: RewriteTarget
-        if let selected, !selected.isEmpty {
-            original = selected
-            target = .selection
-        } else {
-            original = currentSentence(in: sink.contextBefore)
-            target = .sentence
+        guard var span = RewriteSpan.select(
+            before: sink.contextBefore,
+            selection: sink.selectedText
+        ) else { return }
+        if span.original.count > 300 {
+            span = RewriteSpan(
+                original: String(span.original.suffix(300)),
+                tail: span.tail,
+                isSelection: span.isSelection
+            )
         }
-        original = String(original.suffix(300))
-        guard !original.isEmpty else { return }
-        engine.startRewrite(original, skillId: skill.id)
-        rewrite = .pending(original: original, skill: skill.name, target: target)
+        engine.startRewrite(span.original, skillId: skill.id)
+        rewrite = .pending(span: span, skill: skill.name)
     }
 
-    /// 光标前的当前整句：先把光标前紧挨着的句末标点扫掉（那属于上一句的结尾），
-    /// 再取到最后一个换行为止；一个换行都没有（聊天框里常见）就取整段，交给 300 字上限去截。
-    func currentSentence(in before: String) -> String {
-        let terminals: Set<Character> = ["。", "！", "？", "!", "?", ";", "；"]
-        var trimmed = Substring(before)
-        while let last = trimmed.last, terminals.contains(last) {
-            trimmed = trimmed.dropLast()
-        }
-        let sentence = trimmed.split(separator: "\n", omittingEmptySubsequences: false).last
-        return String(sentence ?? trimmed).trimmingCharacters(in: .whitespaces)
-    }
-
-    /// 用改写结果替换原文。原文不还是原文了（选中变了、或光标前的字变了）就放弃，不乱删。
+    /// 用改写结果替换原文。校验与还原规则都在 [`RewriteSpan`] 里；不满足就放弃，不乱删。
     func applyRewrite() {
-        guard case .ready(let original, _, let result, let target) = rewrite, output != nil else {
-            return
-        }
+        guard case .ready(let span, _, let result) = rewrite, output != nil else { return }
         rewrite = .idle
-        switch target {
-        case .selection:
-            // 选中还在且没改过才动手：退格一次删掉整个选中，再上屏改好的
-            guard sink.selectedText?.trimmingCharacters(in: .whitespacesAndNewlines) == original
-            else { return }
+        guard span.applies(before: sink.contextBefore, selection: sink.selectedText) else { return }
+        if span.isSelection {
+            // 退格一次删掉整个选中
             sink.deleteBackward()
-        case .sentence:
-            guard sink.contextBefore.hasSuffix(original) else { return }
-            for _ in original { sink.deleteBackward() }
+        } else {
+            for _ in 0..<span.deleteCount { sink.deleteBackward() }
         }
-        sink.commit(result)
+        sink.commit(span.committed(result))
     }
 
     func dismissRewrite() {

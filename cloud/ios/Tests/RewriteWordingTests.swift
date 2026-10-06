@@ -16,7 +16,7 @@ final class RewriteWordingTests: XCTestCase {
 
     func testStatesWithSomethingElseToShowSayNothing() {
         XCTAssertNil(RewriteWording.note(for: .idle))
-        XCTAssertNil(RewriteWording.note(for: .pending(original: "原话", skill: "润色", target: .sentence)))
-        XCTAssertNil(RewriteWording.note(for: .ready(original: "原话", skill: "润色", result: "改好的", target: .sentence)))
+        XCTAssertNil(RewriteWording.note(for: .pending(span: RewriteSpan(original: "原话", tail: "", isSelection: false), skill: "润色")))
+        XCTAssertNil(RewriteWording.note(for: .ready(span: RewriteSpan(original: "原话", tail: "", isSelection: false), skill: "润色", result: "改好的")))
     }
 }
