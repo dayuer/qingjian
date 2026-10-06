@@ -97,7 +97,7 @@ impl CloudPage {
         note(
             layout,
             mtm,
-            "素笺云服务用菜单栏「中☁ → 素笺云 ›」里的登录账号：先登录并打开「大模型（云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
+            "素笺云服务在菜单栏「中☁ → 素笺云 ›」里开通或加入：开通后打开「大模型（润色、云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
         );
         let base_url = text_field(mtm, Setting::BaseUrl, target);
         let base_url_caption = row_control(layout, mtm, "接口地址", &base_url);

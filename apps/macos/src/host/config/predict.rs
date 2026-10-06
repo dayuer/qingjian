@@ -14,7 +14,7 @@ impl Host {
             PredictProvider::Custom => Ok(predict.clone()),
             PredictProvider::Qingjian => {
                 let endpoint = qingjian_cloud_mac::llm_endpoint().ok_or_else(|| {
-                    "素笺云服务还没用上：在菜单栏「中☁ → 素笺云 ›」里登录并打开「大模型（云联想）」".to_owned()
+                    "素笺云服务还没用上：在菜单栏「中☁ → 素笺云 ›」里开通（或用手机上的匹配码加入），再打开「大模型（润色、云联想）」".to_owned()
                 })?;
                 Ok(PredictConfig {
                     base_url: endpoint.base_url,

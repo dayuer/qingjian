@@ -21,7 +21,7 @@ const FALLBACK_DEVICE: &str = "Mac";
 const MAX_DEVICE_CHARS: usize = 64;
 
 /// 当天验证码输错太多次：与 iOS 桥同一句。
-const LOCKED_TODAY: &str = "今天验证失败次数过多，请明天再试，或改用 Apple 登录";
+const LOCKED_TODAY: &str = "今天操作失败次数过多，请明天再试";
 
 /// 「系统设置 → 通用 → 关于本机」里的电脑名，设备列表里显示。
 pub fn device_name() -> String {
@@ -54,9 +54,9 @@ pub fn reason(error: &ClientError) -> String {
         ClientError::Unreachable(_) | ClientError::Io(_) => {
             "连不上服务器，检查网络后再试".to_owned()
         }
-        ClientError::Unauthorized => "登录已失效，请重新登录".to_owned(),
+        ClientError::Unauthorized => "授权已失效，请重新加入".to_owned(),
         ClientError::AuthFailed(_) => "验证没有通过，请重试".to_owned(),
-        ClientError::NotConfigured(_) => "服务器暂时不支持这种登录方式".to_owned(),
+        ClientError::NotConfigured(_) => "服务器暂时不支持这种加入方式".to_owned(),
         ClientError::Forbidden(reason) => {
             tracing::info!(%reason, "服务器拒绝了这项功能");
             "这项功能还没打开".to_owned()
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn general_reasons_never_show_server_text() {
-        assert_eq!(reason(&ClientError::Unauthorized), "登录已失效，请重新登录");
+        assert_eq!(reason(&ClientError::Unauthorized), "授权已失效，请重新加入");
         assert_eq!(
             reason(&ClientError::Forbidden("english".to_owned())),
             "这项功能还没打开"

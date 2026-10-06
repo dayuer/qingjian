@@ -99,10 +99,7 @@ pub fn build_lines(
         if data_line.is_some() {
             lines.push(Line::Action("立即同步学习数据".to_owned(), TAG_SYNC_NOW));
         }
-        lines.push(Line::Action(
-            "退出登录（解绑这台 Mac）".to_owned(),
-            TAG_SIGN_OUT,
-        ));
+        lines.push(Line::Action("解绑这台 Mac".to_owned(), TAG_SIGN_OUT));
         lines.push(Line::Action(
             "清空云端输入记录…".to_owned(),
             TAG_CLEAR_INPUT_LOG,
@@ -126,15 +123,15 @@ pub fn build_lines(
 pub fn status_line(display: &Display) -> String {
     match display {
         Display::Unconfigured(reason) => short(reason),
-        Display::SignedOut => "未登录".to_owned(),
-        Display::SignedIn => "已登录".to_owned(),
+        Display::SignedOut => "未开通素笺云".to_owned(),
+        Display::SignedIn => "已开通".to_owned(),
         Display::Paused => "已暂停同步".to_owned(),
         Display::Sync { status, pending } => {
             let base = match status {
                 Status::Connecting => "正在连接…".to_owned(),
                 Status::Online => "已连接".to_owned(),
                 Status::Offline(error) => format!("离线，稍后自动重试（{}）", short(error)),
-                Status::Unauthorized => "登录已失效，请重新登录".to_owned(),
+                Status::Unauthorized => "授权已失效，请重新加入".to_owned(),
                 Status::Disabled => "跨设备剪贴板在服务器上没开".to_owned(),
             };
             if *pending > 0 {
@@ -170,7 +167,7 @@ fn data_line(data: &DataStatus, consents: Consents) -> Option<String> {
         return None;
     }
     let mut line = if data.unauthorized {
-        "学习数据：登录已失效".to_owned()
+        "学习数据：授权已失效".to_owned()
     } else if let Some(error) = &data.error {
         format!("学习数据：同步失败，稍后重试（{}）", short(error))
     } else if data.waiting_for_ime {
@@ -260,7 +257,7 @@ mod tests {
             None,
             &History::default(),
         );
-        assert_eq!(lines[0], Line::Text("未登录".to_owned()));
+        assert_eq!(lines[0], Line::Text("未开通素笺云".to_owned()));
         assert!(lines.contains(&Line::Action(
             "输入匹配码加入…".to_owned(),
             TAG_JOIN_WITH_CODE
@@ -290,10 +287,7 @@ mod tests {
             "跨设备剪贴板：关".to_owned(),
             toggle_tag(Feature::Clipboard)
         )));
-        assert!(lines.contains(&Line::Action(
-            "退出登录（解绑这台 Mac）".to_owned(),
-            TAG_SIGN_OUT
-        )));
+        assert!(lines.contains(&Line::Action("解绑这台 Mac".to_owned(), TAG_SIGN_OUT)));
         // 剪贴板关着：不列历史
         assert!(!lines.contains(&Line::Text("还没有剪贴板记录".to_owned())));
     }
@@ -348,7 +342,7 @@ mod tests {
             ..data_status()
         };
         let line = data_line(&data, account(true).consents).unwrap();
-        assert_eq!(line, "学习数据：登录已失效");
+        assert_eq!(line, "学习数据：授权已失效");
     }
 
     #[test]
@@ -398,7 +392,7 @@ mod tests {
             status: Status::Unauthorized,
             pending: 0,
         };
-        assert_eq!(status_line(&expired), "登录已失效，请重新登录");
+        assert_eq!(status_line(&expired), "授权已失效，请重新加入");
         let disabled = Display::Sync {
             status: Status::Disabled,
             pending: 2,
