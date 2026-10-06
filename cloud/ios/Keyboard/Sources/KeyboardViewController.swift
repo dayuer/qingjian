@@ -183,6 +183,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
 
     var contextBefore: String { textDocumentProxy.documentContextBeforeInput ?? "" }
 
+    var selectedText: String? { textDocumentProxy.selectedText }
+
     var contextAfter: String { textDocumentProxy.documentContextAfterInput ?? "" }
 
     func switchToNextKeyboard() {

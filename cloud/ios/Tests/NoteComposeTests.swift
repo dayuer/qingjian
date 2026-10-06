@@ -27,6 +27,8 @@ private final class FakeOutput: TextOutput {
 
     var contextBefore = "宿主里光标前的字"
 
+    var selectedText: String?
+
     var contextAfter = "宿主里光标后的字"
 
     func switchToNextKeyboard() {}

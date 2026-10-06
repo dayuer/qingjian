@@ -17,6 +17,9 @@ protocol TextOutput: AnyObject {
     /// 宿主光标前的文字（可能含我们写的 marked text），拿不到时是空串。
     var contextBefore: String { get }
 
+    /// 当前选中的文字（改写「只改选中」用）；没选中或拿不到是 nil。
+    var selectedText: String? { get }
+
     var contextAfter: String { get }
 
     func switchToNextKeyboard()

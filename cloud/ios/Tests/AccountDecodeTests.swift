@@ -7,7 +7,7 @@ final class AccountDecodeTests: XCTestCase {
     func testSignedInStatusDecodes() throws {
         let json = """
         {"server":"https://pinyin.synon.ai","signed_in":true,
-         "consents":{"clipboard":false,"sync":true,"input_log":false,"llm":true},
+         "consents":{"clipboard":false,"sync":true,"input_log":false,"llm":true,"memory":false},
          "identities":[{"provider":"apple","label":null},{"provider":"email","label":"a@b.c"}],
          "sessions":[{"id":7,"name":"我的 iPhone","platform":"ios","created_at":1700000000000,"last_seen":null,"current":true},
                      {"id":8,"name":"MacBook","platform":"macos","created_at":1700000000000,"last_seen":1700000060000,"current":false}],
@@ -15,7 +15,7 @@ final class AccountDecodeTests: XCTestCase {
         """
         let state = try XCTUnwrap(SettingsBridge.decode(json) as AccountState?)
         XCTAssertTrue(state.signedIn)
-        XCTAssertEqual(state.consents, Consents(clipboard: false, sync: true, inputLog: false, llm: true))
+        XCTAssertEqual(state.consents, Consents(clipboard: false, sync: true, inputLog: false, llm: true, memory: false))
         XCTAssertEqual(state.identities.map(\.title), ["Apple", "邮箱"])
         XCTAssertNil(state.identities[0].label)
         XCTAssertEqual(state.sessions.map(\.current), [true, false])
@@ -26,7 +26,7 @@ final class AccountDecodeTests: XCTestCase {
     func testSignedOutStatusWithErrorDecodes() throws {
         let json = """
         {"server":"https://pinyin.synon.ai","signed_in":false,
-         "consents":{"clipboard":false,"sync":false,"input_log":false,"llm":false},
+         "consents":{"clipboard":false,"sync":false,"input_log":false,"llm":false,"memory":false},
          "identities":[],"sessions":[],"error":"登录已失效，请重新登录"}
         """
         let state = try XCTUnwrap(SettingsBridge.decode(json) as AccountState?)
@@ -40,10 +40,10 @@ final class AccountDecodeTests: XCTestCase {
     }
 
     func testConsentSubscriptAndFeatureNames() {
-        var consents = Consents(clipboard: false, sync: false, inputLog: false, llm: false)
+        var consents = Consents(clipboard: false, sync: false, inputLog: false, llm: false, memory: false)
         consents[.inputLog] = true
         XCTAssertTrue(consents.inputLog)
-        XCTAssertEqual(CloudFeature.allCases.map(\.rawValue), ["clipboard", "sync", "input_log", "llm"])
+        XCTAssertEqual(CloudFeature.allCases.map(\.rawValue), ["clipboard", "sync", "input_log", "llm", "memory"])
     }
 
     func testNonce() {
@@ -70,7 +70,7 @@ final class BridgeFailureTests: XCTestCase {
     func testStatusErrorCode() throws {
         func state(_ extra: String) throws -> AccountState {
             let json = """
-            {"server":"s","signed_in":false,"consents":{"clipboard":false,"sync":false,"input_log":false,"llm":false},
+            {"server":"s","signed_in":false,"consents":{"clipboard":false,"sync":false,"input_log":false,"llm":false,"memory":false},
              "identities":[],"sessions":[],"error":"e"\(extra)}
             """
             return try XCTUnwrap(SettingsBridge.decode(json) as AccountState?)

@@ -17,7 +17,7 @@ struct RewriteBar: View {
                 Spacer(minLength: 0)
                 skills
                 close
-            case .ready(_, let skill, let result):
+            case .ready(_, let skill, let result, _):
                 Text(skill)
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.ink2)

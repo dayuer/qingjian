@@ -53,6 +53,8 @@ final class OutputRouter: TextOutput {
     /// 手写时给引擎的上下文是草稿本身，不去问宿主。
     var contextBefore: String { composer?.text ?? host?.contextBefore ?? "" }
 
+    var selectedText: String? { composer == nil ? host?.selectedText : nil }
+
     var contextAfter: String { composer == nil ? host?.contextAfter ?? "" : "" }
 
     func switchToNextKeyboard() { host?.switchToNextKeyboard() }
