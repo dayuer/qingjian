@@ -304,11 +304,13 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             : nil
     }
 
-    /// 展开的候选面板是 UIKit 的（SwiftUI 的 ScrollView 在键盘扩展里滑不动）：候选变了就刷新，没展开就藏着。
+    /// 展开的候选面板是 UIKit 的（SwiftUI 的 ScrollView 在键盘扩展里滑不动）：展开时给它当前候选，没展开就藏着、清空。
+    /// 藏着的面板照样占整块键区参与布局，若每键都给它候选，每键都要重排一屏格子；展开那一刻 panel 变了会再走这里，拿到的是最新候选。
     private func applyPanel() {
         let (panel, candidates) = (model.panel, model.candidates)
-        panelView.isHidden = panel != .candidates
-        panelView.candidates = candidates
+        let shown = panel == .candidates
+        panelView.isHidden = !shown
+        panelView.candidates = shown ? candidates : []
     }
 
     /// 候选栏里横向滚动的那一行。组字时显示；对象卡与选择面板打开时藏起来（那一行换成它们的工具栏）。

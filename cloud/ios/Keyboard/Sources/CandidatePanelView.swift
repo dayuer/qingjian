@@ -6,6 +6,8 @@ import UIKit
 final class CandidatePanelView: UIView {
     var candidates: [CandidateItem] = [] {
         didSet {
+            // 收起时不给候选：藏着的面板也参与布局，给了就每键重排（见 KeyboardViewController.applyPanel）
+            assert(!isHidden || candidates.isEmpty, "收起的候选面板不该拿到候选")
             guard candidates != oldValue else { return }
             collection.reloadData()
             collection.setContentOffset(.zero, animated: false)
