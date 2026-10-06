@@ -73,6 +73,8 @@ if [[ ! -f "$english_qj" || "$english_tsv" -nt "$english_qj" ]]; then
     --out-dir "$data" pack english --name "青简英文词表" --license "MIT"
 fi
 cmp -s "$english_qj" "$ios_dir/Keyboard/Data/english.qj" || cp "$english_qj" "$ios_dir/Keyboard/Data/english.qj"
+# 旧版拷过 english.tsv，不再随包：清掉免得白白进扩展
+rm -f "$ios_dir/Keyboard/Data/english.tsv"
 # 本地神经整句模型：只带通变（44MB）；知微 53MB 必超键盘扩展内存上限，不进包。
 # 模型是增强件不是承重件——没有它键盘照常（词图 + 静态 LM），所以缺了只警告不阻断构建。
 mkdir -p "$ios_dir/Keyboard/Data/models/hanzhang-tongbian"
