@@ -313,8 +313,15 @@ impl CloudPage {
             } else {
                 &status.sync_line
             }));
+        self.pause.setTitle(&NSString::from_str(if status.paused {
+            "继续同步"
+        } else {
+            "暂停同步"
+        }));
         self.pause.setEnabled(status.signed_in);
-        self.sync_now.setEnabled(status.signed_in);
+        // 没在同步（没开学习数据同步或没开通）时「立即同步」没有意义
+        self.sync_now
+            .setEnabled(status.signed_in && !status.sync_line.is_empty());
         self.clear_log.setEnabled(status.signed_in);
     }
 

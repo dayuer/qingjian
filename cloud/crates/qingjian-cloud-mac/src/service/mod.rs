@@ -137,6 +137,9 @@ pub struct CloudStatus {
     /// 正在等另一台设备允许。
     pub joining: bool,
 
+    /// 同步暂停着（按钮要显示「继续同步」）。
+    pub paused: bool,
+
     /// 五项开关：(功能名, 开着没有)。
     pub consents: [(&'static str, bool); 5],
 }
@@ -502,6 +505,7 @@ impl Service {
                 })
                 .unwrap_or_default(),
             joining: self.flow.signing_in(),
+            paused: self.paused,
             consents,
         }
     }
