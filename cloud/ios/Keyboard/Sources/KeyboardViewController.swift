@@ -17,10 +17,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 键区的触摸层（SwiftUI 只画键）；展开候选或表情面板时藏起来。
     private let touchView = KeyTouchView()
 
-    /// 展开的候选面板（UIKit，见 `syncPanel`）。
+    /// 展开的候选面板（UIKit，见 `applyPanel`）。
     private let panelView = CandidatePanelView()
 
-    /// 候选栏里横向滚动的那一行（UIKit，见 `syncBar`）：SwiftUI 的 ScrollView 在键盘扩展里收不到滑动。
+    /// 候选栏里横向滚动的那一行（UIKit，见 `applyBar`）：SwiftUI 的 ScrollView 在键盘扩展里收不到滑动。
     private let barView = CandidateBarView()
 
     /// 上一次的拼音：变了就把候选栏滚回开头（云端词插进来时不算变，别跳）。
@@ -52,7 +52,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         mountKeyboard()
         mountTouchView()
         syncHintRow()
-        syncBar()
+        Watched.allCases.forEach(observe)
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
@@ -66,9 +66,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         panelView.frame = keyArea
         barView.frame = CGRect(
             x: 0, y: hintInset, width: view.bounds.width, height: KeyStyle.candidateBarHeight)
-        syncTouchView()
-        syncPanel()
-        syncBar()
+        // 只套用，不注册观察：布局每键都走，在这里注册会越积越多（见 observe）
+        applyTouchView()
+        applyPanel()
+        applyBar()
     }
 
     /// 屏幕左右边缘的触摸会被系统边缘手势压住（a、l 慢半拍或丢）：要我们先处理。iOS 在视图切换时会重置，所以 viewWillAppear 再要一次。
@@ -255,15 +256,40 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         view.addSubview(touchView)
     }
 
-    /// 格子与 SwiftUI 画键用同一个 KeyboardLayout.slots；切层、开关面板、开始 / 结束组字时重算，并盯着下一次变化。
-    /// 展开面板时格子清空（面板自己收触摸），⌄ 照常归触摸层，这样才收得起来。
-    private func syncTouchView() {
-        let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
-        let (layer, panel, composing, top) = withObservationTracking {
-            (model.layer, model.panel, model.composing, model.hintRowHeight)
+    /// 跟着 model 变的三处 UIKit 视图（触摸层、展开面板、候选栏）：`observe` 只在 viewDidLoad 起一次，之后由自己的 onChange 续上；
+    /// 布局时只调 `applyX`。`withObservationTracking` 的注册不会撤销，在每键都走的 viewDidLayoutSubviews 里注册会越积越多，
+    /// 一次候选变化同时触发几十上百个主线程任务（2026-10-06 真机打点：每键 37–145 次，主线程每键多忙约 20ms）。
+    /// onChange 在值改之前触发、只触发一次、不保证在主线程：先回主线程，到那时值已改好，再在注册闭包里套用（读到新值）并重新注册。
+    private enum Watched: CaseIterable { case touchView, panel, bar }
+
+    /// 每条链此刻有没有挂着注册：同一条链只能挂一个，挂第二个就是又漏回去了。
+    private var armed: Set<Watched> = []
+
+    private func observe(_ watched: Watched) {
+        assert(!armed.contains(watched), "\(watched) 的观察重复注册")
+        armed.insert(watched)
+        withObservationTracking {
+            switch watched {
+            case .touchView: applyTouchView()
+            case .panel: applyPanel()
+            case .bar: applyBar()
+            }
         } onChange: { [weak self] in
-            Task { @MainActor in self?.syncTouchView() }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.armed.remove(watched)
+                    self.observe(watched)
+                }
+            }
         }
+    }
+
+    /// 格子与 SwiftUI 画键用同一个 KeyboardLayout.slots；切层、开关面板、开始 / 结束组字时重算。
+    /// 展开面板时格子清空（面板自己收触摸），⌄ 照常归触摸层，这样才收得起来。
+    private func applyTouchView() {
+        let size = CGSize(width: view.bounds.width, height: KeyboardView.keyAreaHeight)
+        let (layer, panel, composing, top) = (model.layer, model.panel, model.composing, model.hintRowHeight)
         let slots = panel == .keys
             ? KeyboardLayout.slots(layer: layer, showsGlobe: needsInputModeSwitchKey, size: size)
             : []
@@ -279,24 +305,17 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     }
 
     /// 展开的候选面板是 UIKit 的（SwiftUI 的 ScrollView 在键盘扩展里滑不动）：候选变了就刷新，没展开就藏着。
-    private func syncPanel() {
-        let (panel, candidates) = withObservationTracking {
-            (model.panel, model.candidates)
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.syncPanel() }
-        }
+    private func applyPanel() {
+        let (panel, candidates) = (model.panel, model.candidates)
         panelView.isHidden = panel != .candidates
         panelView.candidates = candidates
     }
 
     /// 候选栏里横向滚动的那一行。组字时显示；对象卡与选择面板打开时藏起来（那一行换成它们的工具栏）。
     /// 位置跟着提示行走（提示行出现时候选栏往下挪一行），所以 viewDidLayoutSubviews 里也重设一次 frame。
-    private func syncBar() {
-        let (composing, panel, candidates, accentFirst, preedit) = withObservationTracking {
+    private func applyBar() {
+        let (composing, panel, candidates, accentFirst, preedit) =
             (model.composing, model.panel, model.candidates, model.accentFirstCandidate, model.preedit)
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.syncBar() }
-        }
         // 展开面板与候选栏是同一套样式，首选那个的强调色一起同步
         panelView.accentFirst = accentFirst
         barView.isHidden = !(composing && !CandidateBar.panelTakesTheBar(panel))
@@ -307,7 +326,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     }
 
     /// 提示行出现与收起时（hintRowHeight：提示行 34、记一笔确认条更高）键盘高度跟着加减（0.2 秒），键区与 ⌄ 的触摸范围在
-    /// viewDidLayoutSubviews / syncTouchView 里跟着下移。
+    /// viewDidLayoutSubviews / applyTouchView 里跟着下移。
     private func syncHintRow() {
         let hintHeight = withObservationTracking {
             model.hintRowHeight
