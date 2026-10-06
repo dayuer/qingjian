@@ -5,4 +5,5 @@
 .env
 /logs
 /data
+/design
 .playwright-mcp/
