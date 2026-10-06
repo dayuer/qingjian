@@ -54,19 +54,6 @@ impl Host {
     pub fn perform(&mut self, action: MenuAction) {
         tracing::info!(?action, "菜单");
         match action {
-            MenuAction::ToggleCloud => {
-                let on = !self.settings.config().predict.enabled;
-                if self.settings.set_bool("predict", "enabled", on) {
-                    self.apply_config(false);
-                }
-            }
-            MenuAction::ToggleFuzzy(index) => {
-                let name = FuzzyRules::NAMES[index];
-                let on = !self.settings.config().fuzzy.is_on(name);
-                if self.settings.set_bool("fuzzy", name, on) {
-                    self.apply_config(false);
-                }
-            }
             MenuAction::OpenPreferences => {
                 self.preferences.sync_usage(
                     &self.engine.usage_summary(),

@@ -1,8 +1,7 @@
 use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
-use objc2_app_kit::{NSControlStateValueOff, NSControlStateValueOn, NSMenu, NSMenuItem};
+use objc2_app_kit::{NSMenu, NSMenuItem};
 use objc2_foundation::NSString;
-use qingjian_core::FuzzyRules;
 use qingjian_platform::Config;
 
 use super::MenuAction;
@@ -13,12 +12,6 @@ use super::target::MenuTarget;
 pub struct InputMenu {
     /// 菜单。挂到状态项和 IMK `menu` 回调的是同一个对象。
     menu: Retained<NSMenu>,
-
-    /// 「云联想」勾选项。
-    cloud: Retained<NSMenuItem>,
-
-    /// 模糊音子菜单的九条勾选项，顺序同 [`FuzzyRules::NAMES`]。
-    fuzzy: Vec<Retained<NSMenuItem>>,
 
     /// 配置文件解析失败时显示的提示行，平时隐藏。
     error: Retained<NSMenuItem>,
@@ -40,29 +33,8 @@ impl InputMenu {
         // 不让 AppKit 按响应链判断可用性：它找不到 target 就会把整份菜单灰掉
         menu.setAutoenablesItems(false);
 
-        let cloud = action_item(mtm, "云联想", Some(MenuAction::ToggleCloud), &target);
-        menu.addItem(&cloud);
-
-        let fuzzy_menu = NSMenu::new(mtm);
-        fuzzy_menu.setAutoenablesItems(false);
-        let fuzzy: Vec<_> = FuzzyRules::NAMES
-            .iter()
-            .enumerate()
-            .map(|(index, name)| {
-                let item = action_item(
-                    mtm,
-                    &fuzzy_label(name),
-                    Some(MenuAction::ToggleFuzzy(index)),
-                    &target,
-                );
-                fuzzy_menu.addItem(&item);
-                item
-            })
-            .collect();
-        let fuzzy_parent = action_item(mtm, "模糊音", None, &target);
-        fuzzy_parent.setSubmenu(Some(&fuzzy_menu));
-        menu.addItem(&fuzzy_parent);
-        // 分叉补丁：紧挨着「模糊音」，前面不能有隐藏项或分隔线，见 cloud_agent.rs 文件头
+        // 云联想与模糊音不再放顶层：云联想的开关在「素笺云 ›」里（跟其他云功能一处），
+        // 模糊音偏好设置里已有。素笺云父项排在第一个，前面不能有隐藏项或分隔线，见 cloud_agent.rs 文件头
         let cloud_agent = CloudAgentMenu::new(mtm, &target);
         menu.addItem(cloud_agent.item());
 
@@ -95,8 +67,6 @@ impl InputMenu {
 
         Self {
             menu,
-            cloud,
-            fuzzy,
             error,
             update,
             cloud_agent,
@@ -129,16 +99,7 @@ impl InputMenu {
     /// 按当前配置刷新勾选状态。`cloud_active` 是 Engine 里真接上了 Predictor：
     /// 配置开了但没接上（多半是没密钥）时不打勾，标题说明原因，不能显示开了实际没开。
     /// `notice` 是配置文件的问题（`Settings::notice()` 已写好措辞），原样显示，没有问题时藏起来。
-    pub fn sync(&self, config: &Config, cloud_active: bool, notice: Option<&str>) {
-        let title = match (config.predict.enabled, cloud_active) {
-            (true, false) => "云联想（启用失败，见日志）",
-            _ => "云联想",
-        };
-        self.cloud.setTitle(&NSString::from_str(title));
-        set_checked(&self.cloud, cloud_active);
-        for (item, name) in self.fuzzy.iter().zip(FuzzyRules::NAMES) {
-            set_checked(item, config.fuzzy.is_on(name));
-        }
+    pub fn sync(&self, _config: &Config, _cloud_active: bool, notice: Option<&str>) {
         match notice {
             Some(message) => {
                 self.error.setTitle(&NSString::from_str(message));
@@ -170,17 +131,4 @@ pub(super) fn action_item(
         item.setTag(action.tag());
     }
     item
-}
-
-fn set_checked(item: &NSMenuItem, on: bool) {
-    item.setState(if on {
-        NSControlStateValueOn
-    } else {
-        NSControlStateValueOff
-    });
-}
-
-/// `an_ang` → `an = ang`。
-fn fuzzy_label(name: &str) -> String {
-    name.replace('_', " = ")
 }
