@@ -28,10 +28,19 @@ done
 out="$ios_dir/Frameworks/QingjianBridge.xcframework"
 rm -rf "$out"
 args=()
-for target in "${targets[@]}"; do
+for target in aarch64-apple-ios; do
   args+=(-library "$cloud_dir/target/$target/$profile/libqingjian_cloud_bridge.a"
          -headers "$cloud_dir/crates/qingjian-cloud-bridge/include")
 done
+# 模拟器两个架构合成一个通用切片（lipo），不然 create-xcframework 嫌两个单架构 sim 目录等价
+sim_universal="$cloud_dir/target/ios-sim-universal/$profile"
+mkdir -p "$sim_universal"
+lipo -create \
+  "$cloud_dir/target/aarch64-apple-ios-sim/$profile/libqingjian_cloud_bridge.a" \
+  "$cloud_dir/target/x86_64-apple-ios/$profile/libqingjian_cloud_bridge.a" \
+  -output "$sim_universal/libqingjian_cloud_bridge.a"
+args+=(-library "$sim_universal/libqingjian_cloud_bridge.a"
+       -headers "$cloud_dir/crates/qingjian-cloud-bridge/include")
 xcodebuild -create-xcframework "${args[@]}" -output "$out" >/dev/null
 # Swift 用 `import QingjianBridge` 要一个 module map
 for headers in "$out"/*/Headers; do
