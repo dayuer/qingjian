@@ -366,6 +366,39 @@ fn context_does_not_admit_a_rare_reading_of_a_polyphone() {
     assert_ne!(with_mu_model(&["wo", "huo"]), "我和");
 }
 
+/// 首段的少见读音同样要打折后的抬举：都(du) 占都 全部读音 1.6%，句首 P(都|<s>) 存的主要是 dou 语境的
+/// 证据，不能拿来把 du 读音的 都 抬进词图拼「都累」（2026-10-06 真机报告 dulei 首选读音错的 都累）。
+#[test]
+fn rare_reading_in_head_needs_discounted_lift() {
+    // 都(du) 词频抬进首段；模型给句首 →都 一个强概率（dou 语境的证据）
+    let dictionary = Dictionary::parse(
+        "都\tdu\t23291\n都\tdou\t1422477\n度\tdu\t200000\n毒\tdu\t150000\n独\tdu\t120000\n         杜\tdu\t100000\n肚\tdu\t80000\n堵\tdu\t60000\n累\tlei\t90000\n泪\tlei\t80000\n类\tlei\t70000\n",
+    )
+    .unwrap();
+    struct DuModel;
+    impl LanguageModel for DuModel {
+        fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
+            match (previous, word) {
+                (None, "都") => Some(-4.0),
+                _ => None,
+            }
+        }
+    }
+    let text = convert(
+        &[&dictionary],
+        &complete(&["du", "lei"]),
+        &DuModel,
+        Personal::NONE,
+        |_| 0,
+        |_, _| 0.0,
+        &mut SpanCache::default(),
+    )
+    .unwrap()
+    .text;
+    // 句首的强 bigram 不算数：du 读音的 都 进不了词图，「都累」拼不出来
+    assert_ne!(text, "都累");
+}
+
 #[test]
 fn rare_word_without_context_stays_out() {
     // 句首没有前文抬举，亩 进不了格子

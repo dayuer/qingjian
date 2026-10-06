@@ -195,7 +195,14 @@ pub fn convert_paths(
             } else {
                 hits.len().min(SPAN_CANDIDATES)
             };
-            let extras: Vec<&SpanWord> = if hits.len() > head {
+            // 读音门槛对首段一视同仁：多音字的少见读音（都/du 占比 1.6%）凭词频挤进首段就能借
+            // 文本计数的 bigram（都→累 存的是 dou 语境的证据）拼出读音错的整句（dulei 首选「都累」）。
+            // 首段里占比不过线的与候补同待遇：要语境把它抬过首段天花板才进词图（首都 的 首→都 抬得动）。
+            let rare_in_head = !abbreviated
+                && hits[..head]
+                    .iter()
+                    .any(|w| w.reading_share < crate::sentence::MIN_READING_SHARE);
+            let selected: Vec<&SpanWord> = if hits.len() > head || rare_in_head {
                 let ceilings: Vec<(Option<&str>, f64)> = nodes[start]
                     .iter()
                     .map(|p| {
@@ -206,14 +213,27 @@ pub fn convert_paths(
                         )
                     })
                     .collect();
-                hits[head..]
+                // 首段：占比过线照旧，少见读音要打折后的抬举（admits_rare_reading）；
+                // 候补：一律要抬举（admits，占比不过线的直接拦）
+                let head_kept: Vec<&SpanWord> = hits[..head]
                     .iter()
-                    .filter(|w| admission::admits(w, &ceilings, model, log_total))
+                    .filter(|w| {
+                        w.reading_share >= crate::sentence::MIN_READING_SHARE
+                            || admission::admits_rare_reading(w, &ceilings, model, log_total)
+                    })
+                    .collect();
+                head_kept
+                    .into_iter()
+                    .chain(
+                        hits[head..]
+                            .iter()
+                            .filter(|w| admission::admits(w, &ceilings, model, log_total)),
+                    )
                     .collect()
             } else {
-                Vec::new()
+                hits[..head].iter().collect()
             };
-            for hit in hits[..head].iter().chain(extras) {
+            for hit in selected {
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
