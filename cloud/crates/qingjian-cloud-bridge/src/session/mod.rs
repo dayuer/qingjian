@@ -71,8 +71,11 @@ pub struct Session {
     /// 本地神经整句模型的加载状态（见 `model` 模块）。
     model: ModelState,
 
-    /// 还没加载的英文词表路径；见到像英文的输入时读进来挂上引擎。
+    /// 随包英文词表路径；`english_loaded` 为假且见到像英文的输入时读进来挂上引擎。
     english_pending: Option<PathBuf>,
+
+    /// 英文词表已挂上引擎（内存吃紧先卸它：比模型小，触发器还会再加载）。
+    english_loaded: bool,
 }
 
 impl Session {
@@ -144,6 +147,7 @@ impl Session {
             memory,
             model: ModelState::default(),
             english_pending,
+            english_loaded: false,
         };
         session.reload_config();
         if let Some(cloud) = cloud {
@@ -269,6 +273,9 @@ impl Session {
     /// 见到像英文的输入才加载英文词表（驻留约 13MB，纯拼音用户整场不付这笔账）。
     /// 加载失败也清掉待办并记日志：反复重试只会每个键都卡一次读盘。
     fn load_english_if_english_like(&mut self) {
+        if self.english_loaded {
+            return;
+        }
         let Some(path) = self.english_pending.clone() else {
             return;
         };
@@ -276,10 +283,24 @@ impl Session {
         if !looks_english(typed) {
             return;
         }
-        self.english_pending = None;
         match WordList::from_path(&path) {
-            Ok(words) => self.engine.set_english(words),
-            Err(error) => tracing::warn!(%error, "英文词表加载失败，中英混输没有英文候选"),
+            Ok(words) => {
+                self.engine.set_english(Some(words));
+                self.english_loaded = true;
+            }
+            Err(error) => {
+                // 失败也清掉待办：反复重试只会每个键都卡一次读盘
+                self.english_pending = None;
+                tracing::warn!(%error, "英文词表加载失败，中英混输没有英文候选");
+            }
+        }
+    }
+
+    /// 内存吃紧先卸英文表（约 13MB，比模型小、触发器下次还会再加载）。
+    pub fn unload_english(&mut self) {
+        if self.english_loaded {
+            self.engine.set_english(None);
+            self.english_loaded = false;
         }
     }
 

@@ -291,6 +291,15 @@ pub unsafe extern "C" fn qj_model_state(session: *mut Session) -> u8 {
     with(session, session::MODEL_IDLE, Session::model_state)
 }
 
+/// 内存吃紧时先卸这个：英文词表（约 13MB，比模型小），下次像英文的输入会自动再加载。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_unload_english(session: *mut Session) {
+    with(session, (), Session::unload_english);
+}
+
 /// 卸载本地模型（内存吃紧时腾地方），状态回未加载；之后可以再 [`qj_load_model`]。
 ///
 /// # Safety

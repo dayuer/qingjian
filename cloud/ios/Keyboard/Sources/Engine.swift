@@ -73,6 +73,9 @@ final class Engine {
     /// 卸载模型（内存吃紧时腾地方）；之后可以再加载。
     func unloadModel() { qj_unload_model(session) }
 
+    /// 卸下英文词表（约 13MB，比模型小）；下次像英文的输入自动再加载。
+    func unloadEnglish() { qj_unload_english(session) }
+
     /// 上屏第 `index` 个候选，返回要插入的文字。
     func commit(_ index: Int) -> String? {
         guard index >= 0 else { return nil }

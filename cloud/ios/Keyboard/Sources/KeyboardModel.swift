@@ -171,8 +171,12 @@ final class KeyboardModel {
         guard !modelSealed, state == 2 else { return }
         let available = Engine.availableMemoryMB
         if available >= 0, available < 8 {
-            engine.unloadModel()
-            modelSealed = true
+            // 先卸英文表（约 13MB，比模型小、下次像英文的输入自动再加载），腾够了就不动模型
+            engine.unloadEnglish()
+            if Engine.availableMemoryMB < 8 {
+                engine.unloadModel()
+                modelSealed = true
+            }
             reportedModelState = engine.modelState
             UserDefaults(suiteName: SharedStore.groupIdentifier)?
                 .set(Int(reportedModelState ?? 0), forKey: "keyboardModelState")

@@ -44,6 +44,8 @@ bool qj_cloud_enabled(QjSession *session);
 bool qj_load_model(QjSession *session, const char *path, bool p2c);
 uint8_t qj_model_state(QjSession *session);
 void qj_unload_model(QjSession *session);
+// 内存吃紧先卸英文表（约 13MB），下次像英文的输入自动再加载；还紧再卸模型。
+void qj_unload_english(QjSession *session);
 // 模型自报的内存占用（MB）；没加载返回 0。调试面板显示用。
 double qj_model_memory_mb(QjSession *session);
 // 本进程剩余可用内存（MB，os_proc_available_memory）；拿不到是 -1。键盘侧内存自保用它。

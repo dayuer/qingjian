@@ -41,6 +41,14 @@ fn typed_letters_stay_and_english_candidates_appear() {
         session.push(c);
     }
     assert!(session.entries().iter().any(|e| e.text() == "hello"));
+    // 内存自保的卸载顺序：卸英文表后还能靠触发器再加载回来
+    // （卸载本身不重查候选，验证点是清掉重敲后英文候选回来了）
+    session.unload_english();
+    session.clear();
+    for c in "hello".chars() {
+        session.push(c);
+    }
+    assert!(session.entries().iter().any(|e| e.text() == "hello"));
     session.clear();
     for c in "woxiangxueandroid".chars() {
         session.push(c);

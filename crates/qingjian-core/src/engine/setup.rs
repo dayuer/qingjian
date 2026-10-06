@@ -377,9 +377,10 @@ impl Engine {
         self.english_mode
     }
 
-    /// 运行时挂英文词表：键盘扩展内存紧（english.tsv 驻留约 13MB），桥首次见到像英文的输入才加载。
-    pub fn set_english(&mut self, words: WordList) {
-        self.english = Some(words);
+    /// 运行时挂 / 卸英文词表：键盘扩展内存紧（english.tsv 驻留约 13MB），桥首次见到像英文的输入才加载，
+    /// 内存吃紧先卸它（比模型小、触发器还会再加载）。`None` 卸下。
+    pub fn set_english(&mut self, words: Option<WordList>) {
+        self.english = words;
     }
 
     pub fn with_english(mut self, words: WordList) -> Self {
