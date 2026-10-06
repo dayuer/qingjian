@@ -111,11 +111,12 @@ impl Query {
     /// `kaifa` → `kai'fa`，`kf` → `k'f`，`ni|hao` → `ni'hao`，`nihao;rb` → `ni'hao;rb`。
     /// 双拼模式且 `shuangpin_raw_preedit` 开启时，返回原始按键（如 `kdfa`）。
     ///
-    /// 拼写纠错**被改掉的原字母不拼进来**：输入框里的 marked text 画不了删除线（iOS 的 setMarkedText 只收
-    /// 纯文本、Windows 同），拼进去会被当成正常字母读出来（`andro` 纠成 an dao 时显示成 `anr'dao`）。
-    /// 能画样式的壳用 [`Self::marked_segments`] 拿全量，`Corrected` 段画删除线。
+    /// 拼写纠错生效时**返回用户敲的原样字母**：宿主输入框的 marked text 画不了删除线（iOS 的 setMarkedText
+    /// 只收纯文本、Windows 同），任何改写都会让用户敲的字母凭空变样——拼进划掉字母读成 `anr'dao`，
+    /// 只给纠正读法又像把 `r` 吃了（`andro` 显示 `an'dao`，2026-10-06 iOS 真机两轮报告）。
+    /// 能画样式的壳用 [`Self::marked_segments`] 拿纠正后的切分与划掉的原字母。
     pub fn marked_text(&self) -> String {
-        if self.shuangpin_raw_preedit {
+        if self.shuangpin_raw_preedit || self.correction.is_some() {
             return self.text.clone();
         }
         self.marked_segments()

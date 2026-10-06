@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use qingjian_cloud_client::DataSync;
 use qingjian_core::{Engine, Learner, SurroundingText};
-use qingjian_dictionary::Dictionary;
+use qingjian_dictionary::{Dictionary, WordList};
 use qingjian_learning::{FrequencyLearner, InputLog};
 use qingjian_lm::BigramModel;
 
@@ -110,6 +110,14 @@ impl Session {
         {
             engine =
                 engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
+        }
+        // 英文词表随包走（`Data/english.tsv`）：中英混输的英文候选（android 这类）靠它；没有就不启用
+        let english = data_dir.join("english.tsv");
+        if english.is_file() {
+            match WordList::from_path(&english) {
+                Ok(words) => engine = engine.with_english(words),
+                Err(error) => tracing::warn!(%error, "英文词表加载失败，中英混输没有英文候选"),
+            }
         }
         // 技能包随包走（`Data/skills`），会话打开时读一次；打包漏了它改写就整个用不了，这里记一条显眼的
         let skills = crate::rewrite::load_skills(&data_dir.join("skills"));

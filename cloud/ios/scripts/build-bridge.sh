@@ -60,6 +60,13 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
+# 英文词表：中英混输的英文候选（android 这类）靠它；是增强件，缺了只警告不阻断
+english="$data/english.tsv"
+if [[ -f "$english" ]]; then
+  cmp -s "$english" "$ios_dir/Keyboard/Data/english.tsv" || cp "$english" "$ios_dir/Keyboard/Data/english.tsv"
+else
+  echo "警告：缺 $english，键盘没有英文候选（data-fetch 后重跑）" >&2
+fi
 # 本地神经整句模型：只带通变（44MB）；知微 53MB 必超键盘扩展内存上限，不进包。
 # 模型是增强件不是承重件——没有它键盘照常（词图 + 静态 LM），所以缺了只警告不阻断构建。
 mkdir -p "$ios_dir/Keyboard/Data/models/hanzhang-tongbian"
