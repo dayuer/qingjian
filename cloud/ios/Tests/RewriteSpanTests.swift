@@ -63,6 +63,25 @@ final class RewriteSpanTests: XCTestCase {
     func testAllWhitespaceYieldsNothing() {
         XCTAssertNil(span("   "))
         XCTAssertNil(span("。！？ "))
+        // 选中的全是空白当没选中，落到整句；整句也没有内容时不出手
+        XCTAssertNil(span("  ", " \n "))
+    }
+
+    func testLeadingSpaceAfterBoundaryIsKept() {
+        // 「上一句。 这一句」中间的空格收进脑袋：模型吃掉它也不丢
+        let s = span("上一句。 这一句")!
+        XCTAssertEqual(s.original, "这一句")
+        XCTAssertEqual(s.head, " ")
+        XCTAssertEqual(s.tail, "")
+        XCTAssertTrue(s.applies(before: "上一句。 这一句", selection: nil))
+        XCTAssertEqual(s.committed("那两句"), " 那两句")
+    }
+
+    func testWhitespaceSelectionFallsBackToSentence() {
+        // 选中的全是空白：按整句来，而不是拿空白去问模型
+        let s = span("上一句。这一句", "   ")!
+        XCTAssertEqual(s.original, "这一句")
+        XCTAssertFalse(s.isSelection)
     }
 
     func testCursorOnBlankLineRewritesThePreviousSentence() {
