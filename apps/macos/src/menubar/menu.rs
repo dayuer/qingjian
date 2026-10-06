@@ -19,7 +19,16 @@ pub struct InputMenu {
     /// 「有新版本 x.y.z…」，点了打开下载页；没有新版时隐藏。
     update: Retained<NSMenuItem>,
 
-    /// 「素笺云 ›」子菜单；没装素笺云时隐藏。
+    /// 「偏好设置…」；重建菜单时要放回去。
+    preferences: Retained<NSMenuItem>,
+
+    /// 「打开日志目录」；重建菜单时要放回去。
+    logs: Retained<NSMenuItem>,
+
+    /// 版本行；重建菜单时要放回去。
+    about: Retained<NSMenuItem>,
+
+    /// 素笺云的行；摊在顶层（子菜单在输入法菜单里点不动，见 cloud_agent.rs 文件头）。
     cloud_agent: CloudAgentMenu,
 
     /// 所有条目的 target，要和菜单活得一样久。
@@ -33,50 +42,69 @@ impl InputMenu {
         // 不让 AppKit 按响应链判断可用性：它找不到 target 就会把整份菜单灰掉
         menu.setAutoenablesItems(false);
 
-        // 云联想与模糊音不再放顶层：云联想的开关在「素笺云 ›」里（跟其他云功能一处），
-        // 模糊音偏好设置里已有。素笺云父项排在第一个，前面不能有隐藏项或分隔线，见 cloud_agent.rs 文件头
-        let cloud_agent = CloudAgentMenu::new(mtm, &target);
-        menu.addItem(cloud_agent.item());
-
-        menu.addItem(&NSMenuItem::separatorItem(mtm));
-        menu.addItem(&action_item(
-            mtm,
-            "偏好设置…",
-            Some(MenuAction::OpenPreferences),
-            &target,
-        ));
-        menu.addItem(&action_item(
-            mtm,
-            "打开日志目录",
-            Some(MenuAction::OpenLogs),
-            &target,
-        ));
+        // 素笺云的行由 sync_cloud_agent 填（摊在顶层）；这里先把静态项建好。
+        // 云联想的开关在素笺云那组里（跟其他云功能一处），模糊音偏好设置里已有。
+        let cloud_agent = CloudAgentMenu::new();
+        let preferences = action_item(mtm, "偏好设置…", Some(MenuAction::OpenPreferences), &target);
+        let logs = action_item(mtm, "打开日志目录", Some(MenuAction::OpenLogs), &target);
         // 可点的条目只能放在这一组：放到下面两个纯展示条目之间，IMK 会在每次按键后停用再新建会话，打不了字
         let update = action_item(mtm, "", Some(MenuAction::OpenDownload), &target);
         update.setHidden(true);
-        menu.addItem(&update);
-        menu.addItem(&NSMenuItem::separatorItem(mtm));
 
         let error = action_item(mtm, "", None, &target);
         error.setEnabled(false);
         error.setHidden(true);
-        menu.addItem(&error);
         let about = action_item(mtm, &format!("素笺 {version}"), None, &target);
         about.setEnabled(false);
-        menu.addItem(&about);
 
-        Self {
+        let this = Self {
             menu,
+            preferences,
+            logs,
+            about,
             error,
             update,
             cloud_agent,
             _target: target,
-        }
+        };
+        let (actions, notes) = this
+            .cloud_agent
+            .rows(mtm, &this._target)
+            .unwrap_or_default();
+        this.rebuild(mtm, &actions, &notes);
+        this
     }
 
-    /// 每秒一次：照素笺云给的菜单行刷新「素笺云」子菜单。
+    /// 整份菜单按当前内容重排：素笺云的行在前（会长会短），静态项在后。
+    /// 菜单打开时不会调——调用方是每秒的定时器，菜单跟踪期间它不跑。
+    fn rebuild(
+        &self,
+        mtm: MainThreadMarker,
+        actions: &[Retained<NSMenuItem>],
+        notes: &[Retained<NSMenuItem>],
+    ) {
+        self.menu.removeAllItems();
+        // 可点的连成一片：素笺云的操作、偏好设置、日志、有新版本
+        for item in actions {
+            self.menu.addItem(item);
+        }
+        self.menu.addItem(&self.preferences);
+        self.menu.addItem(&self.logs);
+        self.menu.addItem(&self.update);
+        self.menu.addItem(&NSMenuItem::separatorItem(mtm));
+        // 纯展示的收在最后：素笺云的状态行、配置错误提示、版本行
+        for item in notes {
+            self.menu.addItem(item);
+        }
+        self.menu.addItem(&self.error);
+        self.menu.addItem(&self.about);
+    }
+
+    /// 每秒一次：素笺云的行变了就整份重排。
     pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) {
-        self.cloud_agent.sync(mtm, &self._target);
+        if let Some((actions, notes)) = self.cloud_agent.rows(mtm, &self._target) {
+            self.rebuild(mtm, &actions, &notes);
+        }
     }
 
     /// 查到新版本就露出「有新版本」那一行，没有就藏起来。

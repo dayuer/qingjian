@@ -17,7 +17,9 @@ define_class!(
     impl MenuTarget {
         #[unsafe(method(menuAction:))]
         fn menu_action(&self, sender: Option<&AnyObject>) {
-            if let Some(action) = super::action_from_sender(sender) {
+            let action = super::action_from_sender(sender);
+            tracing::info!(?action, "状态项菜单点击");
+            if let Some(action) = action {
                 host::with(|h| h.perform(action));
             }
         }

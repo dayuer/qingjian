@@ -1,9 +1,12 @@
-//! 「云服务」页：本地整句模型开关；云联想开关、云端词格数、走素笺云还是自定义接口（后者才有地址 / 模型 / 密钥）、测试连接。
+//! 「云服务」页：状态（开通 / 加入 / 解绑）、五项云功能开关、同步（暂停 / 立即同步）、
+//! 数据（清空云端输入记录）、高级（本地整句模型、云联想端点与自定义接口）。
+//! 功能开关切的是服务器上的许可（素笺云），名字与说明与 iOS 的云功能清单一字不差。
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{NSButton, NSPopUpButton, NSSecureTextField, NSTextField};
 use objc2_foundation::NSString;
+use qingjian_cloud_mac::CloudStatus;
 use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
 
@@ -19,16 +22,50 @@ use crate::preferences::target::PreferencesTarget;
 const MAX_CLOUD_SLOTS: usize = 4;
 
 pub struct CloudPage {
-    /// 本地整句模型开关。
+    /// 状态行：未开通素笺云 / 已开通 · 同步中 / 已暂停。
+    state: Retained<NSTextField>,
+
+    /// 已开通时的设备行：这台设备的名字。
+    device: Retained<NSTextField>,
+
+    /// 没开通时才显示的两颗按钮。
+    create: Retained<NSButton>,
+
+    join: Retained<NSButton>,
+
+    /// 已开通时才显示。
+    unbind: Retained<NSButton>,
+
+    /// 五项云功能开关。
+    memory: Retained<NSButton>,
+
+    input_log: Retained<NSButton>,
+
+    sync_switch: Retained<NSButton>,
+
+    clipboard: Retained<NSButton>,
+
+    llm: Retained<NSButton>,
+
+    /// 学习数据的同步状态（最近同步多久前 / 失败原因）。
+    sync_state: Retained<NSTextField>,
+
+    pause: Retained<NSButton>,
+
+    sync_now: Retained<NSButton>,
+
+    clear_log: Retained<NSButton>,
+
+    /// 高级：本地整句模型开关。
     local_model: Retained<NSButton>,
 
-    /// 云联想开关。
+    /// 高级：云联想（走素笺云时用云端的大模型代理，自定义接口时填下面的几行）。
     enabled: Retained<NSButton>,
 
     /// 云端词槽位数（0–4）。
     slots: Retained<NSPopUpButton>,
 
-    /// 素笺云/ 自定义接口。
+    /// 素笺云 / 自定义接口。
     provider: Retained<NSPopUpButton>,
 
     /// 自定义接口才有的几行：地址、模型、密钥各自的标题与输入框，加下面的说明；走素笺云时整段藏起来。
@@ -53,6 +90,86 @@ struct CustomRows {
 
 impl CloudPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+        // 状态
+        let state = note_label(layout, mtm, "…");
+        let device = note_label(layout, mtm, "");
+        let create = button(mtm, "开通素笺云", Setting::CloudCreateSpace, target);
+        let join = button(mtm, "输入匹配码加入…", Setting::CloudJoinWithCode, target);
+        layout.place(&create, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        layout.place(&join, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        let unbind = button(mtm, "解绑这台 Mac", Setting::CloudUnbind, target);
+        layout.place(&unbind, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        note(
+            layout,
+            mtm,
+            "手机上已经开通的话走「输入匹配码加入」：手机上「我 → 素笺云服务 → 添加一台设备」出码，这里输码，手机上点允许。",
+        );
+
+        // 功能开关（名字与 iOS 的功能清单一字一致）
+        let memory = checkbox(
+            mtm,
+            "云端记忆（把记下的素材整理成卡）",
+            Setting::CloudMemory,
+            target,
+        );
+        row_checkbox(layout, &memory);
+        note(
+            layout,
+            mtm,
+            "记下的素材先在本机抹去姓名、电话、地址等再上传，交给云端整理成卡；关掉会同时删除服务器上的素材。",
+        );
+        let input_log = checkbox(mtm, "同步打字内容", Setting::CloudInputLog, target);
+        row_checkbox(layout, &input_log);
+        note(
+            layout,
+            mtm,
+            "打的字上传到素笺的服务器，用来优化输入法；密码、验证码这类输入框不会记录。",
+        );
+        let sync_switch = checkbox(mtm, "同步学习数据与设置", Setting::CloudSync, target);
+        row_checkbox(layout, &sync_switch);
+        let clipboard = checkbox(mtm, "跨设备剪贴板", Setting::CloudClipboard, target);
+        row_checkbox(layout, &clipboard);
+        note(
+            layout,
+            mtm,
+            "本机复制的文本传到别的设备，别的设备复制的写进本机剪贴板。",
+        );
+        let llm = checkbox(mtm, "大模型（润色、云联想）", Setting::CloudLlm, target);
+        row_checkbox(layout, &llm);
+        note(
+            layout,
+            mtm,
+            "改写选中或整句，组句时联想整句与云端候选；走素笺云自己的服务器，不用填密钥。",
+        );
+
+        // 同步
+        let sync_state = note_label(layout, mtm, "");
+        let pause = button(mtm, "暂停同步", Setting::CloudPause, target);
+        let sync_now = button(mtm, "立即同步学习数据", Setting::CloudSyncNow, target);
+        layout.place(&pause, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        layout.place(&sync_now, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+
+        // 数据
+        let clear_log = button(
+            mtm,
+            "清空云端输入记录…",
+            Setting::CloudClearInputLog,
+            target,
+        );
+        layout.place(&clear_log, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        layout.next_row(ROW_HEIGHT + 4.0);
+        note(
+            layout,
+            mtm,
+            "服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。",
+        );
+
+        // 高级
         let local_model = checkbox(mtm, "本地整句模型", Setting::LocalModelEnabled, target);
         row_checkbox(layout, &local_model);
         note(
@@ -65,7 +182,7 @@ impl CloudPage {
         note(
             layout,
             mtm,
-            "开启后组句时把光标附近的几十个字发给大模型，补全整句、联想下文；密码框里绝不发送。菜单栏图标旁会带一个云朵。",
+            "开启后组句时把光标附近的几十个字发给大模型，补全整句、联想下文；密码框里绝不发送。",
         );
         let slot_titles: Vec<String> = (0..=MAX_CLOUD_SLOTS)
             .map(|n| match n {
@@ -97,7 +214,7 @@ impl CloudPage {
         note(
             layout,
             mtm,
-            "素笺云服务在菜单栏「中☁ → 素笺云 ›」里开通或加入：开通后打开「大模型（润色、云联想）」，这里不用填。自定义接口可以接任何 OpenAI 兼容的服务。",
+            "素笺云用上面的「大模型」开关，不必填密钥。自定义接口可以接任何 OpenAI 兼容的服务，填下面的三行。",
         );
         let base_url = text_field(mtm, Setting::BaseUrl, target);
         let base_url_caption = row_control(layout, mtm, "接口地址", &base_url);
@@ -118,7 +235,22 @@ impl CloudPage {
             mtm,
             "按当前的服务发一条最小请求，结果显示在窗口底部。输入法进程看不到终端里的代理变量，走不通时先查这个。",
         );
+
         Self {
+            state,
+            device,
+            create,
+            join,
+            unbind,
+            memory,
+            input_log,
+            sync_switch,
+            clipboard,
+            llm,
+            sync_state,
+            pause,
+            sync_now,
+            clear_log,
             local_model,
             enabled,
             slots,
@@ -132,6 +264,58 @@ impl CloudPage {
             },
             test,
         }
+    }
+
+    /// 状态块与开关的勾选：读素笺云现在的状态（`qingjian_cloud_mac::status`）。
+    /// 每 0.5 秒跟着素笺云的菜单刷新走（见 `PreferencesWindow::sync_cloud_status`）。
+    pub fn sync_status(&self, status: &CloudStatus) {
+        self.state.setStringValue(&NSString::from_str(&status.line));
+        self.device
+            .setStringValue(&NSString::from_str(&if status.signed_in {
+                if status.device.is_empty() {
+                    String::new()
+                } else {
+                    format!("这台设备：{}", status.device)
+                }
+            } else {
+                String::new()
+            }));
+        self.device.setHidden(!status.signed_in);
+        self.unbind.setHidden(!status.signed_in);
+        self.create.setHidden(status.signed_in);
+        self.join.setHidden(status.signed_in);
+        // 正在等另一台设备允许时，两颗按钮都灰掉（别让人重复点）
+        self.create.setEnabled(!status.joining);
+        self.join.setEnabled(!status.joining);
+        // 五项开关：没开通时整组灰掉
+        for (control, name) in [
+            (&self.memory, "memory"),
+            (&self.input_log, "input_log"),
+            (&self.sync_switch, "sync"),
+            (&self.clipboard, "clipboard"),
+            (&self.llm, "llm"),
+        ] {
+            let on = status
+                .consents
+                .iter()
+                .find(|(n, _)| *n == name)
+                .is_some_and(|(_, on)| *on);
+            set_checked(control, on);
+            control.setEnabled(status.signed_in);
+        }
+        self.sync_state
+            .setStringValue(&NSString::from_str(if status.sync_line.is_empty() {
+                if status.signed_in {
+                    "还没有同步过"
+                } else {
+                    ""
+                }
+            } else {
+                &status.sync_line
+            }));
+        self.pause.setEnabled(status.signed_in);
+        self.sync_now.setEnabled(status.signed_in);
+        self.clear_log.setEnabled(status.signed_in);
     }
 
     /// `key_present` 是密钥已经有了（环境或配置里）；密钥框永远不回显值，只换占位文字。

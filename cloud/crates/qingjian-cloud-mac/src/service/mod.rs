@@ -20,11 +20,10 @@ use qingjian_cloud_proto::{EventKind, Feature};
 
 use crate::account::{AccountEvent, AccountFlow};
 use crate::config::AgentConfig;
-use crate::history::History;
 use crate::llm_endpoint::LlmEndpoint;
 use crate::menu::{
     AccountMenu, Display, Line, TAG_CANCEL_JOIN, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD,
-    TAG_SIGN_OUT, TAG_SYNC_NOW, build_lines, status_line, toggled_feature,
+    TAG_SIGN_OUT, TAG_SYNC_NOW, build_lines, status_line,
 };
 use crate::timer::TimerTarget;
 use crate::watcher::ClipboardWatcher;
@@ -120,13 +119,67 @@ pub fn clear_input_log() {
     with(|service| service.clear_input_log());
 }
 
-/// 这个 tag 对应的开关是不是要先过同意说明的（云端记忆 / 同步打字内容），是就返回功能名。
-pub fn consent_feature(tag: isize) -> Option<&'static str> {
-    match toggled_feature(tag)? {
-        Feature::Memory => Some("memory"),
-        Feature::InputLog => Some("input_log"),
-        _ => None,
+/// 偏好设置的云服务页要的状态快照。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CloudStatus {
+    /// 开通了没有。
+    pub signed_in: bool,
+
+    /// 状态行：未开通素笺云 / 已开通 · 同步中（N 条待上传）/ 已暂停。
+    pub line: String,
+
+    /// 本机设备名（已开通时显示在设备行）。
+    pub device: String,
+
+    /// 学习数据那一行（最近同步多久前 / 失败原因 / 等输入法合并）；没话说时是空串。
+    pub sync_line: String,
+
+    /// 正在等另一台设备允许。
+    pub joining: bool,
+
+    /// 五项开关：(功能名, 开着没有)。
+    pub consents: [(&'static str, bool); 5],
+}
+
+impl CloudStatus {
+    /// 空快照：服务没起来时用（全关、未开通）。
+    pub fn empty() -> Self {
+        Self {
+            consents: [
+                ("memory", false),
+                ("input_log", false),
+                ("sync", false),
+                ("clipboard", false),
+                ("llm", false),
+            ],
+            ..Self::default()
+        }
     }
+}
+
+/// 云服务页要的状态。
+pub fn status() -> CloudStatus {
+    with(Service::cloud_status).unwrap_or_else(CloudStatus::empty)
+}
+
+/// 按功能名切换一项云功能（云端记忆 / 同步打字内容 / 同步学习数据与设置 / 跨设备剪贴板 / 大模型）。
+pub fn toggle_feature(feature: &str) {
+    with(|service| service.toggle_feature(feature));
+}
+
+/// 暂停 / 继续同步。
+pub fn pause_toggle() {
+    with(|service| service.perform(TAG_PAUSE));
+}
+
+/// 立即同步学习数据。
+pub fn sync_now() {
+    with(|service| service.perform(TAG_SYNC_NOW));
+}
+
+/// 解绑这台 Mac（退出登录）。
+pub fn unbind() {
+    with(|service| service.perform(TAG_SIGN_OUT));
 }
 
 /// 某项云功能现在开着没有（壳在弹同意说明前问）。
@@ -217,8 +270,6 @@ struct Service {
 
     watcher: ClipboardWatcher,
 
-    history: History,
-
     /// 给输入法画子菜单的行。
     lines: Vec<Line>,
 
@@ -243,6 +294,9 @@ struct Service {
     /// 让正在等的配对轮询收手（用户取消或退出时置位）。
     join_stop: Arc<AtomicBool>,
 
+    /// 本机设备名（给设置页显示，算一次留着）。
+    device: Option<String>,
+
     /// 账号操作的后台线程与登录窗口回调把（发出时的代数，结果）发到这里，主线程每拍取。
     events: Receiver<(u64, AccountEvent)>,
 
@@ -264,7 +318,6 @@ impl Service {
             paused: false,
             suspended: false,
             watcher: ClipboardWatcher::new(),
-            history: History::default(),
             lines: Vec::new(),
             revision: 0,
             menu_built: Instant::now(),
@@ -273,6 +326,7 @@ impl Service {
             other_input_since: None,
             flow: AccountFlow::default(),
             join_stop: Arc::new(AtomicBool::new(false)),
+            device: None,
             events,
             sender,
             note: None,
@@ -287,7 +341,6 @@ impl Service {
         self.sync = None;
         self.data = None;
         self.endpoint = None;
-        self.history = History::default();
         self.config = None;
         let (Some(config_path), Some(state_dir)) = (paths::config_path(), paths::support_dir())
         else {
@@ -375,10 +428,8 @@ impl Service {
                 sync.copy(text);
             }
         }
-        let mut changed = false;
         let now = now_ms();
         while let Some(incoming) = sync.try_recv() {
-            changed |= self.history.apply(&incoming);
             if let EventKind::ClipAdded { text, .. } = &incoming.event.kind
                 && !incoming.mine
                 && !self.paused
@@ -400,7 +451,7 @@ impl Service {
                 tracing::info!(seq = incoming.event.seq, device = %incoming.event.device, "写入剪贴板");
             }
         }
-        self.refresh_menu(changed);
+        self.refresh_menu(false);
     }
 
     /// 只在用素笺时同步：切走超过 [`OTHER_INPUT_GRACE`] 就停掉同步线程，切回来按配置重新起。
@@ -430,6 +481,38 @@ impl Service {
         }
     }
 
+    /// 云服务页的状态快照。设备名一次算出来就留着（`scutil` 有点慢）。
+    fn cloud_status(&mut self) -> CloudStatus {
+        if self.device.is_none() {
+            self.device = Some(crate::account::device_name());
+        }
+        let consents = CloudStatus::empty().consents;
+        let consents: [(&'static str, bool); 5] =
+            consents.map(|(name, _)| (name, self.consent_enabled(name)));
+        CloudStatus {
+            signed_in: self.signed_in(),
+            line: crate::menu::status_line(&self.display()),
+            device: self.device.clone().unwrap_or_default(),
+            sync_line: self
+                .data
+                .as_ref()
+                .and_then(|sync| {
+                    let consents = self.config.as_ref().map(AgentConfig::consents)?;
+                    crate::menu::data_line_text(&sync.status(), consents)
+                })
+                .unwrap_or_default(),
+            joining: self.flow.signing_in(),
+            consents,
+        }
+    }
+
+    /// 按功能名切换开关（设置页的勾选框）。
+    fn toggle_feature(&mut self, feature: &str) {
+        if let Some(feature) = Feature::parse(feature) {
+            self.toggle(feature);
+        }
+    }
+
     /// 某项云功能开着没有（读本机镜像的开关）。
     fn consent_enabled(&self, feature: &str) -> bool {
         let Some(feature) = Feature::parse(feature) else {
@@ -441,12 +524,8 @@ impl Service {
             .is_some_and(|consents| consents.get(feature))
     }
 
-    /// 子菜单的动作。
+    /// 菜单的动作（开关都移进偏好设置页了，这里只剩暂停、立即同步、解绑这几个）。
     fn perform(&mut self, tag: isize) {
-        if let Some(feature) = toggled_feature(tag) {
-            self.toggle(feature);
-            return;
-        }
         match tag {
             TAG_PAUSE => {
                 self.paused = !self.paused;
@@ -474,12 +553,7 @@ impl Service {
             TAG_SIGN_OUT => self.sign_out(),
             // TAG_CREATE_SPACE / TAG_JOIN_WITH_CODE / TAG_CLEAR_INPUT_LOG 由输入法壳拦截：
             // 它们要先弹原生弹窗（出境同意 / 输匹配码 / 清空确认），拿到结果再调下面导出的函数
-            index if index >= 0 => {
-                if let Some(entry) = self.history.get(index as usize) {
-                    let count = pasteboard::write_text(&entry.text);
-                    self.watcher.note_own_write(count);
-                }
-            }
+            // 历史条目的 tag 原本是下标：历史撤出菜单后不再有这类动作，忽略
             _ => {}
         }
     }
@@ -530,7 +604,7 @@ impl Service {
             note: self.note.clone(),
         };
         let data = self.data.as_ref().map(DataSync::status);
-        let lines = build_lines(&display, &account, data.as_ref(), &self.history);
+        let lines = build_lines(&display, &account, data.as_ref());
         self.menu_built = Instant::now();
         if lines != self.lines {
             self.lines = lines;

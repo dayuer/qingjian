@@ -9,8 +9,6 @@ mod lines;
 use qingjian_cloud_client::{DataStatus, Status};
 use qingjian_cloud_proto::{Consents, Feature};
 
-use crate::history::History;
-
 pub use account_menu::AccountMenu;
 pub use display::Display;
 pub use lines::Line;
@@ -25,99 +23,20 @@ pub const TAG_JOIN_WITH_CODE: isize = -9;
 pub const TAG_CANCEL_JOIN: isize = -17;
 pub const TAG_CLEAR_INPUT_LOG: isize = -16;
 
-/// 菜单里显示的功能开关（标题与 iOS 的功能清单一字一样）；云端记忆与同步打字内容
-/// 打开前要先过同意说明（见 service 里的确认弹窗）。
-const MENU_FEATURES: [Feature; 5] = [
-    Feature::Memory,
-    Feature::InputLog,
-    Feature::Sync,
-    Feature::Clipboard,
-    Feature::Llm,
-];
+/// 「云服务设置…」：输入法壳拦截它，打开偏好设置的云服务页。
+pub const TAG_OPEN_SETTINGS: isize = -18;
 
-/// 五个功能开关的 tag：-10 起按 [`MENU_FEATURES`] 的顺序往下排（-10..=-14）；其余固定动作避开这一段（清空 -16、取消加入 -17）。
-const TAG_TOGGLE_FIRST: isize = -10;
-
-pub fn toggle_tag(feature: Feature) -> isize {
-    let index = MENU_FEATURES
-        .iter()
-        .position(|&f| f == feature)
-        .unwrap_or(MENU_FEATURES.len());
-    TAG_TOGGLE_FIRST - index as isize
-}
-
-pub fn toggled_feature(tag: isize) -> Option<Feature> {
-    let index = usize::try_from(TAG_TOGGLE_FIRST - tag).ok()?;
-    MENU_FEATURES.get(index).copied()
-}
-
+/// 菜单里只剩两行：一行状态、一个进设置页的入口。功能开关、暂停、清空这些全在
+/// 偏好设置的「云服务」页里（菜单在 IMK 下又点不动又挤，2026-10-07 移过去）。
 pub fn build_lines(
     display: &Display,
-    account: &AccountMenu,
-    data: Option<&DataStatus>,
-    history: &History,
+    _account: &AccountMenu,
+    _data: Option<&DataStatus>,
 ) -> Vec<Line> {
-    let mut lines = vec![Line::Text(status_line(display))];
-    // 学习数据的行只在同步着的时候显示：所有项都被服务器停了（或没登录）就没有「刚刚同步」可说
-    let data_line = data.and_then(|data| data_line(data, account.consents));
-    if let Some(line) = &data_line {
-        lines.push(Line::Text(line.clone()));
-    }
-    if let Some(note) = &account.note {
-        lines.push(Line::Text(short(note)));
-    }
-    lines.push(Line::Separator);
-    if account.signed_in {
-        for feature in MENU_FEATURES {
-            let state = if account.consents.get(feature) {
-                "开"
-            } else {
-                "关"
-            };
-            lines.push(Line::Action(
-                format!("{}：{state}", feature_title(feature)),
-                toggle_tag(feature),
-            ));
-        }
-        lines.push(Line::Separator);
-        if account.consents.clipboard {
-            let before = lines.len();
-            for (index, entry) in history.entries().enumerate() {
-                lines.push(Line::Action(entry.title(), index as isize));
-            }
-            if lines.len() == before {
-                lines.push(Line::Text("还没有剪贴板记录".to_owned()));
-            }
-            lines.push(Line::Separator);
-        }
-        let pause = if matches!(display, Display::Paused) {
-            "继续同步"
-        } else {
-            "暂停同步"
-        };
-        lines.push(Line::Action(pause.to_owned(), TAG_PAUSE));
-        if data_line.is_some() {
-            lines.push(Line::Action("立即同步学习数据".to_owned(), TAG_SYNC_NOW));
-        }
-        lines.push(Line::Action("解绑这台 Mac".to_owned(), TAG_SIGN_OUT));
-        lines.push(Line::Action(
-            "清空云端输入记录…".to_owned(),
-            TAG_CLEAR_INPUT_LOG,
-        ));
-    } else if account.signing_in {
-        lines.push(Line::Text("正在加入…".to_owned()));
-        lines.push(Line::Action("取消".to_owned(), TAG_CANCEL_JOIN));
-    } else {
-        // 手机上多半已经有空间：引导走匹配码加入（手机出码，这里输码，手机上允许）
-        lines.push(Line::Action(
-            "输入匹配码加入…".to_owned(),
-            TAG_JOIN_WITH_CODE,
-        ));
-        lines.push(Line::Action("开通素笺云".to_owned(), TAG_CREATE_SPACE));
-    }
-    lines.push(Line::Action("重新加载配置".to_owned(), TAG_RELOAD));
-    lines.push(Line::Action("打开配置文件…".to_owned(), TAG_OPEN_CONFIG));
-    lines
+    vec![
+        Line::Text(status_line(display)),
+        Line::Action("云服务设置…".to_owned(), TAG_OPEN_SETTINGS),
+    ]
 }
 
 pub fn status_line(display: &Display) -> String {
@@ -143,18 +62,8 @@ pub fn status_line(display: &Display) -> String {
     }
 }
 
-fn feature_title(feature: Feature) -> &'static str {
-    match feature {
-        Feature::Clipboard => "跨设备剪贴板",
-        Feature::Sync => "同步学习数据与设置",
-        Feature::InputLog => "同步打字内容",
-        Feature::Llm => "大模型（润色、云联想）",
-        Feature::Memory => "云端记忆（把记下的素材整理成卡）",
-    }
-}
-
 /// 学习数据那一行；开着的几项都被服务器停了时为 `None`（对应开关马上会被记成关）。
-fn data_line(data: &DataStatus, consents: Consents) -> Option<String> {
+pub fn data_line_text(data: &DataStatus, consents: Consents) -> Option<String> {
     let enabled = [
         (Feature::Sync, consents.sync),
         (Feature::InputLog, consents.input_log),
@@ -204,7 +113,7 @@ fn short(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use qingjian_cloud_proto::Consents;
+    use qingjian_cloud_proto::{Consents, Feature};
 
     use super::*;
 
@@ -221,111 +130,25 @@ mod tests {
     }
 
     #[test]
-    fn toggle_tags_round_trip_and_stay_in_range() {
-        for feature in MENU_FEATURES {
-            let tag = toggle_tag(feature);
-            assert!((-100..0).contains(&tag));
-            assert_eq!(toggled_feature(tag), Some(feature));
+    fn menu_is_just_status_and_settings() {
+        // 功能开关、暂停、清空都移到偏好设置的云服务页了，菜单只剩两行
+        for display in [Display::SignedOut, Display::SignedIn, Display::Paused] {
+            let lines = build_lines(&display, &account(true), None);
+            assert_eq!(lines.len(), 2, "{display:?}");
+            assert!(matches!(lines[0], Line::Text(_)));
+            assert_eq!(
+                lines[1],
+                Line::Action("云服务设置…".to_owned(), TAG_OPEN_SETTINGS)
+            );
         }
-        // 五项都在菜单里
-        assert_eq!(
-            toggled_feature(toggle_tag(Feature::Memory)),
-            Some(Feature::Memory)
-        );
-        assert_eq!(
-            toggled_feature(toggle_tag(Feature::Llm)),
-            Some(Feature::Llm)
-        );
-        for tag in [
-            TAG_SIGN_OUT,
-            TAG_CANCEL_JOIN,
-            TAG_PAUSE,
-            TAG_CLEAR_INPUT_LOG,
-            0,
-            5,
-            -20,
-        ] {
-            assert_eq!(toggled_feature(tag), None);
-        }
-    }
-
-    #[test]
-    fn signed_out_menu_offers_join_and_create() {
-        let lines = build_lines(
-            &Display::SignedOut,
-            &account(false),
-            None,
-            &History::default(),
-        );
+        // 未开通时状态行说「未开通素笺云」
+        let lines = build_lines(&Display::SignedOut, &account(false), None);
         assert_eq!(lines[0], Line::Text("未开通素笺云".to_owned()));
-        assert!(lines.contains(&Line::Action(
-            "输入匹配码加入…".to_owned(),
-            TAG_JOIN_WITH_CODE
-        )));
-        assert!(lines.contains(&Line::Action("开通素笺云".to_owned(), TAG_CREATE_SPACE)));
-        assert!(
-            !lines.iter().any(
-                |line| matches!(line, Line::Action(_, tag) if toggled_feature(*tag).is_some())
-            )
-        );
-        assert!(!lines.contains(&Line::Action("暂停同步".to_owned(), TAG_PAUSE)));
-    }
-
-    #[test]
-    fn signed_in_menu_shows_switch_states() {
-        let lines = build_lines(
-            &Display::SignedIn,
-            &account(true),
-            None,
-            &History::default(),
-        );
-        assert!(lines.contains(&Line::Action(
-            "同步学习数据与设置：开".to_owned(),
-            toggle_tag(Feature::Sync)
-        )));
-        assert!(lines.contains(&Line::Action(
-            "跨设备剪贴板：关".to_owned(),
-            toggle_tag(Feature::Clipboard)
-        )));
-        assert!(lines.contains(&Line::Action("解绑这台 Mac".to_owned(), TAG_SIGN_OUT)));
-        // 剪贴板关着：不列历史
-        assert!(!lines.contains(&Line::Text("还没有剪贴板记录".to_owned())));
-    }
-
-    #[test]
-    fn signing_in_menu_can_cancel() {
-        let mut menu = account(false);
-        menu.signing_in = true;
-        menu.note = Some("加入出错了".to_owned());
-        let lines = build_lines(&Display::SignedOut, &menu, None, &History::default());
-        assert!(lines.contains(&Line::Text("加入出错了".to_owned())));
-        assert!(lines.contains(&Line::Action("取消".to_owned(), TAG_CANCEL_JOIN)));
-        assert!(!lines.contains(&Line::Action(
-            "输入匹配码加入…".to_owned(),
-            TAG_JOIN_WITH_CODE
-        )));
-    }
-
-    #[test]
-    fn signed_in_menu_has_clear_input_log() {
-        let lines = build_lines(
-            &Display::SignedIn,
-            &account(true),
-            None,
-            &History::default(),
-        );
-        assert!(lines.contains(&Line::Action(
-            "清空云端输入记录…".to_owned(),
-            TAG_CLEAR_INPUT_LOG
-        )));
-        assert!(lines.contains(&Line::Action(
-            "云端记忆（把记下的素材整理成卡）：关".to_owned(),
-            toggle_tag(Feature::Memory)
-        )));
-        assert!(lines.contains(&Line::Action(
-            "同步打字内容：关".to_owned(),
-            toggle_tag(Feature::InputLog)
-        )));
+        // 提示行（加入失败等）也不再进菜单
+        let mut menu = account(true);
+        menu.note = Some("加入失败".to_owned());
+        let lines = build_lines(&Display::SignedIn, &menu, None);
+        assert_eq!(lines.len(), 2);
     }
 
     fn data_status() -> DataStatus {
@@ -341,7 +164,7 @@ mod tests {
             unauthorized: true,
             ..data_status()
         };
-        let line = data_line(&data, account(true).consents).unwrap();
+        let line = data_line_text(&data, account(true).consents).unwrap();
         assert_eq!(line, "学习数据：授权已失效");
     }
 
@@ -357,9 +180,9 @@ mod tests {
             ..data_status()
         };
         // 还有输入日志在跑：照常显示，不报「刚刚同步」以外的东西
-        assert!(data_line(&data, consents).is_some());
+        assert!(data_line_text(&data, consents).is_some());
         data.disabled.push(Feature::InputLog);
-        assert_eq!(data_line(&data, consents), None);
+        assert_eq!(data_line_text(&data, consents), None);
         // 只开了同步且被停：没有可显示的
         let only_sync = Consents {
             sync: true,
@@ -376,7 +199,6 @@ mod tests {
                 ..account(true)
             },
             Some(&stopped),
-            &History::default(),
         );
         assert!(
             !lines

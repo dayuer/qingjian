@@ -53,6 +53,31 @@ pub enum Setting {
     /// `[predict] enabled`。
     CloudEnabled,
 
+    /// 云服务页：五项云功能开关（切的是服务器上的许可，见 `qingjian_cloud_mac::toggle_feature`）。
+    CloudMemory,
+    CloudInputLog,
+    CloudSync,
+    CloudClipboard,
+    CloudLlm,
+
+    /// 云服务页：开通素笺云（建新空间）。
+    CloudCreateSpace,
+
+    /// 云服务页：输入匹配码加入。
+    CloudJoinWithCode,
+
+    /// 云服务页：解绑这台 Mac。
+    CloudUnbind,
+
+    /// 云服务页：暂停 / 继续同步。
+    CloudPause,
+
+    /// 云服务页：立即同步学习数据。
+    CloudSyncNow,
+
+    /// 云服务页：清空云端输入记录。
+    CloudClearInputLog,
+
     /// 云联想走素笺云还是自定义接口。
     CloudProvider,
 
@@ -209,6 +234,17 @@ impl Setting {
             Self::QuestionKey => 6,
             Self::QuestionMark => 41,
             Self::CloudEnabled => 7,
+            Self::CloudMemory => 60,
+            Self::CloudInputLog => 61,
+            Self::CloudSync => 62,
+            Self::CloudClipboard => 63,
+            Self::CloudLlm => 64,
+            Self::CloudCreateSpace => 65,
+            Self::CloudJoinWithCode => 66,
+            Self::CloudUnbind => 67,
+            Self::CloudPause => 68,
+            Self::CloudSyncNow => 69,
+            Self::CloudClearInputLog => 70,
             Self::CloudProvider => 57,
             Self::BaseUrl => 8,
             Self::Model => 9,
@@ -276,6 +312,17 @@ impl Setting {
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
             7 => Self::CloudEnabled,
+            60 => Self::CloudMemory,
+            61 => Self::CloudInputLog,
+            62 => Self::CloudSync,
+            63 => Self::CloudClipboard,
+            64 => Self::CloudLlm,
+            65 => Self::CloudCreateSpace,
+            66 => Self::CloudJoinWithCode,
+            67 => Self::CloudUnbind,
+            68 => Self::CloudPause,
+            69 => Self::CloudSyncNow,
+            70 => Self::CloudClearInputLog,
             57 => Self::CloudProvider,
             8 => Self::BaseUrl,
             9 => Self::Model,
@@ -354,6 +401,17 @@ mod tests {
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,
+            Setting::CloudMemory,
+            Setting::CloudInputLog,
+            Setting::CloudSync,
+            Setting::CloudClipboard,
+            Setting::CloudLlm,
+            Setting::CloudCreateSpace,
+            Setting::CloudJoinWithCode,
+            Setting::CloudUnbind,
+            Setting::CloudPause,
+            Setting::CloudSyncNow,
+            Setting::CloudClearInputLog,
             Setting::CloudProvider,
             Setting::LocalModelEnabled,
             Setting::UpdateCheck,

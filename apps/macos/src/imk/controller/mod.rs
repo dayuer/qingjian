@@ -117,7 +117,9 @@ define_class!(
         /// 输入源菜单里点了条目：IMK 转发到控制器，sender 是带 IMKCommandMenuItem 的字典。
         #[unsafe(method(menuAction:))]
         fn menu_action(&self, sender: Option<&AnyObject>) {
-            if let Some(action) = menubar::action_from_sender(sender) {
+            let action = menubar::action_from_sender(sender);
+            tracing::info!(?action, "输入法菜单点击");
+            if let Some(action) = action {
                 host::with(|h| h.perform(action));
             }
         }

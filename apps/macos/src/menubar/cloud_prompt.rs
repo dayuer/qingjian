@@ -42,19 +42,14 @@ pub fn confirm_consent(mtm: MainThreadMarker, feature: &str) -> bool {
     let Some((title, points)) = consent_points(feature) else {
         return true;
     };
-    let app = NSApplication::sharedApplication(mtm);
-    let previous = app.activationPolicy();
-    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-    #[allow(deprecated)]
-    app.activateIgnoringOtherApps(true);
-    let body = format!(
-        "{}\n\n点「同意并开启」表示你已阅读并同意以上说明。",
-        points.join("\n\n")
-    );
-    let alert = message(mtm, title, &body, "同意并开启", "取消", true);
-    let agreed = alert.runModal() == NSAlertFirstButtonReturn;
-    app.setActivationPolicy(previous);
-    agreed
+    with_alert(mtm, |_| {
+        let body = format!(
+            "{}\n\n点「同意并开启」表示你已阅读并同意以上说明。",
+            points.join("\n\n")
+        );
+        message(mtm, title, &body, "同意并开启", "取消", true).runModal()
+            == NSAlertFirstButtonReturn
+    })
 }
 
 /// 这三项要弹窗；其余 tag 直接转发给素笺云。
@@ -70,77 +65,96 @@ pub fn run(tag: isize) {
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
-    // 输入法是 LSBackgroundOnly，弹窗前照偏好设置的做法临时切 Accessory 并激活，弹窗才拿得到焦点
+    match tag {
+        TAG_CREATE_SPACE => {
+            if confirm_create_space(mtm) {
+                qingjian_cloud_mac::create_space(true);
+            }
+        }
+        TAG_JOIN_WITH_CODE => {
+            if let Some(code) = ask_pair_code(mtm) {
+                qingjian_cloud_mac::join_with_code(&code);
+            }
+        }
+        TAG_CLEAR_INPUT_LOG if confirm_clear_input_log(mtm) => {
+            qingjian_cloud_mac::clear_input_log();
+        }
+        _ => {}
+    }
+}
+
+/// 「开通素笺云」的说明与出境同意；用户点「同意并继续」返回 true。菜单与设置页共用。
+pub fn confirm_create_space(mtm: MainThreadMarker) -> bool {
+    with_alert(mtm, |_| {
+        message(
+            mtm,
+            "开通素笺云服务",
+            &format!(
+                "开通后在键盘上记的事会存到云端，每天整理成记忆卡，换设备也还在。\n\n{CONSENT}"
+            ),
+            "同意并继续",
+            "取消",
+            true,
+        )
+        .runModal()
+            == NSAlertFirstButtonReturn
+    })
+}
+
+/// 「输入匹配码加入…」：说明 + 输入框 + 出境同意。用户取消或没填返回 `None`。
+pub fn ask_pair_code(mtm: MainThreadMarker) -> Option<String> {
+    with_alert(mtm, |_| {
+        let alert = message(
+            mtm,
+            "加入已有的素笺云服务",
+            &format!(
+                "在手机上打开「我 → 素笺云服务 → 添加一台设备」，把那里显示的匹配码输进来。\n\n{CONSENT}"
+            ),
+            "加入",
+            "取消",
+            false,
+        );
+        let field = NSTextField::initWithFrame(
+            mtm.alloc(),
+            NSRect::new(NSPoint::ZERO, NSSize::new(220.0, 24.0)),
+        );
+        field.setPlaceholderString(Some(&NSString::from_str("匹配码")));
+        alert.setAccessoryView(Some(&field));
+        alert.window().setInitialFirstResponder(Some(&field));
+        if alert.runModal() != NSAlertFirstButtonReturn {
+            return None;
+        }
+        let code = field.stringValue().to_string();
+        (!code.trim().is_empty()).then_some(code)
+    })
+}
+
+/// 「清空云端输入记录…」：破坏性操作，先确认。
+pub fn confirm_clear_input_log(mtm: MainThreadMarker) -> bool {
+    with_alert(mtm, |_| {
+        message(
+            mtm,
+            "清空云端输入记录？",
+            "服务器上已上传的全部输入记录会删掉，这台 Mac 的输入日志也一并清空。学到的词与设置不受影响。",
+            "清空",
+            "取消",
+            true,
+        )
+        .runModal()
+            == NSAlertFirstButtonReturn
+    })
+}
+
+/// 弹窗前后统一处理激活策略：输入法是 LSBackgroundOnly，临时切 Accessory 并激活，弹窗才拿得到焦点。
+fn with_alert<T>(mtm: MainThreadMarker, body: impl FnOnce(MainThreadMarker) -> T) -> T {
     let app = NSApplication::sharedApplication(mtm);
     let previous = app.activationPolicy();
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
     #[allow(deprecated)]
     app.activateIgnoringOtherApps(true);
-    match tag {
-        TAG_CREATE_SPACE => create_space(mtm),
-        TAG_JOIN_WITH_CODE => join_with_code(mtm),
-        TAG_CLEAR_INPUT_LOG => clear_input_log(mtm),
-        _ => {}
-    }
+    let value = body(mtm);
     app.setActivationPolicy(previous);
-}
-
-/// 「开通素笺云」：一句说明 + 出境同意，同意才建空间。
-fn create_space(mtm: MainThreadMarker) {
-    let alert = message(
-        mtm,
-        "开通素笺云服务",
-        &format!("开通后在键盘上记的事会存到云端，每天整理成记忆卡，换设备也还在。\n\n{CONSENT}"),
-        "同意并继续",
-        "取消",
-        true,
-    );
-    if alert.runModal() == NSAlertFirstButtonReturn {
-        qingjian_cloud_mac::create_space(true);
-    }
-}
-
-/// 「输入匹配码加入…」：说明 + 输入框 + 出境同意。
-fn join_with_code(mtm: MainThreadMarker) {
-    let alert = message(
-        mtm,
-        "加入已有的素笺云服务",
-        &format!(
-            "在手机上打开「我 → 素笺云服务 → 添加一台设备」，把那里显示的匹配码输进来。\n\n{CONSENT}"
-        ),
-        "加入",
-        "取消",
-        false,
-    );
-    let field = NSTextField::initWithFrame(
-        mtm.alloc(),
-        NSRect::new(NSPoint::ZERO, NSSize::new(220.0, 24.0)),
-    );
-    field.setPlaceholderString(Some(&NSString::from_str("匹配码")));
-    alert.setAccessoryView(Some(&field));
-    alert.window().setInitialFirstResponder(Some(&field));
-    if alert.runModal() != NSAlertFirstButtonReturn {
-        return;
-    }
-    let code = field.stringValue().to_string();
-    if !code.trim().is_empty() {
-        qingjian_cloud_mac::join_with_code(&code);
-    }
-}
-
-/// 「清空云端输入记录…」：破坏性操作，先确认。
-fn clear_input_log(mtm: MainThreadMarker) {
-    let alert = message(
-        mtm,
-        "清空云端输入记录？",
-        "服务器上已上传的全部输入记录会删掉，这台 Mac 的输入日志也一并清空。学到的词与设置不受影响。",
-        "清空",
-        "取消",
-        true,
-    );
-    if alert.runModal() == NSAlertFirstButtonReturn {
-        qingjian_cloud_mac::clear_input_log();
-    }
+    value
 }
 
 /// 一个两按钮的提示框。确定的按钮排第一（返回 [`NSAlertFirstButtonReturn`]）。

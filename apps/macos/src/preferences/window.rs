@@ -56,6 +56,12 @@ pub struct PreferencesWindow {
     /// 「云服务」页。
     cloud: CloudPage,
 
+    /// 标签视图；「云服务设置…」要切到云服务页。
+    tabs: Retained<NSTabView>,
+
+    /// 「云服务」页在标签里的下标。
+    cloud_tab: usize,
+
     /// 「高级」页。
     advanced: AdvancedPage,
 
@@ -115,6 +121,7 @@ impl PreferencesWindow {
 
         let mut layout = new_layout();
         let cloud = CloudPage::build(&mut layout, mtm, &target);
+        let cloud_tab = pages.len();
         pages.push(page("云服务", layout));
 
         let mut layout = new_layout();
@@ -193,6 +200,8 @@ impl PreferencesWindow {
             fuzzy,
             dictionaries,
             cloud,
+            tabs: tabs.clone(),
+            cloud_tab,
             advanced,
             usage,
             about,
@@ -225,7 +234,16 @@ impl PreferencesWindow {
 
     /// 打开（或带到最前）。
     pub fn show(&self) {
+        // 云功能是后台线程在跑，打开时先照它的现状刷一遍
+        self.sync_cloud_status();
         self.panel.present();
+    }
+
+    /// 打开窗口并切到「云服务」页（菜单里的「云服务设置…」）。
+    pub fn show_cloud(&self) {
+        self.sync_cloud_status();
+        self.panel.present();
+        self.tabs.selectTabViewItemAtIndex(self.cloud_tab as _);
     }
 
     /// 按配置刷新所有控件。`key_present` 是密钥已经有了（环境或配置里）；密钥框永远不回显值。
@@ -245,6 +263,7 @@ impl PreferencesWindow {
         self.shortcuts.sync(config);
         self.phrases.sync(config);
         self.fuzzy.sync(config);
+        self.sync_cloud_status();
         self.cloud.sync(
             config,
             key_present,
@@ -256,6 +275,11 @@ impl PreferencesWindow {
         let status = notice.unwrap_or_default();
         self.status.setTextColor(Some(&NSColor::systemRedColor()));
         self.status.setStringValue(&NSString::from_str(status));
+    }
+
+    /// 只刷「云服务」页的状态块与开关（云功能是独立的线程在跑，不等 config 变化）。
+    pub fn sync_cloud_status(&self) {
+        self.cloud.sync_status(&qingjian_cloud_mac::status());
     }
 
     /// 检查更新的状态变了（查完了、查到新版），只刷「关于」页。

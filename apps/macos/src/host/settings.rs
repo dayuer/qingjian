@@ -71,20 +71,33 @@ impl Host {
             // 重新加载了 Cloud 配置的话，走素笺云的云联想要换端点。
             // 开通 / 输码 / 清空要先弹原生弹窗；云端记忆与同步打字内容从关到开要先过同意说明
             MenuAction::CloudAgent(tag) => {
+                if tag == qingjian_cloud_mac::TAG_OPEN_SETTINGS {
+                    self.preferences.show_cloud();
+                    return;
+                }
                 if crate::menubar::cloud_prompt::handles(tag) {
                     crate::menubar::cloud_prompt::run(tag);
-                } else if let Some(feature) = qingjian_cloud_mac::consent_feature(tag) {
-                    let opening = !qingjian_cloud_mac::consent_enabled(feature);
-                    let mtm = MainThreadMarker::new().expect("菜单动作在主线程");
-                    if !opening || crate::menubar::cloud_prompt::confirm_consent(mtm, feature) {
-                        qingjian_cloud_mac::perform(tag);
-                    }
                 } else {
                     qingjian_cloud_mac::perform(tag);
                 }
                 self.apply_config(false);
             }
         }
+    }
+
+    /// 云服务页的一个开关：云端记忆与同步打字内容从关到开要先过同意说明；同意才切换。
+    fn toggle_cloud_feature(&mut self, feature: &'static str, on: bool) {
+        if on
+            && !qingjian_cloud_mac::consent_enabled(feature)
+            && let Some(mtm) = MainThreadMarker::new()
+            && !crate::menubar::cloud_prompt::confirm_consent(mtm, feature)
+        {
+            // 用户没同意：把勾选退回去
+            self.preferences.sync_cloud_status();
+            return;
+        }
+        qingjian_cloud_mac::toggle_feature(feature);
+        self.preferences.sync_cloud_status();
     }
 
     /// 设置窗口里改了一个控件：写配置、热加载；写不成（非法组合、空文本）也要把控件同步回真实值。
@@ -437,6 +450,62 @@ impl Host {
             }
             (Setting::TestCloud, _) => {
                 self.start_cloud_test();
+                return;
+            }
+            // 云服务页：五项开关切的是服务器上的许可；云端记忆与同步打字内容从关到开要先过同意说明
+            (Setting::CloudMemory, SettingValue::Bool(on)) => {
+                self.toggle_cloud_feature("memory", on)
+            }
+            (Setting::CloudInputLog, SettingValue::Bool(on)) => {
+                self.toggle_cloud_feature("input_log", on)
+            }
+            (Setting::CloudSync, SettingValue::Bool(on)) => self.toggle_cloud_feature("sync", on),
+            (Setting::CloudClipboard, SettingValue::Bool(on)) => {
+                self.toggle_cloud_feature("clipboard", on)
+            }
+            (Setting::CloudLlm, SettingValue::Bool(on)) => self.toggle_cloud_feature("llm", on),
+            (Setting::CloudCreateSpace, _) => {
+                if let Some(mtm) = MainThreadMarker::new()
+                    && crate::menubar::cloud_prompt::confirm_consent(mtm, "consent_only")
+                {
+                    // 「开通」的同意说明由 confirm_consent 弹（feature 用 consent_only 走通用文案，
+                    // 与菜单里那条一致）；用户点同意才建空间
+                    qingjian_cloud_mac::create_space(true);
+                }
+                self.preferences.sync_cloud_status();
+                return;
+            }
+            (Setting::CloudJoinWithCode, _) => {
+                if let Some(mtm) = MainThreadMarker::new()
+                    && let Some(code) = crate::menubar::cloud_prompt::ask_pair_code(mtm)
+                {
+                    qingjian_cloud_mac::join_with_code(&code);
+                }
+                self.preferences.sync_cloud_status();
+                return;
+            }
+            (Setting::CloudUnbind, _) => {
+                qingjian_cloud_mac::unbind();
+                self.preferences.sync_cloud_status();
+                return;
+            }
+            (Setting::CloudPause, _) => {
+                qingjian_cloud_mac::pause_toggle();
+                self.preferences.sync_cloud_status();
+                return;
+            }
+            (Setting::CloudSyncNow, _) => {
+                qingjian_cloud_mac::sync_now();
+                self.preferences.sync_cloud_status();
+                return;
+            }
+            (Setting::CloudClearInputLog, _) => {
+                if let Some(mtm) = MainThreadMarker::new()
+                    && crate::menubar::cloud_prompt::confirm_clear_input_log(mtm)
+                {
+                    qingjian_cloud_mac::clear_input_log();
+                }
+                self.preferences.sync_cloud_status();
                 return;
             }
             (Setting::OpenConfigFile, _) => {

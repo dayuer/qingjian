@@ -12,7 +12,6 @@
 
 mod account;
 mod config;
-mod history;
 mod llm_endpoint;
 mod menu;
 mod paths;
@@ -31,10 +30,12 @@ mod watcher;
 pub use account::take_input_log_reset;
 pub use llm_endpoint::LlmEndpoint;
 pub use menu::{
-    Line, TAG_CANCEL_JOIN, TAG_CLEAR_INPUT_LOG, TAG_CREATE_SPACE, TAG_JOIN_WITH_CODE, TAG_SIGN_OUT,
+    Line, TAG_CANCEL_JOIN, TAG_CLEAR_INPUT_LOG, TAG_CREATE_SPACE, TAG_JOIN_WITH_CODE,
+    TAG_OPEN_SETTINGS, TAG_SIGN_OUT,
 };
 #[cfg(target_os = "macos")]
 pub use service::{
-    clear_input_log, consent_enabled, consent_feature, create_space, join_with_code, llm_endpoint,
-    menu_lines, menu_revision, perform, start,
+    CloudStatus, clear_input_log, consent_enabled, create_space, join_with_code, llm_endpoint,
+    menu_lines, menu_revision, pause_toggle, perform, start, status, sync_now, toggle_feature,
+    unbind,
 };
