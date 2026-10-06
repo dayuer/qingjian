@@ -1,9 +1,15 @@
-// 「我 → 素笺云服务」：没开通就开通；开通了先显示一句状态（设备列表、加一台设备、出匹配码是 1b Task 4）。
+// 「我 → 素笺云服务」：没开通就开通；开通了显示状态与云功能开关（同意页见 Account/ConsentSheet）。
 
 import SwiftUI
 
 struct SpaceEntryView: View {
     @Bindable var store: SpaceStore
+
+    /// 云功能开关走账号那套桥调用（同一个 cloud.toml）；这里只是个能点到的入口。
+    @State private var account = AccountStore()
+
+    /// 等用户过同意说明的功能（记忆 / 输入日志）：非 nil 时弹同意页。
+    @State private var pendingConsent: CloudFeature?
 
     var body: some View {
         Group {
@@ -14,13 +20,51 @@ struct SpaceEntryView: View {
                     } footer: {
                         Text(SpaceWording.openedMore).font(AppFont.footnote)
                     }
+                    Section {
+                        ForEach(CloudFeature.allCases) { feature in
+                            Toggle(feature.title, isOn: Binding(
+                                get: { account.state?.consents[feature] ?? false },
+                                set: { value in
+                                    // 记忆与输入日志要先过一遍同意说明（写明供应商与数据流向），用户点头才开
+                                    if value, ConsentCopy.of(feature) != nil {
+                                        pendingConsent = feature
+                                    } else {
+                                        Task { await account.setConsent(feature, value) }
+                                    }
+                                }))
+                                .tint(ColorUsage.appToggle.role.color)
+                        }
+                    } header: {
+                        Text("云功能")
+                    } footer: {
+                        Text("都默认关闭。关掉某项会同时删除服务器上这部分数据，本机数据不受影响。")
+                    }
+                    Section {
+                        Button("清空云端输入记录", role: .destructive) {
+                            Task {
+                                if await account.clearInputLog() {
+                                    account.message = "云端输入记录已清空"
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("数据")
+                    } footer: {
+                        Text("清空服务器上已上传的全部输入记录，本机日志一并删除。")
+                    }
                 }
                 .navigationTitle(SpaceWording.entryTitle)
                 .navigationBarTitleDisplayMode(.inline)
+                .sheet(item: $pendingConsent) { feature in
+                    ConsentSheet(feature: feature) {
+                        Task { await account.setConsent(feature, true) }
+                    }
+                }
             } else {
                 CreateSpaceView(store: store)
             }
         }
         .onAppear { store.refresh() }
+        .task { await account.refresh() }
     }
 }

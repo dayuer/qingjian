@@ -10,8 +10,8 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use qingjian_cloud_client::{Client, ClientError};
-use qingjian_cloud_proto::{InputLogPush, MAX_MEMORY_ITEMS, MemoryItem, MemoryPush};
+use qingjian_cloud_client::{Client, ClientError, InputLogSync};
+use qingjian_cloud_proto::{MAX_MEMORY_ITEMS, MemoryItem, MemoryPush};
 
 use crate::cloud_config::CloudConfig;
 use crate::mask_contact_names;
@@ -21,9 +21,6 @@ use qingjian_cloud_redact::redact_rules;
 
 /// 两轮上传之间的最短间隔：键盘每 0.25 秒轮询反复踢，也最多这么久跑一轮。
 const MIN_INTERVAL: Duration = Duration::from_secs(30);
-
-/// 一批输入日志最多多少行。
-const INPUT_LOG_BATCH: usize = 200;
 
 /// 已起的上传器，按 `user_dir` 登记（[`crate::qj_upload_kick`] 给 App 前台用）。
 static UPLOADERS: OnceLock<Mutex<Vec<(PathBuf, Sender<()>)>>> = OnceLock::new();
@@ -127,7 +124,7 @@ fn cycle(cloud_path: &std::path::Path, user_dir: &std::path::Path) {
         }
     }
     if config.logs {
-        if let Err(error) = upload_input_log(&client, user_dir, config.user_id) {
+        if let Err(error) = upload_input_log(&client, user_dir) {
             tracing::debug!(%error, "输入日志上传这轮没走完");
         }
     }
@@ -247,41 +244,18 @@ fn upload_materials(client: &Client, user_dir: &std::path::Path) -> Result<(), C
     Ok(())
 }
 
-/// 输入日志的进度：已经推到第几行。batch_id 按「用户:起始:结束」确定性生成，重发只记一次。
-fn upload_input_log(
-    client: &Client,
-    user_dir: &std::path::Path,
-    user_id: Option<i64>,
-) -> Result<(), ClientError> {
-    let log_path = user_dir.join("input-log.jsonl");
-    let Ok(text) = std::fs::read_to_string(&log_path) else {
-        return Ok(());
-    };
-    let lines: Vec<&str> = text.lines().collect();
-    let progress_path = user_dir.join("cloud/input-log-progress");
-    let mut done: usize = std::fs::read_to_string(&progress_path)
-        .ok()
-        .and_then(|s| s.trim().parse().ok())
-        .unwrap_or(0);
-    if done > lines.len() {
-        // 本机日志被清空过（见 qj_input_log_clear）：进度归零从头对齐
-        done = 0;
-    }
-    while done < lines.len() {
-        let end = (done + INPUT_LOG_BATCH).min(lines.len());
-        let batch_id = format!("u{}:{}:{}", user_id.unwrap_or(0), done, end);
-        client.push_input_log(&InputLogPush {
-            batch_id,
-            lines: lines[done..end].iter().map(|s| (*s).to_owned()).collect(),
-        })?;
-        done = end;
-        let _ = std::fs::write(&progress_path, done.to_string());
-    }
+/// 输入日志走 Mac 同款的 [`InputLogSync`]：字节偏移续传、状态落盘（`cloud/input-log-state.json`）、
+/// 文件变短或开头变了认出「清空过」并从新的清空代数（generation）重传——批号带代数，清空后从 0
+/// 重传不会撞旧批号。这里只上传不下载（`download_dir` 为 `None`），键盘不消费别的设备的日志。
+fn upload_input_log(client: &Client, user_dir: &std::path::Path) -> Result<(), ClientError> {
+    let mut sync = InputLogSync::open(client.clone(), user_dir, &user_dir.join("cloud"), None)?;
+    sync.cycle()?;
     Ok(())
 }
 
-/// 清空云端输入记录之后：本机日志与进度一起清（[`crate::qj_input_log_clear`] 调）。
+/// 清空云端输入记录之后：本机日志删掉、**状态文件留着**（[`crate::qj_input_log_clear`] 调）。
+/// 状态里带着上次的偏移与服务器的清空代数：下一轮同步认出文件变短，先再清一次（拿新代数）再从 0
+/// 重传，批号不会与清空前的撞上。
 pub fn reset_input_log_progress(user_dir: &std::path::Path) {
     let _ = std::fs::remove_file(user_dir.join("input-log.jsonl"));
-    let _ = std::fs::remove_file(user_dir.join("cloud/input-log-progress"));
 }
