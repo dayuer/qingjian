@@ -35,6 +35,6 @@ pub use menu::{
 };
 #[cfg(target_os = "macos")]
 pub use service::{
-    clear_input_log, create_space, join_with_code, llm_endpoint, menu_lines, menu_revision,
-    perform, start,
+    clear_input_log, consent_enabled, consent_feature, create_space, join_with_code, llm_endpoint,
+    menu_lines, menu_revision, perform, start,
 };

@@ -16,7 +16,7 @@ use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
 use objc2_foundation::NSTimer;
 use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
-use qingjian_cloud_proto::EventKind;
+use qingjian_cloud_proto::{EventKind, Feature};
 
 use crate::account::{AccountEvent, AccountFlow};
 use crate::config::AgentConfig;
@@ -118,6 +118,20 @@ pub fn join_with_code(code: &str) {
 /// 「清空云端输入记录」：输入法壳弹过确认之后调。
 pub fn clear_input_log() {
     with(|service| service.clear_input_log());
+}
+
+/// 这个 tag 对应的开关是不是要先过同意说明的（云端记忆 / 同步打字内容），是就返回功能名。
+pub fn consent_feature(tag: isize) -> Option<&'static str> {
+    match toggled_feature(tag)? {
+        Feature::Memory => Some("memory"),
+        Feature::InputLog => Some("input_log"),
+        _ => None,
+    }
+}
+
+/// 某项云功能现在开着没有（壳在弹同意说明前问）。
+pub fn consent_enabled(feature: &str) -> bool {
+    with(|service| service.consent_enabled(feature)).unwrap_or(false)
 }
 
 pub(crate) fn tick() {
@@ -414,6 +428,17 @@ impl Service {
             }
             None => {}
         }
+    }
+
+    /// 某项云功能开着没有（读本机镜像的开关）。
+    fn consent_enabled(&self, feature: &str) -> bool {
+        let Some(feature) = Feature::parse(feature) else {
+            return false;
+        };
+        self.config
+            .as_ref()
+            .map(AgentConfig::consents)
+            .is_some_and(|consents| consents.get(feature))
     }
 
     /// 子菜单的动作。

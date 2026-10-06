@@ -69,13 +69,19 @@ impl Host {
             }
             MenuAction::OpenDownload => self.open_update(),
             // 重新加载了 Cloud 配置的话，走素笺云的云联想要换端点。
-            // 开通 / 输码 / 清空要先弹原生弹窗，拿到结果再交给素笺云
-            MenuAction::CloudAgent(tag) if crate::menubar::cloud_prompt::handles(tag) => {
-                crate::menubar::cloud_prompt::run(tag);
-                self.apply_config(false);
-            }
+            // 开通 / 输码 / 清空要先弹原生弹窗；云端记忆与同步打字内容从关到开要先过同意说明
             MenuAction::CloudAgent(tag) => {
-                qingjian_cloud_mac::perform(tag);
+                if crate::menubar::cloud_prompt::handles(tag) {
+                    crate::menubar::cloud_prompt::run(tag);
+                } else if let Some(feature) = qingjian_cloud_mac::consent_feature(tag) {
+                    let opening = !qingjian_cloud_mac::consent_enabled(feature);
+                    let mtm = MainThreadMarker::new().expect("菜单动作在主线程");
+                    if !opening || crate::menubar::cloud_prompt::confirm_consent(mtm, feature) {
+                        qingjian_cloud_mac::perform(tag);
+                    }
+                } else {
+                    qingjian_cloud_mac::perform(tag);
+                }
                 self.apply_config(false);
             }
         }

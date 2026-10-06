@@ -13,6 +13,50 @@ use qingjian_cloud_mac::{TAG_CLEAR_INPUT_LOG, TAG_CREATE_SPACE, TAG_JOIN_WITH_CO
 /// 出境同意那一句，与 iOS `SpaceWording.consent` 一致。
 const CONSENT: &str = "同意把我开启的云功能数据存在位于新加坡的服务器（腾讯云）并在那里处理，用于同步与整理记忆。可随时在「我」里关掉功能或删掉云端数据。";
 
+/// 同意说明的正文：与 iOS `ConsentSheet.ConsentCopy` 一字一致。
+fn consent_points(feature: &str) -> Option<(&'static str, [&'static str; 3])> {
+    match feature {
+        "memory" => Some((
+            "云端记忆",
+            [
+                "记下的素材先在本机抹去姓名、电话、地址等，再上传到素笺的服务器（新加坡）。",
+                "整理时交给 DeepSeek：数据经新加坡发往中国境内处理；DeepSeek 可能保存数据，或用于改进它的模型，具体见它官网的隐私政策。",
+                "随时可以关掉；关掉会同时删除服务器上的素材。",
+            ],
+        )),
+        "input_log" => Some((
+            "同步打字内容",
+            [
+                "打的字会上传到素笺的服务器（新加坡），用来优化输入法。",
+                "用于 AI 优化时会先脱敏再发给 DeepSeek（数据在中国境内处理）；DeepSeek 可能保存数据，或用于改进它的模型，具体见它官网的隐私政策。",
+                "随时可以关掉，也可以一键清空云端记录；密码、验证码这类输入框不会记录。",
+            ],
+        )),
+        _ => None,
+    }
+}
+
+/// 这个开关打开前要不要先过同意说明；要就弹，用户点「同意并开启」返回 true。
+/// 已经开着的（用户要关它）不问。调用方拿到 true 才把这一项转发给素笺云。
+pub fn confirm_consent(mtm: MainThreadMarker, feature: &str) -> bool {
+    let Some((title, points)) = consent_points(feature) else {
+        return true;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    let previous = app.activationPolicy();
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    #[allow(deprecated)]
+    app.activateIgnoringOtherApps(true);
+    let body = format!(
+        "{}\n\n点「同意并开启」表示你已阅读并同意以上说明。",
+        points.join("\n\n")
+    );
+    let alert = message(mtm, title, &body, "同意并开启", "取消");
+    let agreed = alert.runModal() == NSAlertFirstButtonReturn;
+    app.setActivationPolicy(previous);
+    agreed
+}
+
 /// 这三项要弹窗；其余 tag 直接转发给素笺云。
 pub fn handles(tag: isize) -> bool {
     matches!(
