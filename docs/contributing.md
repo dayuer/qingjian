@@ -57,7 +57,7 @@
   - 范围：crate 或壳的名字——`core` `platform` `render` `dictionary` `translate` `learning` `predict` `lm` `neural` `format` `cli`
     `macos` `windows`（Server / DLL / 设置程序细分时用 `server` `tsf` `settings`）`installer` `linux` `tools` `docs` `ci` `deps` `release`；
     跨好几处的可以省略。不兼容的改动在范围后加 `!`。
-  - 正文写「为什么」与取舍，一行一条。
+  - 正文写「为什么」与取舍，一行一条。不写 `Co-Authored-By` / `Claude-Session` 这类署名尾行。
     `.githooks/commit-msg` 会拦第一行不合格式的提交。
   - 2026-09-16 之前的历史是「`macOS：……` / `Core：……`」的中文冒号格式，不重写。
 
