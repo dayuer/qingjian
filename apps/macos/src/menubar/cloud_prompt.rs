@@ -13,7 +13,7 @@ use qingjian_cloud_mac::{TAG_CLEAR_INPUT_LOG, TAG_CREATE_SPACE, TAG_JOIN_WITH_CO
 /// 出境同意那一句，与 iOS `SpaceWording.consent` 一致。
 const CONSENT: &str = "同意把我开启的云功能数据存在位于新加坡的服务器（腾讯云）并在那里处理，用于同步与整理记忆。可随时在「我」里关掉功能或删掉云端数据。";
 
-/// 同意说明的正文：与 iOS `ConsentSheet.ConsentCopy` 一字一致。
+/// 同意说明的正文：与 iOS `ConsentSheet.ConsentCopy` 一字一致（改一处要同步另一处，见 cloud/docs/design.md）。
 fn consent_points(feature: &str) -> Option<(&'static str, [&'static str; 3])> {
     match feature {
         "memory" => Some((
@@ -51,7 +51,7 @@ pub fn confirm_consent(mtm: MainThreadMarker, feature: &str) -> bool {
         "{}\n\n点「同意并开启」表示你已阅读并同意以上说明。",
         points.join("\n\n")
     );
-    let alert = message(mtm, title, &body, "同意并开启", "取消");
+    let alert = message(mtm, title, &body, "同意并开启", "取消", true);
     let agreed = alert.runModal() == NSAlertFirstButtonReturn;
     app.setActivationPolicy(previous);
     agreed
@@ -93,6 +93,7 @@ fn create_space(mtm: MainThreadMarker) {
         &format!("开通后在键盘上记的事会存到云端，每天整理成记忆卡，换设备也还在。\n\n{CONSENT}"),
         "同意并继续",
         "取消",
+        true,
     );
     if alert.runModal() == NSAlertFirstButtonReturn {
         qingjian_cloud_mac::create_space(true);
@@ -109,6 +110,7 @@ fn join_with_code(mtm: MainThreadMarker) {
         ),
         "加入",
         "取消",
+        false,
     );
     let field = NSTextField::initWithFrame(
         mtm.alloc(),
@@ -134,6 +136,7 @@ fn clear_input_log(mtm: MainThreadMarker) {
         "服务器上已上传的全部输入记录会删掉，这台 Mac 的输入日志也一并清空。学到的词与设置不受影响。",
         "清空",
         "取消",
+        true,
     );
     if alert.runModal() == NSAlertFirstButtonReturn {
         qingjian_cloud_mac::clear_input_log();
@@ -147,11 +150,23 @@ fn message(
     body: &str,
     confirm: &str,
     cancel: &str,
+    default_cancel: bool,
 ) -> objc2::rc::Retained<NSAlert> {
     let alert = NSAlert::new(mtm);
     alert.setMessageText(&NSString::from_str(title));
     alert.setInformativeText(&NSString::from_str(body));
     alert.addButtonWithTitle(&NSString::from_str(confirm));
     alert.addButtonWithTitle(&NSString::from_str(cancel));
+    if default_cancel {
+        // 默认按钮（回车）挪到「取消」上：这类要用户明确同意的操作，手一滑按回车不该等于同意。
+        // 「取消」的标题让 AppKit 同时把 Esc 也挂到它上面。
+        let buttons = alert.buttons();
+        if let Some(confirm_button) = buttons.firstObject() {
+            confirm_button.setKeyEquivalent(&NSString::from_str(""));
+        }
+        if let Some(cancel_button) = buttons.lastObject() {
+            cancel_button.setKeyEquivalent(&NSString::from_str("\r"));
+        }
+    }
     alert
 }

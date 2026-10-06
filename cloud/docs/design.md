@@ -322,6 +322,16 @@ Tab 的行为和以前一样。接口和评测工具留着。**重启条件**：
 - Mac 版「词库目录变化自动重载」（退路：`cloud.qj` 更新后切换一次输入法）。
 - 上屏后的联想（退路：Mac 暂不支持）。
 
+## 同一份文案在两端的副本
+
+同意说明（云端记忆 / 同步打字内容）的正文在两处各写了一份，因为一端是 Swift、一端是 Rust：
+
+- iOS（唯一来源）：`cloud/ios/App/Account/ConsentSheet.swift` 的 `ConsentCopy`
+- Mac：`apps/macos/src/menubar/cloud_prompt.rs` 的 `consent_points`
+
+改一处必须改另一处（通知条的文案同理：`SpaceWording` 与 `menu/mod.rs`）。真要对齐得靠人眼，
+或者以后加个脚本比对两处的字符串。
+
 ## 还没定的
 
 - SSE 长连接在 Mac 合盖、网络切换后的重连策略。
