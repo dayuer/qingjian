@@ -413,7 +413,7 @@ pub unsafe extern "C" fn qj_input_log_clear(
     let (Some(user_dir), Some(cloud_path)) = (unsafe { path_arg(user_dir) }, unsafe {
         path_arg(cloud_path)
     }) else {
-        return owned(&r#"{"code":"invalid","message":"参数无效"}"#);
+        return owned(r#"{"code":"invalid","message":"参数无效"}"#);
     };
     let result = catch_unwind(|| {
         let config = CloudConfig::load(Path::new(cloud_path)).ok_or("not_configured")?;
@@ -428,7 +428,7 @@ pub unsafe extern "C" fn qj_input_log_clear(
     match result {
         Ok(Ok(())) => ptr::null_mut(),
         Ok(Err(code)) => owned(&format!(r#"{{"code":"{code}","message":""}}"#)),
-        Err(_) => owned(&r#"{"code":"other","message":"出错了"}"#),
+        Err(_) => owned(r#"{"code":"other","message":"出错了"}"#),
     }
 }
 

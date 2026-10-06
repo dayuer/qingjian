@@ -23,10 +23,13 @@ use qingjian_cloud_redact::redact_rules;
 /// 两轮上传之间的最短间隔：键盘每 0.25 秒轮询反复踢，也最多这么久跑一轮。
 const MIN_INTERVAL: Duration = Duration::from_secs(30);
 
-/// 已起的上传器，按 `user_dir` 登记（[`crate::qj_upload_kick`] 给 App 前台用）。
-static UPLOADERS: OnceLock<Mutex<Vec<(PathBuf, Sender<()>)>>> = OnceLock::new();
+/// `user_dir` → 那个上传器的踢脚通道。
+type Kicker = (PathBuf, Sender<()>);
 
-fn registry() -> &'static Mutex<Vec<(PathBuf, Sender<()>)>> {
+/// 已起的上传器，按 `user_dir` 登记（[`crate::qj_upload_kick`] 给 App 前台用）。
+static UPLOADERS: OnceLock<Mutex<Vec<Kicker>>> = OnceLock::new();
+
+fn registry() -> &'static Mutex<Vec<Kicker>> {
     UPLOADERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
@@ -90,15 +93,12 @@ pub fn kick_by_dir(user_dir: &std::path::Path) {
 
 fn run(cloud_path: PathBuf, user_dir: PathBuf, rx: Receiver<()>, stop: Arc<AtomicBool>) {
     let mut last: Option<Instant> = None;
-    loop {
-        // 醒的间隔用短的（停止能在一秒内生效），节流另由 `last` 管
-        match rx.recv_timeout(Duration::from_secs(1)) {
-            Ok(()) | Err(RecvTimeoutError::Timeout) => {}
-            Err(RecvTimeoutError::Disconnected) => break,
-        }
-        if stop.load(Ordering::Acquire) {
-            break;
-        }
+    // 醒的间隔用短的（停止能在一秒内生效），节流另由 `last` 管
+    while !matches!(
+        rx.recv_timeout(Duration::from_secs(1)),
+        Err(RecvTimeoutError::Disconnected)
+    ) && !stop.load(Ordering::Acquire)
+    {
         if last.is_some_and(|at| at.elapsed() < MIN_INTERVAL) {
             continue;
         }
@@ -116,15 +116,15 @@ fn cycle(cloud_path: &std::path::Path, user_dir: &std::path::Path) {
         return;
     }
     let client = Client::new(&config.server_or_default(), &config.token);
-    if config.memory {
-        if let Err(error) = upload_materials(&client, user_dir) {
-            tracing::debug!(%error, "素材上传这轮没走完");
-        }
+    if config.memory
+        && let Err(error) = upload_materials(&client, user_dir)
+    {
+        tracing::debug!(%error, "素材上传这轮没走完");
     }
-    if config.logs {
-        if let Err(error) = upload_input_log(&client, user_dir) {
-            tracing::debug!(%error, "输入日志上传这轮没走完");
-        }
+    if config.logs
+        && let Err(error) = upload_input_log(&client, user_dir)
+    {
+        tracing::debug!(%error, "输入日志上传这轮没走完");
     }
 }
 
