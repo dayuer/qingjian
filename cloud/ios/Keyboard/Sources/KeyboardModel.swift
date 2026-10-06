@@ -122,12 +122,6 @@ final class KeyboardModel {
     /// 每次按键按下时调（键盘音与震动），由控制器接上。
     @ObservationIgnored var onKeyDown: (() -> Void)?
 
-    /// 内存自保后本键盘会话不再自动加载模型（余量低于水位卸过一次）。
-    @ObservationIgnored private var modelSealed = false
-
-    /// 上次汇报给 App 设置页的模型状态（0–3，见 `Engine.modelState`），变了才写共享 defaults。
-    @ObservationIgnored private var reportedModelState: UInt8?
-
     init(engine: Engine?) {
         self.engine = engine
     }
@@ -144,42 +138,18 @@ final class KeyboardModel {
         refresh()
         syncScope()
         reloadRewriteSkills()
-        loadModelIfNeeded()
     }
 
-    /// 键盘引擎就位后按设置加载本地整句模型（含章·通变）：设置关着、包里没有模型或内存自保封印过就什么都不做。
-    private func loadModelIfNeeded() {
-        guard let engine, !modelSealed else { return }
-        let defaults = UserDefaults(suiteName: SharedStore.groupIdentifier)
-        guard defaults?.object(forKey: "localSentenceModelEnabled") as? Bool ?? true else { return }
-        let model = engine.dataDirectory
-            .appendingPathComponent("models/hanzhang-tongbian/hanzhang-tongbian-small.qjm")
-        guard FileManager.default.fileExists(atPath: model.path) else { return }
-        engine.loadModel(at: model, p2c: true)
-    }
-
-    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：
-    /// 余量低于 8MB 就卸掉模型腾地方，本会话不再自动加载；顺带把模型状态汇报给 App 设置页。
+    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：余量低于 8MB 就卸掉英文表腾地方，
+    /// 下次像英文的输入会自动再加载。
+    ///
+    /// 本地整句模型（含章·通变）不在键盘里用：桥没有驱动异步重打分的调用，加载了也从不出结果（有无模型候选完全一样），
+    /// 却占 65–120MB 内存（CPU 推理，f16 / f32 权重），把键盘推到上限边上。以后有了合适的接法再加回来。
     private func guardMemoryPressure() {
         guard let engine else { return }
-        let state = engine.modelState
-        if state != reportedModelState {
-            reportedModelState = state
-            UserDefaults(suiteName: SharedStore.groupIdentifier)?
-                .set(Int(state), forKey: "keyboardModelState")
-        }
-        guard !modelSealed, state == 2 else { return }
         let available = Engine.availableMemoryMB
         if available >= 0, available < 8 {
-            // 先卸英文表（约 13MB，比模型小、下次像英文的输入自动再加载），腾够了就不动模型
             engine.unloadEnglish()
-            if Engine.availableMemoryMB < 8 {
-                engine.unloadModel()
-                modelSealed = true
-            }
-            reportedModelState = engine.modelState
-            UserDefaults(suiteName: SharedStore.groupIdentifier)?
-                .set(Int(reportedModelState ?? 0), forKey: "keyboardModelState")
         }
     }
 

@@ -117,8 +117,7 @@ impl Session {
             engine =
                 engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
         }
-        // 英文词表随包走（`Data/english.tsv`），但懒加载：解析后驻留约 13MB（2.2MB 的表）、峰值约 30MB，
-        // 键盘扩展和 44MB 的通变模型塞不下，首次见到像英文的输入（见 `looks_english`）才读
+        // 英文词表随包走（`Data/english.qj`），但懒加载：首次见到像英文的输入（见 `looks_english`）才读，纯拼音用户整场不付这笔账
         let english_pending = [data_dir.join("english.qj"), data_dir.join("english.tsv")]
             .into_iter()
             .find(|path| path.is_file());

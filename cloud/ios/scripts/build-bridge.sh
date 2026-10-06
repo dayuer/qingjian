@@ -75,16 +75,9 @@ fi
 cmp -s "$english_qj" "$ios_dir/Keyboard/Data/english.qj" || cp "$english_qj" "$ios_dir/Keyboard/Data/english.qj"
 # 旧版拷过 english.tsv，不再随包：清掉免得白白进扩展
 rm -f "$ios_dir/Keyboard/Data/english.tsv"
-# 本地神经整句模型：只带通变（44MB）；知微 53MB 必超键盘扩展内存上限，不进包。
-# 模型是增强件不是承重件——没有它键盘照常（词图 + 静态 LM），所以缺了只警告不阻断构建。
-mkdir -p "$ios_dir/Keyboard/Data/models/hanzhang-tongbian"
-model="$repo_dir/data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm"
-if [[ -f "$model" ]]; then
-  target="$ios_dir/Keyboard/Data/models/hanzhang-tongbian/$(basename "$model")"
-  cmp -s "$model" "$target" || cp "$model" "$target"
-else
-  echo "警告：缺本地模型 $model，这包的键盘没有神经重打分（data-fetch 或模型导出后重跑）" >&2
-fi
+# 本地神经模型不进键盘包：键盘里没有驱动异步重打分的调用，加载了也不出结果，却占 65–120MB 内存（见 cloud/docs/design.md）。
+# 旧版拷过通变（44MB），清掉免得白白进扩展。
+rm -rf "$ios_dir/Keyboard/Data/models"
 # 改写技能包：随包走，桥在运行时从 data_dir/skills 读。
 mkdir -p "$ios_dir/Keyboard/Data/skills"
 skills=()

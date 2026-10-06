@@ -56,24 +56,12 @@ final class Engine {
 
     func clear() { qj_clear(session) }
 
-    // MARK: 本地神经模型（含章·通变）
+    // MARK: 内存自保
 
     /// 本进程剩余可用内存（MB）；拿不到是 -1。键盘的内存自保用它。
     static var availableMemoryMB: Double { qj_available_memory_mb() }
 
-    /// 开始异步加载本地整句模型；已在加载或在用返回 false，加载完成前查询照常。
-    @discardableResult
-    func loadModel(at path: URL, p2c: Bool) -> Bool {
-        path.path.withCString { qj_load_model(session, $0, p2c) }
-    }
-
-    /// 0 未加载 / 1 加载中 / 2 在用 / 3 上次失败。
-    var modelState: UInt8 { qj_model_state(session) }
-
-    /// 卸载模型（内存吃紧时腾地方）；之后可以再加载。
-    func unloadModel() { qj_unload_model(session) }
-
-    /// 卸下英文词表（约 13MB，比模型小）；下次像英文的输入自动再加载。
+    /// 卸下英文词表；下次像英文的输入自动再加载（词表是 mmap 的，卸掉主要是让出地址空间与页缓存）。
     func unloadEnglish() { qj_unload_english(session) }
 
     /// 上屏第 `index` 个候选，返回要插入的文字。
