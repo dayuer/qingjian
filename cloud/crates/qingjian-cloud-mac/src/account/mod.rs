@@ -146,6 +146,8 @@ pub fn reason(error: &ClientError) -> String {
         ClientError::DeviceLimit(_) => "空间里的设备已经满了".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级输入法".to_owned(),
+        // Mac 不做 2B 素材登记，只会从别的路径透传过来；兜底文案
+        ClientError::ContactLimit => "云端的对象名单满了（100 个）".to_owned(),
     }
 }
 

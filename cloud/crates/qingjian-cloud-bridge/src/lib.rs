@@ -13,6 +13,7 @@ mod rewrite;
 mod scope;
 mod session;
 mod settings;
+mod upload;
 
 use std::ffi::{CStr, CString, c_char};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -359,6 +360,76 @@ pub unsafe extern "C" fn qj_memory_cloud_ready(path: *const c_char) -> bool {
     };
     catch_unwind(|| CloudConfig::load(Path::new(path)).is_some_and(|config| config.memory))
         .unwrap_or(false)
+}
+
+/// App 前台时踢一脚后台上传（素材与输入日志，节流在上传线程里）。`user_dir` 与别的 memory 接口同参。
+///
+/// # Safety
+/// `user_dir` 是以 NUL 结尾的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_upload_kick(user_dir: *const c_char) {
+    let Some(user_dir) = (unsafe { path_arg(user_dir) }) else {
+        return;
+    };
+    let _ = catch_unwind(|| upload::kick_by_dir(std::path::Path::new(user_dir)));
+}
+
+/// 素材交给谁整理（同意页「交给谁处理」）：`{"name":"…","zero_retention":false}`；连不上返回 NULL。
+///
+/// # Safety
+/// `cloud_path` 是以 NUL 结尾的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_memory_processor(cloud_path: *const c_char) -> *mut c_char {
+    let Some(cloud_path) = (unsafe { path_arg(cloud_path) }) else {
+        return ptr::null_mut();
+    };
+    let fetched = catch_unwind(|| {
+        let config = CloudConfig::load(Path::new(cloud_path))?;
+        if config.token.is_empty() {
+            return None;
+        }
+        let client = qingjian_cloud_client::Client::new(&config.server_or_default(), &config.token);
+        client.processor().ok()
+    });
+    match fetched.unwrap_or(None) {
+        Some(info) => {
+            let json =
+                serde_json::json!({ "name": info.name, "zero_retention": info.zero_retention });
+            owned(&json.to_string())
+        }
+        None => ptr::null_mut(),
+    }
+}
+
+/// 清空云端输入记录，并把本机日志与上传进度一起删掉。成功返回 NULL。
+///
+/// # Safety
+/// 两个路径参数都是以 NUL 结尾的 UTF-8 C 字符串。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_input_log_clear(
+    user_dir: *const c_char,
+    cloud_path: *const c_char,
+) -> *mut c_char {
+    let (Some(user_dir), Some(cloud_path)) = (unsafe { path_arg(user_dir) }, unsafe {
+        path_arg(cloud_path)
+    }) else {
+        return owned(&r#"{"code":"invalid","message":"参数无效"}"#);
+    };
+    let result = catch_unwind(|| {
+        let config = CloudConfig::load(Path::new(cloud_path)).ok_or("not_configured")?;
+        if config.token.is_empty() {
+            return Err("not_logged_in");
+        }
+        let client = qingjian_cloud_client::Client::new(&config.server_or_default(), &config.token);
+        client.clear_input_log().map_err(|_| "clear_failed")?;
+        upload::reset_input_log_progress(Path::new(user_dir));
+        Ok::<(), &'static str>(())
+    });
+    match result {
+        Ok(Ok(())) => ptr::null_mut(),
+        Ok(Err(code)) => owned(&format!(r#"{{"code":"{code}","message":""}}"#)),
+        Err(_) => owned(&r#"{"code":"other","message":"出错了"}"#),
+    }
 }
 
 /// 马上同步一轮学习数据（键盘出现时调）。

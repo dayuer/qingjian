@@ -67,6 +67,7 @@ pub fn code_of(error: &ClientError) -> &'static str {
         ClientError::Forbidden(_) => "forbidden",
         ClientError::BadCode(_) => "bad_code",
         ClientError::DeviceLimit(_) => "device_limit",
+        ClientError::ContactLimit => "contact_limit",
         ClientError::Unreachable(_) | ClientError::Io(_) => "unreachable",
         ClientError::Rejected { .. } | ClientError::BadResponse(_) => "other",
     }
@@ -116,6 +117,9 @@ pub fn message(error: &ClientError) -> String {
         ClientError::ConsentRequired(_) => OUTDATED_CONSENT.to_owned(),
         ClientError::RateLimited => "操作太频繁，请稍后再试".to_owned(),
         ClientError::BadCode(_) => "匹配码不对或已经过期，请重新输一张".to_owned(),
+        ClientError::ContactLimit => {
+            "云端的对象名单满了（100 个），这个人只存在这台手机上".to_owned()
+        }
         ClientError::DeviceLimit(_) => "空间里的设备已经满了，先在旧设备上删一台再加".to_owned(),
         ClientError::Rejected { status, .. } => format!("服务器拒绝了请求（{status}）"),
         ClientError::BadResponse(_) => "服务器的回应看不懂，请升级 App".to_owned(),

@@ -1980,6 +1980,7 @@ dependencies = [
  "getrandom 0.4.3",
  "qingjian-cloud-client",
  "qingjian-cloud-proto",
+ "qingjian-cloud-redact",
  "qingjian-core",
  "qingjian-dictionary",
  "qingjian-learning",

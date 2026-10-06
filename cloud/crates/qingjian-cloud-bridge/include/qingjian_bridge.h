@@ -53,6 +53,12 @@ double qj_available_memory_mb(void);
 // 素材会被整理：path（cloud.toml）里有服务器地址和登录令牌，并且同意了「记忆」（memory = true），不联网；
 // 文件不在、没登录、没同意或参数无效为 false。App 的「待整理」引导与键盘记一笔的 toast 按它判断。
 bool qj_memory_cloud_ready(const char *path);
+// 素材与输入日志的后台上传：App 前台踢一脚（节流在线程里）；上传器随键盘会话活着。
+void qj_upload_kick(const char *user_dir);
+// 素材交给谁整理（同意页用）：{"name","zero_retention"}；连不上 NULL。
+char *qj_memory_processor(const char *cloud_path);
+// 清空云端输入记录并删本机日志与进度；成功 NULL。
+char *qj_input_log_clear(const char *user_dir, const char *cloud_path);
 void qj_sync_now(QjSession *session);
 
 // 润色。status：0 空闲、1 等待中、2 就绪、3 失败（网络失败、服务器没开大模型）、4 模型给的不合用（已丢掉，换一个技能再试）。

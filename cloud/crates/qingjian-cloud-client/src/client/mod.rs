@@ -9,9 +9,11 @@ use std::io::BufReader;
 use std::time::Duration;
 
 use qingjian_cloud_proto::{
-    ConfigDoc, Event, EventPage, InputLogPage, InputLogPush, LearningPage, LearningPush, PATH_CHAT,
-    PATH_CLIPBOARD, PATH_CONFIG, PATH_EVENTS, PATH_INPUT_LOG, PATH_INPUT_LOG_CLEAR, PATH_LEARNING,
-    PATH_STREAM, PATH_WHOAMI, PushClip, PutConfig, Whoami,
+    ConfigDoc, ContactRegistration, Event, EventPage, InputLogPage, InputLogPush, LearningPage,
+    LearningPush, MemoryAccepted, MemoryPush, PATH_CHAT, PATH_CLIPBOARD, PATH_CONFIG, PATH_EVENTS,
+    PATH_INPUT_LOG, PATH_INPUT_LOG_CLEAR, PATH_LEARNING, PATH_MEMORY_CONTACTS,
+    PATH_MEMORY_MATERIALS, PATH_MEMORY_PROCESSOR, PATH_STREAM, PATH_WHOAMI, ProcessorInfo,
+    PushClip, PutConfig, Whoami,
 };
 use ureq::Agent;
 use ureq::config::ConfigBuilder;
@@ -84,6 +86,40 @@ impl Client {
             .post(self.url(PATH_CLIPBOARD))
             .header("Authorization", self.bearer())
             .send_json(clip)?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 2B：批量上传记忆素材。202 带 `accepted`（重复的 client_id 只记一次）。
+    pub fn push_materials(&self, push: &MemoryPush) -> Result<MemoryAccepted, ClientError> {
+        let mut response = self
+            .agent
+            .post(self.url(PATH_MEMORY_MATERIALS))
+            .header("Authorization", self.bearer())
+            .send_json(push)?;
+        json(response.body_mut().read_json())
+    }
+
+    /// 2B：登记一个记忆对象（204）。服务端名额满（409 `contact_limit`）→ [`ClientError::ContactLimit`]。
+    pub fn register_contact(&self, contact_id: &str) -> Result<(), ClientError> {
+        let result = self
+            .agent
+            .put(self.url(&format!("{PATH_MEMORY_CONTACTS}/{contact_id}")))
+            .header("Authorization", self.bearer())
+            .send_json(&ContactRegistration { scene: None });
+        match result.map_err(ClientError::from) {
+            Ok(_) => Ok(()),
+            Err(ClientError::Rejected { status: 409, .. }) => Err(ClientError::ContactLimit),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// 2B：素材交给谁整理（同意页「交给谁处理」显示的名字）。
+    pub fn processor(&self) -> Result<ProcessorInfo, ClientError> {
+        let mut response = self
+            .agent
+            .get(self.url(PATH_MEMORY_PROCESSOR))
+            .header("Authorization", self.bearer())
+            .call()?;
         json(response.body_mut().read_json())
     }
 

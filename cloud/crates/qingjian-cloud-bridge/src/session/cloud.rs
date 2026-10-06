@@ -124,6 +124,9 @@ impl Session {
 
     /// 键盘可见期间定时调：合并收件箱、按修改时间重载记忆、取回大模型结果。候选栏变了返回 true。
     pub fn poll(&mut self) -> bool {
+        if let Some(uploader) = &self.uploader {
+            uploader.kick();
+        }
         self.apply_inbox();
         let rescoped = self.poll_memory();
         // 设置变了（主 App 改的或从 Mac 同步来的）、App 删了当前对象（换了叠加层），候选要重排

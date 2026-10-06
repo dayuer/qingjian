@@ -10,6 +10,10 @@ pub enum ClientError {
     #[error("session token rejected")]
     Unauthorized,
 
+    /// 对象名额满了（409 `contact_limit`）：这个人只留在本机，不登记不上传。
+    #[error("contact limit reached on the server")]
+    ContactLimit,
+
     /// 登录没通过：验证码错、Apple 令牌无效（登录类接口的 401，带服务端给的原因）。
     #[error("sign-in failed: {0}")]
     AuthFailed(String),

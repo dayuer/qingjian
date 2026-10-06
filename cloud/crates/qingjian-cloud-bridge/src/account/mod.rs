@@ -103,6 +103,10 @@ pub fn set_consent(path: &Path, feature: Feature, enabled: bool) -> Result<(), F
             if sync_toggled(feature, config.sync, consents.sync) {
                 reset_after_sync_toggle(path);
             }
+            // 开关落在 cloud.toml 上：踢一脚后台上传器，开的马上开始传、关的下一轮就停
+            if let Some(parent) = path.parent() {
+                crate::upload::kick_by_dir(parent);
+            }
             store(CloudConfig::store_consents(path, consents))
         }
         Err(error) => Err(expired(path, &error)),

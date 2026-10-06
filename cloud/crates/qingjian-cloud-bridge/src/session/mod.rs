@@ -74,6 +74,9 @@ pub struct Session {
     /// 随包英文词表路径；`english_loaded` 为假且见到像英文的输入时读进来挂上引擎。
     english_pending: Option<PathBuf>,
 
+    /// 素材与输入日志的后台上传器；没有学习数据目录（没开完全访问）时不建。
+    uploader: Option<crate::upload::Uploader>,
+
     /// 英文词表已挂上引擎（内存吃紧先卸它：比模型小，触发器还会再加载）。
     english_loaded: bool,
 }
@@ -146,6 +149,9 @@ impl Session {
             model: ModelState::default(),
             english_pending,
             english_loaded: false,
+            uploader: user_dir.map(|dir| {
+                crate::upload::Uploader::start(dir.join("cloud.toml"), dir.to_path_buf())
+            }),
         };
         session.reload_config();
         if let Some(cloud) = cloud {

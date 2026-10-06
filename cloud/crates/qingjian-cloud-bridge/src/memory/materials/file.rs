@@ -198,6 +198,30 @@ impl MemoryStore {
         Ok(materials)
     }
 
+    /// 2B 上传成功后标无主桶里的 `uploaded`（与按对象的那份同语义）。
+    pub fn mark_unassigned_uploaded(
+        &self,
+        client_ids: &[&str],
+        now: i64,
+    ) -> Result<(), MemoryError> {
+        let _lock = self.lock()?;
+        let ids: HashSet<&str> = client_ids.iter().copied().collect();
+        let mut materials = read_material_file(&self.unassigned_path())?;
+        let mut changed = false;
+        for m in materials
+            .iter_mut()
+            .filter(|m| !m.uploaded && ids.contains(m.client_id.as_str()))
+        {
+            m.uploaded = true;
+            changed = true;
+        }
+        if changed {
+            write_material_file(&self.unassigned_path(), &materials)?;
+        }
+        let _ = now;
+        Ok(())
+    }
+
     /// 「+ 记一条」：原话切成几条存进**无主桶**（时间都是 `now`），返回存下的。
     /// 切段与上限跟按对象的那套完全一样（超过 [`MAX_UNPROCESSED_MATERIALS`] 整次不写、返回 [`MemoryError::MaterialLimit`]）。
     pub fn add_unassigned_material(
