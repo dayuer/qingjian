@@ -113,6 +113,27 @@ fn fuzzy_hits_consume_the_typed_syllables() {
     assert_eq!(engine.learner().typo_count("zi", "zhi"), 0);
 }
 
+/// 输入框里的平面 marked text 画不了删除线（iOS 的 setMarkedText 只收纯文本，Windows 同）：
+/// 被纠错改掉的字母不拼进去，免得被当正常字母读出来——`andro` 纠成 an dao 时曾显示成 `anr'dao`
+/// （2026-10-06 iOS 真机报告「自动补充成 andrao」）。分段 API 照旧带 `Corrected` 段给能画样式的壳。
+#[test]
+fn flat_marked_text_drops_corrected_letters() {
+    let dictionary =
+        Dictionary::parse("安道\tan dao\t5000\n安\tan\t90000\n道\tdao\t80000\n").unwrap();
+    let mut engine =
+        Engine::new(dictionary).with_learner(Box::new(CountingLearner(HashMap::new())));
+    engine.set_input("andro");
+    let query = engine.query().unwrap();
+    assert_eq!(query.correction.as_ref().unwrap().corrected, "andao");
+    assert!(
+        query
+            .marked_segments()
+            .iter()
+            .any(|s| s.kind == MarkedKind::Corrected && s.text == "r")
+    );
+    assert_eq!(query.marked_text(), "an'dao");
+}
+
 /// 接受整段一处编辑的纠正也记个人敲错表：敲的那段字母对纠正后的音节。
 #[test]
 fn accepted_whole_string_correction_feeds_the_typo_table() {
