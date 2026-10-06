@@ -11,6 +11,8 @@ struct Consents: Codable, Equatable {
 
     var llm: Bool
 
+    var memory: Bool
+
     subscript(feature: CloudFeature) -> Bool {
         get {
             switch feature {
@@ -18,6 +20,7 @@ struct Consents: Codable, Equatable {
             case .sync: sync
             case .inputLog: inputLog
             case .llm: llm
+            case .memory: memory
             }
         }
         set {
@@ -26,6 +29,7 @@ struct Consents: Codable, Equatable {
             case .sync: sync = newValue
             case .inputLog: inputLog = newValue
             case .llm: llm = newValue
+            case .memory: memory = newValue
             }
         }
     }

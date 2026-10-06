@@ -5,6 +5,13 @@ import Foundation
 import QingjianBridge
 
 enum AccountBridge {
+    /// 清空云端输入记录，同时删本机日志与上传进度。`userDir` 是学习数据目录（cloud.toml 的上级）。
+    static func clearInputLog(cloudFile: URL, userDir: URL) -> BridgeFailure? {
+        take(cloudFile.path.withCString { c in
+            userDir.path.withCString { u in qj_input_log_clear(u, c) }
+        })
+    }
+
     static func status(_ file: URL) -> AccountState? {
         SettingsBridge.decode(SettingsBridge.take(file.path.withCString { qj_account_status($0) }))
     }

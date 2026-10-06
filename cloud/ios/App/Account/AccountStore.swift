@@ -175,6 +175,20 @@ final class AccountStore {
         if !changed, state?.signedIn == true { state?.consents = previous }
     }
 
+    /// 清空云端输入记录，连带删本机日志与上传进度。
+    func clearInputLog() async -> Bool {
+        guard let userDir = SharedStore.directory else {
+            message = "还没有可清的记录"
+            return false
+        }
+        let dir = userDir
+        let ok = await perform { file in
+            AccountBridge.clearInputLog(cloudFile: file, userDir: dir)
+        }
+        if !ok { message = "清空失败，稍后再试" }
+        return ok
+    }
+
     func revoke(_ device: AccountDevice) async {
         let id = device.id
         if await perform({ AccountBridge.revokeSession($0, id: id) }) {

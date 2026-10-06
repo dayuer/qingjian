@@ -10,7 +10,10 @@ struct AccountView: View {
 
     @State private var confirmingDelete = false
 
-    var body: some View {
+        /// 等用户过同意说明的功能（记忆 / 输入日志）：非 nil 时弹同意页。
+    @State private var pendingConsent: CloudFeature?
+
+var body: some View {
         Form {
             if let message = store.message {
                 Section { Text(message).foregroundStyle(.secondary) }
@@ -49,13 +52,38 @@ struct AccountView: View {
             ForEach(CloudFeature.allCases) { feature in
                 Toggle(feature.title, isOn: Binding(
                     get: { store.state?.consents[feature] ?? false },
-                    set: { value in Task { await store.setConsent(feature, value) } }))
+                    set: { value in
+                        // 记忆与输入日志要先过一遍同意说明（写明供应商与数据流向），用户点头才开
+                        if value, ConsentCopy.of(feature) != nil {
+                            pendingConsent = feature
+                        } else {
+                            Task { await store.setConsent(feature, value) }
+                        }
+                    }))
                 .tint(ColorUsage.appToggle.role.color)
             }
         } header: {
             Text("功能")
         } footer: {
             Text("都默认关闭。关掉某项会同时删除服务器上这部分数据，本机数据不受影响。")
+        }
+        Section {
+            Button("清空云端输入记录", role: .destructive) {
+                Task {
+                    if await store.clearInputLog() {
+                        store.message = "云端输入记录已清空"
+                    }
+                }
+            }
+        } header: {
+            Text("数据")
+        } footer: {
+            Text("清空服务器上已上传的全部输入记录，本机日志一并删除。")
+        }
+        .sheet(item: $pendingConsent) { feature in
+            ConsentSheet(feature: feature) {
+                Task { await store.setConsent(feature, true) }
+            }
         }
         Section("设备") {
             ForEach(state.sessions) { device in

@@ -124,6 +124,7 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         pollTimer?.invalidate()
         pollTimer = nil
         model.dismiss()
+        model.uploadKick()
     }
 
     func setMarked(_ text: String) {
@@ -195,17 +196,22 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     func readPasteboard() -> String? { UIPasteboard.general.string }
 
     /// 密码框（secureTextEntry）系统根本不给第三方键盘；这里挡的是验证码、新密码、信用卡号这类照样用我们键盘的字段。
+    /// 私密输入 = 不记输入日志、不看宿主前文（`MutedLogger` 在桥里把日志整条静音）。
+    /// 电话号码与纯数字键盘（验证码、金额）也算：这类框里敲的字不该进任何记录。
     private func updatePrivacy() {
         let proxy = textDocumentProxy
         let secure = proxy.isSecureTextEntry ?? false
         let sensitive = proxy.textContentType.map(Self.sensitiveContentTypes.contains) ?? false
-        model.setPrivateField(secure || sensitive)
+        let numericPad = [
+            UIKeyboardType.numberPad, .phonePad, .decimalPad,
+        ].contains(proxy.keyboardType ?? .default)
+        model.setPrivateField(secure || sensitive || numericPad)
     }
 
     private static let sensitiveContentTypes: Set<UITextContentType> = [
         .password, .newPassword, .oneTimeCode, .creditCardNumber,
         .creditCardSecurityCode, .creditCardExpiration, .creditCardExpirationMonth,
-        .creditCardExpirationYear,
+        .creditCardExpirationYear, .telephoneNumber,
     ]
 
     private func mountKeyboard() {

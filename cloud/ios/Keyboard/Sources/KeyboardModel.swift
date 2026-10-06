@@ -10,6 +10,7 @@
 import Foundation
 import Observation
 import os
+import QingjianBridge
 
 @MainActor
 @Observable
@@ -430,6 +431,13 @@ final class KeyboardModel {
             rewrite = .rejected
         default:
             break
+        }
+    }
+
+    /// 键盘收起时踢一脚后台上传（素材与输入日志；没开完全访问就没有上传器，白踢）。
+    func uploadKick() {
+        if let dir = engine?.userDirectory {
+            dir.path.withCString { qj_upload_kick($0) }
         }
     }
 
