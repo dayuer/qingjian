@@ -4,10 +4,11 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use qingjian_cloud_client::{Client, ClientError, InputLogSync};
@@ -29,10 +30,12 @@ fn registry() -> &'static Mutex<Vec<(PathBuf, Sender<()>)>> {
     UPLOADERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-/// 后台上传器。持有它就活着，丢了线程随会话退出（先跑完当轮再退）。
+/// 后台上传器。持有它就活着；丢了置停止标志并唤醒，线程把手头这轮跑完自己退。
+/// **不能 join**：登记表里给 App 前台留着 `Sender` 的克隆，channel 永不断连，
+/// join 会等到天荒地老（测试里就是它挂死的）。
 pub struct Uploader {
     tx: Sender<()>,
-    handle: Option<JoinHandle<()>>,
+    stop: Arc<AtomicBool>,
     user_dir: PathBuf,
 }
 
@@ -40,25 +43,18 @@ impl Uploader {
     /// 起后台线程。没令牌也照起：每轮重读 cloud.toml，登录之后自然开始传。
     pub fn start(cloud_path: PathBuf, user_dir: PathBuf) -> Self {
         let (tx, rx) = channel::<()>();
+        let stop = Arc::new(AtomicBool::new(false));
         let run_path = cloud_path.clone();
         let run_dir = user_dir.clone();
-        let handle = std::thread::Builder::new()
+        let thread_stop = Arc::clone(&stop);
+        std::thread::Builder::new()
             .name("qj-upload".to_owned())
-            .spawn(move || run(run_path, run_dir, rx))
+            .spawn(move || run(run_path, run_dir, rx, thread_stop))
             .expect("起上传线程");
-        registry()
-            .lock()
-            .expect("上传器登记表")
-            .retain(|(dir, _)| *dir != user_dir);
-        registry()
-            .lock()
-            .expect("上传器登记表")
-            .push((user_dir.clone(), tx.clone()));
-        Self {
-            tx,
-            handle: Some(handle),
-            user_dir,
-        }
+        let mut guard = registry().lock().expect("上传器登记表");
+        guard.retain(|(dir, _)| *dir != user_dir);
+        guard.push((user_dir.clone(), tx.clone()));
+        Self { tx, stop, user_dir }
     }
 
     /// 踢一脚：App 前台、键盘轮询时调，节流在线程里做。
@@ -73,10 +69,8 @@ impl Drop for Uploader {
             .lock()
             .expect("上传器登记表")
             .retain(|(dir, _)| *dir != self.user_dir);
+        self.stop.store(true, Ordering::Release);
         let _ = self.tx.send(());
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
-        }
     }
 }
 
@@ -94,12 +88,16 @@ pub fn kick_by_dir(user_dir: &std::path::Path) {
     }
 }
 
-fn run(cloud_path: PathBuf, user_dir: PathBuf, rx: Receiver<()>) {
+fn run(cloud_path: PathBuf, user_dir: PathBuf, rx: Receiver<()>, stop: Arc<AtomicBool>) {
     let mut last: Option<Instant> = None;
     loop {
-        match rx.recv_timeout(MIN_INTERVAL) {
+        // 醒的间隔用短的（停止能在一秒内生效），节流另由 `last` 管
+        match rx.recv_timeout(Duration::from_secs(1)) {
             Ok(()) | Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
+        }
+        if stop.load(Ordering::Acquire) {
+            break;
         }
         if last.is_some_and(|at| at.elapsed() < MIN_INTERVAL) {
             continue;
