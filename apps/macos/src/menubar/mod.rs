@@ -11,6 +11,7 @@
 
 mod action;
 mod cloud_agent;
+pub mod cloud_prompt;
 mod indicator;
 mod menu;
 mod target;

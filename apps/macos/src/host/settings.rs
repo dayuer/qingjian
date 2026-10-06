@@ -68,7 +68,12 @@ impl Host {
                 }
             }
             MenuAction::OpenDownload => self.open_update(),
-            // 重新加载了 Cloud 配置的话，走素笺云的云联想要换端点
+            // 重新加载了 Cloud 配置的话，走素笺云的云联想要换端点。
+            // 开通 / 输码 / 清空要先弹原生弹窗，拿到结果再交给素笺云
+            MenuAction::CloudAgent(tag) if crate::menubar::cloud_prompt::handles(tag) => {
+                crate::menubar::cloud_prompt::run(tag);
+                self.apply_config(false);
+            }
             MenuAction::CloudAgent(tag) => {
                 qingjian_cloud_mac::perform(tag);
                 self.apply_config(false);

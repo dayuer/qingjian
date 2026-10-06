@@ -1,17 +1,14 @@
-//! 账号操作的「代数」与登录阶段：登录窗口的回调、换令牌与开关请求都在别的线程里完成，结果晚到时可能已经退出、取消或换了账号。
-//! 每次登录开始、取消、退出、登录完成都让代数前进；请求带着发出时的代数，晚到的旧结果代数对不上就丢掉。
+//! 账号操作的「代数」与加入阶段：建空间、输码申请与轮询都在别的线程里完成，结果晚到时可能已经退出、取消或换了账号。
+//! 每次开始加入、取消、退出、拿到会话都让代数前进；请求带着发出时的代数，晚到的旧结果代数对不上就丢掉。
 
-/// 登录进行到哪一步。
+/// 加入进行到哪一步。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum Phase {
     #[default]
     Idle,
 
-    /// 网页登录窗口开着。
-    WebOpen,
-
-    /// 窗口已回跳，正在用一次性码换令牌。
-    Exchanging,
+    /// 已输码申请，正在等旧设备（手机）上允许。
+    Joining,
 }
 
 #[derive(Debug, Default)]
@@ -32,36 +29,27 @@ impl AccountFlow {
         generation == self.generation
     }
 
-    /// 登录窗口开着或正在换令牌。
+    /// 正在等旧设备允许（或建空间正在进行）。
     pub fn signing_in(&self) -> bool {
         self.phase != Phase::Idle
     }
 
-    /// 开始新的登录：已经在登录（含换令牌）就不允许，返回这次登录的代数。
-    pub fn start_login(&mut self) -> Option<u64> {
+    /// 开始加入：已经在加入就不允许，返回这次的代数。
+    pub fn start_join(&mut self) -> Option<u64> {
         if self.signing_in() {
             return None;
         }
-        self.phase = Phase::WebOpen;
+        self.phase = Phase::Joining;
         self.generation += 1;
         Some(self.generation)
     }
 
-    /// 窗口回跳了，进入换令牌。窗口不是开着的（已取消）返回 `false`。
-    pub fn callback_received(&mut self) -> bool {
-        if self.phase != Phase::WebOpen {
-            return false;
-        }
-        self.phase = Phase::Exchanging;
-        true
-    }
-
-    /// 登录结束（成功、失败或窗口没打开），不动代数。
+    /// 加入结束（成功、失败或用户取消），不动代数。
     pub fn finish(&mut self) {
         self.phase = Phase::Idle;
     }
 
-    /// 取消登录：丢掉正在进行的窗口与换令牌的结果。
+    /// 取消加入：丢掉正在等的轮询结果。
     pub fn cancel(&mut self) {
         self.phase = Phase::Idle;
         self.generation += 1;
@@ -78,24 +66,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_one_login_at_a_time() {
+    fn only_one_join_at_a_time() {
         let mut flow = AccountFlow::default();
-        let first = flow.start_login().unwrap();
+        let first = flow.start_join().unwrap();
         assert!(flow.signing_in());
-        assert_eq!(flow.start_login(), None);
-        flow.callback_received();
-        assert_eq!(flow.start_login(), None, "换令牌过程中不能再开登录");
+        assert_eq!(flow.start_join(), None);
         assert!(flow.accepts(first));
         flow.finish();
         assert!(!flow.signing_in());
-        assert!(flow.start_login().is_some());
+        assert!(flow.start_join().is_some());
     }
 
     #[test]
-    fn sign_in_arriving_after_cancel_is_dropped() {
+    fn join_result_arriving_after_cancel_is_dropped() {
         let mut flow = AccountFlow::default();
-        let gen_ = flow.start_login().unwrap();
-        flow.callback_received();
+        let gen_ = flow.start_join().unwrap();
         flow.cancel();
         assert!(!flow.accepts(gen_));
         assert!(!flow.signing_in());
@@ -106,9 +91,8 @@ mod tests {
         let mut flow = AccountFlow::default();
         // 旧令牌上发出的请求带当时的代数
         let old_request = flow.current();
-        // 重新登录成功：代数前进
-        let gen_ = flow.start_login().unwrap();
-        flow.callback_received();
+        // 加入成功：代数前进
+        let gen_ = flow.start_join().unwrap();
         assert!(flow.accepts(gen_));
         flow.finish();
         flow.invalidate();
@@ -118,14 +102,14 @@ mod tests {
     }
 
     #[test]
-    fn old_canceled_callback_does_not_close_the_new_login() {
+    fn old_canceled_join_cannot_land_on_the_new_one() {
         let mut flow = AccountFlow::default();
-        let old_login = flow.start_login().unwrap();
+        let old_join = flow.start_join().unwrap();
         flow.cancel();
-        let new_login = flow.start_login().unwrap();
-        // 旧窗口的 CanceledLogin 回调这时才到
-        assert!(!flow.accepts(old_login));
-        assert!(flow.accepts(new_login));
+        let new_join = flow.start_join().unwrap();
+        // 旧轮询的结果这时才到
+        assert!(!flow.accepts(old_join));
+        assert!(flow.accepts(new_join));
         assert!(flow.signing_in());
     }
 }

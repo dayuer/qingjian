@@ -19,19 +19,23 @@ pub const TAG_PAUSE: isize = -1;
 pub const TAG_RELOAD: isize = -2;
 pub const TAG_OPEN_CONFIG: isize = -3;
 pub const TAG_SYNC_NOW: isize = -6;
-pub const TAG_SIGN_IN: isize = -7;
+pub const TAG_CREATE_SPACE: isize = -7;
 pub const TAG_SIGN_OUT: isize = -8;
-pub const TAG_CANCEL_SIGN_IN: isize = -9;
+pub const TAG_JOIN_WITH_CODE: isize = -9;
+pub const TAG_CANCEL_JOIN: isize = -17;
+pub const TAG_CLEAR_INPUT_LOG: isize = -16;
 
-/// 菜单里显示的功能开关：素材上传（`Memory`）Mac 暂时没有，不在菜单里。
-const MENU_FEATURES: [Feature; 4] = [
-    Feature::Clipboard,
-    Feature::Sync,
+/// 菜单里显示的功能开关（标题与 iOS 的功能清单一字一样）；云端记忆与同步打字内容
+/// 打开前要先过同意说明（见 service 里的确认弹窗）。
+const MENU_FEATURES: [Feature; 5] = [
+    Feature::Memory,
     Feature::InputLog,
+    Feature::Sync,
+    Feature::Clipboard,
     Feature::Llm,
 ];
 
-/// 四个功能开关的 tag：-10 起按 [`MENU_FEATURES`] 的顺序往下排（-10..=-13）。
+/// 五个功能开关的 tag：-10 起按 [`MENU_FEATURES`] 的顺序往下排（-10..=-14）；其余固定动作避开这一段（清空 -16、取消加入 -17）。
 const TAG_TOGGLE_FIRST: isize = -10;
 
 pub fn toggle_tag(feature: Feature) -> isize {
@@ -95,12 +99,24 @@ pub fn build_lines(
         if data_line.is_some() {
             lines.push(Line::Action("立即同步学习数据".to_owned(), TAG_SYNC_NOW));
         }
-        lines.push(Line::Action("退出登录".to_owned(), TAG_SIGN_OUT));
+        lines.push(Line::Action(
+            "退出登录（解绑这台 Mac）".to_owned(),
+            TAG_SIGN_OUT,
+        ));
+        lines.push(Line::Action(
+            "清空云端输入记录…".to_owned(),
+            TAG_CLEAR_INPUT_LOG,
+        ));
     } else if account.signing_in {
-        lines.push(Line::Text("正在登录…".to_owned()));
-        lines.push(Line::Action("取消登录".to_owned(), TAG_CANCEL_SIGN_IN));
+        lines.push(Line::Text("正在加入…".to_owned()));
+        lines.push(Line::Action("取消".to_owned(), TAG_CANCEL_JOIN));
     } else {
-        lines.push(Line::Action("登录…".to_owned(), TAG_SIGN_IN));
+        // 手机上多半已经有空间：引导走匹配码加入（手机出码，这里输码，手机上允许）
+        lines.push(Line::Action(
+            "输入匹配码加入…".to_owned(),
+            TAG_JOIN_WITH_CODE,
+        ));
+        lines.push(Line::Action("开通素笺云".to_owned(), TAG_CREATE_SPACE));
     }
     lines.push(Line::Action("重新加载配置".to_owned(), TAG_RELOAD));
     lines.push(Line::Action("打开配置文件…".to_owned(), TAG_OPEN_CONFIG));
@@ -134,9 +150,9 @@ fn feature_title(feature: Feature) -> &'static str {
     match feature {
         Feature::Clipboard => "跨设备剪贴板",
         Feature::Sync => "同步学习数据与设置",
-        Feature::InputLog => "上传输入日志",
-        Feature::Llm => "大模型（云联想）",
-        Feature::Memory => "素材上传",
+        Feature::InputLog => "同步打字内容",
+        Feature::Llm => "大模型（润色、云联想）",
+        Feature::Memory => "云端记忆（把记下的素材整理成卡）",
     }
 }
 
@@ -214,15 +230,30 @@ mod tests {
             assert!((-100..0).contains(&tag));
             assert_eq!(toggled_feature(tag), Some(feature));
         }
-        // 不在菜单里的功能没有对应的 tag
-        assert_eq!(toggled_feature(toggle_tag(Feature::Memory)), None);
-        for tag in [TAG_SIGN_OUT, TAG_CANCEL_SIGN_IN, TAG_PAUSE, 0, 5, -14] {
+        // 五项都在菜单里
+        assert_eq!(
+            toggled_feature(toggle_tag(Feature::Memory)),
+            Some(Feature::Memory)
+        );
+        assert_eq!(
+            toggled_feature(toggle_tag(Feature::Llm)),
+            Some(Feature::Llm)
+        );
+        for tag in [
+            TAG_SIGN_OUT,
+            TAG_CANCEL_JOIN,
+            TAG_PAUSE,
+            TAG_CLEAR_INPUT_LOG,
+            0,
+            5,
+            -20,
+        ] {
             assert_eq!(toggled_feature(tag), None);
         }
     }
 
     #[test]
-    fn signed_out_menu_offers_sign_in_only() {
+    fn signed_out_menu_offers_join_and_create() {
         let lines = build_lines(
             &Display::SignedOut,
             &account(false),
@@ -230,7 +261,11 @@ mod tests {
             &History::default(),
         );
         assert_eq!(lines[0], Line::Text("未登录".to_owned()));
-        assert!(lines.contains(&Line::Action("登录…".to_owned(), TAG_SIGN_IN)));
+        assert!(lines.contains(&Line::Action(
+            "输入匹配码加入…".to_owned(),
+            TAG_JOIN_WITH_CODE
+        )));
+        assert!(lines.contains(&Line::Action("开通素笺云".to_owned(), TAG_CREATE_SPACE)));
         assert!(
             !lines.iter().any(
                 |line| matches!(line, Line::Action(_, tag) if toggled_feature(*tag).is_some())
@@ -255,7 +290,10 @@ mod tests {
             "跨设备剪贴板：关".to_owned(),
             toggle_tag(Feature::Clipboard)
         )));
-        assert!(lines.contains(&Line::Action("退出登录".to_owned(), TAG_SIGN_OUT)));
+        assert!(lines.contains(&Line::Action(
+            "退出登录（解绑这台 Mac）".to_owned(),
+            TAG_SIGN_OUT
+        )));
         // 剪贴板关着：不列历史
         assert!(!lines.contains(&Line::Text("还没有剪贴板记录".to_owned())));
     }
@@ -264,11 +302,36 @@ mod tests {
     fn signing_in_menu_can_cancel() {
         let mut menu = account(false);
         menu.signing_in = true;
-        menu.note = Some("登录窗口出错".to_owned());
+        menu.note = Some("加入出错了".to_owned());
         let lines = build_lines(&Display::SignedOut, &menu, None, &History::default());
-        assert!(lines.contains(&Line::Text("登录窗口出错".to_owned())));
-        assert!(lines.contains(&Line::Action("取消登录".to_owned(), TAG_CANCEL_SIGN_IN)));
-        assert!(!lines.contains(&Line::Action("登录…".to_owned(), TAG_SIGN_IN)));
+        assert!(lines.contains(&Line::Text("加入出错了".to_owned())));
+        assert!(lines.contains(&Line::Action("取消".to_owned(), TAG_CANCEL_JOIN)));
+        assert!(!lines.contains(&Line::Action(
+            "输入匹配码加入…".to_owned(),
+            TAG_JOIN_WITH_CODE
+        )));
+    }
+
+    #[test]
+    fn signed_in_menu_has_clear_input_log() {
+        let lines = build_lines(
+            &Display::SignedIn,
+            &account(true),
+            None,
+            &History::default(),
+        );
+        assert!(lines.contains(&Line::Action(
+            "清空云端输入记录…".to_owned(),
+            TAG_CLEAR_INPUT_LOG
+        )));
+        assert!(lines.contains(&Line::Action(
+            "云端记忆（把记下的素材整理成卡）：关".to_owned(),
+            toggle_tag(Feature::Memory)
+        )));
+        assert!(lines.contains(&Line::Action(
+            "同步打字内容：关".to_owned(),
+            toggle_tag(Feature::InputLog)
+        )));
     }
 
     fn data_status() -> DataStatus {

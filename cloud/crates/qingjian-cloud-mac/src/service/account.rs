@@ -1,24 +1,27 @@
-//! 账号：网页登录、用一次性码换令牌、退出登录、切换功能开关、跟着服务器的状态改本机开关。
+//! 账号：开通（建空间）、用匹配码加入（等旧设备允许）、退出登录、切换功能开关、跟着服务器的状态改本机开关。
 //! 网络请求都在一次性的后台线程里，结果经通道回到主线程拍子（[`Service::apply_account_events`]）。
 //! 剪贴板被服务器拒绝（403）时离线队列由 `ClipboardSync` 自己清，这里不管。
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use objc2::MainThreadMarker;
 use qingjian_cloud_client::{Client, ClientError, ClipboardSync, DataSync, Status};
-use qingjian_cloud_proto::{Consents, Device, Feature, HandoffExchange, Platform};
+use qingjian_cloud_proto::{
+    CROSS_BORDER_CONSENT_VERSION, Consents, Device, Feature, PairJoin, PairJoinGrant, PairPoll,
+    Platform, SessionGrant, SpaceCreate,
+};
 
 use super::Service;
 use crate::account::{
-    self, AccountEvent, WebLogin, progress_exists, request_input_log_reset, reset_account_data,
+    self, AccountEvent, progress_exists, request_input_log_reset, reset_account_data,
     reset_after_sync_toggle, should_reset, sync_toggled,
 };
 use crate::config::AgentConfig;
 use crate::paths;
 
 impl Service {
-    /// 「登录…」：生成 verifier，打开网页登录窗口。已登录、正在登录（含换令牌）时不再开。
-    pub(super) fn sign_in(&mut self) {
+    /// 「开通素笺云」：建一个新空间，成功这台 Mac 就登录了。出境同意由壳弹窗确认后传进来。
+    pub(super) fn create_space(&mut self, consented: bool) {
         if self.flow.signing_in() || self.signed_in() {
             return;
         }
@@ -31,40 +34,117 @@ impl Service {
             self.refresh_menu(true);
             return;
         };
-        let Some(mtm) = MainThreadMarker::new() else {
+        if !consented {
+            self.note = Some("要先同意把数据发到境外服务器".to_owned());
+            self.refresh_menu(true);
             return;
-        };
-        let verifier = match account::new_verifier() {
-            Ok(verifier) => verifier,
-            Err(reason) => {
-                self.note = Some(reason);
-                self.refresh_menu(true);
-                return;
-            }
-        };
-        let device = account::device_name();
-        let url = account::login_url(&server, &account::challenge(&verifier), &device);
-        let Some(generation) = self.flow.start_login() else {
-            return;
-        };
-        match WebLogin::start(mtm, &url, verifier, device, generation, self.sender.clone()) {
-            Ok(login) => {
-                tracing::info!("打开网页登录");
-                self.login = Some(login);
-                self.note = None;
-            }
-            Err(reason) => {
-                self.flow.finish();
-                self.note = Some(reason);
-            }
         }
+        let device = account::device_name();
+        let Some(generation) = self.flow.start_join() else {
+            return;
+        };
+        let sender = self.sender.clone();
+        self.note = None;
         self.refresh_menu(true);
+        spawn("cloud-create-space", move || {
+            let request = SpaceCreate {
+                device: Device {
+                    name: device,
+                    platform: Platform::Macos,
+                },
+                cross_border_consent: CROSS_BORDER_CONSENT_VERSION.to_owned(),
+            };
+            let event = match Client::anonymous(&server).create_space(&request) {
+                Ok(grant) => signed_in_event(&server, grant),
+                Err(error) => AccountEvent::JoinFailed(format!(
+                    "开通失败：{}",
+                    account::join_failure_reason(&error)
+                )),
+            };
+            let _ = sender.send((generation, event));
+        });
     }
 
-    /// 「取消登录」：丢掉登录窗口（取消会话、关窗），换令牌的结果晚到也不再认。
-    pub(super) fn cancel_sign_in(&mut self) {
-        self.login = None;
+    /// 「输入匹配码加入…」：申请加入，成功后在这个线程里等旧设备（手机）上允许。
+    /// `stop` 由 [`Self::cancel_join`] 置位，用户取消或退出时轮询立刻收手。
+    pub(super) fn join_with_code(&mut self, code: &str) {
+        if self.flow.signing_in() || self.signed_in() {
+            return;
+        }
+        let Some(server) = self.config.as_ref().map(AgentConfig::server) else {
+            self.note = Some("配置没读到，先点「重新加载配置」".to_owned());
+            self.refresh_menu(true);
+            return;
+        };
+        let device = account::device_name();
+        let request = PairJoin {
+            code: code.to_owned(),
+            device: Device {
+                name: device,
+                platform: Platform::Macos,
+            },
+        };
+        let Some(generation) = self.flow.start_join() else {
+            return;
+        };
+        let stop = self.join_stop.clone();
+        stop.store(false, Ordering::Release);
+        let sender = self.sender.clone();
+        self.note = None;
+        self.refresh_menu(true);
+        spawn("cloud-pair-join", move || {
+            let client = Client::anonymous(&server);
+            let grant = match client.pair_join(&request) {
+                Ok(grant) => grant,
+                Err(error) => {
+                    let _ = sender.send((
+                        generation,
+                        AccountEvent::JoinFailed(format!(
+                            "加入失败：{}",
+                            account::join_failure_reason(&error)
+                        )),
+                    ));
+                    return;
+                }
+            };
+            let event = poll_until_decided(&server, &grant, &stop);
+            let _ = sender.send((generation, event));
+        });
+    }
+
+    /// 「清空云端输入记录…」：清服务端全部输入记录，同时清本机日志与上传进度。
+    pub(super) fn clear_input_log(&mut self) {
+        let Some(config) = self.config.as_ref().filter(|config| config.signed_in()) else {
+            self.note = Some("先开通素笺云".to_owned());
+            self.refresh_menu(true);
+            return;
+        };
+        let client = Client::new(&config.server(), &config.token);
+        let sender = self.sender.clone();
+        let generation = self.flow.current();
+        self.note = None;
+        spawn("cloud-clear-input-log", move || {
+            let event = match client.clear_input_log() {
+                Ok(_) => {
+                    if let (Some(support), Some(ime)) = (paths::support_dir(), paths::ime_dir()) {
+                        account::clear_input_log_files(&support, &ime);
+                    }
+                    AccountEvent::Cleared
+                }
+                Err(error) => AccountEvent::Failed(format!(
+                    "清空没成功：{}",
+                    account::join_failure_reason(&error)
+                )),
+            };
+            let _ = sender.send((generation, event));
+        });
+    }
+
+    /// 「取消」：不再等旧设备允许，丢掉这次的结果。
+    pub(super) fn cancel_join(&mut self) {
+        self.join_stop.store(true, Ordering::Release);
         self.flow.cancel();
+        self.note = None;
         self.refresh_menu(true);
     }
 
@@ -174,14 +254,7 @@ impl Service {
 
     fn apply(&mut self, event: AccountEvent) {
         match event {
-            AccountEvent::Callback(url) => self.exchange(&url),
-            AccountEvent::Canceled => {
-                // 用户关了登录窗：静默回到未登录
-                self.login = None;
-                self.flow.finish();
-            }
-            AccountEvent::LoginFailed(reason) => {
-                self.login = None;
+            AccountEvent::JoinFailed(reason) => {
                 self.flow.finish();
                 self.note = Some(reason);
             }
@@ -207,12 +280,12 @@ impl Service {
                 self.switch_off(&[feature]);
             }
             AccountEvent::SignedOut => {
-                self.login = None;
                 self.flow.cancel();
                 self.note = Some("登录已失效，请重新登录".to_owned());
                 self.store(AgentConfig::clear_session);
             }
             AccountEvent::Failed(reason) => self.note = Some(reason),
+            AccountEvent::Cleared => self.note = Some("已清空云端输入记录".to_owned()),
         }
     }
 
@@ -231,55 +304,6 @@ impl Service {
         }
         self.store(|path| AgentConfig::store_session(path, token, user_id, consents));
         tracing::info!("素笺云已登录");
-    }
-
-    /// 登录窗回跳：关掉窗口，在后台用一次性码与 verifier 换令牌，再问一次服务器上的开关。
-    fn exchange(&mut self, url: &str) {
-        let Some(login) = self.login.take() else {
-            return;
-        };
-        let Some(handoff) = account::handoff_from_callback(url) else {
-            self.flow.finish();
-            self.note = Some("登录回调不对，请重试".to_owned());
-            return;
-        };
-        let Some(server) = self.config.as_ref().map(AgentConfig::server) else {
-            self.flow.finish();
-            return;
-        };
-        self.flow.callback_received();
-        let request = HandoffExchange {
-            handoff,
-            verifier: login.verifier().to_owned(),
-            device: Device {
-                name: login.device().to_owned(),
-                platform: Platform::Macos,
-            },
-        };
-        drop(login);
-        let sender = self.sender.clone();
-        let generation = self.flow.current();
-        spawn("cloud-login", move || {
-            let event = match Client::anonymous(&server).exchange_handoff(&request) {
-                Ok(grant) => {
-                    let consents = Client::new(&server, &grant.token)
-                        .account()
-                        .map(|account| account.consents)
-                        .inspect_err(|error| tracing::warn!(%error, "登录后取开关失败，先全关"))
-                        .unwrap_or_default();
-                    AccountEvent::SignedIn {
-                        token: grant.token,
-                        user_id: grant.user_id,
-                        consents,
-                    }
-                }
-                Err(error) => AccountEvent::LoginFailed(format!(
-                    "登录失败：{}",
-                    account::sign_in_reason(&error)
-                )),
-            };
-            let _ = sender.send((generation, event));
-        });
     }
 
     /// 把这几项本机开关记成关。
@@ -323,6 +347,54 @@ impl Service {
         }
         self.load_config();
     }
+}
+
+/// 拿到会话（建空间成功或配对批准）：取一次服务器上的开关（取不到就全关），包成事件。
+fn signed_in_event(server: &str, grant: SessionGrant) -> AccountEvent {
+    let consents = Client::new(server, &grant.token)
+        .account()
+        .map(|account| account.consents)
+        .inspect_err(|error| tracing::warn!(%error, "拿到会话后取开关失败，先全关"))
+        .unwrap_or_default();
+    AccountEvent::SignedIn {
+        token: grant.token,
+        user_id: grant.user_id,
+        consents,
+    }
+}
+
+/// 输码之后等旧设备（手机）允许：每 2 秒问一次，到申请过期为止。`stop` 置位就立刻收手。
+/// 单次网络失败不打断等待（网络抖一下不该让用户重输码），放弃是走到过期那一步的事。
+fn poll_until_decided(server: &str, grant: &PairJoinGrant, stop: &AtomicBool) -> AccountEvent {
+    let client = Client::anonymous(server);
+    loop {
+        if stop.load(Ordering::Acquire) {
+            return AccountEvent::JoinFailed("已取消".to_owned());
+        }
+        if now_ms() >= grant.expires_at {
+            return AccountEvent::JoinFailed("匹配码过期了，回手机上重新出一张".to_owned());
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        if stop.load(Ordering::Acquire) {
+            return AccountEvent::JoinFailed("已取消".to_owned());
+        }
+        match client.pair_poll(&grant.request_id, &grant.secret) {
+            Ok(PairPoll::Approved(session)) => return signed_in_event(server, session),
+            Ok(PairPoll::Denied) => {
+                return AccountEvent::JoinFailed("手机上拒绝了这次加入".to_owned());
+            }
+            Ok(PairPoll::Pending) => {}
+            Err(error) => tracing::debug!(%error, "配对轮询一次失败，继续等"),
+        }
+    }
+}
+
+/// 当前 Unix 毫秒。
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or_default()
 }
 
 fn spawn(name: &str, work: impl FnOnce() + Send + 'static) {

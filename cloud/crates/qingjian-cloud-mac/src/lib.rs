@@ -30,6 +30,11 @@ mod watcher;
 
 pub use account::take_input_log_reset;
 pub use llm_endpoint::LlmEndpoint;
-pub use menu::Line;
+pub use menu::{
+    Line, TAG_CANCEL_JOIN, TAG_CLEAR_INPUT_LOG, TAG_CREATE_SPACE, TAG_JOIN_WITH_CODE, TAG_SIGN_OUT,
+};
 #[cfg(target_os = "macos")]
-pub use service::{llm_endpoint, menu_lines, menu_revision, perform, start};
+pub use service::{
+    clear_input_log, create_space, join_with_code, llm_endpoint, menu_lines, menu_revision,
+    perform, start,
+};

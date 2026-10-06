@@ -1,4 +1,4 @@
-//! 账号操作的结果：登录窗口的回调与后台线程（换令牌、切开关、取账号）经通道交给主线程拍子。
+//! 账号操作的结果：建空间、配对轮询与切开关等后台线程经通道交给主线程拍子。
 
 use std::fmt;
 
@@ -6,16 +6,10 @@ use qingjian_cloud_proto::{Consents, Feature};
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum AccountEvent {
-    /// 网页登录窗口回跳：回跳的地址。
-    Callback(String),
+    /// 开通或加入没成（网络、码不对、名额满等）；带给用户看的原因。
+    JoinFailed(String),
 
-    /// 用户关掉登录窗口：静默回到未登录，不提示。
-    Canceled,
-
-    /// 登录没成：窗口出错，或用一次性码换令牌失败；带给用户看的原因。
-    LoginFailed(String),
-
-    /// 用一次性码换到了令牌，以及服务器上的开关（取不到为全关）。
+    /// 拿到会话令牌（建空间成功或旧设备允许了），以及服务器上的开关（取不到为全关）。
     SignedIn {
         token: String,
 
@@ -36,15 +30,16 @@ pub enum AccountEvent {
 
     /// 切换开关等操作失败：给用户看的失败原因，显示在菜单里。
     Failed(String),
+
+    /// 云端输入记录已清空（本机日志与上传进度也清了），菜单里给一句确认。
+    Cleared,
 }
 
 /// 手写 `Debug`：令牌与一次性码不能进日志。
 impl fmt::Debug for AccountEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Callback(_) => f.write_str("Callback(<url>)"),
-            Self::Canceled => f.write_str("Canceled"),
-            Self::LoginFailed(reason) => f.debug_tuple("LoginFailed").field(reason).finish(),
+            Self::JoinFailed(reason) => f.debug_tuple("JoinFailed").field(reason).finish(),
             Self::SignedIn {
                 user_id, consents, ..
             } => f
@@ -57,6 +52,7 @@ impl fmt::Debug for AccountEvent {
             Self::Forbidden(feature) => f.debug_tuple("Forbidden").field(feature).finish(),
             Self::SignedOut => f.write_str("SignedOut"),
             Self::Failed(reason) => f.debug_tuple("Failed").field(reason).finish(),
+            Self::Cleared => f.write_str("Cleared"),
         }
     }
 }
@@ -66,14 +62,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn debug_hides_token_and_handoff() {
+    fn debug_hides_token() {
         let signed_in = AccountEvent::SignedIn {
             token: "sjt_SECRET".to_owned(),
             user_id: 7,
             consents: Consents::default(),
         };
-        let callback = AccountEvent::Callback("sujian://auth?handoff=SECRET".to_owned());
-        let text = format!("{signed_in:?} {callback:?}");
+        let text = format!("{signed_in:?}");
         assert!(!text.contains("SECRET"), "{text}");
     }
 }

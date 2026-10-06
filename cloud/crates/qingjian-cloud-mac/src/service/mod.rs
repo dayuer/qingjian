@@ -7,6 +7,8 @@ mod account;
 
 use std::cell::{Cell, RefCell};
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
@@ -16,13 +18,13 @@ use objc2_foundation::NSTimer;
 use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
 use qingjian_cloud_proto::EventKind;
 
-use crate::account::{AccountEvent, AccountFlow, WebLogin};
+use crate::account::{AccountEvent, AccountFlow};
 use crate::config::AgentConfig;
 use crate::history::History;
 use crate::llm_endpoint::LlmEndpoint;
 use crate::menu::{
-    AccountMenu, Display, Line, TAG_CANCEL_SIGN_IN, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD,
-    TAG_SIGN_IN, TAG_SIGN_OUT, TAG_SYNC_NOW, build_lines, status_line, toggled_feature,
+    AccountMenu, Display, Line, TAG_CANCEL_JOIN, TAG_OPEN_CONFIG, TAG_PAUSE, TAG_RELOAD,
+    TAG_SIGN_OUT, TAG_SYNC_NOW, build_lines, status_line, toggled_feature,
 };
 use crate::timer::TimerTarget;
 use crate::watcher::ClipboardWatcher;
@@ -98,9 +100,24 @@ pub fn llm_endpoint() -> Option<LlmEndpoint> {
     with(|service| service.endpoint.clone()).flatten()
 }
 
-/// 子菜单里点了一项。
+/// 子菜单里点了一项（建空间 / 输码 / 清空这三项由壳先弹窗，再调下面三个函数）。
 pub fn perform(tag: isize) {
     with(|service| service.perform(tag));
+}
+
+/// 「开通素笺云」：输入法壳弹过出境同意之后调，`consented` 是用户点过「同意并继续」。
+pub fn create_space(consented: bool) {
+    with(|service| service.create_space(consented));
+}
+
+/// 「输入匹配码加入」：输入法壳弹过输入框、拿到码之后调。
+pub fn join_with_code(code: &str) {
+    with(|service| service.join_with_code(code));
+}
+
+/// 「清空云端输入记录」：输入法壳弹过确认之后调。
+pub fn clear_input_log() {
+    with(|service| service.clear_input_log());
 }
 
 pub(crate) fn tick() {
@@ -206,11 +223,11 @@ struct Service {
     /// 从什么时候起当前输入法不是素笺。
     other_input_since: Option<Instant>,
 
-    /// 开着的网页登录窗口；丢掉即取消登录、关窗。
-    login: Option<WebLogin>,
-
-    /// 登录阶段与事件代数：晚到的旧结果靠它丢掉。
+    /// 加入阶段与事件代数：晚到的旧结果靠它丢掉。
     flow: AccountFlow,
+
+    /// 让正在等的配对轮询收手（用户取消或退出时置位）。
+    join_stop: Arc<AtomicBool>,
 
     /// 账号操作的后台线程与登录窗口回调把（发出时的代数，结果）发到这里，主线程每拍取。
     events: Receiver<(u64, AccountEvent)>,
@@ -240,8 +257,8 @@ impl Service {
             ticks: 0,
             last_synced: None,
             other_input_since: None,
-            login: None,
             flow: AccountFlow::default(),
+            join_stop: Arc::new(AtomicBool::new(false)),
             events,
             sender,
             note: None,
@@ -428,9 +445,10 @@ impl Service {
                     open(&["-t", &path.to_string_lossy()]);
                 }
             }
-            TAG_SIGN_IN => self.sign_in(),
-            TAG_CANCEL_SIGN_IN => self.cancel_sign_in(),
+            TAG_CANCEL_JOIN => self.cancel_join(),
             TAG_SIGN_OUT => self.sign_out(),
+            // TAG_CREATE_SPACE / TAG_JOIN_WITH_CODE / TAG_CLEAR_INPUT_LOG 由输入法壳拦截：
+            // 它们要先弹原生弹窗（出境同意 / 输匹配码 / 清空确认），拿到结果再调下面导出的函数
             index if index >= 0 => {
                 if let Some(entry) = self.history.get(index as usize) {
                     let count = pasteboard::write_text(&entry.text);

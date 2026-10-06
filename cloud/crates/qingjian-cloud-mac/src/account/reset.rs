@@ -47,6 +47,24 @@ pub fn take_input_log_reset() -> bool {
     INPUT_LOG_RESET.swap(false, Ordering::Relaxed)
 }
 
+/// 清空云端输入记录之后清本机：输入日志本体截断、它的上传进度删掉，并让输入法丢掉写入端缓冲重开。
+/// 学习数据与配置的进度不动（清的是输入记录，不是学到的东西）。
+pub fn clear_input_log_files(support: &Path, ime: &Path) {
+    ignore_missing(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(ime.join(INPUT_LOG))
+            .map(|_| ()),
+        "输入日志",
+    );
+    ignore_missing(
+        std::fs::remove_file(support.join("input-log-state.json")),
+        "输入日志上传进度",
+    );
+    request_input_log_reset();
+}
+
 /// 本机留着任何一份旧账号的同步进度。
 pub fn progress_exists(support: &Path) -> bool {
     SUPPORT_ENTRIES
