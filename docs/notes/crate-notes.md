@@ -5,6 +5,10 @@ CLAUDE.md 只保留目录地图与规则，每个 crate / app / tool 的实现�
 
 ## crates/qingjian-dictionary
 
+英文词表（`word_list/`）双形态：TSV 解析（个人词表、桌面壳）或 `.qj` mmap（键盘扩展——解析 TSV 堆驻留
+13.4MB，映射后 0；`WordList::from_path` 按文件头自动选）。`.qj` 五分节（CODE/COFF/WORD/WOFF/FREQ），
+条目按编码升序唯一，get 与前缀补全二分；打开时整体校验（表等长、偏移在 arena、编码严格升序），坏文件报错。
+`pack english`（dict-convert）从 english.tsv 打包：`cargo run --release -p qingjian-dict-convert -- pack english --name 青简英文词表 --license MIT`，产物 english.qj 进发版清单；build-bridge.sh 没有或比 TSV 旧时自动打。
 词库（TSV 解析或 `.qj` mmap），键按字节序排好，查询逐音节位置二分收窄（简拼位置按音节块跳扫），
 `lookup_pattern`（≥ 模式长度）与 `lookup_exact`（正好等长）同一套实现。词库键以 `v` 表示 ü，
 TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。

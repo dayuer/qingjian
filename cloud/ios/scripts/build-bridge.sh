@@ -60,13 +60,19 @@ for dict in "$data"/dicts/*.qj; do
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
 done
-# 英文词表：中英混输的英文候选（android 这类）靠它；打包缺了要在构建时就失败（与技能包、字体同规矩）
-english="$data/english.tsv"
-if [[ ! -f "$english" ]]; then
-  echo "缺产品数据 $english：键盘没有英文候选（先跑 tools/release/data-fetch.sh）" >&2
+# 英文词表：键盘扩展用 .qj（mmap 零拷贝、堆驻留 0；解析 TSV 要 13MB）。没有或比 TSV 旧就现打一个。
+# TSV 缺了要在构建时就失败（与技能包、字体同规矩）。
+english_tsv="$data/english.tsv"
+if [[ ! -f "$english_tsv" ]]; then
+  echo "缺产品数据 $english_tsv：键盘没有英文候选（先跑 tools/release/data-fetch.sh）" >&2
   exit 1
 fi
-cmp -s "$english" "$ios_dir/Keyboard/Data/english.tsv" || cp "$english" "$ios_dir/Keyboard/Data/english.tsv"
+english_qj="$data/english.qj"
+if [[ ! -f "$english_qj" || "$english_tsv" -nt "$english_qj" ]]; then
+  cargo run --release -q --manifest-path "$repo_dir/Cargo.toml" -p qingjian-dict-convert -- \
+    --out-dir "$data" pack english --name "青简英文词表" --license "MIT"
+fi
+cmp -s "$english_qj" "$ios_dir/Keyboard/Data/english.qj" || cp "$english_qj" "$ios_dir/Keyboard/Data/english.qj"
 # 本地神经整句模型：只带通变（44MB）；知微 53MB 必超键盘扩展内存上限，不进包。
 # 模型是增强件不是承重件——没有它键盘照常（词图 + 静态 LM），所以缺了只警告不阻断构建。
 mkdir -p "$ios_dir/Keyboard/Data/models/hanzhang-tongbian"

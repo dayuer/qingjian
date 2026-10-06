@@ -119,10 +119,9 @@ impl Session {
         }
         // 英文词表随包走（`Data/english.tsv`），但懒加载：解析后驻留约 13MB（2.2MB 的表）、峰值约 30MB，
         // 键盘扩展和 44MB 的通变模型塞不下，首次见到像英文的输入（见 `looks_english`）才读
-        let english_pending = data_dir
-            .join("english.tsv")
-            .is_file()
-            .then(|| data_dir.join("english.tsv"));
+        let english_pending = [data_dir.join("english.qj"), data_dir.join("english.tsv")]
+            .into_iter()
+            .find(|path| path.is_file());
         // 技能包随包走（`Data/skills`），会话打开时读一次；打包漏了它改写就整个用不了，这里记一条显眼的
         let skills = crate::rewrite::load_skills(&data_dir.join("skills"));
         if skills.is_empty() && cloud.as_ref().is_some_and(|cloud| cloud.llm) {

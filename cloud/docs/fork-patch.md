@@ -265,6 +265,20 @@ marked text 画不了删除线（iOS `setMarkedText` 只收纯文本，Windows �
 
 连带：Mac `display.rs` 与 Windows `composed/mod.rs` 读平面串，宿主组字从纠正读法变原样，三端一致。
 
+### 英文词表 `.qj` mmap 形态（qingjian-dictionary 上游文件，键盘扩展内存）
+
+2026-10-06：键盘扩展懒加载英文词表后实测堆驻留 13.4MB（2.2MB 的 TSV），与 44MB 通变模型挤 48–60MB 的
+jetsam 上限。根治 = 与词库同路的 `.qj` mmap（实测堆驻留 0）。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-dictionary/src/word_list.rs` → `word_list/` | 拆目录 | `mod.rs` 门面 + `tsv.rs`（原解析逻辑）+ `mapped.rs`（五分节零拷贝视图，打开整体校验）；公开 API 不变，两种形态语义有等价测试守着 |
+| `crates/qingjian-dictionary/src/word_list/mapped.rs` | 新文件 | 分节标签 CODE/COFF/WORD/WOFF/FREQ；`Kind::WordList`（容器里本来就留了 5 号） |
+| `tools/dict-convert`（args/pack） | 加 pack english | english.tsv → english.qj；`tools/release/data-bundle.sh` 的 PRODUCT_FILES 跟上 |
+| `cloud/crates/qingjian-cloud-bridge`、`cloud/ios/scripts/build-bridge.sh` | 键盘走 .qj | 桥优先 english.qj 回退 tsv；构建脚本没有或过旧时自动打包，拷 .qj 进扩展 |
+
+Mac / Linux / CLI 的壳不动（无键盘那样的内存压力，读 english.tsv 照旧），合并冲突面最小。
+
 ## 合并上游时
 
 1. 冲突只可能出在上表「加 N 行」的那几个文件，按上游的新写法把挂钩行重新加回去。

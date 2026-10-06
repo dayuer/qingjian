@@ -130,5 +130,3 @@
 - [ ] 五笔（86 版）：方案与分期见 [wubi.md](wubi.md)，第一期 Core + CLI + Windows；
   `[general] scheme` 收敛与配置迁移一起做（顺带解掉〇里的「配置文件版本迁移」）
 - [ ] 复杂方案收尾（与上一条共用「输入方案」抽象）：注音只在 Core 与 Windows 接了，macOS 侧还没接；双拼的方案切换要等 `[general] scheme`
-
-- [ ] english.tsv 转成 .qj mmap：键盘扩展里英文词表驻留约 13MB（2026-10-06 实测），转容器后近零；`WordList` 加 `from_qj`，构建链与各壳跟

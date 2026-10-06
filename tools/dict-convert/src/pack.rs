@@ -57,6 +57,16 @@ pub fn pack(
     }
     let started = Instant::now();
     match kind {
+        PackKind::English => {
+            let input = inputs
+                .first()
+                .cloned()
+                .unwrap_or_else(|| out_dir.join("english.tsv"));
+            let list = qingjian_dictionary::WordList::from_path(&input)?;
+            let out = out_dir.join("english.qj");
+            list.write_qj(&out, &metadata)?;
+            report(&out, list.len(), started);
+        }
         PackKind::Dict => {
             let input = inputs
                 .first()

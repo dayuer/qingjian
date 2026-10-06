@@ -255,6 +255,9 @@ pub enum PackKind {
 
     /// 笔画码表（笔画表 + 词库 → codes/stroke.qj，随包原生码表）
     Codes,
+
+    /// 英文词表（english.tsv → english.qj，键盘扩展 mmap 零拷贝读）
+    English,
 }
 
 impl PackKind {
@@ -266,6 +269,7 @@ impl PackKind {
             Self::Glossary => "glossary",
             Self::Model => "model",
             Self::Codes => "codes",
+            Self::English => "english",
         }
     }
 }
