@@ -38,6 +38,24 @@ enum SpaceWording {
 
     static let cancel = "取消"
 
+    static let addDevice = "添加一台设备"
+
+    static let addDeviceIntro = "在另一台设备上打开素笺云服务，选「输入匹配码加入」，把下面的码输进去；它申请之后这里会出现一条待允许。"
+
+    static let addDeviceHint = "8 位字母数字，中间的短横线可以不输"
+
+    static let addDeviceStop = "收起匹配码"
+
+    static let requestTitle = "%@ 想加入这个空间"
+
+    static func allowed(_ name: String) -> String { "已允许「\(name)」加入" }
+
+    static let deniedRequest = "已拒绝这次加入"
+
+    static let allow = "允许"
+
+    static let deny = "拒绝"
+
     static let retry = "重新输一次"
 
     static let missingCode = "匹配码还差几位"
@@ -52,7 +70,7 @@ enum SpaceWording {
 
     static let openedNote = "这台设备已经开通了素笺云服务。"
 
-    static let openedMore = "设备列表、加一台设备、出匹配码在下一步做。"
+    static let openedMore = "换设备时在「添加一台设备」出匹配码，新设备输码加入。"
 
     /// 开通页与输码页上会出现的全部文字，测试用来查有没有不该出现的词。
     static let allTexts: [String] = [
@@ -60,6 +78,8 @@ enum SpaceWording {
         joinTitle, joinIntro, joinField, joinButton, joinHint,
         waiting, waitingHint, denied, joined, cancel, retry, missingCode, expired,
         entryTitle, entryOpened, entryClosed, openedNote, openedMore,
+        addDevice, addDeviceIntro, addDeviceHint, addDeviceStop, allow, deny,
+        deniedRequest, allowed("某人"), String(format: requestTitle, "某人"),
     ]
 
     /// 给用户看的失败原因：这两种说法与桥给的一致，其余用桥的原文。

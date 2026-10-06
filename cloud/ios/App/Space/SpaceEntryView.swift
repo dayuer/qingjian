@@ -40,6 +40,35 @@ struct SpaceEntryView: View {
                         Text("都默认关闭。关掉某项会同时删除服务器上这部分数据，本机数据不受影响。")
                     }
                     Section {
+                        if let code = store.pairCode {
+                            LabeledContent("匹配码", value: code.pairCode)
+                            Text(SpaceWording.addDeviceIntro)
+                                .font(AppFont.footnote)
+                                .foregroundStyle(.secondary)
+                            Button(SpaceWording.addDeviceStop) { store.stopAddingDevice() }
+                        } else {
+                            Button(SpaceWording.addDevice) {
+                                Task { await store.addDevice() }
+                            }
+                        }
+                        ForEach(store.requests, id: \.id) { request in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(String(format: SpaceWording.requestTitle, request.name))
+                                HStack {
+                                    Button(SpaceWording.allow) {
+                                        Task { await store.decide(request, allow: true) }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    Button(SpaceWording.deny, role: .destructive) {
+                                        Task { await store.decide(request, allow: false) }
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("设备")
+                    }
+                    Section {
                         Button("清空云端输入记录", role: .destructive) {
                             Task {
                                 if await account.clearInputLog() {
@@ -65,6 +94,7 @@ struct SpaceEntryView: View {
             }
         }
         .onAppear { store.refresh() }
+        .onDisappear { store.stopAddingDevice() }
         .task { await account.refresh() }
     }
 }

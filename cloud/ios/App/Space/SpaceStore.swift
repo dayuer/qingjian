@@ -29,6 +29,15 @@ final class SpaceStore {
     /// 打开的轮询任务；再次输码、取消、页面消失时都要停掉。
     @ObservationIgnored private var polling: Task<Void, Never>?
 
+    /// 「添加一台设备」出的匹配码；出过就留着给用户抄，过期时间用来标一句。
+    private(set) var pairCode: PairReply.Code?
+
+    /// 等着这台设备允许的加入申请（另一台设备拿码申请进来的）。
+    private(set) var requests: [PairReply.Request] = []
+
+    /// 待批申请轮询任务：出码页开着时每几秒刷一次。
+    @ObservationIgnored private var requestPolling: Task<Void, Never>?
+
     /// cloud.toml 的位置；测试里换成临时目录。
     @ObservationIgnored var fileProvider: () -> URL? = { SharedStore.cloudFile }
 
@@ -80,6 +89,57 @@ final class SpaceStore {
             message = SpaceWording.failure(failure)
         case .success(let ticket):
             startPolling(ticket)
+        }
+    }
+
+    /// 「添加一台设备」：出一张匹配码，开始盯着有没有申请进来。
+    func addDevice() async {
+        let result = await call { PairBridge.pairCode($0) }
+        switch result {
+        case .failure(let failure):
+            message = SpaceWording.failure(failure)
+        case .success(let code):
+            pairCode = code
+            message = nil
+            startWatchingRequests()
+        }
+    }
+
+    /// 不再出码：清掉码，停掉申请轮询。
+    func stopAddingDevice() {
+        requestPolling?.cancel()
+        requestPolling = nil
+        pairCode = nil
+        requests = []
+    }
+
+    /// 同意 / 拒绝一条加入申请；批准后对方的设备就加入了这个空间。
+    func decide(_ request: PairReply.Request, allow: Bool) async {
+        let failure = await run { PairBridge.pairDecide($0, requestId: request.id, allow: allow) }
+        if let failure {
+            message = SpaceWording.failure(failure)
+        } else {
+            message = allow ? SpaceWording.allowed(request.name) : SpaceWording.deniedRequest
+            await refreshRequests()
+        }
+    }
+
+    /// 刷一遍待批申请。
+    func refreshRequests() async {
+        let result = await call { PairBridge.pairRequests($0) }
+        if case .success(let list) = result {
+            requests = list
+        }
+    }
+
+    /// 出码之后盯着申请：每 3 秒刷一次，页面关掉或撤下码就停。
+    private func startWatchingRequests() {
+        requestPolling?.cancel()
+        requestPolling = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.refreshRequests()
+                try? await Task.sleep(for: .seconds(3))
+            }
         }
     }
 
