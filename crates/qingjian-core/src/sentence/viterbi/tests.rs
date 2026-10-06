@@ -372,7 +372,7 @@ fn context_does_not_admit_a_rare_reading_of_a_polyphone() {
 fn rare_reading_in_head_needs_discounted_lift() {
     // 都(du) 词频抬进首段；模型给句首 →都 一个强概率（dou 语境的证据）
     let dictionary = Dictionary::parse(
-        "都\tdu\t23291\n都\tdou\t1422477\n度\tdu\t200000\n毒\tdu\t150000\n独\tdu\t120000\n         杜\tdu\t100000\n肚\tdu\t80000\n堵\tdu\t60000\n累\tlei\t90000\n泪\tlei\t80000\n类\tlei\t70000\n",
+        "都\tdu\t23291\n都\tdou\t1422477\n度\tdu\t200000\n毒\tdu\t150000\n独\tdu\t120000\n杜\tdu\t100000\n肚\tdu\t80000\n堵\tdu\t60000\n累\tlei\t90000\n泪\tlei\t80000\n类\tlei\t70000\n",
     )
     .unwrap();
     struct DuModel;
