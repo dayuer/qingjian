@@ -13,17 +13,17 @@ final class CandidateCellView: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        label.font = .systemFont(ofSize: 22)
+        label.font = CandidateWidth.font(highlighted: false)
         label.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(label)
         contentView.layer.cornerRadius = 8
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
-            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
+            label.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: CandidateWidth.padding),
+            label.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -CandidateWidth.padding),
             label.topAnchor.constraint(equalTo: contentView.topAnchor),
             label.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             contentView.heightAnchor.constraint(equalToConstant: Self.height),
-            contentView.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
+            contentView.widthAnchor.constraint(greaterThanOrEqualToConstant: CandidateWidth.minimum),
         ])
     }
 
@@ -35,8 +35,7 @@ final class CandidateCellView: UICollectionViewCell {
         label.text = item.text
         label.textColor = UIColor(
             CandidateStyle.role(highlighted: highlighted, accent: accent, cloud: item.cloud).color)
-        label.font = .systemFont(
-            ofSize: 22, weight: CandidateStyle.weight(highlighted: highlighted))
+        label.font = CandidateWidth.font(highlighted: highlighted)
         contentView.backgroundColor = CandidateStyle.background(highlighted: highlighted)
             .map(UIColor.init)
     }

@@ -1,6 +1,8 @@
 // 候选栏里横向滚动的那一行：UIKit 的 UICollectionView。
 // 不用 SwiftUI 的 ScrollView —— 它在键盘扩展里收不到滑动（展开的面板同理，见 CandidatePanelView）。
 // 每格的样式由 CandidateStyle 定，与展开面板共用。拼音变了滚回开头；云端词插进来时不跳回开头。
+// 格宽自己算（CandidateWidth，按词缓存），不走自适应测量；打字时只交首屏加余量的那些给集合视图，每键不必排全部 120 个，
+// 手指一拖就交全部（宽度已缓存，排一次很便宜），甩动的落点按完整内容算，不会在中途的边界停住。
 
 import UIKit
 
@@ -10,6 +12,14 @@ final class CandidateBarView: UIView {
 
     private var candidates: [CandidateItem] = []
 
+    /// 交给集合视图的前几个候选数。
+    private var shownCount = 0
+
+    /// 打字时交的个数：一格至少 40pt，24 格够两屏多。
+    private static let firstScreens = 24
+
+    private let widths = CandidateWidthCache()
+
     /// 首选用强调色（`KeyboardModel.accentFirstCandidate`：恋爱、日常选了人）。
     private var accentFirst = false
 
@@ -18,7 +28,6 @@ final class CandidateBarView: UIView {
     override init(frame: CGRect) {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
-        layout.estimatedItemSize = UICollectionViewFlowLayout.automaticSize
         // 横向滚动时同一行里格与格的间距是 lineSpacing（minimumInteritemSpacing 管换行的行距）
         layout.minimumLineSpacing = 2
         layout.minimumInteritemSpacing = 2
@@ -51,7 +60,10 @@ final class CandidateBarView: UIView {
             return
         }
         let anchor = fromStart ? nil : visibleAnchor()
+        // 云端词插进来时留住已经交上的那些，锚住的候选才还在集合视图里
+        let kept = fromStart ? 0 : shownCount
         self.candidates = candidates
+        shownCount = min(candidates.count, max(Self.firstScreens, kept))
         self.accentFirst = accentFirst
         collection.reloadData()
         guard !fromStart else {
@@ -81,13 +93,28 @@ final class CandidateBarView: UIView {
         guard let (path, frame) = first, path.item < candidates.count else { return nil }
         return (candidates[path.item], frame.minX - offset)
     }
+
+    private var scale: CGFloat {
+        traitCollection.displayScale > 0 ? traitCollection.displayScale : UIScreen.main.scale
+    }
 }
 
-extension CandidateBarView: UICollectionViewDataSource, UICollectionViewDelegate {
+extension CandidateBarView: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(
         _ collectionView: UICollectionView, numberOfItemsInSection section: Int
     ) -> Int {
-        candidates.count
+        shownCount
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> CGSize {
+        let inset = (collectionViewLayout as? UICollectionViewFlowLayout)?.sectionInset ?? .zero
+        let limit = collectionView.bounds.width - inset.left - inset.right
+        let width = widths.width(
+            candidates[indexPath.item].text, highlighted: indexPath.item == 0, scale: scale, limit: limit)
+        return CGSize(width: width, height: CandidateCellView.height)
     }
 
     func collectionView(
@@ -105,5 +132,14 @@ extension CandidateBarView: UICollectionViewDataSource, UICollectionViewDelegate
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         onSelect?(indexPath.item)
+    }
+
+    /// 手指一拖就把余下的全交上。
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        guard shownCount < candidates.count else { return }
+        let start = shownCount
+        shownCount = candidates.count
+        let paths = (start..<shownCount).map { IndexPath(item: $0, section: 0) }
+        UIView.performWithoutAnimation { collection.insertItems(at: paths) }
     }
 }

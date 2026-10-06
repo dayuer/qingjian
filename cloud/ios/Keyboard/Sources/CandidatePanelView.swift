@@ -1,5 +1,6 @@
 // 点 ⌄ 展开的全部候选：UIKit 的 UICollectionView，按候选长短左对齐流式换行、纵向滚动。
 // 不用 SwiftUI：它的 ScrollView 在键盘扩展里收不到滑动（候选栏那条横向的也一样），面板会「卡死」。
+// 格宽与候选栏一样自己算（CandidateWidth），不走自适应测量。
 
 import UIKit
 
@@ -27,9 +28,10 @@ final class CandidatePanelView: UIView {
 
     private let collection: UICollectionView
 
+    private let widths = CandidateWidthCache()
+
     override init(frame: CGRect) {
         let layout = LeftAlignedFlowLayout()
-        layout.estimatedItemSize = UICollectionViewFlowLayout.automaticSize
         layout.minimumInteritemSpacing = 4
         layout.minimumLineSpacing = 6
         layout.sectionInset = UIEdgeInsets(
@@ -49,9 +51,13 @@ final class CandidatePanelView: UIView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+
+    private var scale: CGFloat {
+        traitCollection.displayScale > 0 ? traitCollection.displayScale : UIScreen.main.scale
+    }
 }
 
-extension CandidatePanelView: UICollectionViewDataSource, UICollectionViewDelegate {
+extension CandidatePanelView: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         candidates.count
     }
@@ -67,12 +73,23 @@ extension CandidatePanelView: UICollectionViewDataSource, UICollectionViewDelega
         return cell
     }
 
+    func collectionView(
+        _ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> CGSize {
+        let inset = (collectionViewLayout as? UICollectionViewFlowLayout)?.sectionInset ?? .zero
+        let limit = collectionView.bounds.width - inset.left - inset.right
+        let width = widths.width(
+            candidates[indexPath.item].text, highlighted: indexPath.item == 0, scale: scale, limit: limit)
+        return CGSize(width: width, height: CandidateCellView.height)
+    }
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         onSelect?(indexPath.item)
     }
 }
 
-/// 自动尺寸的流式布局缺省会把一行里的格子拉开对齐两端，候选要像文字一样左对齐。
+/// 流式布局缺省会把一行里的格子拉开对齐两端，候选要像文字一样左对齐。
 final class LeftAlignedFlowLayout: UICollectionViewFlowLayout {
     override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
         guard let attributes = super.layoutAttributesForElements(in: rect) else { return nil }
