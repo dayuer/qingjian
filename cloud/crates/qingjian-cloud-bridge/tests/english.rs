@@ -30,6 +30,17 @@ fn typed_letters_stay_and_english_candidates_appear() {
     }
     // 纠错把 andro 读成 an dao 出中文候选，组字仍是敲的 andro；英文候选 android 同时在
     assert!(session.entries().iter().any(|e| e.text() == "android"));
+    // 懒加载：纯拼音阶段不读表（你好照常），敲到 hello（ll 触发）才有英文候选
+    session.clear();
+    for c in "nihao".chars() {
+        session.push(c);
+    }
+    assert!(session.entries().iter().any(|e| e.text() == "你好"));
+    session.clear();
+    for c in "hello".chars() {
+        session.push(c);
+    }
+    assert!(session.entries().iter().any(|e| e.text() == "hello"));
     session.clear();
     for c in "woxiangxueandroid".chars() {
         session.push(c);

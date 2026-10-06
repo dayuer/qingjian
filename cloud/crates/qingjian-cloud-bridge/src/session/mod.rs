@@ -70,6 +70,9 @@ pub struct Session {
 
     /// 本地神经整句模型的加载状态（见 `model` 模块）。
     model: ModelState,
+
+    /// 还没加载的英文词表路径；见到像英文的输入时读进来挂上引擎。
+    english_pending: Option<PathBuf>,
 }
 
 impl Session {
@@ -111,14 +114,12 @@ impl Session {
             engine =
                 engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
         }
-        // 英文词表随包走（`Data/english.tsv`）：中英混输的英文候选（android 这类）靠它；没有就不启用
-        let english = data_dir.join("english.tsv");
-        if english.is_file() {
-            match WordList::from_path(&english) {
-                Ok(words) => engine = engine.with_english(words),
-                Err(error) => tracing::warn!(%error, "英文词表加载失败，中英混输没有英文候选"),
-            }
-        }
+        // 英文词表随包走（`Data/english.tsv`），但懒加载：解析后驻留约 13MB（2.2MB 的表）、峰值约 30MB，
+        // 键盘扩展和 44MB 的通变模型塞不下，首次见到像英文的输入（见 `looks_english`）才读
+        let english_pending = data_dir
+            .join("english.tsv")
+            .is_file()
+            .then(|| data_dir.join("english.tsv"));
         // 技能包随包走（`Data/skills`），会话打开时读一次；打包漏了它改写就整个用不了，这里记一条显眼的
         let skills = crate::rewrite::load_skills(&data_dir.join("skills"));
         if skills.is_empty() && cloud.as_ref().is_some_and(|cloud| cloud.llm) {
@@ -142,6 +143,7 @@ impl Session {
             cloud: cloud.clone(),
             memory,
             model: ModelState::default(),
+            english_pending,
         };
         session.reload_config();
         if let Some(cloud) = cloud {
@@ -260,7 +262,25 @@ impl Session {
     /// 每次按键后：先补写拿不到锁时留下的待办，再重查候选。
     fn refresh(&mut self) {
         self.retry_pending();
+        self.load_english_if_english_like();
         self.refresh_candidates();
+    }
+
+    /// 见到像英文的输入才加载英文词表（驻留约 13MB，纯拼音用户整场不付这笔账）。
+    /// 加载失败也清掉待办并记日志：反复重试只会每个键都卡一次读盘。
+    fn load_english_if_english_like(&mut self) {
+        let Some(path) = self.english_pending.clone() else {
+            return;
+        };
+        let typed = self.engine.composition().text();
+        if !looks_english(typed) {
+            return;
+        }
+        self.english_pending = None;
+        match WordList::from_path(&path) {
+            Ok(words) => self.engine.set_english(words),
+            Err(error) => tracing::warn!(%error, "英文词表加载失败，中英混输没有英文候选"),
+        }
     }
 
     fn refresh_candidates(&mut self) {
@@ -292,5 +312,49 @@ impl Session {
             self.engine.cancel_prediction();
         }
         self.update_hint();
+    }
+}
+
+/// 像英文的输入：出现拼音里不可能的辅音相邻。拼音里两个辅音相邻只有三种情况——
+/// 前一个是韵尾 `n` / `g` / `r`（er），前一个是 z / c / s 后跟 `h`（zh ch sh 声母），
+/// 或 `v` 跟在 l / n 后（ü）。都不是的相邻（android 的 `dr`、hello 的 `ll`、rust 的 `st`）就是英文。
+fn looks_english(buffer: &str) -> bool {
+    let letters: Vec<char> = buffer
+        .chars()
+        .filter(|c| c.is_ascii_alphabetic())
+        .map(|c| c.to_ascii_lowercase())
+        .collect();
+    letters.windows(2).any(|pair| {
+        let (a, b) = (pair[0], pair[1]);
+        // y / w 当元音（半元音声母，ye / wa 都是合法音节起头，不构成辅音丛的信号）
+        let consonant = |c: char| !"aeiouyw".contains(c);
+        consonant(a)
+            && consonant(b)
+            && !"ngr".contains(a)
+            && !("zcs".contains(a) && b == 'h')
+            // v 只出现在 lv / nv 里，后面接什么都可能是下一音节（lvy e、nv hai）
+            && a != 'v'
+            && !(b == 'v' && (a == 'l' || a == 'n'))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::looks_english;
+
+    #[test]
+    fn english_like_inputs() {
+        // 拼音里不可能的辅音相邻才算像英文：android 的 ndr、hello 的 ll、rust 的 st
+        assert!(looks_english("android"));
+        assert!(looks_english("andro"));
+        assert!(looks_english("hello"));
+        assert!(looks_english("rust"));
+        // 纯拼音不触发：zhuangzhuang 的 ng、anr 的 nr 都是合法相邻
+        assert!(!looks_english("nihao"));
+        assert!(!looks_english("zhuangzhuang"));
+        assert!(!looks_english("anr"));
+        // v 在拼音里只跟 l / n（ü），lv nv 不算英文
+        assert!(!looks_english("lvye"));
+        assert!(!looks_english("nvhai"));
     }
 }

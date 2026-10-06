@@ -252,6 +252,19 @@ Windows、Linux 的 Server 不受影响（`merge_remote` 有缺省实现）；�
 > 回退后三例照旧首选第一（几十亩田地 / 几百亩 / 第六，补词与神经不动），评测回到 SPAN=6 基线，上表的掉点一并消除。
 > 上表的文件清单里 `sentence/mod.rs` 那行随之作废，词库补词两行保留。
 
+### 平面拼音行纠错态返回敲的原样（Core 上游文件，三端宿主组字一致）
+
+2026-10-06 iOS 真机两轮报告：微信里打 android，打到 andro 组字先显示 `anr'dao`（划掉字母被当
+普通字母拼进平面串）、修正一轮后又显示 `an'dao`（只给纠正读法，敲的 r 像被吃了）。根因：宿主输入框的
+marked text 画不了删除线（iOS `setMarkedText` 只收纯文本，Windows 同），平面形态任何改写都会让
+用户敲的字母变样。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-core/src/engine/query/result.rs` | 改 `marked_text` | 纠错生效时返回 `self.text`（用户敲的原样）；无纠错仍是最优切分 `'` 连接。分段 API 照旧带 `Corrected` 段给能画删除线的壳 |
+
+连带：Mac `display.rs` 与 Windows `composed/mod.rs` 读平面串，宿主组字从纠正读法变原样，三端一致。
+
 ## 合并上游时
 
 1. 冲突只可能出在上表「加 N 行」的那几个文件，按上游的新写法把挂钩行重新加回去。
