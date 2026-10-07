@@ -48,9 +48,13 @@ pub enum Command {
         #[arg(long)]
         extra_words: Vec<PathBuf>,
 
-        /// 领域词在语料里出现不少于这个次数就留在基础词库，否则拆到 dicts/<领域>.qj
-        #[arg(long, default_value_t = 50)]
-        domain_keep_min: u64,
+        /// 领域词留在基础词库的门槛，按语料规模给：**每千万句**出现不少于这么多次就留，否则拆到
+        /// dicts/<领域>.qj。绝对次数按 `lm-unigram.tsv` 的 `<s>`（句数）换算 —— 语料换一次，
+        /// 老口径的「50 次」就变味了（2026-10-07：语料涨到 3.9 倍，绝对阈值 50 多放进来 1.1 万条领域词）。
+        /// 缺省 15 是这样标出来的：1.207 亿句语料下取 181 次，基础库的领域源词回到旧库的量级
+        /// （92,220 词 / 领域源 17,495，旧库 92,331 / 17,606）
+        #[arg(long, default_value_t = 15)]
+        domain_keep_per_10m: u64,
 
         /// 地名包只留文档频次不低于这个值的地点，低于它的进 places-extended（缺省关）。
         /// 见 docs/plan/dictionary-layering.md 第 1 步 R3
@@ -60,6 +64,11 @@ pub enum Command {
         /// 长度门槛的白名单：固定书名这类必须留的长专名，一行一个词（`#` 开头是注释）
         #[arg(long, default_value = "assets/lexicon/00_meta/domain-keep.tsv")]
         domain_keep_file: PathBuf,
+
+        /// 中英混杂词（`C盘`、`T恤`、`5G`；`词\t次数\t读音`）：含非汉字的词只核对其中汉字部分。
+        /// 这是这类词的**唯一**通路，别再手改 dict.tsv
+        #[arg(long, default_value = "assets/lexicon/mixed_words.tsv")]
+        mixed_words: PathBuf,
 
         /// 网络用语包目录：一本包一个 TSV（文件名主干当包名，粗口在 internet_slang_coarse.tsv）
         #[arg(long, default_value = "assets/lexicon/04_internet_slang")]

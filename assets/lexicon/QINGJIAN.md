@@ -19,7 +19,8 @@ cargo run --release -p qingjian-gloss-gen -- pinyin
 cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt
 # 4. 第二遍：带标注与词频写最终 dict.tsv；再统计一次语料让分词用上真实词频
 #    领域词同时拆出：先过词库分层的第 1 步规则（docs/plan/dictionary-layering.md：>6 字、
-#    寄主 + 学名、小地名、诗词名句），再按语料里 ≥ 50 次（--domain-keep-min）的留在 dict.tsv，其余按来源文件各写一本 dicts/<领域>.tsv + dicts/<领域>.qj（带 META）；
+#    寄主 + 学名、小地名、诗词名句），再按语料里每千万句 ≥ 15 次（--domain-keep-per-10m，绝对次数按句数换算）的
+#    留在 dict.tsv，其余按来源文件各写一本 dicts/<领域>.tsv + dicts/<领域>.qj（带 META）；
 #    删了什么、改了哪些包、哪几条从基础词库移出去见 data/generated/domain-report.tsv（含每本 20 条被删样本）；
 #    bigram / mine 分词时会自动把 dicts/*.tsv 一起当词表，所以拆分不影响语言模型
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv
@@ -37,7 +38,7 @@ cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/
 #     词库已并入过短语时重跑要加 --refresh assets/lexicon/phrases.tsv（先把上次的短语从分词词表摘掉，否则 我的 是一个词、挖不出 我 + 的）
 cargo run --release -p qingjian-dict-convert -- phrases data/corpus/*.txt   # 重跑：--refresh assets/lexicon/phrases.tsv
 cp data/generated/phrases.tsv assets/lexicon/phrases.tsv
-cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --extra-words assets/lexicon/domain_words.tsv --extra-words assets/lexicon/mixed_words.tsv
+cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv --extra-words assets/lexicon/domain_words.tsv
 #     语言模型不把短语当 token 统计（那样 而 + 是 的二元证据没了，二十 会压过 而是）：--phrases 让分词跳过短语、统计完按成分合成它们的计数，
 #     短语在整句与词级排序里的得分与原来走两个词的路径完全一样，只是多了个能整块选的词（见 tools/dict-convert/src/bigram.rs 模块注释）
 cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv --brand assets/lexicon/mixed_words.tsv data/corpus/*.txt
@@ -46,7 +47,8 @@ cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/
 #     语料里只有几十次的词当 token 统计会把成分词的二元证据吸走（词库 77 次，词 + 库 的路径没了，反被 词哭 压过），合成计数则整句得分与原路径一样，词级多一个能整块选的词。
 #     见 docs/notes/domain-words.md
 # 4e. 中英混杂词（C盘 / B站 / U盘 / T恤）：assets/lexicon/mixed_words.tsv（词\t次数\t拼音，字母音节 + 汉字拼音），
-#     与 phrases / domain_words 一样走 lexicon --extra-words；语言模型走 bigram --brand 直接写一元（--phrases 的合成要成分词在语料里，C 不是 token）。
+#     走 lexicon --mixed-words（缺省就是这个文件，不用再 --extra-words）；语言模型走 bigram --brand 直接写一元（--phrases 的合成要成分词在语料里，C 不是 token）。
+#     含非汉字的词只核对其中汉字部分；**不许再手改 dict.tsv**（这条通路就是为它建的）。
 #     次数对着同音竞争词定：C盘 8000 > 裁判 5416 可以抢首选；B站 要 40000：本站 7533 次里六成在句首（维基页脚），--brand 的句首二元按八分之一算，得盖过 4562；B股 / H股 / G盘 / F盘 / X光 压到几百，别压过 不顾 / 回顾 / 光盘 / 翻盘 / 星光。
 # 5. 英文词表
 cargo run --release -p qingjian-dict-convert -- english assets/lexicon/05_english/00_all_words.tsv assets/lexicon/05_english/07_display_forms.tsv

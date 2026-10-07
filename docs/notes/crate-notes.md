@@ -369,11 +369,13 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
   这批词够「天天会打」的那部分（`assets/lexicon/internet_base.tsv`）**缺省不并进基础词库**：同音不危险要等语料实测，
   命令行给 `--internet-base` 才并。网络用语包的 META 与领域包不同：许可 `CC-BY-SA-4.0`，署名维基 / 维基词典 / CC-CEDICT；
   然后把剩下的按语料次数 < 50 拆成
-  `dicts/<领域>.tsv` + `.qj`（10 本 + 4 本扩展，`--domain-keep-min`），流程见 `assets/lexicon/QINGJIAN.md`；
+  `dicts/<领域>.tsv` + `.qj`（10 本 + 4 本扩展；门槛是 `--domain-keep-per-10m`，每千万句出现多少次才留基础库，
+  绝对次数按 `lm-unigram.tsv` 的 `<s>` 换算，2026-10-07 起不用绝对次数了 —— 换语料它会变味），流程见 `assets/lexicon/QINGJIAN.md`；
   **改完规则要在有 `data/corpus` 与 `data/unihan` 的机器上重跑第 1–4 步，并按 `tools/release/data-bundle.sh` + `data.lock`（SHA256SUMS）
   发新的 `data-vN`** —— 只换 `data/generated/` 不走这一步，装机与 CI 拿到的还是旧词库（细节见 `docs/plan/dictionary-layering.md` 末节）；`--extra-words` 并入人工挑的领域词 `assets/lexicon/domain_words.tsv`（2026-09-27 起该文件另含按 jieba 词表（MIT）对照出的缺失高频词：读音逐字取 Unihan、多音字逐条人工判定（判定明细与理由在 `assets/lexicon/00_meta/polyphone-judgments.tsv`），词频按 log-log 回归从 jieba 次数折算；另含「姓氏+总」称谓层 98 条与符号词 6 条，定值依据见文件头注。注意：新词不在 lm.qj 里只能拿兜底分，同音 lm 词会压它，选一次即被 choice_weight 翻正）。
 - `english`：转 `assets/lexicon/05_english/00_all_words.tsv`；同编码优先保留含大写的专名写法（Windows ≠ windows），
-  展示写法补充表 `07_display_forms.tsv` 后置读入；`cedict`：释义表备用来源。中英混杂词源在 `assets/lexicon/mixed_words.tsv`（`lexicon --extra-words`）。
+  展示写法补充表 `07_display_forms.tsv` 后置读入；`cedict`：释义表备用来源。中英混杂词源在 `assets/lexicon/mixed_words.tsv`：`lexicon --mixed-words`（缺省就是这个路径，**不再走 --extra-words**），
+  含非汉字的词（`C盘`、`T恤`）只核对其中汉字部分 —— 字母那截本来就不是音节（`c` 在引擎里靠声母路径匹配，`cpan` → C盘）。
 - `wubi`：Rime 形码码表（`.dict.yaml`，极点 86 五笔）→ `词\t编码\t词频`（`wubi.rs`，`--name` 决定文件名，缺省 `wubi86.tsv`）。
   **码表自带的权重不用**——那是码表顺序不是语料词频，用了同一个词在形码下和在拼音下会排得不一样；词频从青简词库按**词面**交叉回填，
   词库里没有的词给 `UNKNOWN_FREQUENCY = 1`。解析复用 `qingjian_dictionary::import::rime`（与用户导入 Rime 词库同一个解析器，

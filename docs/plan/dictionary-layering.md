@@ -73,6 +73,11 @@
     ＋ **著名地点**（`doc_freq ≥ --places-min-df`，缺省 500，现量约 4,400 条：`北海公园`、`塞舌尔`、`黄山` 这类）；
   - 其余（社区、巷、路、村、小区、开发区、以及 DF 低于阈值的）→ **`places-extended.qj`，缺省关**。
   - 阈值是旋钮：`--places-min-df` 可调，发布报告里要写清这次用的是哪个值。
+- **R3.1 领域词门槛按语料规模给**（2026-10-07 加）：`--domain-keep-min` 那个绝对次数换成
+  `--domain-keep-per-10m`（每千万句出现多少次才留基础库），绝对次数由 `lm-unigram.tsv` 的 `<s>`（句数）换算。
+  起源：语料从约五千万句涨到 1.207 亿句（3.9 倍）之后，老口径 50 次等于门槛被悄悄放松，一次重建多放进基础库
+  1.1 万条领域词（一中、一审法院、一夫一妻制……）。缺省 15（当前语料下 181 次）是这样标的：基础库的领域源词
+  回到旧库量级（92,220 词 / 领域源 17,495；旧库 92,331 / 17,606）。**以后换语料不用再改这个数**。
 - **R4 诗词名句**：`poetry_lines` 整本从「词库」里拿出去 ——
   - 现在那 13,703 条（含语料 ≥ 50 次因而留在基础库的那部分）**不再进 `dict.tsv`**，
     也就是把「领域词 ≥ 50 次留在基础库」这条对诗词名句关掉；
@@ -92,7 +97,7 @@
   cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl \
     --frequency data/generated/lm-unigram.tsv --extra-words assets/lexicon/mined_words.tsv \
     --extra-words assets/lexicon/phrases.tsv --extra-words assets/lexicon/brand.tsv \
-    --extra-words assets/lexicon/domain_words.tsv --extra-words assets/lexicon/mixed_words.tsv
+    --extra-words assets/lexicon/domain_words.tsv
   ```
   （新增的规则参数都带缺省值，不传就是本规格定的那一套。）
 - `.qj` 的 META（许可 / 署名）不变：`DOMAIN_LICENSE = "MIT AND Unicode-3.0"`、THUOCL + Unihan 署名照旧；

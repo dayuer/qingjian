@@ -109,8 +109,14 @@ pub struct Options<'a> {
     /// 额外并入的词（`mine` / `phrases` / 人工挑的那些）
     pub extra_words: &'a [std::path::PathBuf],
 
-    /// 领域词留在基础词库的最低语料次数（没有词频时按领域词处理，全部拆出去）
-    pub domain_keep_min: u64,
+    /// 中英混杂词（`C盘`、`T恤`、`5G`，`词\t次数\t读音`）：含非汉字的词读音由源文件直接给，
+    /// 只核对其中汉字部分。**走这条正规通路，不许再手改 dict.tsv**（84e94b9 手加的那 15 条就是这么来的，
+    /// 2026-10-07 重建时静默丢了）
+    pub mixed_words: &'a Path,
+
+    /// 领域词留在基础词库的门槛：每千万句出现不少于这么多次（绝对次数按句数换算，
+    /// 见 `convert`；没有词频表时全部拆出去）
+    pub domain_keep_per_10m: u64,
 
     /// 地名包只留文档频次不低于这个值的地点（第 1 步 R3；低于它的进 places-extended）
     pub places_min_df: u64,
@@ -139,11 +145,17 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     let frequency = options.frequency;
     let emit_ambiguous = options.emit_ambiguous;
     let extra_words = options.extra_words;
-    let domain_keep_min = options.domain_keep_min;
+    let mixed_words = options.mixed_words;
     let out_dir = options.out_dir;
     let mut pack = Pack::load(pack_dir)?;
     // 语料挖出来的词当作一类领域词并入：次数当文档频次（也就是没有语料词频时的底值来源）
-    for path in extra_words {
+    // 中英混杂词走同一条路（`--mixed-words`，缺省 assets/lexicon/mixed_words.tsv）
+    let word_sources: Vec<&std::path::Path> = extra_words
+        .iter()
+        .map(|path| path.as_path())
+        .chain(std::iter::once(mixed_words))
+        .collect();
+    for path in &word_sources {
         let before = pack.domain.len();
         for word in corpus::extra_words(path)? {
             pack.domain.push(pack::DomainRow {
@@ -166,11 +178,25 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         None => HashMap::new(),
     };
     // 挖出来的词在语料里的次数就是它的词频（分词时它被拆成单字，一元表里没有）
-    for path in extra_words {
+    for path in &word_sources {
         for word in corpus::extra_words(path)? {
             counts.entry(word.text).or_insert(word.count);
         }
     }
+    // 领域词门槛按语料规模换算（`<s>` 是语料句数）：语料一换，绝对次数就变味了。
+    // 没有词频表时按旧口径（五千万句语料下的 50 次）折算，反正那时领域词全拆出去
+    let sentences = counts.get("<s>").copied().unwrap_or(0);
+    let domain_keep_min = if sentences > 0 {
+        ((options.domain_keep_per_10m as f64) * (sentences as f64 / 10_000_000.0)).round() as u64
+    } else {
+        options.domain_keep_per_10m * 5
+    };
+    tracing::info!(
+        sentences,
+        domain_keep_per_10m = options.domain_keep_per_10m,
+        domain_keep_min,
+        "领域词门槛已换算"
+    );
     tracing::info!(
         chars = pack.chars.len(),
         common = pack.common.len(),
@@ -352,11 +378,27 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         {
             continue;
         }
+        // 含非汉字的词（`C盘`、`T恤`、`5G`）Unihan 里查不到读音，读音只能由源文件直接给：
+        // 字母 / 数字那部分本来就不是音节（`c` 在引擎里靠声母路径匹配，`cpan` → C盘），
+        // 所以只核对其中的汉字部分，其余位置非空、且与字对齐即可
+        let mixed = text.chars().any(|ch| !crate::bigram::is_han(ch));
         // 额外词文件给了读音的（短语层由成分词拼出）直接用；否则先看 LLM 标注，再按字推
-        let given_syllables = row
-            .syllables
-            .as_ref()
-            .filter(|s| readings.accepts_word(text, s) && s.iter().all(|s| is_syllable(s)));
+        let given_syllables = row.syllables.as_ref().filter(|s| {
+            if mixed {
+                s.len() == chars_count
+                    && text.chars().zip(s.iter()).all(|(ch, syllable)| {
+                        if crate::bigram::is_han(ch) {
+                            is_syllable(syllable)
+                                && readings
+                                    .accepts_word(&ch.to_string(), std::slice::from_ref(syllable))
+                        } else {
+                            !syllable.is_empty()
+                        }
+                    })
+            } else {
+                readings.accepts_word(text, s) && s.iter().all(|s| is_syllable(s))
+            }
+        });
         let syllables = match (given_syllables, annotations.get(text)) {
             (Some(candidate), _) => {
                 given += 1;
@@ -581,4 +623,85 @@ fn write_domains(
         tracing::info!(domain = %name, entries = entries.len(), path = %qj_path.display(), "领域词库已写出");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Options, convert};
+    use std::path::{Path, PathBuf};
+
+    fn write(path: &Path, body: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, body).unwrap();
+    }
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("qingjian-lexicon-{tag}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        dir
+    }
+
+    /// 中英混杂词走 `--mixed-words` 这条正规通路：含非汉字的词（`C盘`）读音由源文件直接给、
+    /// 只核对其中的汉字部分，重建后必须在基础词库里。
+    /// 背景：`84e94b9` 是手工往 `dict.tsv` 里加的这 15 条，代码里没有通路 —— 2026-10-07 用新语料重建时
+    /// 它们被静默丢掉（`accepts_word` 对字母 C 判失败），这条守住。
+    #[test]
+    fn mixed_words_survive_a_rebuild() {
+        let dir = temp_dir("mixed");
+        let pack = dir.join("pack");
+        write(
+            &pack.join("01_characters/standard_8105.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n\
+             盘\tpan2\t1\t\t1\tx\n\
+             站\tzhan4\t2\t\t1\tx\n",
+        );
+        write(
+            &pack.join("02_common/modern_chinese_common_words.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n\
+             盘\tpan2\t1\t\t1\tx\n",
+        );
+        write(
+            &pack.join("03_domains/places.tsv"),
+            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n",
+        );
+        let unihan = dir.join("Unihan_Readings.txt");
+        write(&unihan, "U+76D8\tkMandarin\tpán\nU+7AD9\tkMandarin\tzhàn\n");
+        let mixed = dir.join("mixed_words.tsv");
+        write(
+            &mixed,
+            "# 词\t次数\t读音\nC盘\t8000\tc pan\nB站\t40000\tb zhan\n",
+        );
+        let keep = dir.join("domain-keep.tsv");
+        write(&keep, "# 词\n");
+        let out = dir.join("out");
+
+        convert(&Options {
+            pack: &pack,
+            unihan: &unihan,
+            pinyin: None,
+            frequency: None,
+            emit_ambiguous: None,
+            extra_words: &[],
+            mixed_words: &mixed,
+            domain_keep_per_10m: 10,
+            places_min_df: 500,
+            keep_file: &keep,
+            internet_dir: &dir.join("04_internet_slang"),
+            internet_base: None,
+            out_dir: &out,
+        })
+        .expect("建词库失败");
+
+        let dict = std::fs::read_to_string(out.join("dict.tsv")).unwrap();
+        assert!(
+            dict.contains("C盘\tc pan\t8000"),
+            "C盘 没进基础词库：\n{dict}"
+        );
+        assert!(
+            dict.contains("B站\tb zhan\t40000"),
+            "B站 没进基础词库：\n{dict}"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }
