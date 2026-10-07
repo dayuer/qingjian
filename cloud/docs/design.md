@@ -329,8 +329,8 @@ Tab 的行为和以前一样。接口和评测工具留着。**重启条件**：
 - iOS（唯一来源）：`cloud/ios/App/Account/ConsentSheet.swift` 的 `ConsentCopy`
 - Mac：`apps/macos/src/menubar/cloud_prompt.rs` 的 `consent_points`
 
-改一处必须改另一处（通知条的文案同理：`SpaceWording` 与 `menu/mod.rs`）。真要对齐得靠人眼，
-或者以后加个脚本比对两处的字符串。
+改一处必须改另一处（通知条的文案同理：`SpaceWording` 与 `menu/mod.rs`）。
+比对用 `python3 cloud/scripts/check-consent-copy.py`：按字符串逐条比两处，不一致就报出来。
 
 ## 还没定的
 
