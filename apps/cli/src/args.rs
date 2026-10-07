@@ -133,6 +133,8 @@ pub struct Args {
 
     /// 回放评测：读输入日志（input-log.jsonl），把每次上屏时的键重新喂给引擎，算首选命中率等指标。只在内存里学习，不写任何文件
     #[arg(long)]
+    pub replay: Option<PathBuf>,
+
     /// 同音快照：按无调音节串分组、每组前 5 名写成这个文件（进仓库）。与 `--check` 一起用时只比对不改写
     #[arg(long)]
     pub homophone_snapshot: Option<PathBuf>,
@@ -140,8 +142,6 @@ pub struct Args {
     /// 与 `--homophone-snapshot` 指的快照比对，不一致就失败（CI 用）
     #[arg(long, requires = "homophone_snapshot")]
     pub check: bool,
-
-    pub replay: Option<PathBuf>,
 
     /// 回放 / 整句评测时打印前 N 条没命中首选的例子
     #[arg(long, default_value_t = 20)]
