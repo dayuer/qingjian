@@ -20,11 +20,12 @@
 `origin: "cloud-optimizer"` 标记（proto 的 LearningEntry 加一个可选字段），用户在
 Mac / iOS 的学习管理里能看到「这是云端替你学的」，可整体关掉（`sync` 开关本来就管）。
 
-> **前置（2026-10-06 审计补充）：iOS 目前没有 learning 的上行与下行**——桥只接了剪贴板、
-> 改写与（本文件所属的）素材 / 输入日志上传，`DataSync`（learning push/pull）没在 iOS 上启动。
-> 优化产物要回到 iPhone，先得把 iOS 的 learning 同步接上（复用 `qingjian-cloud-client`
-> 的 `DataSync::start`，与 Mac 同一套），这是独立任务，排在优化任务之前；接上之前，
-> 优化照样可以跑（Mac 用户先受益），只是产物到不了 iPhone。
+两端都已在跑这套同步：Mac 的 `DataSync` 与 iOS 桥的 `DataSync::start`
+（`cloud/crates/qingjian-cloud-bridge/src/session/cloud.rs`，2026-10-03 起）。
+产物经它下行，回到 iPhone 与 Mac，不需要新接口。
+
+> 2026-10-07 更正：本节原先写着「iOS 目前没有 learning 的上行与下行」并把它列为前置任务，
+> 是查证时只 grep 了 `push_learning`、漏看桥里的 `DataSync::start` 所致。实际上传下载都有。
 
 ## 二、什么时候跑
 
