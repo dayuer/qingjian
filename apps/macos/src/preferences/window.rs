@@ -2,12 +2,13 @@
 
 use std::cell::{Cell, RefCell};
 
-use objc2::MainThreadMarker;
 use objc2::rc::Retained;
+use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSClipView, NSColor, NSScreen, NSScrollView, NSTabView, NSTabViewItem, NSTextField, NSView,
+    NSClipView, NSColor, NSScreen, NSScrollView, NSTabView, NSTabViewDelegate, NSTabViewItem,
+    NSTextField, NSView,
 };
-use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+use objc2_foundation::{NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
 use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
@@ -59,8 +60,11 @@ pub struct PreferencesWindow {
     /// 「云服务」页（形状变了整页换掉，所以装在 `RefCell` 里）。
     cloud: RefCell<CloudPage>,
 
-    /// 标签视图；「云服务设置…」要切到云服务页。
+    /// 标签视图；「云服务设置…」要切到云服务页，窗口高度也按它的当前页算。
     tabs: Retained<NSTabView>,
+
+    /// 换页签的代理：窗口高度要跟着新页面走（见 [`fit_window_to_page`]）。
+    _tab_change: Retained<TabChange>,
 
     /// 「云服务」页在标签里的下标。
     cloud_tab: usize,
@@ -90,16 +94,17 @@ pub struct PreferencesWindow {
     _target: Retained<PreferencesTarget>,
 }
 
-/// 现下的云状态：自检（`QJ_SETTINGS_FAKE`）时换成假的那一份。
+/// 现下的云状态：debug 构建下自检（`QJ_SETTINGS_FAKE`）能换成假的那一份，正式构建照实取。
 fn cloud_status() -> qingjian_cloud_mac::CloudStatus {
+    #[cfg(debug_assertions)]
     if std::env::var_os("QJ_SETTINGS_FAKE").is_some() {
-        fake_cloud_status()
-    } else {
-        qingjian_cloud_mac::status()
+        return fake_cloud_status();
     }
+    qingjian_cloud_mac::status()
 }
 
-/// 截一张窗口（自检用）。
+/// 截一张窗口（自检用，只在 debug 构建里）。
+#[cfg(debug_assertions)]
 fn shoot(number: isize, path: &str) {
     let _ = std::process::Command::new("screencapture")
         .args(["-x", "-o", "-l", &number.to_string()])
@@ -107,13 +112,16 @@ fn shoot(number: isize, path: &str) {
         .status();
 }
 
-/// 起手那张云服务页的形状：自检时按假状态算（窗口才装得下整页），平时是没开通的起手样子。
+/// 起手那张云服务页的形状：debug 构建下自检可以换成假状态（见 `fake_cloud_status`），
+/// 正式构建永远是没开通的起手样子。
 fn dev_shape() -> CloudShape {
+    #[cfg(debug_assertions)]
     match std::env::var("QJ_SETTINGS_FAKE").as_deref() {
-        Ok("1") => shape_of(&fake_cloud_status(), false, false),
-        Ok("2") => shape_of(&fake_cloud_status(), true, true),
-        _ => CloudShape::closed(),
+        Ok("1") => return shape_of(&fake_cloud_status(), false, false),
+        Ok("2") => return shape_of(&fake_cloud_status(), true, true),
+        _ => {}
     }
+    CloudShape::closed()
 }
 
 /// 状态 + 换没换服务 + 展开与否 → 页面形状。
@@ -131,7 +139,9 @@ fn shape_of(status: &qingjian_cloud_mac::CloudStatus, custom: bool, advanced: bo
     }
 }
 
-/// 开发自检：`QJ_SETTINGS_FAKE=1` 时装的已开通状态，好把界面（设备行、危险按钮、红字）看全。
+/// 开发自检（只在 debug 构建里）：`QJ_SETTINGS_FAKE=1` 时装的已开通状态，
+/// 好把界面（设备行、危险按钮、红字）看全。
+#[cfg(debug_assertions)]
 fn fake_cloud_status() -> qingjian_cloud_mac::CloudStatus {
     qingjian_cloud_mac::CloudStatus {
         signed_in: true,
@@ -239,29 +249,31 @@ impl PreferencesWindow {
         let about = build_about(&mut layout, mtm, &target, version, build);
         pages.push(page("关于", layout));
 
-        // 标签视图：先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸
+        // 打印纸的尺寸：先按最大的一页量出标签栏占掉多少，窗口起手按第一页的高度（见 fit_window_to_page）
         let tallest = pages
             .iter()
             .map(|(_, layout, _)| layout.height() + PAGE_TOP)
             .fold(MIN_PAGE_HEIGHT, f64::max);
-        // 设置项多了以后最高的一页会超出小屏幕，窗口底部（状态行）掉到程序坞后面：窗口封顶，超高的页放进滚动视图
         let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
         let probe = NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, page_height));
         let tabs = NSTabView::initWithFrame(mtm.alloc(), probe);
         let inner = tabs.contentRect();
-        let chrome_width = PAGE_WIDTH - inner.size.width;
         let chrome_height = page_height - inner.size.height;
-        let tabs_size = NSSize::new(PAGE_WIDTH + chrome_width, page_height + chrome_height);
         let content_size = NSSize::new(
-            tabs_size.width + 2.0 * TAB_MARGIN,
-            tabs_size.height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
+            PAGE_WIDTH + (PAGE_WIDTH - inner.size.width) + 2.0 * TAB_MARGIN,
+            page_height + chrome_height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
         );
         tabs.setFrame(NSRect::new(
             NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
-            tabs_size,
+            NSSize::new(
+                content_size.width - 2.0 * TAB_MARGIN,
+                page_height + chrome_height,
+            ),
         ));
-        for (index, (title, layout, view)) in pages.into_iter().enumerate() {
-            let own_height = (layout.height() + PAGE_TOP).max(page_height);
+        for (title, layout, view) in pages.into_iter() {
+            // 每一页按自己排出来的高度：窗口跟着当前这一页伸缩（`fit_window_to_page`）
+            let own_height =
+                (layout.height() + PAGE_TOP).clamp(MIN_PAGE_HEIGHT, max_page_height(mtm));
             view.setFrame(NSRect::new(
                 NSPoint::ZERO,
                 NSSize::new(PAGE_WIDTH, own_height),
@@ -270,16 +282,8 @@ impl PreferencesWindow {
             // SAFETY: identifier 允许为空；条目随 NSTabView 活着
             let item = unsafe { NSTabViewItem::initWithIdentifier(mtm.alloc(), None) };
             item.setLabel(&NSString::from_str(title));
-            // 云服务页的高度会随状态变（收起高级、换服务），一律放进滚动视图，收起后自己变短
-            let scroll =
-                (index == cloud_tab).then(|| scrolling(mtm, &view, page_height, own_height));
-            let scroll = scroll.or_else(|| {
-                (own_height > page_height).then(|| scrolling(mtm, &view, page_height, own_height))
-            });
-            match &scroll {
-                Some(scroll) => item.setView(Some(scroll)),
-                None => item.setView(Some(&view)),
-            }
+            // 一律放进滚动视图：页比窗口高时自己滚，窗口高度又跟着当前这页变
+            item.setView(Some(&scrolling(mtm, &view, own_height)));
             tabs.addTabViewItem(&item);
         }
         let content = NSView::initWithFrame(mtm.alloc(), NSRect::new(NSPoint::ZERO, content_size));
@@ -294,10 +298,14 @@ impl PreferencesWindow {
             ),
         ));
         content.addSubview(&status);
+        let tab_change = TabChange::new(mtm);
+        // SAFETY: `TabChange` 实现了 NSTabViewDelegate（见 define_class）
+        tabs.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*tab_change)));
         let panel = PreferencesPanel::new(mtm, NSRect::new(NSPoint::ZERO, content_size));
         panel.setTitle(&NSString::from_str("素笺偏好设置"));
         panel.setContentView(Some(&content));
         panel.center();
+        fit_window_to_page(&tabs, false);
 
         Self {
             panel,
@@ -309,6 +317,7 @@ impl PreferencesWindow {
             dictionaries,
             cloud: RefCell::new(cloud),
             tabs: tabs.clone(),
+            _tab_change: tab_change,
             cloud_tab,
             cloud_shape: Cell::new(cloud_shape),
             cloud_config: RefCell::new(None),
@@ -402,10 +411,17 @@ impl PreferencesWindow {
         self.status.setStringValue(&NSString::from_str(status));
     }
 
-    /// 开发自检：把设置窗口（停在「云服务」页）截成 PNG 再退出。
+    /// 开发自检（只在 debug 构建里有）：把设置窗口（停在「云服务」页）截成 PNG 再退出。
     /// 输入法进程不方便手动点菜单，`QJ_SETTINGS_SHOT` 指了路径就启动后自动跑一遍（见 `host::init`）。
+    #[cfg(debug_assertions)]
     pub fn dump_cloud_page(&self, path: &str) {
         self.show_cloud();
+        // 想截别的页就先 `QJ_SETTINGS_TAB=<下标>`（自检窗口高度跟不跟着页面走）
+        if let Ok(index) = std::env::var("QJ_SETTINGS_TAB")
+            && let Ok(index) = index.parse::<isize>()
+        {
+            self.tabs.selectTabViewItemAtIndex(index);
+        }
         let number = self.panel.windowNumber();
         let path = path.to_owned();
         // 起手的形状按假状态算（见 `dev_shape`），窗口装得下整页，只截一张就够
@@ -443,13 +459,15 @@ impl PreferencesWindow {
         layout.finish(&view, own_height);
         // 高度会随形状变，一律放进滚动视图；比可视区矮时不会出滚动条
         let item = self.tabs.tabViewItemAtIndex(self.cloud_tab as isize);
-        item.setView(Some(&scrolling(mtm, &view, self.page_height, own_height)));
+        item.setView(Some(&scrolling(mtm, &view, own_height)));
         // 新控件按当前状态与配置填一遍
         if let Some(config) = self.cloud_config.borrow().as_ref() {
             cloud.sync(&config.config, config.key_present, config.model_present);
         }
         cloud.sync_status(&cloud_status());
         *self.cloud.borrow_mut() = cloud;
+        // 这一页自己变高了（多出设备行、同步与数据）或变矮了，窗口跟着走
+        fit_window_to_page(&self.tabs, true);
     }
 
     /// 只刷「云服务」页的状态（云功能是独立的线程在跑，不等 config 变化）：
@@ -499,16 +517,12 @@ fn max_page_height(mtm: MainThreadMarker) -> f64 {
     })
 }
 
-/// 把比窗口高的一页放进滚动视图，开始时停在页顶。
-fn scrolling(
-    mtm: MainThreadMarker,
-    page: &NSView,
-    visible_height: f64,
-    page_height: f64,
-) -> Retained<NSScrollView> {
+/// 一页装进滚动视图：每页都这么包（窗口高度跟着当前这页变，装不下时这一页自己滚），
+/// 开始时停在页顶。
+fn scrolling(mtm: MainThreadMarker, page: &NSView, page_height: f64) -> Retained<NSScrollView> {
     let scroll = NSScrollView::initWithFrame(
         mtm.alloc(),
-        NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, visible_height)),
+        NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, page_height)),
     );
     scroll.setHasVerticalScroller(true);
     scroll.setAutohidesScrollers(true);
@@ -518,7 +532,83 @@ fn scrolling(
     page.setFrameSize(NSSize::new(clip.bounds().size.width, page_height));
     scroll.setDocumentView(Some(page));
     // 页面视图没有翻转坐标，页顶在 y 最大处
-    clip.scrollToPoint(NSPoint::new(0.0, page_height - visible_height));
+    clip.scrollToPoint(NSPoint::ZERO);
     scroll.reflectScrolledClipView(&clip);
     scroll
+}
+
+/// 窗口跟着当前这一页排出来的高度伸缩：切页签由 [`TabChange`] 调，页面自己变高
+/// （云服务页重建）时窗口这边调。顶边不动、带动画；到屏幕可视高度的上限就封顶，
+/// 超出的部分这一页自己滚。
+fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let (Some(item), Some(window)) = (tab_view.selectedTabViewItem(), tab_view.window()) else {
+        return;
+    };
+    let Some(page) = item
+        .view(mtm)
+        .and_then(|view| view.downcast::<NSScrollView>().ok())
+        .and_then(|scroll| scroll.documentView())
+    else {
+        return;
+    };
+    let height = page.frame().size.height.min(max_page_height(mtm));
+    // 标签栏与边框占掉多少：拿现在的 frame 与内容区一减就是
+    let frame = tab_view.frame();
+    let content = tab_view.contentRect();
+    let tabs_size = NSSize::new(
+        PAGE_WIDTH + (frame.size.width - content.size.width),
+        height + (frame.size.height - content.size.height),
+    );
+    // 窗口的高度要把标题栏算进去：`setFrame` 收的是含标题栏的 frame
+    let content_size = NSSize::new(
+        tabs_size.width + 2.0 * TAB_MARGIN,
+        tabs_size.height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
+    );
+    let window_size = window
+        .frameRectForContentRect(NSRect::new(NSPoint::ZERO, content_size))
+        .size;
+    // 顶边不动：往下长（或往上收）
+    let current = window.frame();
+    let origin = NSPoint::new(
+        current.origin.x,
+        current.origin.y + current.size.height - window_size.height,
+    );
+    window.setFrame_display_animate(NSRect::new(origin, window_size), true, animate);
+    let tabs_rect = NSRect::new(
+        NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
+        tabs_size,
+    );
+    // 视图侧没有动画版的 setFrame：一步摆好，窗口那边带动画长（或收）过去
+    tab_view.setFrame(tabs_rect);
+}
+
+define_class!(
+    // SAFETY: NSObject 没有子类化要求；没有实现 Drop。
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = ()]
+    /// 换页签：窗口高度跟着新页面走。
+    struct TabChange;
+
+    impl TabChange {
+        #[unsafe(method(tabView:didSelectTabViewItem:))]
+        fn did_select(&self, view: Option<&NSTabView>, _item: Option<&NSTabViewItem>) {
+            if let Some(view) = view {
+                fit_window_to_page(view, true);
+            }
+        }
+    }
+
+    unsafe impl NSObjectProtocol for TabChange {}
+    unsafe impl NSTabViewDelegate for TabChange {}
+);
+
+impl TabChange {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(());
+        unsafe { msg_send![super(this), init] }
+    }
 }

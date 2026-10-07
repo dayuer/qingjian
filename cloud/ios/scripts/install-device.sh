@@ -31,6 +31,10 @@ if grep -q '^token' "$seed"; then
 fi
 codesign -d --entitlements - "$app/PlugIns/Keyboard.appex" 2>/dev/null | grep -q group.sujian.synon.ai \
   || { echo "键盘的签名里没有 App Group，设置改不到键盘上" >&2; exit 1; }
+# 本地神经模型不随 iOS 包走（键盘里没驱动它，白占内存）：构建目录里留着旧的也算不合格
+for models in "$app/Data/models" "$app/PlugIns/Keyboard.appex/Data/models"; do
+  [[ -e "$models" ]] && { echo "包里带着 $models，清掉再装（见 build-bridge.sh 的说明）" >&2; exit 1; }
+done
 
 xcrun devicectl device install app --device "$device" "$app" >/dev/null
 xcrun devicectl device process launch --device "$device" sujian.synon.ai >/dev/null

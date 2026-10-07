@@ -119,7 +119,8 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
-    // 开发自检：QJ_SETTINGS_SHOT=<png 路径> 时打开云服务页截一张就退出
+    // 开发自检（只在 debug 构建里）：QJ_SETTINGS_SHOT=<png 路径> 时打开云服务页截一张就退出
+    #[cfg(debug_assertions)]
     if let Ok(path) = std::env::var("QJ_SETTINGS_SHOT") {
         preferences.dump_cloud_page(&path);
     }
