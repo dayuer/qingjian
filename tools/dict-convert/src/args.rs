@@ -147,8 +147,9 @@ pub enum Command {
         #[arg(long, default_value_t = 3)]
         min_count: u32,
 
-        /// 最多输出多少条二元组（按计数取前 N）
-        #[arg(long, default_value_t = 3_000_000)]
+        /// 最多输出多少条二元组（按计数取前 N）。缺省 500 万：随包那份 lm.qj 一直是 486 万条，
+        /// 按 300 万截会让整句评测的首选掉一个点（2026-10-07 量过：33.2% → 34.1%，基线 34.2%）
+        #[arg(long, default_value_t = 5_000_000)]
         max_bigrams: usize,
     },
 

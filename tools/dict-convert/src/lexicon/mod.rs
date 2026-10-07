@@ -524,7 +524,8 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         file,
         "# 青简基础词库，由 qingjian-dict-convert lexicon 生成。词\t音节\t词频\n\
 # 来源：通用规范汉字表（8105 字）；现代汉语常用词表（liuxilu 校对版）；THUOCL 领域词（MIT，清华大学自然语言处理实验室）；\n\
-# 读音：Unihan（Unicode License）+ LLM 标注多音字词；词频：青简自己的语料统计（中文维基 CC BY-SA 4.0、LCCC MIT）。"
+# 读音：Unihan（Unicode License）+ 从旧产物回收（00_meta/pinyin-recovered.jsonl）+ 人工判定（00_meta/pinyin-corrections.jsonl）；\n\
+# 词频：青简自己的语料统计（中文维基 CC BY-SA 4.0、LCCC MIT）。"
     )?;
     for entry in entries.values() {
         writeln!(
