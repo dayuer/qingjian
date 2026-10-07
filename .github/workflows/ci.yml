@@ -47,6 +47,14 @@ jobs:
       - name: Test
         run: cargo test --workspace --exclude qingjian-macos --locked
 
+      # 同音竞争回归（对标报告 P0-2）：快照按基础词库 assets/lexicon/dict.tsv 算，仓库里就有，
+      # 不用拉产品数据。改了词库没在同一个提交里重生成快照，这一步就红。
+      - name: Homophone snapshot
+        run: |
+          cargo run --release --locked -p qingjian-cli -- \
+            --dict assets/lexicon/dict.tsv \
+            --homophone-snapshot apps/cli/snapshots/homophones.tsv --check
+
       - name: Build and test Fcitx5 default panel
         run: |
           cargo build -p qingjian-linux-server --locked

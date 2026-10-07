@@ -49,4 +49,7 @@ pub enum CliError {
 
     #[error(transparent)]
     Tune(#[from] crate::tuning::TuneError),
+
+    #[error(transparent)]
+    Homophone(#[from] crate::homophones::HomophoneError),
 }

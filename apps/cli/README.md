@@ -59,6 +59,21 @@ cargo run --release -p qingjian-cli                     # 交互模式
 cargo run --release -p qingjian-cli -- --typing jintianwanshangwomenquchifan
 ```
 
+## 同音竞争回归：`--homophone-snapshot`
+
+把词库按无调音节串分组、每组前 5 名写一份快照（进仓库，`apps/cli/snapshots/homophones.tsv`）：
+
+```bash
+cargo run --release -p qingjian-cli -- --dict assets/lexicon/dict.tsv \
+  --homophone-snapshot apps/cli/snapshots/homophones.tsv --check
+```
+
+- 快照按**基础词库**（`assets/lexicon/dict.tsv`）算，不含领域包与网络用语包 —— 那些是可选层，跟着它们一起变会让快照天天动。
+- 改了词库（增词、调词频）就在同一个提交里重生成快照（去掉 `--check` 即写出）；CI 跑 `--check`，忘了重生成会红。
+- 输出按组列差异（新增 / 去掉 / 名次变化）；其中「旧首位被挤下去、且旧首位词频是新首位 3 倍以上、旧首位本身 ≥ 200」会标 `【报警】`。
+  注意按词频排序时，新词挤掉旧词意味着新词词频更高，所以这条规则实际只在**旧首位的词频被调低**（或同频改按词面）时触发 ——
+  真正的安全网是每次都把差异打出来给人看。
+
 ## 回放评测：`--replay`
 
 读输入法记的输入日志（`~/Library/Application Support/Qingjian/input-log.jsonl`，每次上屏一行），把每行当时的键重新喂给引擎，看现在的排序会不会把当时选的词放在首选：

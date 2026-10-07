@@ -9,6 +9,7 @@ mod cold;
 mod display;
 mod error;
 mod eval;
+mod homophones;
 mod latency;
 mod logging;
 mod repl;
@@ -82,6 +83,10 @@ fn run() -> Result<(), CliError> {
         };
         let report = asr_fix::run(&engine, &args.asr_fix, terms, options)?;
         print!("{report}");
+        return Ok(());
+    }
+    if let Some(path) = &args.homophone_snapshot {
+        homophones::run(&engine, path, args.check)?;
         return Ok(());
     }
     if let Some(path) = &args.replay {

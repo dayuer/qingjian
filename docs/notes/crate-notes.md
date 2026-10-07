@@ -241,6 +241,10 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 - `--wubi <码表>` 用形码码表（`词\t编码\t词频` 的 TSV）替代拼音：按键当编码按前缀查表，候选不带音节，上屏吃掉整段编码。
 - `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）。
 - `--chinese-first` 打开中文优先（`[general] chinese_first = true` 的排法），配合 `--replay` 比两种英文词位置。
+- `--homophone-snapshot <文件>`（配 `--check`）同音竞争回归（对标报告 P0-2）：按无调音节串分组、每组前 5 名写快照
+  （`apps/cli/snapshots/homophones.tsv`，按基础词库 `assets/lexicon/dict.tsv` 算，不含领域包与网络用语包）；
+  `--check` 与快照比对，不一致非零退出并打印逐组差异，`【报警】` 标在「旧首位被挤下去且旧首位词频是新首位 3 倍以上」那种上；CI 跑这一步。
+  改了词库（增词 / 调词频）就在同一个提交里重生成快照，否则 CI 红。
 - `--replay <input-log.jsonl>` 回放评测：把日志里每次上屏的键重新喂给引擎，按来源算首选 / 前五命中率、平均名次、不在候选的条数，打印没命中的例子（`--misses N`）；
   只在内存里学习不写文件，加 `--user-dict` 可带上现有学习数据。
   **按日志记的方案逐条切换**（`replay/scheme.rs` 的 `SchemeSwitcher`，读每条的 `scheme` 字段）：整份日志通常只有一套方案，
