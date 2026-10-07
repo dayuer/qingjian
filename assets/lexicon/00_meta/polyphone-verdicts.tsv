@@ -1,0 +1,143 @@
+# 多音字逐条判定（审计选了「判完列给我」）：只判不改，改的那批并进 pinyin-corrections.jsonl 之后才生效。
+# 词	词库读音	建议读音	判定	理由
+一宿	yi su	yi xiu	改	一宿（一夜）读 yi xiu
+一针见血	yi zhen jian xue	yi zhen jian xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+不着	bu zhe	bu zhao	不确定	作「着」单独成词太罕见，作「不着边际」又是 zhuo；留人工
+两重天	liang zhong tian	liang chong tian	改	「重」在这里是「再一次」，读 chong
+中的	zhong de	zhong di	改	「的」在中的（射中目标）里读 di
+丹棱	dan leng	dan ling	不确定	四川丹棱县，当地读 líng 还是 léng 无把握；留人工核民政部标准
+么	yao	ma	改	「么」作虚词读 me/ma，yao 是幺么那种罕用读法
+乍暖还寒	zha nuan hai han	zha nuan huan han	改	「还」在还寒（回暖）里读 huan
+乐亭	le ting		改	河北乐亭县，官方读音是 lao ting，词库的 le 错
+乐句	le ju	yue ju	不确定	没判到，留人工
+乐感	le gan	yue gan	不确定	没判到，留人工
+乐手	le shou	yue shou	不确定	没判到，留人工
+乳臭未干	ru chou wei gan	ru xiu wei gan	改	「臭」在乳臭里读 xiu
+便血	bian xue	bian xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+儿媳妇儿	er xi fu er	er xi fu r	不改	只是儿化写法（词库统一把 儿 写成 er），不是读音分歧
+克什米尔	ke shen mi er	ke shi mi er	改	「什」在克什米尔里读 shi
+公了	gong le	gong liao	改	公了（公开了结）读 gong liao
+冷轧	leng ya	leng zha	改	「轧」在轧钢义里读 zha
+分行	fen xing	fen hang	改	分行（银行网点）读 hang
+到了	dao le	dao liao	不改	虚词「了」读 le，liao 是了结义的读法
+削球	xue qiu	xiao qiu	改	削球（乒乓球削球）读 xiao
+功不可没	gong bu ke mei	gong bu ke mo	改	「没」在功不可没里读 mo
+加德满都	jia de man dou	jia de man du	改	加德满都（加德满都）读 du
+劲爆	jin bao	jing bao	改	「劲」表「强」时读 jing
+劲风	jin feng	jing feng	改	「劲」表「强」时读 jing
+半生不熟	ban sheng bu shu	ban sheng bu shou	不改	「熟」按审音表读 shu；shou 是口语读法，不采纳
+卡壳	ka ke	qia ke	改	「卡」在卡壳/卡子/卡脖子这类义里读 qia
+卡子	ka zi	qia zi	改	「卡」在卡壳/卡子/卡脖子这类义里读 qia
+卡脖子	ka bo zi	qia bo zi	改	「卡」在卡壳/卡子/卡脖子这类义里读 qia
+史丹佛	shi dan fu	shi dan fo	改	「佛」读 fo，fu 是错读
+叶韵	ye yun	xie yun	改	叶韵（协韵）读 xie yun
+吃拿卡要	chi na ka yao	chi na qia yao	改	「卡」在卡壳/卡子/卡脖子这类义里读 qia
+各行各业	ge xing ge ye	ge hang ge ye	改	「行」在行业义里读 hang
+含情脉脉	han qing mai mai	han qing mo mo	改	脉脉（含情凝视）读 mo mo
+呐	ne	na	改	「呐」作语气词读 na
+命令行	ming ling xing	ming ling hang	改	命令行（命令行）读 hang
+咯血	ka xue	ka xie	改	咯血按《现代汉语词典》读 ka xie
+嚼	jue	jiao	改	「嚼」单字常用读 jiao（咀嚼）
+圣赫勒拿	sheng he le na	sheng he lei na	不改	圣赫勒拿是标准译名，读 le；lei 是误读
+够不着	gou bu zhe	gou bu zhao	改	「着」在够不着、睡着这类义里读 zhao
+够得着	gou de zhe	gou de zhao	改	「着」在够不着、睡着这类义里读 zhao
+大乘	da cheng	da sheng	不改	大乘（佛教大乘）读 cheng，sheng 是错读
+审度	shen du	shen duo	改	审度（揣度）读 duo
+审校	shen xiao	shen jiao	改	审校（校对）读 jiao
+察合台	cha he tai	cha ge tai	改	察合台（察合台汗国）读 cha ge tai
+尿泡	niao pao	sui pao	不确定	尿泡（膀胱）口语读 sui pao，太生僻，留人工
+属意	shu yi	zhu yi	改	属意（属望）读 zhu yi
+差派	cha pai	chai pai	改	差派（派人）读 chai pai
+弦乐	xian le	xian yue	改	弦乐（器乐）读 yue
+弹琴	dan qin	tan qin	改	弹琴读 tan qin
+必得	bi de	bi dei	改	必得（必须）读 dei
+忘不了	wang bu le	wang bu liao	改	忘不了读 wang bu liao
+怎么着	zen me zhe	zen me zhao	改	「着」在够不着、睡着这类义里读 zhao
+成都	cheng dou	cheng du	改	成都读 Chengdu（都=都城义）
+扎染	zha ran	za ran	改	扎染（扎染）读 za ran
+打工仔	da gong zi	da gong zai	改	打工仔读 zai
+拙著	zhuo zhe	zhuo zhu	改	拙著读 zhuo zhu
+摩挲	mo sa	ma sa	改	摩挲（抚摸）读 ma sa
+支差	zhi cha	zhi chai	改	支差（出差役）读 chai
+支行	zhi xing	zhi hang	改	支行（银行网点）读 hang
+放血	fang xue	fang xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+故地重游	gu di zhong you	gu di chong you	改	「重」在这里是「再一次」，读 chong
+无着	wu zhe	wu zhuo	改	无着（无所依附）读 wu zhuo
+朝阳市	zhao yang shi	chao yang shi	改	辽宁朝阳市读 chao yang
+期	ji	qi	改	期读 qi；qi2 是台湾读法
+柏拉图	bai la tu	bo la tu	改	柏拉图读 Bo la tu
+校验	xiao yan	jiao yan	改	校验读 jiao yan
+棋高一着	qi gao yi zhe	qi gao yi zhao	改	「着」在够不着、睡着这类义里读 zhao
+模压	mo ya	mu ya	不改	模压/模版里的「模」读 mo（模型义），mu 是模样义
+模版	mo ban	mu ban	不改	模压/模版里的「模」读 mo（模型义），mu 是模样义
+正传	zheng chuan	zheng zhuan	改	正传（传记）读 zhuan
+沙参	sha can	sha shen	改	沙参（药材）读 shen
+没奈何	mei nai he	mo nai he	改	没奈何读 mo nai he
+泄露	xie lu	xie lou	改	泄露读 xie lou
+涡阳	wo yang	guo yang	改	安徽涡阳县官方读音是 guo yang，词库的 wo 错
+混熟	hun shu	hun shou	不改	「熟」按审音表读 shu；shou 是口语读法，不采纳
+热轧	re ya	re zha	改	「轧」在轧钢义里读 zha
+煮熟	zhu shu	zhu shou	不改	「熟」按审音表读 shu；shou 是口语读法，不采纳
+牛仔	niu zi	niu zai	改	牛仔读 zai
+牛轧糖	niu ya tang	niu ga tang	改	牛轧糖读 niu ga tang
+狗血	gou xue	gou xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+狗血喷头	gou xue pen tou	gou xie pen tou	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+猪圈	zhu quan	zhu juan	改	猪圈读 juan
+猪血	zhu xue	zhu xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+着地	zhuo di	zhao di	不改	着地读 zhuo di，词库这个对
+着床	zhao chuang	zhuo chuang	改	着床读 zhuo chuang
+睡着	shui zhe	shui zhao	改	「着」在够不着、睡着这类义里读 zhao
+硍	yin		不确定	生僻字，读法无把握，留人工
+立传	li chuan	li zhuan	不确定	没判到，留人工
+粮行	liang xing	liang hang	改	粮行（商行）读 hang
+细嚼慢咽	xi jiao man ye	xi jiao man yan	改	细嚼慢咽的「咽」读 yan
+绿园	lv yuan	lu yuan	改	绿园（地名/绿园）读 lu
+肉脯	rou pu	rou fu	改	肉脯（肉干）读 fu
+胳肢窝	ge zhi wo	ga zhi wo	改	胳肢窝读 ga zhi wo
+自省	zi sheng	zi xing	改	自省（反省）读 xing
+著	zhao	zhu	改	「著」读 zhu
+著	zhe	zhu	改	「著」读 zhu
+葵涌	kui yong	kui chong	改	香港葵涌读 chong
+藏文	cang wen	zang wen	改	「藏」在西藏、藏族义里读 zang
+藏红花	cang hong hua	zang hong hua	改	「藏」在西藏、藏族义里读 zang
+藏语	cang yu	zang yu	改	「藏」在西藏、藏族义里读 zang
+血淋淋	xue lin lin	xie lin lin	不确定	没判到，留人工
+血肠	xue chang	xie chang	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+行商	xing shang	hang shang	改	行商（商行）读 hang
+西藏	xi cang	xi zang	改	「藏」在西藏、藏族义里读 zang
+要著	yao zhe	yao zhu	不确定	要著太生僻，读法无把握，留人工
+说	yue	shui	不确定	单字「说」的读法（shuo/shui/yue）要看用例，留人工
+说客	shuo ke	shui ke	改	说客读 shui ke
+谁	shui	shei	改	「谁」按《现汉》主读 shei（shui 是又读）
+谁知道	shui zhi dao	shei zhi dao	改	「谁」按《现汉》主读 shei（shui 是又读）
+轧制	ya zhi	zha zhi	改	「轧」在轧钢义里读 zha
+还乡	hai xiang	huan xiang	改	「还」在归还义里读 huan
+还给	hai gei	huan gei	改	「还」在归还义里读 huan
+还贷	hai dai	huan dai	改	「还」在归还义里读 huan
+送还	song hai	song huan	改	「还」在归还义里读 huan
+重围	zhong wei	chong wei	改	「重」在这里是「再一次」，读 chong
+重庆	zhong qing	chong qing	不确定	没判到，留人工
+重建	zhong jian	chong jian	改	「重」在这里是「再一次」，读 chong
+重振	zhong zhen	chong zhen	改	「重」在这里是「再一次」，读 chong
+重提	zhong ti	chong ti	改	「重」在这里是「再一次」，读 chong
+重整	zhong zheng	chong zheng	改	「重」在这里是「再一次」，读 chong
+重温	zhong wen	chong wen	改	「重」在这里是「再一次」，读 chong
+重现	zhong xian	chong xian	改	「重」在这里是「再一次」，读 chong
+重聚	zhong ju	chong ju	改	「重」在这里是「再一次」，读 chong
+重装	zhong zhuang	chong zhuang	改	「重」在这里是「再一次」，读 chong
+重返	zhong fan	chong fan	改	「重」在这里是「再一次」，读 chong
+钥	yao	yue	改	「钥」在钥匙义里读 yao
+露头	lu tou	lou tou	改	「露」在露面/露馅这类口语义里读 lou
+露富	lu fu	lou fu	改	「露」在露面/露馅这类口语义里读 lou
+露底	lu di	lou di	改	「露」在露面/露馅这类口语义里读 lou
+露白	lu bai	lou bai	改	「露」在露面/露馅这类口语义里读 lou
+露肩	lu jian	lou jian	改	「露」在露面/露馅这类口语义里读 lou
+露背	lu bei	lou bei	改	「露」在露面/露馅这类口语义里读 lou
+露脸	lu lian	lou lian	改	「露」在露面/露馅这类口语义里读 lou
+露面	lu mian	lou mian	改	「露」在露面/露馅这类口语义里读 lou
+露馅儿	lu xian er	lou xian r	改	「露」在露面/露馅这类口语义里读 lou
+露马脚	lu ma jiao	lou ma jiao	改	「露」在露面/露馅这类口语义里读 lou
+马圈	ma quan	ma juan	改	马圈（马厩）读 juan，不是地名
+验血	yan xue	yan xie	不改	「血」按普通话审音表读 xue；xie 是口语/台湾读法，不采纳
+高丽参	gao li can	gao li shen	改	高丽参读 shen
+鸠摩罗什	jiu mo luo shen	jiu mo luo shi	改	鸠摩罗什读 Jiu mo luo shi
