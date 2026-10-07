@@ -4,15 +4,15 @@
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSButton, NSColor, NSPopUpButton, NSSecureTextField, NSTextField};
+use objc2_app_kit::{NSButton, NSColor, NSFont, NSPopUpButton, NSSecureTextField, NSTextField};
 use objc2_foundation::NSString;
 use qingjian_cloud_mac::CloudStatus;
 use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
 
 use crate::preferences::controls::{
-    button, checkbox, note, note_label, row_checkbox, row_control, row_popup, secure_field, select,
-    set_checked, text_field,
+    button, button_width, checkbox, note, note_full, note_label, row_button, row_checkbox,
+    row_control, row_popup, section, secure_field, select, set_checked, text_field,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
@@ -20,6 +20,13 @@ use crate::preferences::target::PreferencesTarget;
 
 /// 云端词槽位弹出菜单的上限（配置文件里可以填更大，菜单只列到这）。
 const MAX_CLOUD_SLOTS: usize = 4;
+
+/// 状态块那一行：比说明字大一点、正常颜色，一眼能看出开没开通。
+fn state_label(mtm: MainThreadMarker, text: &str) -> Retained<NSTextField> {
+    let label = NSTextField::labelWithString(&NSString::from_str(text), mtm);
+    label.setFont(Some(&NSFont::systemFontOfSize(13.0)));
+    label
+}
 
 pub struct CloudPage {
     /// 状态行：未开通素笺云 / 已开通 · 同步中 / 已暂停。
@@ -30,6 +37,9 @@ pub struct CloudPage {
 
     /// 上一次操作的提示（加入失败、已清空等）；没有时是空串。
     hint: Retained<NSTextField>,
+
+    /// 未开通那两颗按钮下面的说明；开通后收起来。
+    join_hint: Retained<NSTextField>,
 
     /// 没开通时才显示的两颗按钮。
     create: Retained<NSButton>,
@@ -94,26 +104,35 @@ struct CustomRows {
 impl CloudPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
         // 状态
-        let state = note_label(layout, mtm, "…");
-        let device = note_label(layout, mtm, "");
-        let hint = note_label(layout, mtm, "");
+        section(layout, mtm, "状态");
+        let state = state_label(mtm, "…");
+        layout.place(&state, PAGE_PADDING, layout.inner_width(), 20.0);
+        layout.next_row(20.0);
+        let device = note_full(layout, mtm, "");
+        let hint = note_full(layout, mtm, "");
         hint.setTextColor(Some(&NSColor::systemRedColor()));
+
         let create = button(mtm, "开通素笺云", Setting::CloudCreateSpace, target);
         let join = button(mtm, "输入匹配码加入…", Setting::CloudJoinWithCode, target);
-        layout.place(&create, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        let create_w = button_width("开通素笺云");
+        let join_w = button_width("输入匹配码加入…");
+        layout.place(&create, PAGE_PADDING, create_w, ROW_HEIGHT + 4.0);
+        layout.place(
+            &join,
+            PAGE_PADDING + create_w + 10.0,
+            join_w,
+            ROW_HEIGHT + 4.0,
+        );
         layout.next_row(ROW_HEIGHT + 4.0);
-        layout.place(&join, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
-        let unbind = button(mtm, "解绑这台 Mac", Setting::CloudUnbind, target);
-        layout.place(&unbind, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
-        note(
+        let join_hint = note_full(
             layout,
             mtm,
             "手机上已经开通的话走「输入匹配码加入」：手机上「我 → 素笺云服务 → 添加一台设备」出码，这里输码，手机上点允许。",
         );
+        let unbind = row_button(layout, mtm, "解绑这台 Mac", Setting::CloudUnbind, target);
 
-        // 功能开关（名字与 iOS 的功能清单一字一致）
+        // 功能（名字与 iOS 的功能清单一字一致）
+        section(layout, mtm, "功能");
         let memory = checkbox(
             mtm,
             "云端记忆（把记下的素材整理成卡）",
@@ -121,14 +140,14 @@ impl CloudPage {
             target,
         );
         row_checkbox(layout, &memory);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "记下的素材先在本机抹去姓名、电话、地址等再上传，交给云端整理成卡；关掉会同时删除服务器上的素材。",
         );
         let input_log = checkbox(mtm, "同步打字内容", Setting::CloudInputLog, target);
         row_checkbox(layout, &input_log);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "打的字上传到素笺的服务器，用来优化输入法；密码、验证码这类输入框不会记录。",
@@ -137,54 +156,62 @@ impl CloudPage {
         row_checkbox(layout, &sync_switch);
         let clipboard = checkbox(mtm, "跨设备剪贴板", Setting::CloudClipboard, target);
         row_checkbox(layout, &clipboard);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "本机复制的文本传到别的设备，别的设备复制的写进本机剪贴板。",
         );
         let llm = checkbox(mtm, "大模型（润色、云联想）", Setting::CloudLlm, target);
         row_checkbox(layout, &llm);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "改写选中或整句，组句时联想整句与云端候选；走素笺云自己的服务器，不用填密钥。",
         );
 
         // 同步
-        let sync_state = note_label(layout, mtm, "");
+        section(layout, mtm, "同步");
+        let sync_state = note_full(layout, mtm, "");
         let pause = button(mtm, "暂停同步", Setting::CloudPause, target);
         let sync_now = button(mtm, "立即同步学习数据", Setting::CloudSyncNow, target);
-        layout.place(&pause, PAGE_PADDING, 160.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
-        layout.place(&sync_now, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
+        let pause_w = button_width("暂停同步");
+        let sync_w = button_width("立即同步学习数据");
+        layout.place(&pause, PAGE_PADDING, pause_w, ROW_HEIGHT + 4.0);
+        layout.place(
+            &sync_now,
+            PAGE_PADDING + pause_w + 10.0,
+            sync_w,
+            ROW_HEIGHT + 4.0,
+        );
         layout.next_row(ROW_HEIGHT + 4.0);
 
         // 数据
-        let clear_log = button(
+        section(layout, mtm, "数据");
+        let clear_log = row_button(
+            layout,
             mtm,
             "清空云端输入记录…",
             Setting::CloudClearInputLog,
             target,
         );
-        layout.place(&clear_log, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。",
         );
 
         // 高级
+        section(layout, mtm, "高级");
         let local_model = checkbox(mtm, "本地整句模型", Setting::LocalModelEnabled, target);
         row_checkbox(layout, &local_model);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "随包的小模型在本机给整句候选重新排序，全程离线；停键后几十毫秒生效。关掉只用词库统计。",
         );
         let enabled = checkbox(mtm, "启用云联想", Setting::CloudEnabled, target);
         row_checkbox(layout, &enabled);
-        note(
+        let _ = note_full(
             layout,
             mtm,
             "开启后组句时把光标附近的几十个字发给大模型，补全整句、联想下文；密码框里绝不发送。",
@@ -232,10 +259,8 @@ impl CloudPage {
             mtm,
             "文本框按回车保存。密钥只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。",
         );
-        let test = button(mtm, "测试连接", Setting::TestCloud, target);
-        layout.place(&test, PAGE_PADDING, 120.0, ROW_HEIGHT + 4.0);
-        layout.next_row(ROW_HEIGHT + 4.0);
-        note(
+        let test = row_button(layout, mtm, "测试连接", Setting::TestCloud, target);
+        let _ = note_full(
             layout,
             mtm,
             "按当前的服务发一条最小请求，结果显示在窗口底部。输入法进程看不到终端里的代理变量，走不通时先查这个。",
@@ -245,6 +270,7 @@ impl CloudPage {
             state,
             device,
             hint,
+            join_hint,
             create,
             join,
             unbind,
@@ -298,6 +324,7 @@ impl CloudPage {
         self.unbind.setHidden(!status.signed_in);
         self.create.setHidden(status.signed_in);
         self.join.setHidden(status.signed_in);
+        self.join_hint.setHidden(status.signed_in);
         // 正在等另一台设备允许时，两颗按钮都灰掉（别让人重复点）
         self.create.setEnabled(!status.joining);
         self.join.setEnabled(!status.joining);
