@@ -195,6 +195,18 @@ impl Engine {
         self.convert_sentence_with(patterns, typos, false)
     }
 
+    /// 只要静态最优的那条，不重排：拼写纠错拿它的分与原样比（门槛按静态尺度定），重排换上来的那条分更低、比出来就不对；
+    /// 纠错对每个纠正候选都转一次，每次换一种按键条件，同步打分器下逐个重排要好几秒（`helange` 6.8 s）。
+    pub(in crate::engine) fn convert_sentence_static(
+        &self,
+        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        typos: bool,
+    ) -> Option<Conversion> {
+        self.paths(patterns, typos, false, 1, false)
+            .into_iter()
+            .next()
+    }
+
     /// 同 [`Self::convert_sentence`]，`whole` 为真时末尾单字母也读（[`sentence::convert_whole`]），只给比分用。
     /// 接了神经重打分器时取前 [`RESCORE_PATHS`] 条路径，按「路径分 + λ·(神经分 − 静态分)」重排（[`Self::rescore_paths`]）：
     /// 神经分替换的是静态二元模型那部分判断，个人 n-gram 插值、用户加分、敲错代价原样保留。
@@ -219,9 +231,21 @@ impl Engine {
         whole: bool,
         want: usize,
     ) -> Vec<Conversion> {
+        self.paths(patterns, typos, whole, want, true)
+    }
+
+    /// [`Self::sentence_paths`] 与 [`Self::convert_sentence_static`] 的共同实现，`rescore` 为假时不取备选、不重排。
+    fn paths(
+        &self,
+        patterns: &[qingjian_dictionary::SyllablePattern<'_>],
+        typos: bool,
+        whole: bool,
+        want: usize,
+        rescore: bool,
+    ) -> Vec<Conversion> {
         let dictionaries = self.all_dictionaries();
         let expanded = self.expand_positions(patterns, typos);
-        let k = if self.has_sentence_scorer() {
+        let k = if rescore && self.has_sentence_scorer() {
             RESCORE_PATHS.max(want)
         } else {
             want
@@ -240,7 +264,7 @@ impl Engine {
         // 静态最优路径整段就是一个词时不重排：「整段本来就是一个词」归词级排序与纠错判断（`plain_sentence` 据此不出整句），
         // 重排把多词拆分换到第一条会绕过那道关、挤掉词级首选（`enngli` 能力 → 恩能力、`shihou` 时候 → 是后）
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
-        if paths.len() > 1 && paths[0].word_count() > 1 {
+        if rescore && paths.len() > 1 && paths[0].word_count() > 1 {
             let floor = paths[0].score - self.neural_margin;
             paths.retain(|p| p.score >= floor);
             // 条件是这批路径共同解释的那段按键，不是整个作用域：英文尾巴那条只转换了 head，

@@ -213,3 +213,38 @@ fn a_readable_sentence_gets_the_generated_one_as_the_runner_up() {
     let items = engine.query().unwrap().candidates.items;
     assert!(items.iter().all(|c| c.kind != CandidateKind::Generated));
 }
+
+/// 记下每次打分的按键条件。
+struct RecordsKeys(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
+
+impl SentenceScorer for RecordsKeys {
+    fn score(&self, _context: &str, keys: &str, texts: &[&str]) -> Vec<f64> {
+        self.0.lock().unwrap().push(keys.to_owned());
+        texts.iter().map(|_| -1.0).collect()
+    }
+}
+
+/// 拼写纠错比分只看静态最优路径、不重排：每个纠正候选换一种按键条件，逐个重排在同步打分器下要好几秒（`helange` 6.8 s），
+/// 而且重排换上来的那条静态分更低，拿它与原样比门槛就不对了。
+#[test]
+fn spelling_correction_compares_static_paths_without_rescoring() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n一起\tyi qi\t80000\n去\tqu\t70000\n我\two\t90000\n们\tmen\t100\n\
+         摸\tmo\t100\n呢\tne\t100\n么\tme\t100\n一齐\tyi qi\t5000\n区\tqu\t5000\n",
+    )
+    .unwrap();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(RecordsKeys(seen.clone())),
+        Some(0.5),
+        None,
+        None,
+    );
+    engine.set_input("womneyiqiqu");
+    let query = engine.query().unwrap();
+    assert!(query.correction.is_some(), "这条要走拼写纠错");
+    let conditions: std::collections::HashSet<String> =
+        seen.lock().unwrap().iter().cloned().collect();
+    // 只有展示的那条整句会重排（纠正后的一种按键条件），不是每个纠正候选一种
+    assert!(conditions.len() <= 1, "重排了 {conditions:?}");
+}
