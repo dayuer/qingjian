@@ -46,7 +46,13 @@ struct MeView: View {
                         NavigationLink {
                             SpaceEntryView(store: space)
                         } label: {
-                            LabeledContent(Self.cloudTitle, value: Self.cloudStatus(signedIn: space.signedIn))
+                            // 设计稿 2j：标题下一行小字写状态，不放在行尾
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(Self.cloudTitle)
+                                Text(Self.cloudStatus(signedIn: space.signedIn))
+                                    .font(AppFont.font(size: 12.5))
+                                    .foregroundStyle(Theme.ink3)
+                            }
                         }
                     }
                     Section {

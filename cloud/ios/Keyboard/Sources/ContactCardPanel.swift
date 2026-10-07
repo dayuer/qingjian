@@ -20,7 +20,9 @@ struct ContactCardPanel: View {
                             .foregroundStyle(Theme.ink3)
                     }
                 }
-                .padding(.bottom, 10)
+                .padding(.horizontal, 2)
+                .padding(.top, 2)
+                .padding(.bottom, 12)
                 if model.panelCards.isEmpty {
                     Text("还没有记下这个人的事")
                         .font(.system(size: 14))
@@ -45,19 +47,19 @@ struct ContactCardPanel: View {
             .padding(.horizontal, 2)
         }
         .padding(.horizontal, 12)
-        .padding(.top, 10)
+        .padding(.top, 12)
         .padding(.bottom, 6)
     }
 
     private var cards: some View {
         VStack(spacing: 0) {
             ForEach(Array(model.panelCards.enumerated()), id: \.element.id) { index, card in
-                if index > 0 { Divider().padding(.leading, 14) }
+                if index > 0 { Rectangle().fill(Hairline.row).frame(height: 1) }
                 row(card)
             }
         }
         .background(RoundedRectangle(cornerRadius: 14).fill(KeyStyle.keyFill))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Hairline.ring, lineWidth: 1))
     }
 
     private func row(_ card: MemoryCard) -> some View {
@@ -66,8 +68,8 @@ struct ContactCardPanel: View {
             Text(date ?? card.kind.title)
                 .font(SerifFont.font(size: 13, weight: .semibold))
                 .foregroundStyle(date == nil ? Theme.ink3 : Theme.accentInk.color)
-                .frame(width: 44)
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 48)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(card.text).font(.system(size: 15)).lineLimit(1)
                 if !card.subtitle.isEmpty {
                     Text(card.subtitle).font(.system(size: 12.5)).foregroundStyle(Theme.ink3).lineLimit(1)
@@ -76,6 +78,7 @@ struct ContactCardPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 14)
+        // 设计稿 .row 上下 12；键盘里这块要塞进提示行 + 键区的高度，三条带副标题的卡放不下，取 8
         .padding(.vertical, 8)
     }
 }

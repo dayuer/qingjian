@@ -114,7 +114,7 @@ struct ContactDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(contact.name).font(AppFont.font(size: 26, weight: .semibold))
                 Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count))
-                    .font(AppFont.font(size: 12.5, weight: .semibold))
+                    .font(AppFont.font(size: 12.5))
                     .foregroundStyle(Theme.ink3)
             }
         }
@@ -145,11 +145,9 @@ struct ContactDetailView: View {
             }
             .contentShape(Rectangle())
         } else {
+            // 设计稿 .mem 只在有话可说时（「覆盖了『喜欢猫』」，2C 才有）写 meta；种类已经是小节标题，不重复
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.text).font(AppFont.font(size: 15)).lineSpacing(3)
-                Text(MemoryDetailText.meta(kind: card.kind, source: card.source))
-                    .font(AppFont.font(size: 11.5))
-                    .foregroundStyle(Theme.ink3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())

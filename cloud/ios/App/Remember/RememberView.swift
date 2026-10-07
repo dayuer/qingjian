@@ -124,6 +124,7 @@ struct RememberView: View {
             }
         }
         .font(AppFont.font(size: 12, weight: .medium))
+        .tracking(0.5)
         .foregroundStyle(Theme.ink3)
         .padding(.horizontal, 20)
     }
@@ -138,7 +139,8 @@ struct RememberView: View {
                     .padding(.horizontal, 14)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ForEach(current.events) { event in
+                ForEach(Array(current.events.enumerated()), id: \.element.id) { index, event in
+                    if index > 0 { rowLine }
                     eventRow(event)
                 }
             }
@@ -152,10 +154,12 @@ struct RememberView: View {
                 Text(event.title)
                     .font(AppFont.font(size: 15))
                     .foregroundStyle(Theme.ink)
-                Text(event.subtitle)
-                    .font(AppFont.font(size: 12.5))
-                    .foregroundStyle(Theme.ink3)
-                    .lineLimit(2)
+                if !event.subtitle.isEmpty {
+                    Text(event.subtitle)
+                        .font(AppFont.font(size: 12.5))
+                        .foregroundStyle(Theme.ink3)
+                        .lineLimit(2)
+                }
             }
             Spacer(minLength: 8)
             tag(event)
@@ -174,7 +178,7 @@ struct RememberView: View {
     @ViewBuilder
     private func avatar(_ event: DayEvent) -> some View {
         if let contact = event.contact {
-            MemoryAvatar(name: contact.name, size: 34, font: AppFont.font(size: 34 * 0.4, weight: .medium))
+            MemoryAvatar(name: contact.name, size: 34, font: AppFont.font(size: 15, weight: .medium))
         } else {
             Text(event.avatarText)
                 .font(AppFont.font(size: 15, weight: .medium))
@@ -200,11 +204,12 @@ struct RememberView: View {
             }
             .buttonStyle(.plain)
         } else {
+            // 设计稿 .pill：浅灰实底、ink-2 字，不描边
             text
                 .foregroundStyle(ColorUsage.eventKindTag.role.color)
                 .padding(.horizontal, 8)
                 .frame(height: 20)
-                .overlay(Capsule().strokeBorder(Color(.separator)))
+                .background(Capsule().fill(Theme.paper2))
         }
     }
 
@@ -219,7 +224,8 @@ struct RememberView: View {
                     .padding(.horizontal, 14)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ForEach(items) { item in
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { rowLine }
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.title).font(AppFont.font(size: 15))
@@ -245,7 +251,7 @@ struct RememberView: View {
             ZStack(alignment: .top) {
                 // 串起节点的横线（设计稿定位在圆点中线）
                 Rectangle()
-                    .fill(Color(.separator))
+                    .fill(Hairline.line)
                     .frame(height: 1)
                     .padding(.horizontal, 28)
                     .padding(.top, 6)
@@ -263,7 +269,7 @@ struct RememberView: View {
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(.separator)))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Hairline.ring))
         )
         .padding(.horizontal, 16)
     }
@@ -275,7 +281,7 @@ struct RememberView: View {
                 .foregroundStyle(
                     milestone.earned
                         ? ColorUsage.milestoneEarned.role.color
-                        : ColorUsage.milestoneNext.role.color)
+                        : ColorUsage.milestoneNextDot.role.color)
                 .background(
                     Circle()
                         .frame(width: 20, height: 20)
@@ -301,6 +307,11 @@ struct RememberView: View {
         return "\(parts.month ?? 0).\(parts.day ?? 0)"
     }
 
+    /// 卡片组里行与行之间的细线（设计稿 `.row` 的下沿）。
+    private var rowLine: some View {
+        Rectangle().fill(Hairline.row).frame(height: 1)
+    }
+
     /// 设计稿的 `.group`：白底、圆角 14、一圈细线，行与行之间细分隔线。
     private func group<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) {
@@ -309,7 +320,7 @@ struct RememberView: View {
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(.separator)))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Hairline.ring))
         )
         .padding(.horizontal, 16)
     }

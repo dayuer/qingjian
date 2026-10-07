@@ -50,7 +50,7 @@ struct ContactEditor: View {
                     .padding(.top, 8)
                 Text("只保存在这台手机上。")
                     .font(AppFont.font(size: 12.5))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.ink3)
                     .padding(.top, 8)
                 label("提示里怎么称呼").padding(.top, 20)
                 MemoryPronounPicker(selection: $pronoun).padding(.top, 8)
@@ -72,14 +72,14 @@ struct ContactEditor: View {
     }
 
     private func label(_ text: String) -> some View {
-        Text(text).font(AppFont.font(size: 12, weight: .medium)).foregroundStyle(.secondary)
+        Text(text).font(AppFont.font(size: 12, weight: .medium)).foregroundStyle(Theme.ink3)
     }
 
     /// 设计稿的 .group：白底圆角、行间细线，左边灰字标题，右边填的内容。
     private var facts: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("生日").foregroundStyle(.secondary)
+                Text("生日").foregroundStyle(Theme.ink3)
                 Spacer()
                 if hasBirthday {
                     DatePicker("生日", selection: $birthday, displayedComponents: .date)
@@ -97,29 +97,33 @@ struct ContactEditor: View {
                 }
             }
             .frame(minHeight: 44)
-            Divider()
+            rowLine
             factRow("喜欢", text: $likes, prompt: "比如：冰美式")
-            Divider()
+            rowLine
             factRow("不喜欢", text: $dislikes, prompt: "比如：香菜")
-            Divider()
-            TextField("+ 再写一条", text: $extra)
+            rowLine
+            TextField("", text: $extra, prompt: Text("+ 再写一条").foregroundStyle(Theme.accentInk.color))
                 .frame(minHeight: 44)
         }
         .font(AppFont.font(size: 15))
         .padding(.horizontal, 14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(.separator).opacity(0.5)))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Hairline.ring))
+    }
+
+    private var rowLine: some View {
+        Rectangle().fill(Hairline.row).frame(height: 1)
     }
 
     private func factRow(_ title: String, text: Binding<String>, prompt: String) -> some View {
         HStack {
-            Text(title).foregroundStyle(.secondary)
+            Text(title).foregroundStyle(Theme.ink3)
             TextField(prompt, text: text).multilineTextAlignment(.trailing)
         }
         .frame(minHeight: 44)
     }
 
-    /// 底部大按钮（设计稿 .btn.lg）：中性色实底，保存中换成「正在保存」。
+    /// 底部大按钮（设计稿 .btn.lg.acc）：灰绿实底、ink 字，保存中换成「正在保存」。
     private var doneButton: some View {
         Button(action: save) {
             Group {
@@ -130,7 +134,8 @@ struct ContactEditor: View {
                 }
             }
             .font(AppFont.font(size: 16, weight: .medium))
-            .foregroundStyle(ColorRole.accent.color)
+            // 设计稿 .btn.acc：灰绿实底、ink 字
+            .foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity, minHeight: 50)
             .background(ColorUsage.addContactDone.role.color, in: Capsule())
         }

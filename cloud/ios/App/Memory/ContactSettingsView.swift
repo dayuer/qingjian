@@ -115,10 +115,12 @@ struct ContactSettingsView: View {
             ShareLink(item: store.exportText(contactId)) {
                 Label("导出记忆", systemImage: "square.and.arrow.up")
             }
-            .foregroundStyle(ColorUsage.contactSettingsButton.role.color)
+            .foregroundStyle(ColorUsage.exportLink.role.color)
         }
         Section {
-            Button("忘掉这个人", role: .destructive) { confirmingForget = true }
+            // 设计稿没有红色：入口是 ink 字，真正的确认在底部弹层
+            Button("忘掉这个人") { confirmingForget = true }
+                .foregroundStyle(Theme.ink)
                 .frame(maxWidth: .infinity)
         }
     }

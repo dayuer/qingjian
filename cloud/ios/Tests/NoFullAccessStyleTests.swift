@@ -43,8 +43,10 @@ final class NoFullAccessStyleTests: XCTestCase {
              .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink, .onboardingProgress,
              .onboardingCurrentPlan, .onboardingPlanBadge,
              // 首页「记得」（02 的 2a）：日历选中那天、功勋路的下一站、事件行可点的动作标记、「+ 记一条」
-             .calendarSelectedDay, .milestoneNext, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
+             .calendarSelectedDay, .milestoneNext, .milestoneNextDot, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
              .quickNoteButton,
+             // 对象详情右上「设置」与改一条的「存好」（02 的 1b / 1c：App 照设计稿用 --accent-ink）
+             .contactSettingsButton, .editorConfirm,
              // 记一笔的草稿卡与冲突屏（01 的 1e-2 / 1e-3）：冲突屏新卡那圈描边与「新的」标签
              .conflictNewRing, .conflictNewLabel,
              // 通讯录行尾的事件提示（02 的 2b：关于某个人的事，用浅绿字）
@@ -58,13 +60,15 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(ColorUsage.cardNotice.role, .ink2)
     }
 
-    /// App 的「键盘记住的事」：加人、记一条、存好、设置这些控件，以及读写失败的提示都是中性色，只有今天的提醒卡（关于某个人）用灰绿底。
+    /// App 的「键盘记住的事」：加人、记一条、导出这些控件，以及读写失败的提示都是中性色，只有今天的提醒卡（关于某个人）用灰绿底。
     func testMemoryAppControlsAreNeutral() {
-        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner,
+        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .exportLink, .cloudIntroLink, .failureBanner,
                       .materialsCloudLink, .materialsNudge] {
             XCTAssertEqual(usage.role, .ink, "\(usage)")
         }
         XCTAssertEqual(ColorUsage.materialDelete.role, .ink2, "「待整理」设计稿没画，原话不是卡，一律中性色")
+        XCTAssertEqual(ColorUsage.editorCancel.role, .ink2, "改一条的「取消」是 .btn.ghost")
+        XCTAssertEqual(ColorUsage.draftUnsure.role, .ink3, "草稿卡拿不准的说明与虚线是 --ink-3")
         XCTAssertEqual(ColorUsage.reminderCard.role, .accentSoft)
         XCTAssertEqual(ColorUsage.reminderDay.role, .accent)
     }

@@ -18,8 +18,11 @@ enum ColorRole: Equatable {
     /// 系统 label。
     case ink
 
-    /// 系统 secondaryLabel。
+    /// 次要文字（设计稿 --ink-2）。
     case ink2
+
+    /// 更淡的说明（设计稿 --ink-3）。
+    case ink3
 
     var color: Color {
         switch self {
@@ -29,6 +32,7 @@ enum ColorRole: Equatable {
         case .neutralSoft: Color.secondary.opacity(0.12)
         case .ink: Theme.ink
         case .ink2: Theme.ink2
+        case .ink3: Theme.ink3
         }
     }
 

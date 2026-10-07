@@ -18,7 +18,7 @@ struct MemoryPronounPicker: View {
                         .frame(height: 32)
                         .foregroundStyle(on ? Color(.systemBackground) : ColorUsage.cardNotice.role.color)
                         .background(on ? ColorUsage.editorSave.role.color : .clear, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: on ? 0 : 1))
+                        .overlay(Capsule().strokeBorder(Hairline.line, lineWidth: on ? 0 : 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(on ? .isSelected : [])

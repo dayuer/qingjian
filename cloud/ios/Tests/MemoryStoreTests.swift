@@ -124,7 +124,7 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertEqual(store.upcoming(within: 3, now: now).map(\.card.text), ["生日"])
         XCTAssertEqual(store.upcoming(within: 6, now: now).map(\.card.text), ["生日", "看电影"])
         XCTAssertEqual(store.upcoming(within: 6, now: now).first?.text, "明天是TA的生日")
-        XCTAssertEqual(store.upcoming(within: 6, now: now).last?.dayLabel, "5 天后 · 10-09")
+        XCTAssertEqual(store.upcoming(within: 6, now: now).last?.dayLabel, "5 天后 · 10.09")
     }
 
     func testUpcomingCardTitles() async {
@@ -136,7 +136,7 @@ final class MemoryStoreTests: XCTestCase {
         XCTAssertEqual(birthday.card.monthDay(now: now), "10.05")
         let movie = MemoryUpcoming(
             contact: person(), card: MemoryCard.new(kind: .promise, text: "看电影", when: "2026-10-07", keywords: []), days: 3)
-        XCTAssertEqual(movie.title, "小美 · 看电影")
+        XCTAssertEqual(movie.title, "看电影")
         XCTAssertEqual(movie.shortDay, "3 天后")
         XCTAssertNil(MemoryCard.new(kind: .other, text: "x", when: "2026-10-07", keywords: []).monthDay(now: now))
     }
