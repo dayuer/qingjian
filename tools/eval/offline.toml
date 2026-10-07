@@ -1,0 +1,5 @@
+# 评测 / 回归用的干净配置：把联网与云联想关掉，免得 CLI 吃用户本机的 config.toml
+# （用户开着素笺云时，不带这个跑 --eval-text 会因为取不到 API 密钥直接报错退出）。
+# 用法见 docs/plan/dictionary-layering.md 第 5 节。
+[predict]
+enabled = false
