@@ -39,6 +39,8 @@ struct RememberView: View {
             }
             .background(Color(.systemBackground))
             .toolbar(.hidden, for: .navigationBar)
+            // 导航栏是隐藏的，这个标题只给下一页当返回字（对象详情的「‹ 记得」）
+            .navigationTitle("记得")
             .navigationDestination(for: MemoryRoute.self) { route in
                 switch route {
                 case .contact(let id): ContactDetailView(store: store, contactId: id)

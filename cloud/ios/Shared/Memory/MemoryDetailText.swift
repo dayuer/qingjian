@@ -27,6 +27,11 @@ enum MemoryDetailText {
         }
     }
 
+    /// 没日子的卡下面的灰字：「喜好 · 你写的」，云端卡只写种类。
+    static func meta(kind: MemoryCard.Kind, source: String?) -> String {
+        [kind.title, HintText.sourceLabel(for: source)].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// 改一条里「到哪天」那一行右边的说明，只写真有的行为：日子与约定都在键盘提示行里提前 3 天起提醒（选中这个人时），
     /// 设计稿写的「前一天提醒」与实情不符，照实写（UI 清单约束 7）；这个人关了「日子提醒」时不写。
     static func reminderNote(kind: MemoryCard.Kind, contact: MemoryContact?) -> String? {
