@@ -27,6 +27,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/performance.md](notes/performance.md) | 历次性能优化：起因、定位方法、改法、数字前后对比与经验 |
 | [notes/release.md](notes/release.md) | 发版流程：CHANGELOG、标签触发的 CI 打包、产品数据包、签名公证的 Secrets、官网用的 `releases.json` |
 | [notes/model-identities.md](notes/model-identities.md) | 含章·通变与含章·知微的正式名称和检查点编号 |
+| [notes/eval-data.md](notes/eval-data.md) | 评测数据与口径（2026-10-08）：主语料 / 留出集 / 外部集（CrossWOZ，Apache-2.0）各是什么、来源许可、哪些数能调参哪些只能验收、怎么生成 |
 | [notes/lexicon-benchmark.md](notes/lexicon-benchmark.md) | 词库构建体系对标：Mozc / libime / Rime / 搜狗讯飞的公开做法，开源数据源许可，与青简现状的差距清单 |
 | [notes/phrase-layer.md](notes/phrase-layer.md) | 短语层（2026-09-12）：常用词表收不到的 我的 / 不知道 怎么从语料挖、怎么进语言模型而不伤整句、两把尺子的前后数字 |
 | [notes/domain-words.md](notes/domain-words.md) | 领域词（2026-09-12）：从输入日志人工挑 48 条进基础词库的挑法、低频词当 token 统计为什么伤整句、两把尺子的前后数字 |
