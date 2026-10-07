@@ -21,6 +21,7 @@
 """
 
 import argparse
+import hashlib
 import re
 import sys
 from collections import Counter
@@ -71,6 +72,13 @@ def flatten(value):
         yield from flatten(item)
 
 
+def dialog_key(value) -> str:
+    """一整段对话的哈希：同一段对话出现两次（LCCC 里很多）只留一份。"""
+    turns = [t.strip() for t in flatten(value) or [] if t and t.strip()]
+    digest = hashlib.blake2b("\n".join(turns).encode("utf-8"), digest_size=8)
+    return digest.hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("inputs", nargs="+", help="parquet 文件")
@@ -79,6 +87,8 @@ def main() -> None:
     parser.add_argument("--min-chars", type=int, default=2, help="短于此的段落丢掉")
     parser.add_argument("--min-han", type=int, default=1, help="汉字少于这个数的段落丢掉（维基的表格碎片靠它挡）")
     parser.add_argument("--report", help="清洗统计写到这个文件（缺省只打 stderr）")
+    parser.add_argument("--dialog-hash", action="store_true",
+                        help="每行前面加「整段对话的哈希+轮次」（对话语料去重用：整段重复的对话只留一份）")
     args = parser.parse_args()
 
     converter = OpenCC("t2s")
@@ -90,7 +100,8 @@ def main() -> None:
             table = pq.ParquetFile(path)
             for batch in table.iter_batches(columns=[args.column], batch_size=2048):
                 for value in batch.column(args.column).to_pylist():
-                    for line in flatten(value):
+                    key = dialog_key(value) if args.dialog_hash else ""
+                    for turn, line in enumerate(flatten(value) or []):
                         line = SPACES.sub(" ", line).strip()
                         if len(line) < args.min_chars or len(HAN.findall(line)) < args.min_han:
                             dropped[f"太短或汉字少于 {args.min_han}"] += 1
@@ -103,8 +114,11 @@ def main() -> None:
                             if len(bucket) < SAMPLE_COUNT:
                                 bucket.append(line[:80])
                             continue
-                        out.write(line)
-                        out.write("\n")
+                        if args.dialog_hash:
+                            out.write(f"{key}\t{turn}\t{line}\n")
+                        else:
+                            out.write(line)
+                            out.write("\n")
                         kept += 1
             print(f"{path}: 累计保留 {kept} 段", file=sys.stderr)
 
