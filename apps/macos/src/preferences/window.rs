@@ -20,8 +20,8 @@ use super::target::PreferencesTarget;
 use crate::host::DictionaryInfo;
 
 /// 每页顶部留白、页面最低高度（矮页也撑到这个高度，切页时窗口不跳）。
-const PAGE_TOP: f64 = 18.0;
-const MIN_PAGE_HEIGHT: f64 = 250.0;
+const PAGE_TOP: f64 = 10.0;
+const MIN_PAGE_HEIGHT: f64 = 200.0;
 
 /// 标签视图四周留白、底部状态行高度。
 const TAB_MARGIN: f64 = 14.0;
@@ -62,6 +62,12 @@ pub struct PreferencesWindow {
     /// 「云服务」页在标签里的下标。
     cloud_tab: usize,
 
+    /// 「云服务」页的承载视图与布局记录；高度随状态变，要按内容重摆（见 [`Self::fit_cloud_page`]）。
+    cloud_pane: Option<CloudPane>,
+
+    /// 标签页区的高度（各页都按它封顶，云服务页收起后也不矮过它）。
+    page_height: f64,
+
     /// 「高级」页。
     advanced: AdvancedPage,
 
@@ -80,6 +86,19 @@ pub struct PreferencesWindow {
 
 /// 一页：标题、布局器、承载视图。
 type Page = (&'static str, Layout, Retained<NSView>);
+
+/// 「云服务」页的承载视图、布局记录与滚动视图；内容高度会变，重摆时三样都要。
+struct CloudPane {
+    view: Retained<NSView>,
+
+    /// 布局记录；重摆要按新的总高度再算一遍 frame。
+    layout: Layout,
+
+    scroll: Retained<NSScrollView>,
+
+    /// 一块都不藏时的高度（云服务页刚建出来时的内容高度）。
+    full_height: f64,
+}
 
 impl PreferencesWindow {
     /// `languages` 是打进包里的释义表语言，`version` / `build` 显示在「关于」页。
@@ -139,7 +158,16 @@ impl PreferencesWindow {
         // 标签视图：先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸
         let tallest = pages
             .iter()
-            .map(|(_, layout, _)| layout.height() + PAGE_TOP)
+            .enumerate()
+            .map(|(index, (_, layout, _))| {
+                // 云服务页起手收着「高级」，按露在外面的高度算，不然窗口被它撑高一大截
+                let hidden = if index == cloud_tab {
+                    cloud.hidden_height()
+                } else {
+                    0.0
+                };
+                layout.height() + PAGE_TOP - hidden
+            })
             .fold(MIN_PAGE_HEIGHT, f64::max);
         // 设置项多了以后最高的一页会超出小屏幕，窗口底部（状态行）掉到程序坞后面：窗口封顶，超高的页放进滚动视图
         let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
@@ -157,7 +185,8 @@ impl PreferencesWindow {
             NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
             tabs_size,
         ));
-        for (title, layout, view) in pages {
+        let mut cloud_pane = None;
+        for (index, (title, layout, view)) in pages.into_iter().enumerate() {
             let own_height = (layout.height() + PAGE_TOP).max(page_height);
             view.setFrame(NSRect::new(
                 NSPoint::ZERO,
@@ -167,10 +196,25 @@ impl PreferencesWindow {
             // SAFETY: identifier 允许为空；条目随 NSTabView 活着
             let item = unsafe { NSTabViewItem::initWithIdentifier(mtm.alloc(), None) };
             item.setLabel(&NSString::from_str(title));
-            if own_height > page_height {
-                item.setView(Some(&scrolling(mtm, &view, page_height, own_height)));
-            } else {
-                item.setView(Some(&view));
+            // 云服务页的高度会随状态变（收起高级、换服务），一律放进滚动视图，收起后自己变短
+            let scroll =
+                (index == cloud_tab).then(|| scrolling(mtm, &view, page_height, own_height));
+            let scroll = scroll.or_else(|| {
+                (own_height > page_height).then(|| scrolling(mtm, &view, page_height, own_height))
+            });
+            match &scroll {
+                Some(scroll) => item.setView(Some(scroll)),
+                None => item.setView(Some(&view)),
+            }
+            if let Some(scroll) = scroll
+                && index == cloud_tab
+            {
+                cloud_pane = Some(CloudPane {
+                    view: view.clone(),
+                    layout,
+                    scroll,
+                    full_height: own_height,
+                });
             }
             tabs.addTabViewItem(&item);
         }
@@ -202,6 +246,8 @@ impl PreferencesWindow {
             cloud,
             tabs: tabs.clone(),
             cloud_tab,
+            cloud_pane,
+            page_height,
             advanced,
             usage,
             about,
@@ -272,6 +318,7 @@ impl PreferencesWindow {
             crate::app::paths::p2c_model_path().is_some()
                 || crate::app::paths::model_path().is_some(),
         );
+        self.fit_cloud_page();
         self.advanced.sync(config);
         // `notice` 里已经写好了「沿用上一份」/「已忽略」的措辞，这里原样显示
         let status = notice.unwrap_or_default();
@@ -279,14 +326,35 @@ impl PreferencesWindow {
         self.status.setStringValue(&NSString::from_str(status));
     }
 
-    /// 「云服务」页「高级」的展开三角：展开 / 收起那一组（页面高度不变，收起后下方留白）。
+    /// 「云服务」页「高级」的展开三角：展开 / 收起那一组，页面高度跟着变。
     pub fn toggle_cloud_advanced(&self) {
         self.cloud.toggle_advanced();
+        self.fit_cloud_page();
+    }
+
+    /// 云服务页按现在露在外面的内容重定高度：收起高级、换成素笺云时页面要跟着变短，
+    /// 不然下面空一截，滚动条却在（内容比窗口矮就不该能滚）。
+    fn fit_cloud_page(&self) {
+        let Some(pane) = &self.cloud_pane else {
+            return;
+        };
+        let height = (pane.full_height - self.cloud.hidden_height()).max(self.page_height);
+        pane.view
+            .setFrameSize(NSSize::new(pane.view.frame().size.width, height));
+        // 坐标原点在左下，总高度一变每个控件的 y 都要重算
+        pane.layout.finish(&pane.view, height);
+        let clip: Retained<NSClipView> = pane.scroll.contentView();
+        let top = (height - clip.bounds().size.height).max(0.0);
+        if clip.bounds().origin.y > top {
+            clip.scrollToPoint(NSPoint::new(clip.bounds().origin.x, top));
+        }
+        pane.scroll.reflectScrolledClipView(&clip);
     }
 
     /// 只刷「云服务」页的状态块与开关（云功能是独立的线程在跑，不等 config 变化）。
     pub fn sync_cloud_status(&self) {
         self.cloud.sync_status(&qingjian_cloud_mac::status());
+        self.fit_cloud_page();
     }
 
     /// 检查更新的状态变了（查完了、查到新版），只刷「关于」页。
@@ -337,9 +405,11 @@ fn scrolling(
     scroll.setHasVerticalScroller(true);
     scroll.setAutohidesScrollers(true);
     scroll.setDrawsBackground(false);
+    // 宽度跟可视区域走（经典滚动条会占掉一条），免得内容比可视区宽、带出横向滚动
+    let clip: Retained<NSClipView> = scroll.contentView();
+    page.setFrameSize(NSSize::new(clip.bounds().size.width, page_height));
     scroll.setDocumentView(Some(page));
     // 页面视图没有翻转坐标，页顶在 y 最大处
-    let clip: Retained<NSClipView> = scroll.contentView();
     clip.scrollToPoint(NSPoint::new(0.0, page_height - visible_height));
     scroll.reflectScrolledClipView(&clip);
     scroll

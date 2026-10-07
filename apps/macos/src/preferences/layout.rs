@@ -4,10 +4,10 @@ use objc2_app_kit::NSView;
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 /// 行高。
-pub const ROW_HEIGHT: f64 = 24.0;
+pub const ROW_HEIGHT: f64 = 20.0;
 
 /// 行距。
-pub const ROW_GAP: f64 = 8.0;
+pub const ROW_GAP: f64 = 4.0;
 
 /// 页内左右留白。
 pub const PAGE_PADDING: f64 = 20.0;
@@ -22,7 +22,8 @@ pub const CONTROL_X: f64 = PAGE_PADDING + LABEL_WIDTH + 10.0;
 pub const PAGE_WIDTH: f64 = 600.0;
 
 /// 在一页里自上而下摆控件的简易布局：AppKit 坐标原点在左下，先按「离顶部多远」记下来，
-/// 最后知道页高了再一次性换算成 frame。
+/// 最后知道页高了再一次性换算成 frame（页面高度还会变，所以记录留着，见 [`Layout::finish`]）。
+#[derive(Clone)]
 pub struct Layout {
     /// 这一页的宽度。
     width: f64,
@@ -75,22 +76,31 @@ impl Layout {
         self.top += height;
     }
 
+    /// 刚摆下的那个控件（说明小字改成悬停提示时挂它身上）。
+    pub fn last_placed(&self) -> Option<&NSView> {
+        self.placed.last().map(|(view, ..)| &**view)
+    }
+
     /// 到目前为止用掉的高度（含顶部留白）。
     pub fn height(&self) -> f64 {
         self.top
     }
 
     /// 把所有控件加进容器并按容器高度设好 frame（顶部对齐）。
-    pub fn finish(self, container: &NSView, total_height: f64) {
-        for (view, x, top, width, height, fill) in self.placed {
-            let height = if fill {
-                (total_height - top - PAGE_PADDING).max(height)
+    /// 页面高度变了（收起一块、换了服务）时拿同一份记录再摆一次，坐标原点在左下，全都要重算。
+    pub fn finish(&self, container: &NSView, total_height: f64) {
+        for (view, x, top, width, height, fill) in &self.placed {
+            let height = if *fill {
+                (total_height - top - PAGE_PADDING).max(*height)
             } else {
-                height
+                *height
             };
             let y = total_height - top - height;
-            view.setFrame(NSRect::new(NSPoint::new(x, y), NSSize::new(width, height)));
-            container.addSubview(&view);
+            view.setFrame(NSRect::new(
+                NSPoint::new(*x, y),
+                NSSize::new(*width, height),
+            ));
+            container.addSubview(view);
         }
     }
 }

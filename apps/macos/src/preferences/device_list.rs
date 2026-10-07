@@ -1,5 +1,6 @@
-//! 「设备」那一块：同一空间里的设备一行一台——名字、「iOS · 3 分钟前活跃」，
-//! 本机标「本机」，别的设备右边一颗红字「解绑…」（点了先弹确认，见 `PreferencesTarget::revokeDevice:`）。
+//! 「设备」那一块：同一空间里**别的**设备一行一台——名字、「iOS · 3 分钟前活跃」，
+//! 右边一颗红字「解绑…」（点了先弹确认，见 `PreferencesTarget::revokeDevice:`）。
+//! 本机不占这里：状态行上写着它的名字，解绑也在那一行。
 //! 行是动态的（别的设备加入 / 被解绑都要跟着变），所以不摆进卡片的行里，
 //! 而是自己占一块固定高度的区域，按状态重建；设备多了在区域里滚。
 
@@ -8,7 +9,7 @@ use std::cell::RefCell;
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2::sel;
-use objc2_app_kit::{NSColor, NSFont, NSScrollView, NSTextAlignment, NSTextField, NSView};
+use objc2_app_kit::{NSColor, NSFont, NSScrollView, NSTextField, NSView};
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_cloud_mac::CloudDevice;
 
@@ -16,8 +17,8 @@ use crate::preferences::card::retained_view;
 use crate::preferences::controls::{action_danger_button, small_label};
 use crate::preferences::target::PreferencesTarget;
 
-/// 列表在卡片里占的高度（约三台，再多自己滚）。
-pub const HEIGHT: f64 = 3.0 * ROW + 4.0;
+/// 列表在卡片里占的高度（约两台，再多自己滚）。
+pub const HEIGHT: f64 = 2.0 * ROW + 4.0;
 
 /// 一行的高。
 const ROW: f64 = 34.0;
@@ -75,8 +76,9 @@ impl DeviceList {
         &self.scroll
     }
 
-    /// 按当前设备清单重建。`signed_in` 只用来决定空列表说什么。
+    /// 按当前设备清单重建（本机不列）。`signed_in` 只用来决定空列表说什么。
     pub fn rebuild(&self, devices: &[CloudDevice], signed_in: bool) {
+        let devices: Vec<&CloudDevice> = devices.iter().filter(|device| !device.current).collect();
         for view in self.rows.borrow_mut().drain(..) {
             view.removeFromSuperview();
         }
@@ -87,9 +89,9 @@ impl DeviceList {
         self.empty
             .setTextColor(Some(&NSColor::secondaryLabelColor()));
         self.empty.setStringValue(&NSString::from_str(if signed_in {
-            "正在取设备列表…"
+            "还没有别的设备：在手机上用「添加一台设备」出码，新设备输码加入。"
         } else {
-            "开通后这里列出同一空间里的设备，可以在这里解绑。"
+            "开通后这里列出同一空间里的其他设备，可以在这里解绑。"
         }));
         self.empty.setHidden(!devices.is_empty());
         self.empty.setFrame(NSRect::new(
@@ -114,31 +116,19 @@ impl DeviceList {
             self.list.addSubview(&detail);
             rows.push(retained_view(name));
             rows.push(retained_view(detail));
-            if device.current {
-                // 本机那颗按钮就是状态行里的「解绑这台 Mac…」，这里只标一下
-                let badge = small_label(self.mtm, "本机");
-                badge.setAlignment(NSTextAlignment::Right);
-                badge.setFrame(NSRect::new(
-                    NSPoint::new(self.width - BUTTON_W, y + 8.0),
-                    NSSize::new(BUTTON_W, 16.0),
-                ));
-                self.list.addSubview(&badge);
-                rows.push(retained_view(badge));
-            } else {
-                let unbind = action_danger_button(
-                    self.mtm,
-                    "解绑…",
-                    sel!(revokeDevice:),
-                    device.id as isize,
-                    &self.target,
-                );
-                unbind.setFrame(NSRect::new(
-                    NSPoint::new(self.width - BUTTON_W, y + 6.0),
-                    NSSize::new(BUTTON_W, 22.0),
-                ));
-                self.list.addSubview(&unbind);
-                rows.push(retained_view(unbind));
-            }
+            let unbind = action_danger_button(
+                self.mtm,
+                "解绑…",
+                sel!(revokeDevice:),
+                device.id as isize,
+                &self.target,
+            );
+            unbind.setFrame(NSRect::new(
+                NSPoint::new(self.width - BUTTON_W, y + 6.0),
+                NSSize::new(BUTTON_W, 22.0),
+            ));
+            self.list.addSubview(&unbind);
+            rows.push(retained_view(unbind));
         }
     }
 }

@@ -4,17 +4,20 @@
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSButton, NSFont, NSPopUpButton, NSTextField};
-use objc2_foundation::NSString;
+use objc2_app_kit::{NSButton, NSFont, NSPopUpButton, NSScrollView, NSTextField, NSTextView};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_platform::{Config, UpdateChannel};
 
 use crate::preferences::controls::{
-    GROUP_GAP, button, checkbox, note_full, row_checkbox, row_popup, select, set_checked,
+    GROUP_GAP, button, checkbox, paragraph, row_checkbox, row_popup, select, set_checked,
     small_label,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
+
+/// 许可证、数据来源、隐私说明那一块的高（约七行，多的自己滚）。
+const TEXT_BOX_H: f64 = 110.0;
 
 /// 许可说明，与仓库根目录 `LICENSE` 一致。
 pub const LICENSE_NOTE: &str = "基于开源的青简输入法（GPL-3.0）。源码：https://github.com/dayuer/qingjian\n自由软件，GPL-3.0-or-later 许可证：可以自由使用、修改与再分发，修改后分发须同样开源。官方渠道免费。";
@@ -114,6 +117,31 @@ impl AboutPage {
     }
 }
 
+/// 正文的那一小块：只读、可选中（网址能复制），固定高度，装不下的自己滚。
+fn text_box(layout: &mut Layout, mtm: MainThreadMarker, texts: &[String]) {
+    let width = layout.inner_width();
+    let text = NSTextView::initWithFrame(
+        mtm.alloc(),
+        NSRect::new(NSPoint::ZERO, NSSize::new(width, TEXT_BOX_H)),
+    );
+    text.setRichText(false);
+    text.setEditable(false);
+    text.setSelectable(true);
+    text.setVerticallyResizable(true);
+    text.setHorizontallyResizable(false);
+    text.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    text.setString(&NSString::from_str(&texts.join("\n\n")));
+    let scroll = NSScrollView::initWithFrame(
+        mtm.alloc(),
+        NSRect::new(NSPoint::ZERO, NSSize::new(width, TEXT_BOX_H)),
+    );
+    scroll.setHasVerticalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    scroll.setDocumentView(Some(&text));
+    layout.place(&scroll, PAGE_PADDING, width, TEXT_BOX_H);
+    layout.next_row(TEXT_BOX_H);
+}
+
 /// 把「关于」页的控件摆进 `layout`。
 pub fn build(
     layout: &mut Layout,
@@ -137,7 +165,6 @@ pub fn build(
     let repository = button(mtm, "GitHub", Setting::OpenRepository, target);
     layout.place(&repository, PAGE_PADDING, 150.0, ROW_HEIGHT + 4.0);
     layout.next_row(ROW_HEIGHT + 4.0);
-    note_full(layout, mtm, LICENSE_NOTE);
     layout.space(GROUP_GAP);
 
     let check = checkbox(mtm, "自动检查更新", Setting::UpdateCheck, target);
@@ -166,10 +193,19 @@ pub fn build(
         ROW_HEIGHT,
     );
     layout.next_row(ROW_HEIGHT + 4.0);
-    note_full(layout, mtm, UPDATE_NOTE);
+    paragraph(layout, mtm, UPDATE_NOTE);
     layout.space(GROUP_GAP);
 
-    let heading = small_label(mtm, "数据来源与署名");
+    // 许可证、数据来源、隐私说明与反馈方式合成一块：全文铺开会把这一页撑到窗口装不下
+    let mut texts = vec![LICENSE_NOTE.to_owned()];
+    texts.extend(
+        ATTRIBUTIONS
+            .iter()
+            .map(|(name, text)| format!("{name}：{text}")),
+    );
+    texts.push(PRIVACY_NOTE.to_owned());
+    texts.push(FEEDBACK_NOTE.to_owned());
+    let heading = small_label(mtm, "许可证、数据来源与隐私");
     layout.place(
         &heading,
         PAGE_PADDING,
@@ -177,13 +213,7 @@ pub fn build(
         ROW_HEIGHT * 0.7,
     );
     layout.next_row(ROW_HEIGHT * 0.7);
-    for (name, text) in ATTRIBUTIONS {
-        note_full(layout, mtm, &format!("{name}：{text}"));
-    }
-    layout.space(GROUP_GAP);
-
-    note_full(layout, mtm, PRIVACY_NOTE);
-    note_full(layout, mtm, FEEDBACK_NOTE);
+    text_box(layout, mtm, &texts);
     let open = button(mtm, "打开日志目录", Setting::OpenLogDirectory, target);
     let export = button(mtm, "打包日志到桌面", Setting::ExportLogs, target);
     let copy = button(mtm, "复制诊断信息", Setting::CopyDiagnostics, target);

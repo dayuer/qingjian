@@ -1,5 +1,6 @@
 //! 分组卡片：系统设置那种分组框——浅色圆角底，组标题在框**外**上方（小号灰字），
-//! 组里一行一项：左边名称（下面可挂一行说明小字），右边控件（开关、按钮）右对齐。
+//! 组里一行一项：左边名称，右边控件（开关、按钮）右对齐。
+//! 说明不各占一行，挂在名称上做悬停提示（设置页要短）。
 //! 卡片自己算高度，调用方只管往里加行，最后 [`Card::finish`] 把它摆进页面。
 
 use objc2::MainThreadMarker;
@@ -19,19 +20,13 @@ const GAP: f64 = 8.0;
 const CONTROL_H: f64 = 22.0;
 
 /// 卡片内的上下内边距。
-const PAD_V: f64 = 10.0;
+const PAD_V: f64 = 7.0;
 
 /// 行的名称行高。
-const NAME_H: f64 = 20.0;
-
-/// 说明小字的行高。
-const NOTE_H: f64 = 14.0;
+const NAME_H: f64 = 18.0;
 
 /// 卡片圆角。
 const CORNER: f64 = 8.0;
-
-/// 说明小字按多少像素一个字估算折行（11 号字，中文约 11 px，估得宽一点宁可多留一行）。
-const NOTE_CHAR_WIDTH: f64 = 11.5;
 
 pub struct Card {
     /// 卡片本体。
@@ -85,7 +80,7 @@ impl Card {
         self.control_width()
     }
 
-    /// 加一行：左边名称（+可选说明），右边一个控件（右对齐）。交出两个标签，按状态改文字时用。
+    /// 加一行：左边名称（说明挂成悬停提示），右边一个控件（右对齐）。交出名称标签，按状态改文字时用。
     /// `control_width` 是控件的宽（开关固定、按钮按标题算）。
     pub fn row(
         &mut self,
@@ -94,7 +89,7 @@ impl Card {
         note: Option<&str>,
         control: &NSView,
         control_width: f64,
-    ) -> (Retained<NSTextField>, Option<Retained<NSTextField>>) {
+    ) -> Retained<NSTextField> {
         self.row_with_buttons(mtm, name, note, &[(control, control_width)])
     }
 
@@ -105,7 +100,7 @@ impl Card {
         name: &str,
         note: Option<&str>,
         controls: &[(&NSView, f64)],
-    ) -> (Retained<NSTextField>, Option<Retained<NSTextField>>) {
+    ) -> Retained<NSTextField> {
         self.add_row(mtm, name, note, controls, NAME_H)
     }
 
@@ -117,7 +112,7 @@ impl Card {
         note: Option<&str>,
         controls: &[(&NSView, f64)],
         name_h: f64,
-    ) -> (Retained<NSTextField>, Option<Retained<NSTextField>>) {
+    ) -> Retained<NSTextField> {
         self.add_row(mtm, name, note, controls, name_h)
     }
 
@@ -130,20 +125,15 @@ impl Card {
         note: Option<&str>,
         controls: &[(&NSView, f64)],
         name_h: f64,
-    ) -> (
-        Retained<NSTextField>,
-        Option<Retained<NSTextField>>,
-        RowSlot,
-    ) {
+    ) -> (Retained<NSTextField>, RowSlot) {
         let slot = RowSlot {
             top: self.top,
             width: self.width,
         };
-        let (name_label, note_label) = self.add_row(mtm, name, note, controls, name_h);
-        (name_label, note_label, slot)
+        (self.add_row(mtm, name, note, controls, name_h), slot)
     }
 
-    /// 一行：左边名称（可折行，留 `name_h` 高）与说明小字，右边一组控件右对齐排。
+    /// 一行：左边名称（可折行，留 `name_h` 高），右边一组控件右对齐排。
     fn add_row(
         &mut self,
         mtm: MainThreadMarker,
@@ -151,7 +141,7 @@ impl Card {
         note: Option<&str>,
         controls: &[(&NSView, f64)],
         name_h: f64,
-    ) -> (Retained<NSTextField>, Option<Retained<NSTextField>>) {
+    ) -> Retained<NSTextField> {
         let total: f64 = controls.iter().map(|(_, w)| w + GAP).sum::<f64>() - GAP;
         let text_width = (self.control_width() - total - 12.0).max(80.0);
         let name_label = label(mtm, name, 13.0, None);
@@ -163,21 +153,11 @@ impl Card {
             name_h,
         ));
 
-        let mut height = name_h;
-        let mut note_label = None;
+        // 说明不占行，挂在名称上：页面要短，鼠标停上去才看得到
         if let Some(note) = note {
-            let note_h = note_height(note, text_width);
-            let label = label(mtm, note, 11.0, Some(&NSColor::secondaryLabelColor()));
-            self.rows.push((
-                as_view(label.clone()),
-                PAD_H,
-                self.top + name_h - 2.0,
-                text_width,
-                note_h,
-            ));
-            height = name_h + note_h - 2.0;
-            note_label = Some(label);
+            name_label.setToolTip(Some(&NSString::from_str(note)));
         }
+        let height = name_h;
         // 控件垂直居中对着名称那一块，整体右对齐
         let mut x = self.width - PAD_H - total;
         for (control, width) in controls {
@@ -188,7 +168,7 @@ impl Card {
         }
 
         self.top += height + ROW_GAP;
-        (name_label, note_label)
+        name_label
     }
 
     /// 往 [`Self::row_group`] 那一行再塞一个控件：它只在别的状态下出现，位置由
@@ -210,14 +190,11 @@ impl Card {
         self.top += height + ROW_GAP;
     }
 
-    /// 加一行整行宽的说明小字（按钮下面那种），左对齐、放不下折行。
-    pub fn row_note(&mut self, mtm: MainThreadMarker, text: &str) {
-        let text_width = self.control_width();
-        let height = note_height(text, text_width);
-        let label = label(mtm, text, 11.0, Some(&NSColor::secondaryLabelColor()));
-        self.rows
-            .push((as_view(label), PAD_H, self.top, text_width, height));
-        self.top += height + ROW_GAP;
+    /// 给刚加的那一行挂一句说明（悬停提示）：不占高度，鼠标停上去才看得到。
+    pub fn row_note(&mut self, _mtm: MainThreadMarker, text: &str) {
+        if let Some((view, ..)) = self.rows.last() {
+            view.setToolTip(Some(&NSString::from_str(text)));
+        }
     }
 
     /// 卡片本体（要整张藏起来时先留一份）。
@@ -270,13 +247,6 @@ impl RowSlot {
             x += width + GAP;
         }
     }
-}
-
-/// 一行说明小字的高度：按文字列宽折算行数（宁可多留一行）。
-fn note_height(text: &str, width: f64) -> f64 {
-    let estimated = text.chars().count() as f64 * NOTE_CHAR_WIDTH;
-    let lines = (estimated / width).ceil().max(1.0);
-    NOTE_H * lines
 }
 
 /// 把控件按 `Retained<NSView>` 收着（自己管的列表重建时要把行控件攒起来）。

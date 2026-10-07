@@ -15,12 +15,13 @@ use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
 
 use crate::preferences::card::{Card, RowSlot, SWITCH_WIDTH, view};
+use crate::preferences::controls::small_label;
 use crate::preferences::controls::{
-    button, button_width, danger_button, disclosure, note_full, popup, secure_field, select,
-    set_switch, switch, text_field,
+    button, button_width, danger_button, disclosure, popup, secure_field, select, set_switch,
+    switch, text_field,
 };
 use crate::preferences::device_list::{self, DeviceList};
-use crate::preferences::layout::{Layout, PAGE_PADDING};
+use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_GAP};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
@@ -38,6 +39,9 @@ const TITLE_INDENT: f64 = 18.0;
 
 /// 名称那一行留两行高：状态行与同步行的文字会长到两三行，一行装不下。
 const NAME_TALL: f64 = 34.0;
+
+/// 出错那一行的高。
+const HINT_H: f64 = 16.0;
 
 /// 弹出菜单（服务、云端词位置）的宽。
 const POPUP_W: f64 = 150.0;
@@ -60,11 +64,11 @@ pub struct CloudPage {
     /// 状态行的名称：未开通素笺云 / 已开通 · 连接中… 。
     state: Retained<NSTextField>,
 
-    /// 状态行下面的小字：这台设备的名字（没开通时留空）。
-    device: Retained<NSTextField>,
-
     /// 状态卡下面那行：出错时是原因（红字），没开通时是怎么加入；都没有就藏起来。
     hint: Retained<NSTextField>,
+
+    /// 上面那行在页面里占的高度（含它后面的行距）；藏起来时页面要减掉。
+    hint_height: f64,
 
     /// 状态行右边的三颗按钮：没开通时显示前两颗，开通后只剩第三颗。
     create: Retained<NSButton>,
@@ -120,6 +124,12 @@ pub struct CloudPage {
 
     custom_view: Retained<NSView>,
 
+    /// 「高级」那一块（组标题 + 卡片）在页面里占的高度；收起时页面要减掉。
+    advanced_height: f64,
+
+    /// 「自定义接口」那一张卡占的高度；走素笺云时要减掉。
+    custom_height: f64,
+
     /// 高级：本地整句模型开关。
     local_model: Retained<NSSwitch>,
 
@@ -162,24 +172,26 @@ impl CloudPage {
         let create_w = button_width("开通素笺云");
         let join_w = button_width("输入匹配码加入…");
         let unbind_w = button_width("解绑这台 Mac…");
-        let (state, device, status_slot) = status_card.row_group(
+        join.setToolTip(Some(&NSString::from_str(JOIN_HINT)));
+        let (state, status_slot) = status_card.row_group(
             mtm,
             "未开通素笺云",
-            Some("这台设备"),
+            None,
             &[(view(&create), create_w), (view(&join), join_w)],
             NAME_TALL,
         );
         // 「解绑」只在开通后出现，位置按状态重排，不挤文字列
         status_card.row_extra(&status_slot, view(&unbind), unbind_w);
-        let device = device.expect("状态行的说明那一行");
+        // 同一空间里的设备跟在状态行下面：本机标出来，别的设备可以在这里解绑
+        let devices = DeviceList::new(mtm, status_card.inner_width(), target);
+        status_card.row_full(devices.view(), device_list::HEIGHT);
         let status_height = status_card.finish(layout);
-        let hint = note_full(layout, mtm, JOIN_HINT);
-
-        // 设备：同一空间里的都列出来，别的设备可以在这里解绑（本机的解绑在状态行）
-        let mut devices_card = card(layout, mtm, "设备");
-        let devices = DeviceList::new(mtm, devices_card.inner_width(), target);
-        devices_card.row_full(devices.view(), device_list::HEIGHT);
-        devices_card.finish(layout);
+        // 出错时说明原因（红字）；没话说时整行藏起来，页面高度跟着减
+        let hint = small_label(mtm, "");
+        hint.setTextColor(Some(&NSColor::systemRedColor()));
+        layout.place(&hint, PAGE_PADDING, layout.inner_width(), HINT_H);
+        layout.next_row(HINT_H);
+        let hint_height = HINT_H + ROW_GAP;
 
         // 功能（名字与 iOS 的功能清单一字一致）
         let mut feature_card = card(layout, mtm, "功能");
@@ -225,11 +237,11 @@ impl CloudPage {
         );
         feature_card.finish(layout);
 
-        // 同步：左边是最近一次同步的状态，右边两颗按钮
-        let mut sync_card = card(layout, mtm, "同步");
+        // 同步与数据：左边是最近一次同步的状态，右边两颗按钮；下面一行是清空云端输入记录
+        let mut sync_card = card(layout, mtm, "同步与数据");
         let pause = button(mtm, "暂停同步", Setting::CloudPause, target);
         let sync_now = button(mtm, "立即同步", Setting::CloudSyncNow, target);
-        let (sync_state, _) = sync_card.row_tall(
+        let sync_state = sync_card.row_tall(
             mtm,
             "学习数据：正在同步…",
             None,
@@ -239,23 +251,19 @@ impl CloudPage {
             ],
             NAME_TALL,
         );
-        sync_card.finish(layout);
-
-        // 数据
-        let mut data_card = card(layout, mtm, "数据");
         let clear_log = danger_button(
             mtm,
             "清空云端输入记录…",
             Setting::CloudClearInputLog,
             target,
         );
-        data_card.row_with_buttons(
+        sync_card.row_with_buttons(
             mtm,
             "",
             Some("服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。"),
             &[(view(&clear_log), button_width("清空云端输入记录…"))],
         );
-        data_card.finish(layout);
+        sync_card.finish(layout);
 
         // 高级：三角在组标题左边，默认收起
         let (advanced_title, mut advanced_card) = Card::new(mtm, layout.inner_width(), "高级");
@@ -320,7 +328,7 @@ impl CloudPage {
             button_width("测试连接"),
         );
         let advanced_view = advanced_card.box_view();
-        advanced_card.finish(layout);
+        let advanced_height = TITLE_H + TITLE_GAP + advanced_card.finish(layout) + ROW_GAP;
 
         // 自定义接口：走素笺云时整张卡收起来（不占卡内的空位）
         let (custom_title, mut custom_card) = Card::new(mtm, layout.inner_width(), "自定义接口");
@@ -337,12 +345,12 @@ impl CloudPage {
             "文本框按回车保存。密钥只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。",
         );
         let custom_view = custom_card.box_view();
-        custom_card.finish(layout);
+        let custom_height = TITLE_H + TITLE_GAP + custom_card.finish(layout) + ROW_GAP;
 
         let page = Self {
             state,
-            device,
             hint,
+            hint_height,
             create,
             join,
             unbind,
@@ -366,6 +374,8 @@ impl CloudPage {
             advanced_view,
             custom_title,
             custom_view,
+            advanced_height,
+            custom_height,
             local_model,
             enabled,
             slots,
@@ -384,36 +394,19 @@ impl CloudPage {
     /// 状态块与开关的勾选：读素笺云现在的状态（`qingjian_cloud_mac::status`）。
     /// 每 0.5 秒跟着素笺云的菜单刷新走（见 `PreferencesWindow::sync_cloud_status`）。
     pub fn sync_status(&self, status: &CloudStatus) {
-        // 正在等另一台设备允许时，状态行说得更具体
-        self.state
-            .setStringValue(&NSString::from_str(if status.joining {
-                "正在等另一台设备允许…（手机上会弹出一条申请）"
-            } else {
-                &status.line
-            }));
-        self.device
-            .setStringValue(&NSString::from_str(
-                &if status.signed_in && !status.device.is_empty() {
-                    format!("这台设备：{}", status.device)
-                } else {
-                    String::new()
-                },
-            ));
-        // 出错时说明原因（红字），没开通时说明怎么加入
-        let note = status.note.as_deref().unwrap_or_default();
-        self.hint
-            .setStringValue(&NSString::from_str(if note.is_empty() {
-                if status.signed_in { "" } else { JOIN_HINT }
-            } else {
-                note
-            }));
-        let hint_color = if note.is_empty() {
-            NSColor::secondaryLabelColor()
+        // 正在等另一台设备允许时，状态行说得更具体；本机设备名并进来（说明小字不占行）
+        let line = if status.joining {
+            "正在等另一台设备允许…（手机上会弹出一条申请）".to_owned()
+        } else if status.signed_in && !status.device.is_empty() {
+            format!("{} · 这台设备：{}", status.line, status.device)
         } else {
-            NSColor::systemRedColor()
+            status.line.clone()
         };
-        self.hint.setTextColor(Some(&hint_color));
-        self.hint.setHidden(status.signed_in && note.is_empty());
+        self.state.setStringValue(&NSString::from_str(&line));
+        // 出错时说明原因（红字）
+        let note = status.note.as_deref().unwrap_or_default();
+        self.hint.setStringValue(&NSString::from_str(note));
+        self.hint.setHidden(note.is_empty());
         // 右边一组按钮：没开通是「开通」「加入」，开通后只剩「解绑」
         self.create.setHidden(status.signed_in);
         self.join.setHidden(status.signed_in);
@@ -485,11 +478,37 @@ impl CloudPage {
         self.toggle_advanced();
     }
 
+    /// 页面里现在藏着的几块一共多高（那行提示、收起的高级、走素笺云时的自定义接口卡）：
+    /// 窗口按「内容高度 = 全长 - 这个」定页面高度，收起后下面不留空。
+    pub fn hidden_height(&self) -> f64 {
+        let mut hidden = 0.0;
+        if self.hint.isHidden() {
+            hidden += self.hint_height;
+        }
+        if !self.advanced_expanded() {
+            hidden += self.advanced_height;
+        }
+        if !self.custom_shown() {
+            hidden += self.custom_height;
+        }
+        hidden
+    }
+
+    /// 「高级」展开着没有。
+    fn advanced_expanded(&self) -> bool {
+        self.advanced_toggle.state() == NSControlStateValueOn
+    }
+
+    /// 现在用的是自定义接口（那张卡该露面）。
+    fn custom_shown(&self) -> bool {
+        self.provider.indexOfSelectedItem() == 1
+    }
+
     /// 「高级」的展开 / 收起：收起时连「自定义接口」那张卡一起藏起来。
     /// 页面高度按展开算，收起后下面留白（切页时窗口不跳）。
     pub fn toggle_advanced(&self) {
-        let expanded = self.advanced_toggle.state() == NSControlStateValueOn;
-        let custom = self.provider.indexOfSelectedItem() == 1;
+        let expanded = self.advanced_expanded();
+        let custom = self.custom_shown();
         self.advanced_title.setHidden(!expanded);
         self.advanced_view.setHidden(!expanded);
         self.custom_title.setHidden(!expanded || !custom);

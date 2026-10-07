@@ -24,7 +24,7 @@ pub(super) const NOTE_HEIGHT: f64 = 15.0;
 const NOTE_CHAR_WIDTH: f64 = 11.5;
 
 /// 分组之间的留白。
-pub(super) const GROUP_GAP: f64 = 14.0;
+pub(super) const GROUP_GAP: f64 = 8.0;
 
 pub(super) fn language_label(language: Language) -> &'static str {
     match language {
@@ -130,27 +130,20 @@ pub(super) fn button_width(title: &str) -> f64 {
     (title.chars().count() as f64 * 14.0 + 32.0).max(110.0)
 }
 
-/// 控件下方的说明小字，与控件列对齐，放不下就折行（按字数估行数，宁可多留一行）。
-pub(super) fn note(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
-    note_at(layout, mtm, text, CONTROL_X, layout.control_width());
+/// 说明小字改成悬停提示，挂在刚摆下的那个控件上：设置页要短，说明不再各占一行。
+/// 说明长得放不下的顾虑没了，但鼠标停上去才看得到，所以只放「这个开关是干什么的」这类补充。
+pub(super) fn note(layout: &Layout, _mtm: MainThreadMarker, text: &str) {
+    tip(layout, text);
 }
 
-/// 整行宽的说明小字（勾选框、按钮下面用）；交出标签，要按状态改文字或隐藏时用得上。
-pub(super) fn note_full(
-    layout: &mut Layout,
-    mtm: MainThreadMarker,
-    text: &str,
-) -> Retained<NSTextField> {
-    note_at(layout, mtm, text, PAGE_PADDING, layout.inner_width())
+/// 同 [`note`]，整行说明与单个控件的说明一样处理（调用点是历史的，统一挂提示）。
+pub(super) fn note_full(layout: &Layout, _mtm: MainThreadMarker, text: &str) {
+    tip(layout, text);
 }
 
-fn note_at(
-    layout: &mut Layout,
-    mtm: MainThreadMarker,
-    text: &str,
-    x: f64,
-    width: f64,
-) -> Retained<NSTextField> {
+/// 整行宽的一段正文：许可证、隐私说明这类是页面**内容**，要看得见，不能收成提示。
+pub(super) fn paragraph(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
+    let width = layout.inner_width();
     let label = small_label(mtm, text);
     label.setUsesSingleLineMode(false);
     if let Some(cell) = label.cell() {
@@ -159,9 +152,14 @@ fn note_at(
     let estimated = text.chars().count() as f64 * NOTE_CHAR_WIDTH;
     let lines = (estimated / width).ceil().max(1.0);
     let height = NOTE_HEIGHT * lines;
-    layout.place(&label, x, width, height);
+    layout.place(&label, PAGE_PADDING, width, height);
     layout.next_row(height);
-    label
+}
+
+fn tip(layout: &Layout, text: &str) {
+    if let Some(view) = layout.last_placed() {
+        view.setToolTip(Some(&NSString::from_str(text)));
+    }
 }
 
 /// 勾选框独占一行，从标题列起始处摆（勾选框自带标题，不用左列标题）。
