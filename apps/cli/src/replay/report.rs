@@ -60,8 +60,11 @@ pub struct Report {
     /// 逐条结果（`--replay-details` 时才收），一条一个 JSON 对象。
     pub details: Option<Vec<serde_json::Value>>,
 
-    /// 干净口径（`--clean` 时才有）。
+    /// 干净口径（`--clean` / `--clean2` 时才有）。
     pub clean: Option<super::clean::Summary>,
+
+    /// 回放里最近几次上屏的字数（`--clean2` 撤销回滚用）。
+    pub recent: super::recent::RecentCommits,
 }
 
 impl Report {

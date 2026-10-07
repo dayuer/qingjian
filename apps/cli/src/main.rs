@@ -100,7 +100,8 @@ fn run() -> Result<(), CliError> {
             args.misses,
             code_table,
             details,
-            args.clean,
+            args.clean || args.clean2,
+            args.clean2,
         )?;
         if let Some(details) = &args.replay_details {
             replay::write_details(&report, details)?;

@@ -254,6 +254,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
   并多打一行「辅码选词 N 条，其中同拼音纯输入首选命中 M 条」（学习闭环的尺子）。
   `--replay-details <jsonl>` 逐条写行号、来源、作用域、当时选的、现在的名次与前五（比两份词库、按行号切半用）；
   `--clean` 另报干净口径（剔撤销 / 删掉重打 / 拼音残段上屏，前后两半各报），规则冻结，见 `docs/notes/replay-clean.md`。
+  `--clean2` 在它之上遇到撤销时按真实使用逐字退格、由引擎回滚那次的学习（验收口径）。
 - `--aux-table <路径>`（可多次）装辅码码表（`.qj` 或 `词<Tab>码` TSV）；交互模式与查询模式都按壳的方式逐键喂入，
   配的触发键进辅码态、之后的字母进码段，候选行会带上命中的码。
 - `--tune 名=值`（逗号分隔）覆盖个人 n-gram 插值与敲错代价的常数扫网格（名字见 `apps/cli/src/tuning.rs`，Core 侧是 `Engine::set_interpolation` / `set_typo_costs`，壳只用缺省值）。

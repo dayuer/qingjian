@@ -204,6 +204,10 @@ pub struct Args {
     #[arg(long, requires = "replay")]
     pub clean: bool,
 
+    /// 干净口径 2：`--clean` 的剔除规则，加上回放遇到撤销时像真实使用那样先逐字退格、让引擎回滚那次的学习。规则见 `replay/clean`
+    #[arg(long, requires = "replay")]
+    pub clean2: bool,
+
     /// 同拼音不同上文评测：读 `拼音\t前文\t期望` 三列（cloud/data/eval/context-pairs.tsv），
     /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率与按键同步部分的 p50 / p99
     #[arg(long)]

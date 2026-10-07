@@ -7,6 +7,7 @@
 
 mod clean;
 mod line;
+mod recent;
 mod report;
 mod scheme;
 mod tally;
@@ -30,6 +31,7 @@ pub fn run(
     code_table: Option<CodeTable>,
     details: bool,
     clean: bool,
+    rollback: bool,
 ) -> Result<Report, ReplayError> {
     let text = std::fs::read_to_string(path).map_err(|source| ReplayError::Read {
         path: path.to_owned(),
@@ -58,11 +60,20 @@ pub fn run(
         let excluded = clean::scan(lines.iter().map(|(n, e)| (n + 1, e)), |text| {
             dictionary.text_frequency(text) > 0
         });
-        report.clean = Some(clean::Summary::new(excluded));
+        report.clean = Some(clean::Summary::new(excluded, rollback));
     }
     for (number, entry) in lines {
         match entry {
-            InputLogEntry::Retract { .. } => report.retracts += 1,
+            InputLogEntry::Retract { of, .. } => {
+                report.retracts += 1;
+                // 真实使用里撤销前用户把那次上屏（及其后的）退格删掉了：照样逐字喂退格，
+                // 下一次同拼音上屏时引擎自己的 `apply_retraction` 回滚那次的学习
+                if rollback && let Some(chars) = report.recent.erase_from(of) {
+                    for _ in 0..chars {
+                        engine.note_backspace();
+                    }
+                }
+            }
             InputLogEntry::Retype { .. } => report.retypes += 1,
             InputLogEntry::Session { .. } => report.sessions += 1,
             InputLogEntry::Break { .. } => {
@@ -135,7 +146,8 @@ fn replay_commit(
         if commit.source == InputSource::Raw && !commit.keys.is_empty() {
             engine.set_english_mode(commit.english);
             feed(engine, &commit.keys);
-            engine.take_raw();
+            let text = engine.take_raw();
+            report.recent.push(commit.id, text.chars().count());
         }
         engine.clear();
         engine.break_chain();
@@ -240,7 +252,8 @@ fn replay_commit(
     // 照着当时的选择上屏，让上下文往前走；不在候选里就原样清掉
     match position.map(|i| query.candidates.items[i].clone()) {
         Some(candidate) => {
-            engine.commit(&candidate);
+            let text = engine.commit(&candidate);
+            report.recent.push(commit.id, text.chars().count());
             engine.clear();
         }
         None => engine.clear(),

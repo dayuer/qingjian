@@ -24,13 +24,17 @@ pub struct Summary {
     excluded: HashMap<usize, Rule>,
 
     rows: Vec<Row>,
+
+    /// `--clean2`：回放遇到撤销时按真实使用回滚了学习。
+    rollback: bool,
 }
 
 impl Summary {
-    pub fn new(excluded: HashMap<usize, Rule>) -> Self {
+    pub fn new(excluded: HashMap<usize, Rule>, rollback: bool) -> Self {
         Self {
             excluded,
             rows: Vec::new(),
+            rollback,
         }
     }
 
@@ -83,7 +87,12 @@ impl fmt::Display for Summary {
             .collect();
         writeln!(
             f,
-            "干净口径（剔除 {} 行：{}）",
+            "{}（剔除 {} 行：{}）",
+            if self.rollback {
+                "干净口径 2（撤销回滚学习）"
+            } else {
+                "干净口径"
+            },
             self.excluded.len(),
             counts.join("，")
         )?;
