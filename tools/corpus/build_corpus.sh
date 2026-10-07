@@ -15,7 +15,7 @@ PYTHON="${PYTHON:-uv run}"
 
 echo "[$(date +%H:%M:%S)] 维基：parquet → 文本（丢非正文行）"
 $PYTHON tools/corpus/parquet_to_text.py data/corpus/zhwiki-20231101-zh-*.parquet \
-  -o /tmp/zhwiki.raw --report /tmp/zhwiki-clean.txt
+  -o /tmp/zhwiki.raw --report /tmp/zhwiki-clean.txt --min-chars 8 --min-han 5
 echo "[$(date +%H:%M:%S)] 维基：重复行封顶"
 sort /tmp/zhwiki.raw -S 1G -T /tmp | uniq -c \
   | python3 tools/corpus/cap_repeats.py --max-repeat 3 -o data/corpus/zhwiki.txt --report /tmp/zhwiki-dedup.txt

@@ -31,6 +31,9 @@ from opencc import OpenCC
 # 多余空白
 SPACES = re.compile(r"[ \t　]+")
 
+# 汉字：`--min-han` 用
+HAN = re.compile(r"[一-鿿]")
+
 # 维基的章节标题：整行就是这几个字，不是句子
 SECTION_HEADS = frozenset(
     """参见 参见条目 相关条目 另见 注释 注释与参考资料 注解 参考资料 参考来源 参考文献
@@ -74,6 +77,7 @@ def main() -> None:
     parser.add_argument("-o", "--output", required=True, help="输出的纯文本文件")
     parser.add_argument("--column", default="text", help="取哪一列（默认 text）")
     parser.add_argument("--min-chars", type=int, default=2, help="短于此的段落丢掉")
+    parser.add_argument("--min-han", type=int, default=1, help="汉字少于这个数的段落丢掉（维基的表格碎片靠它挡）")
     parser.add_argument("--report", help="清洗统计写到这个文件（缺省只打 stderr）")
     args = parser.parse_args()
 
@@ -88,8 +92,8 @@ def main() -> None:
                 for value in batch.column(args.column).to_pylist():
                     for line in flatten(value):
                         line = SPACES.sub(" ", line).strip()
-                        if len(line) < args.min_chars:
-                            dropped["太短"] += 1
+                        if len(line) < args.min_chars or len(HAN.findall(line)) < args.min_han:
+                            dropped[f"太短或汉字少于 {args.min_han}"] += 1
                             continue
                         line = converter.convert(line)
                         reason = drop_reason(line)
