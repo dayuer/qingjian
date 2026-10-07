@@ -377,6 +377,45 @@ fn collect_runs(
     }
 }
 
+/// 一行语料里可以计数的汉字串：长度 ≥ 2，且**不贴着数字**。
+///
+/// 贴着数字的那些是维基日期与范围的碎片 —— 「3月1日至10日」会切出「日至」，于是它成了词频最高的词之一
+/// （2026-10-08 新语料下 日至 52634 次，把真词 日志 2380 次压得看不见）。挡在统计层，不动词库。
+fn han_runs(line: &str) -> Vec<&str> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut runs = Vec::new();
+    let mut index = 0usize;
+    while index < chars.len() {
+        if !is_han(chars[index]) {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        while index < chars.len() && is_han(chars[index]) {
+            index += 1;
+        }
+        let end = index;
+        if end - start < 2 {
+            continue;
+        }
+        // 夹在两个数字之间才算碎片：「3月1日至10日」的「日至」算，「第3章的正文」不算
+        let glued_to_digit = start > 0
+            && chars[start - 1].is_ascii_digit()
+            && end < chars.len()
+            && chars[end].is_ascii_digit();
+        if glued_to_digit {
+            continue;
+        }
+        runs.push(&line[char_offset(&chars, start)..char_offset(&chars, end)]);
+    }
+    runs
+}
+
+/// 第 n 个字符在字符串里的字节偏移。
+fn char_offset(chars: &[char], index: usize) -> usize {
+    chars[..index].iter().map(|c| c.len_utf8()).sum()
+}
+
 pub fn convert(
     corpus: &[PathBuf],
     dict: &Path,
@@ -408,10 +447,7 @@ pub fn convert(
             }
             // LCCC 这类语料是按词用空格分好的；空格不是句子边界，去掉再切
             let line: String = line.chars().filter(|c| *c != ' ').collect();
-            for run in line.split(|c: char| !is_han(c)) {
-                if run.chars().count() < 2 {
-                    continue;
-                }
+            for run in han_runs(&line) {
                 runs += 1;
                 vocabulary.segment(run, &mut tokens);
                 unigram[0] += 1;
@@ -607,6 +643,34 @@ fn synthesize_phrases(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 贴着数字的汉字串是日期/范围的碎片（「3月1日至10日」里的「日至」），统计时不计数；
+    /// 不贴着数字的正常词照旧。2026-10-08 加：新语料下 日至 52634 次，把真词 日志 2380 次压得看不见。
+    #[test]
+    fn han_runs_skips_fragments_glued_to_digits() {
+        assert_eq!(
+            han_runs("3月1日至10日"),
+            Vec::<&str>::new(),
+            "「日至」夹在两个数字之间，丢"
+        );
+        assert_eq!(han_runs("2019年3月至5月").len(), 0, "被数字夹住的都该丢");
+        assert_eq!(
+            han_runs("参见参考资料"),
+            vec!["参见参考资料"],
+            "正常词不受影响"
+        );
+        assert_eq!(
+            han_runs("2019年至2020年"),
+            Vec::<&str>::new(),
+            "日期范围里夹出来的都丢"
+        );
+        assert_eq!(
+            han_runs("第3章的正文"),
+            vec!["章的正文"],
+            "只夹了一边数字的不算碎片"
+        );
+        assert_eq!(han_runs("5G手机"), vec!["手机"], "字母夹着的不算数字");
+    }
 
     #[test]
     fn vocabulary_skips_hidden_temp_and_non_file_dicts() {
