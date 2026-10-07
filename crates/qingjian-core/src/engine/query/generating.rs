@@ -21,23 +21,28 @@ impl Engine {
     /// 光看切分分不出来，要等整句评测给出「生成常态参与排序」的结论再说。
     ///
     /// 双拼 / 注音不走：它们的按键不是模型训练时见过的那套字母。
+    ///
+    /// 读得通的输入只在 `readable_too` 为真时生成（词图已经出了多词整句，生成的那条给调用方插在它后面当备选）。
+    /// 返回 (候选, 词图是否读不通)。
     pub(in crate::engine) fn generated_sentence_candidates(
         &self,
         best: &Segmentation,
         keys: &str,
         corrected: bool,
-    ) -> Vec<Candidate> {
+        readable_too: bool,
+    ) -> (Vec<Candidate>, bool) {
         if keys.len() < MIN_GENERATED_LETTERS
             || self.shuangpin.is_some()
             || self.zhuyin
             || !keys.bytes().all(|b| b.is_ascii_lowercase())
         {
-            return Vec::new();
+            return (Vec::new(), false);
         }
         // 上面已经保证整段都是小写字母，没有 `'`，`letters()` 与字节长度可比
         let covers_all = best.letters() == keys.len();
-        if best.incomplete_count() == 0 && covers_all && !corrected {
-            return Vec::new();
+        let unreadable = best.incomplete_count() > 0 || !covers_all || corrected;
+        if !unreadable && !readable_too {
+            return (Vec::new(), false);
         }
         let mut out: Vec<Candidate> = Vec::new();
         for text in self.generated_sentences(keys) {
@@ -54,6 +59,6 @@ impl Engine {
                 aux_code: None,
             });
         }
-        out
+        (out, unreadable)
     }
 }

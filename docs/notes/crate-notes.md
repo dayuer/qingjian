@@ -154,7 +154,7 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 中英混输（`yongdockerbushuhenfangbian`）与生词在它那里根本没有路径，出来的只能是把英文段硬读成拼音的废话（用的哦乘客仍不熟很方便）。
 词图读不通整段时改问 `SentenceScorer::generate`（P2C 走 `P2c::convert`，字级模型返回空），生成的整句插在词图那几条前面。
 「读不通」三条：最优切分里有不完整音节、切分没覆盖到末尾（`woyongvscodexiedaima` 的 `v` 起不了音节）、拼写纠错生效
-（`womaileyigeiphone` 的 `phone` 被当成敲错的 `paone`）。纠错把整段纠成一个词库词时（`enngli` → 能力）词图已经读通，不生成：模型照着原样按键写只会是 恩能力，插在最前反把纠对的词挤下去。拼音干净的输入一条都不触发，常态零成本；
+（`womaileyigeiphone` 的 `phone` 被当成敲错的 `paone`）。纠错把整段纠成一个词库词时（`enngli` → 能力）词图已经读通，不生成：模型照着原样按键写只会是 恩能力，插在最前反把纠对的词挤下去。拼音干净、词图已经出了多词整句的输入也生成，但只取模型首选插在词图首选之后当备选（融合，2026-10-08，见 neural-rescoring.md 第四节）；单个词的输入不生成；
 异步打分器下走同一次 `request_rescoring`（`Job.generate`），按键回调不等它。
 `GENERATE_BEAM` = 5、`GENERATE_MAX_CHARS` = 32、`GENERATED_CANDIDATES` = 2、`MIN_GENERATED_LETTERS` = 6；双拼 / 注音不走（按键不是模型见过的字母）。
 生成的候选没有音节对齐，上屏吃掉整段作用域、不记学习。漏的是「英文词本身就是合法拼音」那种（`zhegeapihenhaoyong` 的 `api` 读成 `a pi`），

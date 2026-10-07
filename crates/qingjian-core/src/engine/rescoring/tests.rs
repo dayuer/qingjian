@@ -188,3 +188,28 @@ fn no_generation_when_correction_lands_on_a_whole_word() {
             .all(|c| c.kind != CandidateKind::Generated)
     );
 }
+
+/// 读得通的多词整句也让模型生成，它的首选插在词图首选之后当备选；词图首选不动。
+/// 单个词的输入没有整句，不生成（词级排序不受影响）。
+#[test]
+fn a_readable_sentence_gets_the_generated_one_as_the_runner_up() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n一起\tyi qi\t80000\n去\tqu\t70000\n我\two\t90000\n们\tmen\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(PrefersAndGenerates("我们一起去", &["我们一齐去"])),
+        Some(0.5),
+        None,
+        None,
+    );
+    engine.set_input("womenyiqiqu");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "我们一起去");
+    assert_eq!(items[1].text, "我们一齐去");
+    assert_eq!(items[1].kind, CandidateKind::Generated);
+    engine.clear();
+    engine.set_input("women");
+    let items = engine.query().unwrap().candidates.items;
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Generated));
+}

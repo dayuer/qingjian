@@ -51,28 +51,41 @@ impl Engine {
                         c.kind == CandidateKind::Chinese && c.syllables.concat() == letters
                     })
                 };
-                let generated: Vec<Candidate> = if corrected_to_word {
-                    Vec::new()
+                // 词图读得通、已经出了多词整句时也生成，模型的首选插在词图首选之后当备选：
+                // dev 上词图（含重排）首选比生成高 9 个点，前三里补上生成的那条却从 64 到 71（见 docs/notes/neural-rescoring.md）
+                let has_sentence = sentences.iter().any(|c| c.kind == CandidateKind::Sentence);
+                let (generated, unreadable) = if corrected_to_word {
+                    (Vec::new(), false)
                 } else {
-                    self.generated_sentence_candidates(best, keys, !typos)
-                }
-                .into_iter()
-                .filter(|g| {
-                    !items
-                        .iter()
-                        .chain(sentences.iter())
-                        .any(|c| c.text == g.text)
-                })
-                .collect();
-                let generated_count = generated.len();
-                for (offset, candidate) in generated.into_iter().enumerate() {
-                    items.insert((position + offset).min(items.len()), candidate);
-                }
-                for (offset, plain) in sentences.into_iter().enumerate() {
-                    items.insert(
-                        (position + generated_count + offset).min(items.len()),
-                        plain,
-                    );
+                    self.generated_sentence_candidates(best, keys, !typos, has_sentence)
+                };
+                let generated: Vec<Candidate> = generated
+                    .into_iter()
+                    .filter(|g| {
+                        !items
+                            .iter()
+                            .chain(sentences.iter())
+                            .any(|c| c.text == g.text)
+                    })
+                    .collect();
+                if unreadable {
+                    let generated_count = generated.len();
+                    for (offset, candidate) in generated.into_iter().enumerate() {
+                        items.insert((position + offset).min(items.len()), candidate);
+                    }
+                    for (offset, plain) in sentences.into_iter().enumerate() {
+                        items.insert(
+                            (position + generated_count + offset).min(items.len()),
+                            plain,
+                        );
+                    }
+                } else {
+                    for (offset, plain) in sentences.into_iter().enumerate() {
+                        items.insert((position + offset).min(items.len()), plain);
+                    }
+                    if let Some(first) = generated.into_iter().next() {
+                        items.insert((position + 1).min(items.len()), first);
+                    }
                 }
             }
         }
