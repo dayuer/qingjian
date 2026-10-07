@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::lexicon::DEFAULT_PLACES_MIN_DF;
 use crate::mmh::MmhReferenceOptions;
 use crate::stroke::StrokeOptions;
 
@@ -50,6 +51,15 @@ pub enum Command {
         /// 领域词在语料里出现不少于这个次数就留在基础词库，否则拆到 dicts/<领域>.qj
         #[arg(long, default_value_t = 50)]
         domain_keep_min: u64,
+
+        /// 地名包只留文档频次不低于这个值的地点，低于它的进 places-extended（缺省关）。
+        /// 见 docs/plan/dictionary-layering.md 第 1 步 R3
+        #[arg(long, default_value_t = DEFAULT_PLACES_MIN_DF)]
+        places_min_df: u64,
+
+        /// 长度门槛的白名单：固定书名这类必须留的长专名，一行一个词（`#` 开头是注释）
+        #[arg(long, default_value = "assets/lexicon/00_meta/domain-keep.tsv")]
+        domain_keep_file: PathBuf,
     },
 
     /// 形码码表（五笔）：Rime `.dict.yaml` → `词\t编码\t词频`。词频由青简词库按词面回填，不用码表自带的权重

@@ -18,7 +18,9 @@ cargo run --release -p qingjian-gloss-gen -- pinyin
 # 3. 用初版词库分词、统计语料词频（语料在 data/corpus/，见 docs/design/landscape.md）
 cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt
 # 4. 第二遍：带标注与词频写最终 dict.tsv；再统计一次语料让分词用上真实词频
-#    领域词同时拆出：语料里 ≥ 50 次（--domain-keep-min）的留在 dict.tsv，其余按来源文件各写一本 dicts/<领域>.tsv + dicts/<领域>.qj（带 META）；
+#    领域词同时拆出：先过词库分层的第 1 步规则（docs/plan/dictionary-layering.md：>6 字、
+#    寄主 + 学名、小地名、诗词名句），再按语料里 ≥ 50 次（--domain-keep-min）的留在 dict.tsv，其余按来源文件各写一本 dicts/<领域>.tsv + dicts/<领域>.qj（带 META）；
+#    删了什么、改了哪些包、哪几条从基础词库移出去见 data/generated/domain-report.tsv（含每本 20 条被删样本）；
 #    bigram / mine 分词时会自动把 dicts/*.tsv 一起当词表，所以拆分不影响语言模型
 cargo run --release -p qingjian-dict-convert -- lexicon --pinyin data/generated/pinyin-llm.jsonl --frequency data/generated/lm-unigram.tsv
 cargo run --release -p qingjian-dict-convert -- bigram data/corpus/*.txt

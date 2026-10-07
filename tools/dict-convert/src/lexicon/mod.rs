@@ -9,9 +9,13 @@
 //!
 //! 领域词拆开出：语料里出现够多的（`domain_keep_min`）是通用词，留在基础词库 `dict.tsv`；其余按来源文件各写一本
 //! `dicts/<领域>.tsv` 与带元数据的 `dicts/<领域>.qj`，随包分发、缺省关闭，用户按需打开。基础词库与各领域词库互不重叠。
+//! 拆之前先过第 1 步的规则（`domain_filter`：长度门槛、寄主 + 学名、小地名、诗词名句），
+//! 删了什么、改派到哪一本、哪几条从基础词库移出去，写进 `data/generated/domain-report.tsv`。
 
 mod annotations;
 mod corpus;
+mod domain_filter;
+mod domain_report;
 mod entry;
 pub(crate) mod pack;
 mod readings;
@@ -24,6 +28,11 @@ use std::path::Path;
 use qingjian_core::parser::is_syllable;
 use qingjian_dictionary::Dictionary;
 use qingjian_format::Metadata;
+
+pub use domain_filter::DEFAULT_PLACES_MIN_DF;
+
+use domain_filter::{Sink, Whitelist};
+use domain_report::DomainReport;
 
 use crate::error::ConvertError;
 use entry::LexiconEntry;
@@ -49,7 +58,7 @@ const MINOR_READING_SHARE: f64 = 0.05;
 const DISPUTED_READING_DIVISOR: u32 = 8;
 
 /// 领域词库的中文名（文件名主干 → 名称），写进 `.qj` 元数据，偏好设置「词库」页显示它。
-const DOMAIN_NAMES: [(&str, &str); 11] = [
+const DOMAIN_NAMES: [(&str, &str); 12] = [
     ("animals", "动物"),
     ("automotive", "汽车"),
     ("finance", "财经"),
@@ -60,6 +69,7 @@ const DOMAIN_NAMES: [(&str, &str); 11] = [
     ("law", "法律"),
     ("medicine", "医学"),
     ("places", "地名"),
+    ("places-extended", "地名（扩展，含社区与巷弄）"),
     ("poetry_lines", "诗词名句"),
 ];
 
@@ -69,19 +79,51 @@ const DOMAIN_ATTRIBUTION: &str =
     "THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）";
 const DOMAIN_SOURCE: &str = "https://github.com/thunlp/THUOCL";
 
-/// 建词库。`pinyin` 是 LLM 标注 JSONL，`frequency` 是 lm-unigram.tsv，`emit_ambiguous` 写出仍靠猜的多音字词，
-/// `domain_keep_min` 是领域词留在基础词库的最低语料次数（没有词频时按领域词处理，全部拆出去）。
-#[allow(clippy::too_many_arguments)]
-pub fn convert(
-    pack_dir: &Path,
-    unihan: &Path,
-    pinyin: Option<&Path>,
-    frequency: Option<&Path>,
-    emit_ambiguous: Option<&Path>,
-    extra_words: &[std::path::PathBuf],
-    domain_keep_min: u64,
-    out_dir: &Path,
-) -> Result<(), ConvertError> {
+/// `lexicon` 的入参（位置参数已经够多，收成一个结构；逐项含义见字段注释）。
+pub struct Options<'a> {
+    /// 数据包目录（`01_characters` / `02_common` / `03_domains`）
+    pub pack: &'a Path,
+
+    /// Unihan_Readings.txt
+    pub unihan: &'a Path,
+
+    /// LLM 标注的多音字词读音 JSONL
+    pub pinyin: Option<&'a Path>,
+
+    /// 语料词频（lm-unigram.tsv）
+    pub frequency: Option<&'a Path>,
+
+    /// 写出仍靠猜读音的多音字词
+    pub emit_ambiguous: Option<&'a Path>,
+
+    /// 额外并入的词（`mine` / `phrases` / 人工挑的那些）
+    pub extra_words: &'a [std::path::PathBuf],
+
+    /// 领域词留在基础词库的最低语料次数（没有词频时按领域词处理，全部拆出去）
+    pub domain_keep_min: u64,
+
+    /// 地名包只留文档频次不低于这个值的地点（第 1 步 R3；低于它的进 places-extended）
+    pub places_min_df: u64,
+
+    /// 长度门槛的白名单（固定书名这类必须留的长专名，一行一个词）
+    pub keep_file: &'a Path,
+
+    /// 输出目录
+    pub out_dir: &'a Path,
+}
+
+/// 建词库：读数据包 → 标音 → 按语料词频写成 `dict.tsv` 与 `dicts/*.qj`。
+/// 领域包先过第 1 步的规则（`domain_filter`，见 `docs/plan/dictionary-layering.md`），
+/// 再按语料次数决定留基础词库还是拆包；删了什么、改派了什么写进 `domain-report.tsv`。
+pub fn convert(options: &Options) -> Result<(), ConvertError> {
+    let pack_dir = options.pack;
+    let unihan = options.unihan;
+    let pinyin = options.pinyin;
+    let frequency = options.frequency;
+    let emit_ambiguous = options.emit_ambiguous;
+    let extra_words = options.extra_words;
+    let domain_keep_min = options.domain_keep_min;
+    let out_dir = options.out_dir;
     let mut pack = Pack::load(pack_dir)?;
     // 语料挖出来的词当作一类领域词并入：次数当文档频次（也就是没有语料词频时的底值来源）
     for path in extra_words {
@@ -145,6 +187,8 @@ pub fn convert(
             .or_insert(entry);
     };
     let mut dropped = 0usize;
+    let keep = Whitelist::load(options.keep_file)?;
+    let mut report = DomainReport::default();
 
     // 单字：规范字表全部 + 通用词里用到而字表没有的
     let mut chars: Vec<(char, Option<u8>)> =
@@ -338,19 +382,44 @@ pub fn convert(
             syllables,
             frequency,
         };
-        // 语料里常见的领域词其实是通用词（医疗器械、侵权行为），留在基础词库；其余进各自的领域词库
-        match &row.domain {
-            Some(domain) if corpus_count.unwrap_or(0) < domain_keep_min => {
+        let Some(domain) = row.domain.clone() else {
+            // 语料挖出来的额外词（`mine` / `phrases` / 人工挑的领域词）：一律留在基础词库
+            insert(entry);
+            continue;
+        };
+        // 第 1 步的规则：判死的丢掉，判走的换一本包
+        let verdict =
+            domain_filter::judge(&domain, &entry.text, row.df, options.places_min_df, &keep);
+        let from_base = corpus_count.unwrap_or(0) >= domain_keep_min;
+        match verdict {
+            Some((Sink::Drop, reason)) => {
+                report.record_drop(&domain, &entry.text, row.df, reason);
+                continue;
+            }
+            Some((Sink::Pack(to), _)) => {
+                report.record_move(&domain, to, from_base);
                 domains
-                    .entry(domain.clone())
+                    .entry(to.to_owned())
                     .or_default()
                     .insert((entry.text.clone(), entry.syllables.clone()), entry);
+                continue;
             }
-            _ => insert(entry),
+            None => {}
+        }
+        report.record_kept(&domain);
+        // 语料里常见的领域词其实是通用词（医疗器械、侵权行为），留在基础词库；其余进各自的领域词库
+        if from_base {
+            insert(entry);
+        } else {
+            domains
+                .entry(domain)
+                .or_default()
+                .insert((entry.text.clone(), entry.syllables.clone()), entry);
         }
     }
 
     std::fs::create_dir_all(out_dir)?;
+    report.write(&out_dir.join("domain-report.tsv"))?;
     let output = out_dir.join("dict.tsv");
     let mut file = BufWriter::new(std::fs::File::create(&output)?);
     writeln!(
