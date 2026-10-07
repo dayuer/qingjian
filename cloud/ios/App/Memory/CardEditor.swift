@@ -64,7 +64,9 @@ struct CardEditor: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 10)
+            // iOS 26 的大档弹层上沿比设计稿的 top:56 高约 9pt，拖动条又是系统画的、不占内容的位置，
+            // 所以额外补 29pt 让顶端那一行落在稿子的 y≈90（叠图实测）。换机型或系统版本要重新量。
+            .padding(.top, 39)
             .padding(.bottom, 40)
         }
         .background(Theme.paper)
