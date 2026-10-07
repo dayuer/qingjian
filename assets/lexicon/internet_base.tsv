@@ -1,10 +1,11 @@
 # 网络用语里够「天天会打」的，准备并进基础词库（lexicon --extra-words 的用法，与 domain_words.tsv 同格式）。
-# 次数按同音竞争词定：词库里同音节串最强的那个 ≤ 2000 才算「同音不危险」，次数取它 +1（拿首选）；
-# 没有同音竞争词的取 100。依据逐条列在 data/generated/internet-slang-freq-evidence.tsv。
-# 走 --internet-base 并库时仍要跑一次评估（见 docs/plan/dictionary-layering.md 第 5 节）。
+# 次数按同音竞争词定（2026-10-07 审计改的规则）：竞争词 < 200 或没有竞争词 → 取它 +1（拿首选）；
+# 竞争词 ≥ 200 → 不进基础库，退回网络用语包（「败给」「老刘」这种天天会打的词不该被梗词压下去）。
+# 下限统一 100。逐条依据在 data/generated/internet-slang-freq-evidence.tsv。
+# 走 --internet-base 并库时要再跑一次评估（见 docs/plan/dictionary-layering.md 第 5 节）。
 # 词	次数	拼音
 停更	100	ting geng
-内卷	3	nei juan
+内卷	100	nei juan
 删帖	100	shan tie
 割韭菜	100	ge jiu cai
 吹爆	100	chui bao
@@ -12,20 +13,17 @@
 工具人	100	gong ju ren
 已读不回	100	yi du bu hui
 情绪价值	100	qing xu jia zhi
-拉满	452	la man
 摆烂	100	bai lan
 整活	100	zheng huo
 断更	100	duan geng
 智商税	100	zhi shang shui
 标题党	100	biao ti dang
-白给	1331	bai gei
 破防	100	po fang
 社死	100	she si
-社牛	18	she niu
-老六	850	lao liu
+社牛	100	she niu
 舔狗	100	tian gou
 表情符号	100	biao qing fu hao
 贴贴	100	tie tie
 跳票	100	tiao piao
 躺平	100	tang ping
-避雷	99	bi lei
+避雷	100	bi lei

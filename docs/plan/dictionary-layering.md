@@ -278,9 +278,10 @@ cargo run --release -p qingjian-cli -- --config tools/eval/offline.toml \
 
 三列都已经填好（2026-10-07，**没有用上语料，也没用 LLM 密钥**）：
 
-- **词频**：「对着同音竞争词定」不需要语料 —— 竞争词就在 `dict.tsv` 里（自带音节与词频）。规则 `clamp(最强竞争词, 100, 2000)`，
-  逐条依据 `data/generated/internet-slang-freq-evidence.tsv`；基础库那批额外做「同音不危险」实测，`真香` 因同音词 `真相`(9162) 太强退回包。
-- **读音**：由大模型（本会话）逐条给，再跑一遍 `lexicon`，读音不合法的词会被引擎丢掉 —— 174 + 14 条一条没丢，等于对 Unihan 核过。
+- **词频**：「对着同音竞争词定」不需要语料 —— 竞争词就在 `dict.tsv` 里（自带音节与词频）。包内那批 `clamp(最强竞争词, 100, 2000)`；
+  基础库那批（审计改过）竞争词 < 200 才取 +1 拿首选、≥ 200 退回包（拉满、白给、老六、真香 因此退回）。逐条依据 `data/generated/internet-slang-freq-evidence.tsv`。
+- **读音**：由大模型逐条给，再跑一遍 `lexicon`（读音不合法的会被丢掉，177 + 14 条一条没丢）；但那只证明字有这个读音、
+  不证明词里读对了 —— 含多音字的 48 条另列抽查表 `data/generated/internet-slang-polyphone-check.tsv`（词 / 选用读音 / 该字还读什么）。
 - **年份**：维基条目正文能站住的按条目写（16 条），其余 `unknown`（160 条，不进以后的按年份卸载分组），依据 `data/generated/internet-slang-year-evidence.tsv`。
 
 验收（两本包都缺省关，所以与基线一致）：`--eval-text` 首选 34.2% / 前三 39.9% / 字准 77.5%，
