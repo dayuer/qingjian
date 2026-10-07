@@ -5,6 +5,9 @@
 //!
 //! 年份只解析、不参与打包：空值与 `unknown` 都当「不按年份卸载」（`None`），
 //! 留着给以后的批量卸载用（现在还没有卸载机制，先如实读进来）。
+//!
+//! 拼音一律小写：源文件里写了大写（CC-CEDICT 的专名写法，`Tian chao`）直接报错，不悄悄小写化放过去 ——
+//! 大写通常意味着这行是照抄来的专名拼音，得回去看一眼再决定收不收。
 
 use std::path::Path;
 
@@ -47,33 +50,44 @@ pub fn load(path: &Path) -> Result<(String, Vec<Row>), ConvertError> {
         .unwrap_or_default()
         .to_owned();
     let source = std::fs::read_to_string(path)?;
-    let rows = source
-        .lines()
-        .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .filter_map(|line| {
-            let mut fields = line.split('\t');
-            let text = fields.next()?.trim().to_owned();
-            if text.is_empty() {
-                return None;
-            }
-            let syllables = fields
-                .next()
-                .map(|p| {
-                    p.split_whitespace()
-                        .map(|s| canonical_syllable(s).to_owned())
-                        .collect::<Vec<_>>()
-                })
-                .filter(|s: &Vec<String>| !s.is_empty());
-            let frequency = fields.next().and_then(|f| f.trim().parse().ok());
-            let year = fields.next().and_then(parse_year);
-            Some(Row {
-                text,
-                syllables,
-                frequency,
-                year,
+    let mut rows = Vec::new();
+    for (index, line) in source.lines().enumerate() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split('\t');
+        let text = fields.next().unwrap_or_default().trim().to_owned();
+        if text.is_empty() {
+            continue;
+        }
+        let raw = fields.next().unwrap_or_default();
+        if raw.chars().any(|c| c.is_ascii_uppercase()) {
+            return Err(ConvertError::Format {
+                path: path.to_owned(),
+                line: index + 1,
+                reason: format!(
+                    "网络用语「{text}」的拼音写成大写了（{raw}）：拼音一律小写；\
+                     大写的多是照抄来的专名写法，回去确认这条收不收，不要直接放过"
+                ),
+            });
+        }
+        let syllables = Some(raw)
+            .filter(|p| !p.trim().is_empty())
+            .map(|p| {
+                p.split_whitespace()
+                    .map(|s| canonical_syllable(s).to_owned())
+                    .collect::<Vec<_>>()
             })
-        })
-        .collect();
+            .filter(|s: &Vec<String>| !s.is_empty());
+        let frequency = fields.next().and_then(|f| f.trim().parse().ok());
+        let year = fields.next().and_then(parse_year);
+        rows.push(Row {
+            text,
+            syllables,
+            frequency,
+            year,
+        });
+    }
     Ok((stem, rows))
 }
 
@@ -162,6 +176,21 @@ mod tests {
         assert_eq!(rows[1].frequency, None, "没填词频就是 None");
         assert_eq!(rows[1].frequency(), DEFAULT_FREQUENCY, "兜底给弱的底值");
         assert_eq!(rows[1].syllables, None, "没填拼音就按字推");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn uppercase_pinyin_is_rejected_not_silently_lowercased() {
+        let dir = temp_dir("upper");
+        write(
+            &dir,
+            "internet_slang.tsv",
+            "天朝\tTian chao\t100\tunknown\twiktionary\n",
+        );
+        let error = load(&dir.join("internet_slang.tsv")).unwrap_err();
+        let text = format!("{error}");
+        assert!(text.contains("天朝"), "{text}");
+        assert!(text.contains("大写"), "{text}");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

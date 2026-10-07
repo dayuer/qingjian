@@ -4,26 +4,26 @@
 # 下限统一 100。逐条依据在 data/generated/internet-slang-freq-evidence.tsv。
 # 走 --internet-base 并库时要再跑一次评估（见 docs/plan/dictionary-layering.md 第 5 节）。
 # 词	次数	拼音
-停更	100	ting geng
-内卷	100	nei juan
-删帖	100	shan tie
-割韭菜	100	ge jiu cai
-吹爆	100	chui bao
-套娃	100	tao wa
-工具人	100	gong ju ren
-已读不回	100	yi du bu hui
-情绪价值	100	qing xu jia zhi
-摆烂	100	bai lan
-整活	100	zheng huo
-断更	100	duan geng
-智商税	100	zhi shang shui
-标题党	100	biao ti dang
-破防	100	po fang
-社死	100	she si
-社牛	100	she niu
-舔狗	100	tian gou
-表情符号	100	biao qing fu hao
-贴贴	100	tie tie
-跳票	100	tiao piao
-躺平	100	tang ping
-避雷	100	bi lei
+停更	100	ting geng		
+内卷	100	nei juan		
+删帖	100	shan tie		
+割韭菜	100	ge jiu cai		
+吹爆	100	chui bao		
+套娃	100	tao wa		
+工具人	100	gong ju ren		
+已读不回	100	yi du bu hui		
+情绪价值	100	qing xu jia zhi		
+摆烂	100	bai lan		
+整活	100	zheng huo		
+断更	100	duan geng		
+智商税	100	zhi shang shui		
+标题党	100	biao ti dang		
+破防	100	po fang		
+社死	100	she si		
+社牛	100	she niu		
+舔狗	100	tian gou		
+表情符号	100	biao qing fu hao		
+贴贴	100	tie tie		
+跳票	100	tiao piao		
+躺平	100	tang ping		
+避雷	100	bi lei		
