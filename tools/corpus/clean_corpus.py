@@ -53,7 +53,7 @@ def drop_reason(line: str) -> str | None:
 
 
 def digest(text: str) -> int:
-    return int.from_bytes(hashlib.blake2b(text.encode("utf-8"), digest_size=8).digest(), "big")
+    return int.from_bytes(hashlib.blake2b(text.encode("utf-8"), digest_size=8).digest(), "big", signed=True)
 
 
 def main() -> int:
