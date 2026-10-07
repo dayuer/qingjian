@@ -19,6 +19,12 @@ define_class!(
             host::with(|h| h.change_setting(super::Setting::EditPhrase, super::SettingValue::Bool(false)));
         }
 
+        /// 「云服务」页「高级」的展开三角：只改界面，不动配置。
+        #[unsafe(method(toggleCloudAdvanced:))]
+        fn toggle_cloud_advanced(&self, _sender: Option<&AnyObject>) {
+            host::with(|h| h.toggle_cloud_advanced());
+        }
+
         #[unsafe(method(changed:))]
         fn changed(&self, sender: Option<&AnyObject>) {
             if let Some((setting, value)) = super::setting_from_sender(sender) {

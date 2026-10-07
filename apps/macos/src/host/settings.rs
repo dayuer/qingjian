@@ -100,6 +100,11 @@ impl Host {
         self.preferences.sync_cloud_status();
     }
 
+    /// 「云服务」页「高级」的展开三角：只改界面，不动配置。
+    pub fn toggle_cloud_advanced(&mut self) {
+        self.preferences.toggle_cloud_advanced();
+    }
+
     /// 设置窗口里改了一个控件：写配置、热加载；写不成（非法组合、空文本）也要把控件同步回真实值。
     pub fn change_setting(&mut self, setting: Setting, value: SettingValue) {
         // 密钥值不进日志

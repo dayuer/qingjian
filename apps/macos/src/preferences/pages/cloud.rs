@@ -1,66 +1,102 @@
 //! 「云服务」页：状态（开通 / 加入 / 解绑）、五项云功能开关、同步（暂停 / 立即同步）、
-//! 数据（清空云端输入记录）、高级（本地整句模型、云联想端点与自定义接口）。
+//! 数据（清空云端输入记录）、高级（本地整句模型、云联想与自定义接口）。
+//! 每块一张分组卡（[`Card`]）：一行左边是名称与说明小字，右边是控件。
 //! 功能开关切的是服务器上的许可（素笺云），名字与说明与 iOS 的云功能清单一字不差。
 
-use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSButton, NSColor, NSFont, NSPopUpButton, NSSecureTextField, NSTextField};
+use objc2::{MainThreadMarker, sel};
+use objc2_app_kit::{
+    NSButton, NSColor, NSControlStateValueOn, NSPopUpButton, NSSecureTextField, NSSwitch,
+    NSTextField, NSView,
+};
 use objc2_foundation::NSString;
 use qingjian_cloud_mac::CloudStatus;
 use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
 
+use crate::preferences::card::{Card, RowSlot, SWITCH_WIDTH, view};
 use crate::preferences::controls::{
-    button, button_width, checkbox, note, note_full, note_label, row_button, row_checkbox,
-    row_control, row_popup, section, secure_field, select, set_checked, text_field,
+    button, button_width, danger_button, disclosure, note_full, popup, secure_field, select,
+    set_switch, switch, text_field,
 };
-use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_HEIGHT};
+use crate::preferences::layout::{Layout, PAGE_PADDING};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
 
 /// 云端词槽位弹出菜单的上限（配置文件里可以填更大，菜单只列到这）。
 const MAX_CLOUD_SLOTS: usize = 4;
 
-/// 状态块那一行：比说明字大一点、正常颜色，一眼能看出开没开通。
-fn state_label(mtm: MainThreadMarker, text: &str) -> Retained<NSTextField> {
-    let label = NSTextField::labelWithString(&NSString::from_str(text), mtm);
-    label.setFont(Some(&NSFont::systemFontOfSize(13.0)));
-    label
+/// 组标题那一行的高度（小号灰字，在卡片框外上方）。
+const TITLE_H: f64 = 15.0;
+
+/// 组标题与卡片之间的距离。
+const TITLE_GAP: f64 = 5.0;
+
+/// 「高级」的三角按钮与标题之间的距离。
+const TITLE_INDENT: f64 = 18.0;
+
+/// 名称那一行留两行高：状态行与同步行的文字会长到两三行，一行装不下。
+const NAME_TALL: f64 = 34.0;
+
+/// 弹出菜单（服务、云端词位置）的宽。
+const POPUP_W: f64 = 150.0;
+
+/// 接口地址、模型、密钥输入框的宽。
+const FIELD_W: f64 = 220.0;
+
+/// 没开通时状态卡下面那行：怎么用匹配码把这台 Mac 加进去。
+const JOIN_HINT: &str = "手机上已经开通的话走「输入匹配码加入」：手机上「我 → 素笺云服务 → 添加一台设备」出码，这里输码，手机上点允许。";
+
+/// 在页面上开一张分组卡：组标题在框外上方，卡片本体交给布局器摆。
+fn card(layout: &mut Layout, mtm: MainThreadMarker, title: &str) -> Card {
+    let (label, card) = Card::new(mtm, layout.inner_width(), title);
+    layout.place(&label, PAGE_PADDING, layout.inner_width(), TITLE_H);
+    layout.next_row(TITLE_H + TITLE_GAP);
+    card
 }
 
 pub struct CloudPage {
-    /// 状态行：未开通素笺云 / 已开通 · 同步中 / 已暂停。
+    /// 状态行的名称：未开通素笺云 / 已开通 · 连接中… 。
     state: Retained<NSTextField>,
 
-    /// 已开通时的设备行：这台设备的名字。
+    /// 状态行下面的小字：这台设备的名字（没开通时留空）。
     device: Retained<NSTextField>,
 
-    /// 上一次操作的提示（加入失败、已清空等）；没有时是空串。
+    /// 状态卡下面那行：出错时是原因（红字），没开通时是怎么加入；都没有就藏起来。
     hint: Retained<NSTextField>,
 
-    /// 未开通那两颗按钮下面的说明；开通后收起来。
-    join_hint: Retained<NSTextField>,
-
-    /// 没开通时才显示的两颗按钮。
+    /// 状态行右边的三颗按钮：没开通时显示前两颗，开通后只剩第三颗。
     create: Retained<NSButton>,
 
     join: Retained<NSButton>,
 
-    /// 已开通时才显示。
     unbind: Retained<NSButton>,
 
+    /// 三颗按钮的宽（按标题算，重排时要）。
+    create_w: f64,
+
+    join_w: f64,
+
+    unbind_w: f64,
+
+    /// 状态行的位置：两套按钮轮流上场，按状态重新右对齐。
+    status_slot: RowSlot,
+
+    /// 状态卡的高度（换算行的位置时要用）。
+    status_height: f64,
+
     /// 五项云功能开关。
-    memory: Retained<NSButton>,
+    memory: Retained<NSSwitch>,
 
-    input_log: Retained<NSButton>,
+    input_log: Retained<NSSwitch>,
 
-    sync_switch: Retained<NSButton>,
+    sync_switch: Retained<NSSwitch>,
 
-    clipboard: Retained<NSButton>,
+    clipboard: Retained<NSSwitch>,
 
-    llm: Retained<NSButton>,
+    llm: Retained<NSSwitch>,
 
-    /// 学习数据的同步状态（最近同步多久前 / 失败原因）。
+    /// 同步行的名称：学习数据：刚刚同步 / 同步失败… 。
     sync_state: Retained<NSTextField>,
 
     pause: Retained<NSButton>,
@@ -69,11 +105,22 @@ pub struct CloudPage {
 
     clear_log: Retained<NSButton>,
 
-    /// 高级：本地整句模型开关。
-    local_model: Retained<NSButton>,
+    /// 高级：展开三角，以及它管着的两张卡（收起时整张藏起来）。
+    advanced_toggle: Retained<NSButton>,
 
-    /// 高级：云联想（走素笺云时用云端的大模型代理，自定义接口时填下面的几行）。
-    enabled: Retained<NSButton>,
+    advanced_title: Retained<NSTextField>,
+
+    advanced_view: Retained<NSView>,
+
+    custom_title: Retained<NSTextField>,
+
+    custom_view: Retained<NSView>,
+
+    /// 高级：本地整句模型开关。
+    local_model: Retained<NSSwitch>,
+
+    /// 高级：云联想（走素笺云时用云端的大模型代理，自定义接口时填下面那张卡）。
+    enabled: Retained<NSSwitch>,
 
     /// 云端词槽位数（0–4）。
     slots: Retained<NSPopUpButton>,
@@ -81,7 +128,7 @@ pub struct CloudPage {
     /// 素笺云 / 自定义接口。
     provider: Retained<NSPopUpButton>,
 
-    /// 自定义接口才有的几行：地址、模型、密钥各自的标题与输入框，加下面的说明；走素笺云时整段藏起来。
+    /// 自定义接口那张卡里的三行输入框。
     custom: CustomRows,
 
     /// 「测试连接」按钮。
@@ -89,132 +136,139 @@ pub struct CloudPage {
 }
 
 struct CustomRows {
-    captions: [Retained<NSTextField>; 3],
-
     base_url: Retained<NSTextField>,
 
     model: Retained<NSTextField>,
 
     /// 密钥输入框，永远不回显已有值。
     api_key: Retained<NSSecureTextField>,
-
-    note: Retained<NSTextField>,
 }
 
 impl CloudPage {
     pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
-        // 状态
-        section(layout, mtm, "状态");
-        let state = state_label(mtm, "…");
-        layout.place(&state, PAGE_PADDING, layout.inner_width(), 20.0);
-        layout.next_row(20.0);
-        let device = note_full(layout, mtm, "");
-        let hint = note_full(layout, mtm, "");
-        hint.setTextColor(Some(&NSColor::systemRedColor()));
-
+        // 状态：左边状态与设备名，右边按有没有开通换一组按钮
+        let mut status_card = card(layout, mtm, "状态");
         let create = button(mtm, "开通素笺云", Setting::CloudCreateSpace, target);
         let join = button(mtm, "输入匹配码加入…", Setting::CloudJoinWithCode, target);
+        let unbind = danger_button(mtm, "解绑这台 Mac…", Setting::CloudUnbind, target);
         let create_w = button_width("开通素笺云");
         let join_w = button_width("输入匹配码加入…");
-        layout.place(&create, PAGE_PADDING, create_w, ROW_HEIGHT + 4.0);
-        layout.place(
-            &join,
-            PAGE_PADDING + create_w + 10.0,
-            join_w,
-            ROW_HEIGHT + 4.0,
-        );
-        layout.next_row(ROW_HEIGHT + 4.0);
-        let join_hint = note_full(
-            layout,
+        let unbind_w = button_width("解绑这台 Mac…");
+        let (state, device, status_slot) = status_card.row_group(
             mtm,
-            "手机上已经开通的话走「输入匹配码加入」：手机上「我 → 素笺云服务 → 添加一台设备」出码，这里输码，手机上点允许。",
+            "未开通素笺云",
+            Some("这台设备"),
+            &[(view(&create), create_w), (view(&join), join_w)],
+            NAME_TALL,
         );
-        let unbind = row_button(layout, mtm, "解绑这台 Mac", Setting::CloudUnbind, target);
+        // 「解绑」只在开通后出现，位置按状态重排，不挤文字列
+        status_card.row_extra(&status_slot, view(&unbind), unbind_w);
+        let device = device.expect("状态行的说明那一行");
+        let status_height = status_card.finish(layout);
+        let hint = note_full(layout, mtm, JOIN_HINT);
 
         // 功能（名字与 iOS 的功能清单一字一致）
-        section(layout, mtm, "功能");
-        let memory = checkbox(
+        let mut feature_card = card(layout, mtm, "功能");
+        let memory = switch(mtm, Setting::CloudMemory, target);
+        feature_card.row(
             mtm,
             "云端记忆（把记下的素材整理成卡）",
-            Setting::CloudMemory,
-            target,
+            Some("记下的素材先在本机抹去姓名、电话、地址等再上传，交给云端整理成卡；关掉会同时删除服务器上的素材。"),
+            view(&memory),
+            SWITCH_WIDTH,
         );
-        row_checkbox(layout, &memory);
-        let _ = note_full(
-            layout,
+        let input_log = switch(mtm, Setting::CloudInputLog, target);
+        feature_card.row(
             mtm,
-            "记下的素材先在本机抹去姓名、电话、地址等再上传，交给云端整理成卡；关掉会同时删除服务器上的素材。",
+            "同步打字内容",
+            Some("打的字上传到素笺的服务器，用来优化输入法；密码、验证码这类输入框不会记录。"),
+            view(&input_log),
+            SWITCH_WIDTH,
         );
-        let input_log = checkbox(mtm, "同步打字内容", Setting::CloudInputLog, target);
-        row_checkbox(layout, &input_log);
-        let _ = note_full(
-            layout,
+        let sync_switch = switch(mtm, Setting::CloudSync, target);
+        feature_card.row(
             mtm,
-            "打的字上传到素笺的服务器，用来优化输入法；密码、验证码这类输入框不会记录。",
+            "同步学习数据与设置",
+            Some("学到的词、词频与设置在多台设备间保持一致；关掉只停同步，本机数据还在。"),
+            view(&sync_switch),
+            SWITCH_WIDTH,
         );
-        let sync_switch = checkbox(mtm, "同步学习数据与设置", Setting::CloudSync, target);
-        row_checkbox(layout, &sync_switch);
-        let clipboard = checkbox(mtm, "跨设备剪贴板", Setting::CloudClipboard, target);
-        row_checkbox(layout, &clipboard);
-        let _ = note_full(
-            layout,
+        let clipboard = switch(mtm, Setting::CloudClipboard, target);
+        feature_card.row(
             mtm,
-            "本机复制的文本传到别的设备，别的设备复制的写进本机剪贴板。",
+            "跨设备剪贴板",
+            Some("本机复制的文本传到别的设备，别的设备复制的写进本机剪贴板。"),
+            view(&clipboard),
+            SWITCH_WIDTH,
         );
-        let llm = checkbox(mtm, "大模型（润色、云联想）", Setting::CloudLlm, target);
-        row_checkbox(layout, &llm);
-        let _ = note_full(
-            layout,
+        let llm = switch(mtm, Setting::CloudLlm, target);
+        feature_card.row(
             mtm,
-            "改写选中或整句，组句时联想整句与云端候选；走素笺云自己的服务器，不用填密钥。",
+            "大模型（润色、云联想）",
+            Some("改写选中或整句，组句时联想整句与云端候选；走素笺云自己的服务器，不用填密钥。"),
+            view(&llm),
+            SWITCH_WIDTH,
         );
+        feature_card.finish(layout);
 
-        // 同步
-        section(layout, mtm, "同步");
-        let sync_state = note_full(layout, mtm, "");
+        // 同步：左边是最近一次同步的状态，右边两颗按钮
+        let mut sync_card = card(layout, mtm, "同步");
         let pause = button(mtm, "暂停同步", Setting::CloudPause, target);
-        let sync_now = button(mtm, "立即同步学习数据", Setting::CloudSyncNow, target);
-        let pause_w = button_width("暂停同步");
-        let sync_w = button_width("立即同步学习数据");
-        layout.place(&pause, PAGE_PADDING, pause_w, ROW_HEIGHT + 4.0);
-        layout.place(
-            &sync_now,
-            PAGE_PADDING + pause_w + 10.0,
-            sync_w,
-            ROW_HEIGHT + 4.0,
+        let sync_now = button(mtm, "立即同步", Setting::CloudSyncNow, target);
+        let (sync_state, _) = sync_card.row_tall(
+            mtm,
+            "学习数据：正在同步…",
+            None,
+            &[
+                (view(&pause), button_width("暂停同步")),
+                (view(&sync_now), button_width("立即同步")),
+            ],
+            NAME_TALL,
         );
-        layout.next_row(ROW_HEIGHT + 4.0);
+        sync_card.finish(layout);
 
         // 数据
-        section(layout, mtm, "数据");
-        let clear_log = row_button(
-            layout,
+        let mut data_card = card(layout, mtm, "数据");
+        let clear_log = danger_button(
             mtm,
             "清空云端输入记录…",
             Setting::CloudClearInputLog,
             target,
         );
-        let _ = note_full(
-            layout,
+        data_card.row_with_buttons(
             mtm,
-            "服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。",
+            "",
+            Some("服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。"),
+            &[(view(&clear_log), button_width("清空云端输入记录…"))],
         );
+        data_card.finish(layout);
 
-        // 高级
-        section(layout, mtm, "高级");
-        let local_model = checkbox(mtm, "本地整句模型", Setting::LocalModelEnabled, target);
-        row_checkbox(layout, &local_model);
-        let _ = note_full(
-            layout,
-            mtm,
-            "随包的小模型在本机给整句候选重新排序，全程离线；停键后几十毫秒生效。关掉只用词库统计。",
+        // 高级：三角在组标题左边，默认收起
+        let (advanced_title, mut advanced_card) = Card::new(mtm, layout.inner_width(), "高级");
+        let advanced_toggle = disclosure(mtm, sel!(toggleCloudAdvanced:), target);
+        layout.place(&advanced_toggle, PAGE_PADDING, TITLE_H, TITLE_H);
+        layout.place(
+            &advanced_title,
+            PAGE_PADDING + TITLE_INDENT,
+            layout.inner_width() - TITLE_INDENT,
+            TITLE_H,
         );
-        let enabled = checkbox(mtm, "启用云联想", Setting::CloudEnabled, target);
-        row_checkbox(layout, &enabled);
-        let _ = note_full(
-            layout,
+        layout.next_row(TITLE_H + TITLE_GAP);
+        let local_model = switch(mtm, Setting::LocalModelEnabled, target);
+        advanced_card.row(
             mtm,
-            "开启后组句时把光标附近的几十个字发给大模型，补全整句、联想下文；密码框里绝不发送。",
+            "本地整句模型",
+            Some("随包的小模型在本机给整句候选重新排序，全程离线；停键后几十毫秒生效。关掉只用词库统计。"),
+            view(&local_model),
+            SWITCH_WIDTH,
+        );
+        let enabled = switch(mtm, Setting::CloudEnabled, target);
+        advanced_card.row(
+            mtm,
+            "启用云联想",
+            Some("开启后组句时把光标附近的几十个字发给大模型，补全整句、联想下文；密码框里绝不发送。"),
+            view(&enabled),
+            SWITCH_WIDTH,
         );
         let slot_titles: Vec<String> = (0..=MAX_CLOUD_SLOTS)
             .map(|n| match n {
@@ -222,58 +276,67 @@ impl CloudPage {
                 n => format!("{n} 格"),
             })
             .collect();
-        let slots = row_popup(
-            layout,
+        let slots = popup(mtm, &slot_titles, Setting::CloudSlots, target);
+        advanced_card.row(
             mtm,
             "云端词位置",
-            &slot_titles,
-            Setting::CloudSlots,
-            target,
+            Some("云端词到了只补进第一页末尾这几格（比如 2 就是 8、9），前面的本地候选不动；没到就什么都不变，翻页后全是本地候选。"),
+            view(&slots),
+            POPUP_W,
         );
-        note(
-            layout,
+        let provider = popup(
             mtm,
-            "云端词到了只补进第一页末尾这几格（比如 2 就是 8、9），前面的本地候选不动；没到就什么都不变，翻页后全是本地候选。",
-        );
-        let provider = row_popup(
-            layout,
-            mtm,
-            "服务",
             &["素笺云".to_owned(), "自定义接口".to_owned()],
             Setting::CloudProvider,
             target,
         );
-        note(
-            layout,
+        advanced_card.row(
             mtm,
-            "素笺云用上面的「大模型」开关，不必填密钥。自定义接口可以接任何 OpenAI 兼容的服务，填下面的三行。",
+            "服务",
+            Some("素笺云用上面的「大模型」开关，不必填密钥。自定义接口可以接任何 OpenAI 兼容的服务，填下面那张卡。"),
+            view(&provider),
+            POPUP_W,
         );
+        let test = button(mtm, "测试连接", Setting::TestCloud, target);
+        advanced_card.row(
+            mtm,
+            "测试连接",
+            Some("按当前的服务发一条最小请求，结果显示在窗口底部。输入法进程看不到终端里的代理变量，走不通时先查这个。"),
+            view(&test),
+            button_width("测试连接"),
+        );
+        let advanced_view = advanced_card.box_view();
+        advanced_card.finish(layout);
+
+        // 自定义接口：走素笺云时整张卡收起来（不占卡内的空位）
+        let (custom_title, mut custom_card) = Card::new(mtm, layout.inner_width(), "自定义接口");
+        layout.place(&custom_title, PAGE_PADDING, layout.inner_width(), TITLE_H);
+        layout.next_row(TITLE_H + TITLE_GAP);
         let base_url = text_field(mtm, Setting::BaseUrl, target);
-        let base_url_caption = row_control(layout, mtm, "接口地址", &base_url);
+        custom_card.row(mtm, "接口地址", None, view(&base_url), FIELD_W);
         let model = text_field(mtm, Setting::Model, target);
-        let model_caption = row_control(layout, mtm, "模型", &model);
+        custom_card.row(mtm, "模型", None, view(&model), FIELD_W);
         let api_key = secure_field(mtm, Setting::ApiKey, target);
-        let api_key_caption = row_control(layout, mtm, "API 密钥", &api_key);
-        let custom_note = note_label(
-            layout,
+        custom_card.row(mtm, "API 密钥", None, view(&api_key), FIELD_W);
+        custom_card.row_note(
             mtm,
             "文本框按回车保存。密钥只保存在这台电脑上，不会随配置文件导出，也不显示已填的值。",
         );
-        let test = row_button(layout, mtm, "测试连接", Setting::TestCloud, target);
-        let _ = note_full(
-            layout,
-            mtm,
-            "按当前的服务发一条最小请求，结果显示在窗口底部。输入法进程看不到终端里的代理变量，走不通时先查这个。",
-        );
+        let custom_view = custom_card.box_view();
+        custom_card.finish(layout);
 
-        Self {
+        let page = Self {
             state,
             device,
             hint,
-            join_hint,
             create,
             join,
             unbind,
+            create_w,
+            join_w,
+            unbind_w,
+            status_slot,
+            status_height,
             memory,
             input_log,
             sync_switch,
@@ -283,19 +346,24 @@ impl CloudPage {
             pause,
             sync_now,
             clear_log,
+            advanced_toggle,
+            advanced_title,
+            advanced_view,
+            custom_title,
+            custom_view,
             local_model,
             enabled,
             slots,
             provider,
             custom: CustomRows {
-                captions: [base_url_caption, model_caption, api_key_caption],
                 base_url,
                 model,
                 api_key,
-                note: custom_note,
             },
             test,
-        }
+        };
+        page.toggle_advanced();
+        page
     }
 
     /// 状态块与开关的勾选：读素笺云现在的状态（`qingjian_cloud_mac::status`）。
@@ -309,25 +377,43 @@ impl CloudPage {
                 &status.line
             }));
         self.device
-            .setStringValue(&NSString::from_str(&if status.signed_in {
-                if status.device.is_empty() {
-                    String::new()
-                } else {
+            .setStringValue(&NSString::from_str(
+                &if status.signed_in && !status.device.is_empty() {
                     format!("这台设备：{}", status.device)
-                }
-            } else {
-                String::new()
-            }));
+                } else {
+                    String::new()
+                },
+            ));
+        // 出错时说明原因（红字），没开通时说明怎么加入
+        let note = status.note.as_deref().unwrap_or_default();
         self.hint
-            .setStringValue(&NSString::from_str(status.note.as_deref().unwrap_or("")));
-        self.device.setHidden(!status.signed_in);
-        self.unbind.setHidden(!status.signed_in);
+            .setStringValue(&NSString::from_str(if note.is_empty() {
+                if status.signed_in { "" } else { JOIN_HINT }
+            } else {
+                note
+            }));
+        let hint_color = if note.is_empty() {
+            NSColor::secondaryLabelColor()
+        } else {
+            NSColor::systemRedColor()
+        };
+        self.hint.setTextColor(Some(&hint_color));
+        self.hint.setHidden(status.signed_in && note.is_empty());
+        // 右边一组按钮：没开通是「开通」「加入」，开通后只剩「解绑」
         self.create.setHidden(status.signed_in);
         self.join.setHidden(status.signed_in);
-        self.join_hint.setHidden(status.signed_in);
+        self.unbind.setHidden(!status.signed_in);
         // 正在等另一台设备允许时，两颗按钮都灰掉（别让人重复点）
         self.create.setEnabled(!status.joining);
         self.join.setEnabled(!status.joining);
+        let mut buttons: Vec<(&NSView, f64)> = Vec::new();
+        if status.signed_in {
+            buttons.push((view(&self.unbind), self.unbind_w));
+        } else {
+            buttons.push((view(&self.create), self.create_w));
+            buttons.push((view(&self.join), self.join_w));
+        }
+        self.status_slot.align_right(self.status_height, &buttons);
         // 五项开关：没开通时整组灰掉
         for (control, name) in [
             (&self.memory, "memory"),
@@ -341,13 +427,13 @@ impl CloudPage {
                 .iter()
                 .find(|(n, _)| *n == name)
                 .is_some_and(|(_, on)| *on);
-            set_checked(control, on);
+            set_switch(control, on);
             control.setEnabled(status.signed_in);
         }
         self.sync_state
             .setStringValue(&NSString::from_str(if status.sync_line.is_empty() {
                 if status.signed_in {
-                    "还没有同步过"
+                    "学习数据：还没有同步过"
                 } else {
                     ""
                 }
@@ -369,9 +455,9 @@ impl CloudPage {
     /// `key_present` 是密钥已经有了（环境或配置里）；密钥框永远不回显值，只换占位文字。
     /// `model_present` 是包里或用户目录里有模型文件，没有就把本地模型的勾选灰掉；云联想关着时它下面的项全灰。
     pub fn sync(&self, config: &Config, key_present: bool, model_present: bool) {
-        set_checked(&self.local_model, config.model.enabled && model_present);
+        set_switch(&self.local_model, config.model.enabled && model_present);
         self.local_model.setEnabled(model_present);
-        set_checked(&self.enabled, config.predict.enabled);
+        set_switch(&self.enabled, config.predict.enabled);
         let cloud = config.predict.enabled;
         let custom = config.predict.provider == PredictProvider::Custom;
         self.slots.setEnabled(cloud);
@@ -379,18 +465,26 @@ impl CloudPage {
         self.test.setEnabled(cloud);
         select(&self.slots, Some(config.predict.slots.min(MAX_CLOUD_SLOTS)));
         select(&self.provider, Some(usize::from(custom)));
-        self.custom.sync(config, cloud, custom, key_present);
+        self.custom.sync(config, cloud, key_present);
+        self.toggle_advanced();
+    }
+
+    /// 「高级」的展开 / 收起：收起时连「自定义接口」那张卡一起藏起来。
+    /// 页面高度按展开算，收起后下面留白（切页时窗口不跳）。
+    pub fn toggle_advanced(&self) {
+        let expanded = self.advanced_toggle.state() == NSControlStateValueOn;
+        let custom = self.provider.indexOfSelectedItem() == 1;
+        self.advanced_title.setHidden(!expanded);
+        self.advanced_view.setHidden(!expanded);
+        self.custom_title.setHidden(!expanded || !custom);
+        self.custom_view.setHidden(!expanded || !custom);
     }
 }
 
 impl CustomRows {
-    fn sync(&self, config: &Config, cloud: bool, custom: bool, key_present: bool) {
-        for caption in &self.captions {
-            caption.setHidden(!custom);
-        }
-        self.note.setHidden(!custom);
+    /// 自定义接口那三行的内容与可编辑状态（整张卡显不显示由页面按「服务」这一项定）。
+    fn sync(&self, config: &Config, cloud: bool, key_present: bool) {
         for field in [&*self.base_url, &*self.model, &*self.api_key] {
-            field.setHidden(!custom);
             field.setEnabled(cloud);
         }
         self.base_url

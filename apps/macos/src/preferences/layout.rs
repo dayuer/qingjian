@@ -75,11 +75,6 @@ impl Layout {
         self.top += height;
     }
 
-    /// 这一页还没摆过任何东西。
-    pub fn is_empty(&self) -> bool {
-        self.placed.is_empty()
-    }
-
     /// 到目前为止用掉的高度（含顶部留白）。
     pub fn height(&self) -> f64 {
         self.top

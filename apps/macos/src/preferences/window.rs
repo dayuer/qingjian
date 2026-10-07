@@ -277,6 +277,11 @@ impl PreferencesWindow {
         self.status.setStringValue(&NSString::from_str(status));
     }
 
+    /// 「云服务」页「高级」的展开三角：展开 / 收起那一组（页面高度不变，收起后下方留白）。
+    pub fn toggle_cloud_advanced(&self) {
+        self.cloud.toggle_advanced();
+    }
+
     /// 只刷「云服务」页的状态块与开关（云功能是独立的线程在跑，不等 config 变化）。
     pub fn sync_cloud_status(&self) {
         self.cloud.sync_status(&qingjian_cloud_mac::status());

@@ -8,6 +8,7 @@
 //! 关窗时切回去，否则文本框拿不到键盘焦点。文本框里的 ⌘C / ⌘V 靠主菜单「编辑」项的快捷键分发，
 //! 后台应用没有主菜单，所以开窗前装一份只有编辑项的主菜单（`edit_menu`）。
 
+mod card;
 mod controls;
 mod edit_menu;
 mod file_dialog;
@@ -21,7 +22,7 @@ mod target;
 mod window;
 
 use objc2::runtime::AnyObject;
-use objc2_app_kit::{NSButton, NSControlStateValueOn, NSPopUpButton, NSTextField};
+use objc2_app_kit::{NSButton, NSControlStateValueOn, NSPopUpButton, NSSwitch, NSTextField};
 
 pub use file_dialog::choose_dictionary_file;
 pub use key_recorder::KeyRecorder;
@@ -46,6 +47,11 @@ pub fn setting_from_sender(sender: Option<&AnyObject>) -> Option<(Setting, Setti
     if let Some(popup) = sender.downcast_ref::<NSPopUpButton>() {
         let index = usize::try_from(popup.indexOfSelectedItem()).ok()?;
         return Some((Setting::from_tag(popup.tag())?, SettingValue::Index(index)));
+    }
+    // NSSwitch 不是 NSButton 的子类，单独认
+    if let Some(control) = sender.downcast_ref::<NSSwitch>() {
+        let on = control.state() == NSControlStateValueOn;
+        return Some((Setting::from_tag(control.tag())?, SettingValue::Bool(on)));
     }
     if let Some(button) = sender.downcast_ref::<NSButton>() {
         let on = button.state() == NSControlStateValueOn;

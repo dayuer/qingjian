@@ -2,10 +2,12 @@
 //! 以及把控件接到 [`PreferencesTarget`] 的 `changed:` 上。页面文件只描述「放什么」，不重复这些细节。
 
 use objc2::rc::Retained;
+use objc2::runtime::Sel;
 use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{
-    NSButton, NSColor, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSFont,
-    NSPopUpButton, NSSecureTextField, NSTextAlignment, NSTextField,
+    NSBezelStyle, NSButton, NSButtonType, NSColor, NSControl, NSControlStateValueOff,
+    NSControlStateValueOn, NSFont, NSPopUpButton, NSSecureTextField, NSSwitch, NSTextAlignment,
+    NSTextField,
 };
 use objc2_foundation::{NSArray, NSRect, NSString};
 use qingjian_core::Language;
@@ -73,19 +75,54 @@ pub(super) fn small_label(mtm: MainThreadMarker, text: &str) -> Retained<NSTextF
     label
 }
 
-/// 分组之间的空隙。
-const SECTION_GAP: f64 = 16.0;
-
-/// 分组标题：组与组之间留一段空隙，再放一行加粗的组名。一页的第一组不额外留空
-/// （顶部的页边距已经留了）。
-pub(super) fn section(layout: &mut Layout, mtm: MainThreadMarker, title: &str) {
-    if !layout.is_empty() {
-        layout.space(SECTION_GAP);
+/// 收起 / 展开这类只管界面、不写配置的三角按钮：接到 target 上的专用选择器（不是 `changed:`）。
+pub(super) fn disclosure(
+    mtm: MainThreadMarker,
+    selector: Sel,
+    target: &PreferencesTarget,
+) -> Retained<NSButton> {
+    let control = NSButton::new(mtm);
+    control.setButtonType(NSButtonType::PushOnPushOff);
+    control.setBezelStyle(NSBezelStyle::Disclosure);
+    control.setTitle(&NSString::from_str(""));
+    // SAFETY: 选择器是 PreferencesTarget 上定义的方法，签名 (id) -> void
+    unsafe {
+        control.setTarget(Some(target));
+        control.setAction(Some(selector));
     }
-    let label = NSTextField::labelWithString(&NSString::from_str(title), mtm);
-    label.setFont(Some(&NSFont::boldSystemFontOfSize(12.0)));
-    layout.place(&label, PAGE_PADDING, layout.inner_width(), 16.0);
-    layout.next_row(16.0);
+    control
+}
+
+/// 右对齐的开关（系统设置那种 NSSwitch）。
+pub(super) fn switch(
+    mtm: MainThreadMarker,
+    setting: Setting,
+    target: &PreferencesTarget,
+) -> Retained<NSSwitch> {
+    let control = NSSwitch::new(mtm);
+    wire(&control, setting, target);
+    control
+}
+
+/// 开关的状态（NSSwitch 不是 NSButton 的子类，走不了 [`set_checked`]）。
+pub(super) fn set_switch(control: &NSSwitch, on: bool) {
+    control.setState(if on {
+        NSControlStateValueOn
+    } else {
+        NSControlStateValueOff
+    });
+}
+
+/// 危险操作的按钮（红字）：解绑、清空这类。
+pub(super) fn danger_button(
+    mtm: MainThreadMarker,
+    title: &str,
+    setting: Setting,
+    target: &PreferencesTarget,
+) -> Retained<NSButton> {
+    let control = button(mtm, title, setting, target);
+    control.setContentTintColor(Some(&NSColor::systemRedColor()));
+    control
 }
 
 /// 一颗独立的按钮，宽度按标题估（中文按 14pt 一个字，再留出内边距）；并排时调用方自己 place。
@@ -93,37 +130,9 @@ pub(super) fn button_width(title: &str) -> f64 {
     (title.chars().count() as f64 * 14.0 + 32.0).max(110.0)
 }
 
-/// 整行的一颗按钮（「开通素笺云」这类）。
-pub(super) fn row_button(
-    layout: &mut Layout,
-    mtm: MainThreadMarker,
-    title: &str,
-    setting: Setting,
-    target: &PreferencesTarget,
-) -> Retained<NSButton> {
-    let control = button(mtm, title, setting, target);
-    layout.place(
-        &control,
-        PAGE_PADDING,
-        button_width(title),
-        ROW_HEIGHT + 4.0,
-    );
-    layout.next_row(ROW_HEIGHT + 4.0);
-    control
-}
-
 /// 控件下方的说明小字，与控件列对齐，放不下就折行（按字数估行数，宁可多留一行）。
 pub(super) fn note(layout: &mut Layout, mtm: MainThreadMarker, text: &str) {
     note_at(layout, mtm, text, CONTROL_X, layout.control_width());
-}
-
-/// 同 [`note`]，交出标签（要按状态隐藏时用）。
-pub(super) fn note_label(
-    layout: &mut Layout,
-    mtm: MainThreadMarker,
-    text: &str,
-) -> Retained<NSTextField> {
-    note_at(layout, mtm, text, CONTROL_X, layout.control_width())
 }
 
 /// 整行宽的说明小字（勾选框、按钮下面用）；交出标签，要按状态改文字或隐藏时用得上。
@@ -168,24 +177,9 @@ pub(super) fn caption(mtm: MainThreadMarker, text: &str) -> Retained<NSTextField
     label
 }
 
-/// 一行「标题 + 控件」，控件占满控件列；交出标题标签（要按状态隐藏整行时用）。
-pub(super) fn row_control(
-    layout: &mut Layout,
+/// 一个弹出菜单（条目按 `titles` 排）；要摆进卡片时用。
+pub(super) fn popup(
     mtm: MainThreadMarker,
-    title: &str,
-    control: &NSControl,
-) -> Retained<NSTextField> {
-    let label = caption(mtm, title);
-    layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
-    layout.place(control, CONTROL_X, layout.control_width(), ROW_HEIGHT);
-    layout.next_row(ROW_HEIGHT);
-    label
-}
-
-pub(super) fn row_popup(
-    layout: &mut Layout,
-    mtm: MainThreadMarker,
-    title: &str,
     titles: &[String],
     setting: Setting,
     target: &PreferencesTarget,
@@ -194,6 +188,19 @@ pub(super) fn row_popup(
     let items: Vec<Retained<NSString>> = titles.iter().map(|t| NSString::from_str(t)).collect();
     popup.addItemsWithTitles(&NSArray::from_retained_slice(&items));
     wire(&popup, setting, target);
+    popup
+}
+
+/// 一行「标题 + 弹出菜单」。
+pub(super) fn row_popup(
+    layout: &mut Layout,
+    mtm: MainThreadMarker,
+    title: &str,
+    titles: &[String],
+    setting: Setting,
+    target: &PreferencesTarget,
+) -> Retained<NSPopUpButton> {
+    let popup = popup(mtm, titles, setting, target);
     let label = caption(mtm, title);
     layout.place(&label, PAGE_PADDING, LABEL_WIDTH, ROW_HEIGHT);
     layout.place(
