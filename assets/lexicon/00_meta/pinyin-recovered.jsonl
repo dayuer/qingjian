@@ -1,0 +1,940 @@
+# 从旧 dict.tsv 回收的多音字读音（条件见 tools/lexicon/recover-readings.py）：
+# 与 CC-CEDICT 一致，或 Unihan 认且不在台湾读音表。lexicon --pinyin 直接用；
+# 与人工修正（pinyin-corrections.jsonl）冲突时以后来的为准。
+{"word": "一宿", "pinyin": ["yi", "xiu"]}
+{"word": "一幢", "pinyin": ["yi", "zhuang"]}
+{"word": "一觉", "pinyin": ["yi", "jiao"]}
+{"word": "一觉睡", "pinyin": ["yi", "jiao", "shui"]}
+{"word": "一针见血", "pinyin": ["yi", "zhen", "jian", "xue"]}
+{"word": "三藏", "pinyin": ["san", "zang"]}
+{"word": "三藏朝", "pinyin": ["san", "zang", "chao"]}
+{"word": "上曾", "pinyin": ["shang", "zeng"]}
+{"word": "上杉", "pinyin": ["shang", "shan"]}
+{"word": "上杉谦信", "pinyin": ["shang", "shan", "qian", "xin"]}
+{"word": "上色", "pinyin": ["shang", "se"]}
+{"word": "下咽", "pinyin": ["xia", "yan"]}
+{"word": "不便宜", "pinyin": ["bu", "pian", "yi"]}
+{"word": "不甚了了", "pinyin": ["bu", "shen", "liao", "liao"]}
+{"word": "不称职", "pinyin": ["bu", "chen", "zhi"]}
+{"word": "不觉", "pinyin": ["bu", "jue"]}
+{"word": "与滨海塞", "pinyin": ["yu", "bin", "hai", "sai"]}
+{"word": "与芒什", "pinyin": ["yu", "mang", "shi"]}
+{"word": "与芒什省", "pinyin": ["yu", "mang", "shi", "sheng"]}
+{"word": "世界银行", "pinyin": ["shi", "jie", "yin", "hang"]}
+{"word": "东临塞", "pinyin": ["dong", "lin", "sai"]}
+{"word": "东临塞纳", "pinyin": ["dong", "lin", "sai", "na"]}
+{"word": "东涌", "pinyin": ["dong", "chong"]}
+{"word": "东莞", "pinyin": ["dong", "guan"]}
+{"word": "东莞县", "pinyin": ["dong", "guan", "xian"]}
+{"word": "东莞市", "pinyin": ["dong", "guan", "shi"]}
+{"word": "丝娜", "pinyin": ["si", "na"]}
+{"word": "两重天", "pinyin": ["liang", "chong", "tian"]}
+{"word": "中国人民银行", "pinyin": ["zhong", "guo", "ren", "min", "yin", "hang"]}
+{"word": "中国农业银行", "pinyin": ["zhong", "guo", "nong", "ye", "yin", "hang"]}
+{"word": "中国工商银行", "pinyin": ["zhong", "guo", "gong", "shang", "yin", "hang"]}
+{"word": "中国建设银行", "pinyin": ["zhong", "guo", "jian", "she", "yin", "hang"]}
+{"word": "中国银行", "pinyin": ["zhong", "guo", "yin", "hang"]}
+{"word": "中牟", "pinyin": ["zhong", "mu"]}
+{"word": "中的", "pinyin": ["zhong", "di"]}
+{"word": "临塞", "pinyin": ["lin", "sai"]}
+{"word": "临塞纳", "pinyin": ["lin", "sai", "na"]}
+{"word": "丹娜", "pinyin": ["dan", "na"]}
+{"word": "丽娜", "pinyin": ["li", "na"]}
+{"word": "丽莎", "pinyin": ["li", "sha"]}
+{"word": "丽莎白", "pinyin": ["li", "sha", "bai"]}
+{"word": "丽藏", "pinyin": ["li", "zang"]}
+{"word": "久别重逢", "pinyin": ["jiu", "bie", "chong", "feng"]}
+{"word": "乌什", "pinyin": ["wu", "shi"]}
+{"word": "乍暖还寒", "pinyin": ["zha", "nuan", "huan", "han"]}
+{"word": "乐华", "pinyin": ["yue", "hua"]}
+{"word": "乐句", "pinyin": ["yue", "ju"]}
+{"word": "乐嘉", "pinyin": ["yue", "jia"]}
+{"word": "乐感", "pinyin": ["yue", "gan"]}
+{"word": "乐手", "pinyin": ["yue", "shou"]}
+{"word": "乐清", "pinyin": ["yue", "qing"]}
+{"word": "乐清县", "pinyin": ["yue", "qing", "xian"]}
+{"word": "乐町", "pinyin": ["le", "ding"]}
+{"word": "乐评", "pinyin": ["yue", "ping"]}
+{"word": "乐迷", "pinyin": ["yue", "mi"]}
+{"word": "乐风", "pinyin": ["yue", "feng"]}
+{"word": "乜斜", "pinyin": ["nie", "xie"]}
+{"word": "乡长", "pinyin": ["xiang", "zhang"]}
+{"word": "书归正传", "pinyin": ["shu", "gui", "zheng", "zhuan"]}
+{"word": "乳臭未干", "pinyin": ["ru", "xiu", "wei", "gan"]}
+{"word": "云杉", "pinyin": ["yun", "shan"]}
+{"word": "交恶", "pinyin": ["jiao", "e"]}
+{"word": "交通银行", "pinyin": ["jiao", "tong", "yin", "hang"]}
+{"word": "什刹海", "pinyin": ["shi", "cha", "hai"]}
+{"word": "什区", "pinyin": ["shi", "qu"]}
+{"word": "什县", "pinyin": ["shi", "xian"]}
+{"word": "什叶", "pinyin": ["shi", "ye"]}
+{"word": "什叶派", "pinyin": ["shi", "ye", "pai"]}
+{"word": "什塔", "pinyin": ["shi", "ta"]}
+{"word": "什泰", "pinyin": ["shi", "tai"]}
+{"word": "什福", "pinyin": ["shi", "fu"]}
+{"word": "什米尔", "pinyin": ["shi", "mi", "er"]}
+{"word": "什维", "pinyin": ["shi", "wei"]}
+{"word": "什蒂", "pinyin": ["shi", "di"]}
+{"word": "什蒂乡", "pinyin": ["shi", "di", "xiang"]}
+{"word": "今朝有酒今朝醉", "pinyin": ["jin", "zhao", "you", "jiu", "jin", "zhao", "zui"]}
+{"word": "介壳虫", "pinyin": ["jie", "qiao", "chong"]}
+{"word": "仔戏", "pinyin": ["zai", "xi"]}
+{"word": "代什", "pinyin": ["dai", "shi"]}
+{"word": "代市长", "pinyin": ["dai", "shi", "zhang"]}
+{"word": "伊丽莎", "pinyin": ["yi", "li", "sha"]}
+{"word": "伊丽莎白", "pinyin": ["yi", "li", "sha", "bai"]}
+{"word": "伊什", "pinyin": ["yi", "shi"]}
+{"word": "伊莉莎", "pinyin": ["yi", "li", "sha"]}
+{"word": "伊莉莎白", "pinyin": ["yi", "li", "sha", "bai"]}
+{"word": "伊莎", "pinyin": ["yi", "sha"]}
+{"word": "伊莎贝", "pinyin": ["yi", "sha", "bei"]}
+{"word": "伊莎贝尔", "pinyin": ["yi", "sha", "bei", "er"]}
+{"word": "伊莎贝拉", "pinyin": ["yi", "sha", "bei", "la"]}
+{"word": "会稽", "pinyin": ["kuai", "ji"]}
+{"word": "会长", "pinyin": ["hui", "zhang"]}
+{"word": "传给", "pinyin": ["chuan", "gei"]}
+{"word": "伽利", "pinyin": ["jia", "li"]}
+{"word": "伽利略", "pinyin": ["jia", "li", "lve"]}
+{"word": "伽罗", "pinyin": ["jia", "luo"]}
+{"word": "伽马", "pinyin": ["jia", "ma"]}
+{"word": "伽马刀", "pinyin": ["jia", "ma", "dao"]}
+{"word": "伽马射线", "pinyin": ["jia", "ma", "she", "xian"]}
+{"word": "何塞", "pinyin": ["he", "sai"]}
+{"word": "作乐", "pinyin": ["zuo", "le"]}
+{"word": "佩什", "pinyin": ["pei", "shi"]}
+{"word": "便秘", "pinyin": ["bian", "bi"]}
+{"word": "便血", "pinyin": ["bian", "xue"]}
+{"word": "借给", "pinyin": ["jie", "gei"]}
+{"word": "做错了", "pinyin": ["zuo", "cuo", "le"]}
+{"word": "僧伽", "pinyin": ["seng", "qie"]}
+{"word": "克什克腾", "pinyin": ["ke", "shi", "ke", "teng"]}
+{"word": "克什米", "pinyin": ["ke", "shi", "mi"]}
+{"word": "全军覆没", "pinyin": ["quan", "jun", "fu", "mo"]}
+{"word": "全武行", "pinyin": ["quan", "wu", "xing"]}
+{"word": "八爪", "pinyin": ["ba", "zhua"]}
+{"word": "八重", "pinyin": ["ba", "chong"]}
+{"word": "公了", "pinyin": ["gong", "le"]}
+{"word": "公仔", "pinyin": ["gong", "zai"]}
+{"word": "六安市", "pinyin": ["lu", "an", "shi"]}
+{"word": "兴业银行", "pinyin": ["xing", "ye", "yin", "hang"]}
+{"word": "典娜", "pinyin": ["dian", "na"]}
+{"word": "写错了", "pinyin": ["xie", "cuo", "le"]}
+{"word": "军军长", "pinyin": ["jun", "jun", "zhang"]}
+{"word": "军副军长", "pinyin": ["jun", "fu", "jun", "zhang"]}
+{"word": "军地", "pinyin": ["jun", "di"]}
+{"word": "军长", "pinyin": ["jun", "zhang"]}
+{"word": "农行", "pinyin": ["nong", "hang"]}
+{"word": "冷轧", "pinyin": ["leng", "zha"]}
+{"word": "凉凉送给", "pinyin": ["liang", "liang", "song", "gei"]}
+{"word": "凉送给", "pinyin": ["liang", "song", "gei"]}
+{"word": "凤爪", "pinyin": ["feng", "zhua"]}
+{"word": "凭著", "pinyin": ["ping", "zhe"]}
+{"word": "出圈", "pinyin": ["chu", "quan"]}
+{"word": "出头露面", "pinyin": ["chu", "tou", "lu", "mian"]}
+{"word": "出血", "pinyin": ["chu", "xue"]}
+{"word": "分行", "pinyin": ["fen", "hang"]}
+{"word": "列什", "pinyin": ["lie", "shi"]}
+{"word": "刘铭传", "pinyin": ["liu", "ming", "zhuan"]}
+{"word": "刨食", "pinyin": ["pao", "shi"]}
+{"word": "利兹", "pinyin": ["li", "ci"]}
+{"word": "利沃什", "pinyin": ["li", "wo", "shi"]}
+{"word": "别忘了", "pinyin": ["bie", "wang", "le"]}
+{"word": "别无长物", "pinyin": ["bie", "wu", "chang", "wu"]}
+{"word": "刮削", "pinyin": ["gua", "xue"]}
+{"word": "刺参", "pinyin": ["ci", "shen"]}
+{"word": "削球", "pinyin": ["xiao", "qiu"]}
+{"word": "削皮", "pinyin": ["xiao", "pi"]}
+{"word": "前传", "pinyin": ["qian", "zhuan"]}
+{"word": "剥虾", "pinyin": ["bao", "xia"]}
+{"word": "副军长", "pinyin": ["fu", "jun", "zhang"]}
+{"word": "副厂长", "pinyin": ["fu", "chang", "zhang"]}
+{"word": "副厅长", "pinyin": ["fu", "ting", "zhang"]}
+{"word": "副司长", "pinyin": ["fu", "si", "zhang"]}
+{"word": "副团长", "pinyin": ["fu", "tuan", "zhang"]}
+{"word": "副局长", "pinyin": ["fu", "ju", "zhang"]}
+{"word": "副市长", "pinyin": ["fu", "shi", "zhang"]}
+{"word": "副社长", "pinyin": ["fu", "she", "zhang"]}
+{"word": "功不可没", "pinyin": ["gong", "bu", "ke", "mo"]}
+{"word": "加德满都", "pinyin": ["jia", "de", "man", "du"]}
+{"word": "劲升", "pinyin": ["jin", "sheng"]}
+{"word": "劲风", "pinyin": ["jing", "feng"]}
+{"word": "勒紧裤带", "pinyin": ["lei", "jin", "ku", "dai"]}
+{"word": "区埃罗", "pinyin": ["ou", "ai", "luo"]}
+{"word": "区摩泽尔", "pinyin": ["ou", "mo", "ze", "er"]}
+{"word": "区芒什", "pinyin": ["qu", "mang", "shi"]}
+{"word": "区芒什省", "pinyin": ["qu", "mang", "shi", "sheng"]}
+{"word": "区默尔", "pinyin": ["ou", "mo", "er"]}
+{"word": "区默尔特", "pinyin": ["ou", "mo", "er", "te"]}
+{"word": "华仔", "pinyin": ["hua", "zai"]}
+{"word": "南至塞", "pinyin": ["nan", "zhi", "sai"]}
+{"word": "南至塞纳", "pinyin": ["nan", "zhi", "sai", "na"]}
+{"word": "卡什", "pinyin": ["ka", "shi"]}
+{"word": "卡塔琳娜", "pinyin": ["ka", "ta", "lin", "na"]}
+{"word": "卡壳", "pinyin": ["ka", "ke"]}
+{"word": "卡子", "pinyin": ["ka", "zi"]}
+{"word": "卡脖子", "pinyin": ["ka", "bo", "zi"]}
+{"word": "卡莎", "pinyin": ["ka", "sha"]}
+{"word": "厂长", "pinyin": ["chang", "zhang"]}
+{"word": "厅副厅长", "pinyin": ["ting", "fu", "ting", "zhang"]}
+{"word": "厅厅长", "pinyin": ["ting", "ting", "zhang"]}
+{"word": "厅长", "pinyin": ["ting", "zhang"]}
+{"word": "原町", "pinyin": ["yuan", "ding"]}
+{"word": "厦门", "pinyin": ["xia", "men"]}
+{"word": "厦门市", "pinyin": ["xia", "men", "shi"]}
+{"word": "去厦", "pinyin": ["qu", "xia"]}
+{"word": "去厦门", "pinyin": ["qu", "xia", "men"]}
+{"word": "县长", "pinyin": ["xian", "zhang"]}
+{"word": "参谋长", "pinyin": ["can", "mou", "zhang"]}
+{"word": "反扒", "pinyin": ["fan", "pa"]}
+{"word": "发卡", "pinyin": ["fa", "ka"]}
+{"word": "变色", "pinyin": ["bian", "se"]}
+{"word": "口角", "pinyin": ["kou", "jiao"]}
+{"word": "古刹", "pinyin": ["gu", "cha"]}
+{"word": "古惑仔", "pinyin": ["gu", "huo", "zai"]}
+{"word": "句丽", "pinyin": ["gou", "li"]}
+{"word": "史丹佛", "pinyin": ["shi", "dan", "fu"]}
+{"word": "叶韵", "pinyin": ["xie", "yun"]}
+{"word": "司副司长", "pinyin": ["si", "fu", "si", "zhang"]}
+{"word": "司司长", "pinyin": ["si", "si", "zhang"]}
+{"word": "司长", "pinyin": ["si", "zhang"]}
+{"word": "吃一堑长一智", "pinyin": ["chi", "yi", "qian", "zhang", "yi", "zhi"]}
+{"word": "各行各业", "pinyin": ["ge", "hang", "ge", "ye"]}
+{"word": "吉娜", "pinyin": ["ji", "na"]}
+{"word": "同行", "pinyin": ["tong", "hang"]}
+{"word": "后尾儿", "pinyin": ["hou", "wei", "er"]}
+{"word": "后曾", "pinyin": ["hou", "zeng"]}
+{"word": "含情脉脉", "pinyin": ["han", "qing", "mo", "mo"]}
+{"word": "吱吱喳喳", "pinyin": ["zhi", "zhi", "zha", "zha"]}
+{"word": "吱声", "pinyin": ["zhi", "sheng"]}
+{"word": "呢料", "pinyin": ["ni", "liao"]}
+{"word": "周镐", "pinyin": ["zhou", "hao"]}
+{"word": "呱呱落地", "pinyin": ["gu", "gu", "luo", "di"]}
+{"word": "咋办", "pinyin": ["za", "ban"]}
+{"word": "咋地", "pinyin": ["za", "di"]}
+{"word": "咋弄", "pinyin": ["za", "nong"]}
+{"word": "咋整", "pinyin": ["za", "zheng"]}
+{"word": "咋样", "pinyin": ["za", "yang"]}
+{"word": "咋活", "pinyin": ["za", "huo"]}
+{"word": "咋滴", "pinyin": ["za", "di"]}
+{"word": "和霓娜", "pinyin": ["he", "ni", "na"]}
+{"word": "咯血", "pinyin": ["ka", "xue"]}
+{"word": "咱家", "pinyin": ["zan", "jia"]}
+{"word": "咽炎", "pinyin": ["yan", "yan"]}
+{"word": "哇塞", "pinyin": ["wa", "sai"]}
+{"word": "哪咤", "pinyin": ["ne", "zha"]}
+{"word": "唐三藏", "pinyin": ["tang", "san", "zang"]}
+{"word": "商业银行", "pinyin": ["shang", "ye", "yin", "hang"]}
+{"word": "啪嚓", "pinyin": ["pa", "ca"]}
+{"word": "喀什", "pinyin": ["ka", "shi"]}
+{"word": "喔唷", "pinyin": ["o", "yo"]}
+{"word": "喳喳", "pinyin": ["zha", "zha"]}
+{"word": "嘚瑟", "pinyin": ["dei", "se"]}
+{"word": "噶厦", "pinyin": ["ga", "xia"]}
+{"word": "回厦", "pinyin": ["hui", "xia"]}
+{"word": "回厦门", "pinyin": ["hui", "xia", "men"]}
+{"word": "团团长", "pinyin": ["tuan", "tuan", "zhang"]}
+{"word": "团长", "pinyin": ["tuan", "zhang"]}
+{"word": "国家开发银行", "pinyin": ["guo", "jia", "kai", "fa", "yin", "hang"]}
+{"word": "埃塞", "pinyin": ["ai", "sai"]}
+{"word": "埃塞俄", "pinyin": ["ai", "sai", "e"]}
+{"word": "埃塞俄比", "pinyin": ["ai", "sai", "e", "bi"]}
+{"word": "堕地", "pinyin": ["duo", "di"]}
+{"word": "塔琳娜", "pinyin": ["ta", "lin", "na"]}
+{"word": "塔莎", "pinyin": ["ta", "sha"]}
+{"word": "塞佩", "pinyin": ["sai", "pei"]}
+{"word": "塞俄", "pinyin": ["sai", "e"]}
+{"word": "塞俄比", "pinyin": ["sai", "e", "bi"]}
+{"word": "塞俄比亚", "pinyin": ["sai", "e", "bi", "ya"]}
+{"word": "塞勒", "pinyin": ["sai", "le"]}
+{"word": "塞勒姆", "pinyin": ["sai", "le", "mu"]}
+{"word": "塞夫", "pinyin": ["sai", "fu"]}
+{"word": "塞夫勒", "pinyin": ["sai", "fu", "le"]}
+{"word": "塞夫勒省", "pinyin": ["sai", "fu", "le", "sheng"]}
+{"word": "塞奇", "pinyin": ["sai", "qi"]}
+{"word": "塞尔", "pinyin": ["sai", "er"]}
+{"word": "塞尔吉", "pinyin": ["sai", "er", "ji"]}
+{"word": "塞尔柱", "pinyin": ["sai", "er", "zhu"]}
+{"word": "塞尔维", "pinyin": ["sai", "er", "wei"]}
+{"word": "塞尔维亚", "pinyin": ["sai", "er", "wei", "ya"]}
+{"word": "塞弗", "pinyin": ["sai", "fu"]}
+{"word": "塞戈", "pinyin": ["sai", "ge"]}
+{"word": "塞戈维", "pinyin": ["sai", "ge", "wei"]}
+{"word": "塞戈维亚", "pinyin": ["sai", "ge", "wei", "ya"]}
+{"word": "塞拉利昂", "pinyin": ["sai", "la", "li", "ang"]}
+{"word": "塞拜", "pinyin": ["sai", "bai"]}
+{"word": "塞拜然", "pinyin": ["sai", "bai", "ran"]}
+{"word": "塞拜疆", "pinyin": ["sai", "bai", "jiang"]}
+{"word": "塞梯", "pinyin": ["sai", "ti"]}
+{"word": "塞浦", "pinyin": ["sai", "pu"]}
+{"word": "塞浦路", "pinyin": ["sai", "pu", "lu"]}
+{"word": "塞湾", "pinyin": ["sai", "wan"]}
+{"word": "塞纳", "pinyin": ["sai", "na"]}
+{"word": "塞纳河", "pinyin": ["sai", "na", "he"]}
+{"word": "塞纳省", "pinyin": ["sai", "na", "sheng"]}
+{"word": "塞维", "pinyin": ["sai", "wei"]}
+{"word": "塞维利", "pinyin": ["sai", "wei", "li"]}
+{"word": "塞维利亚", "pinyin": ["sai", "wei", "li", "ya"]}
+{"word": "塞缪", "pinyin": ["sai", "miao"]}
+{"word": "塞缪尔", "pinyin": ["sai", "miao", "er"]}
+{"word": "塞罗", "pinyin": ["sai", "luo"]}
+{"word": "塞舌尔", "pinyin": ["sai", "she", "er"]}
+{"word": "塞萨", "pinyin": ["sai", "sa"]}
+{"word": "塞萨洛", "pinyin": ["sai", "sa", "luo"]}
+{"word": "塞萨洛尼", "pinyin": ["sai", "sa", "luo", "ni"]}
+{"word": "塞进", "pinyin": ["sai", "jin"]}
+{"word": "塞进去", "pinyin": ["sai", "jin", "qu"]}
+{"word": "塞隆", "pinyin": ["sai", "long"]}
+{"word": "塞隆纳", "pinyin": ["sai", "long", "na"]}
+{"word": "塞雷", "pinyin": ["sai", "lei"]}
+{"word": "塞雷斯", "pinyin": ["sai", "lei", "si"]}
+{"word": "塞雷斯省", "pinyin": ["sai", "lei", "si", "sheng"]}
+{"word": "处长", "pinyin": ["chu", "zhang"]}
+{"word": "多重", "pinyin": ["duo", "chong"]}
+{"word": "够不着", "pinyin": ["gou", "bu", "zhao"]}
+{"word": "够得着", "pinyin": ["gou", "de", "zhao"]}
+{"word": "大区埃罗", "pinyin": ["da", "ou", "ai", "luo"]}
+{"word": "大区芒什", "pinyin": ["da", "qu", "mang", "shi"]}
+{"word": "大区默尔", "pinyin": ["da", "ou", "mo", "er"]}
+{"word": "大夫", "pinyin": ["da", "fu"]}
+{"word": "大换血", "pinyin": ["da", "huan", "xue"]}
+{"word": "大银行", "pinyin": ["da", "yin", "hang"]}
+{"word": "天竺三藏", "pinyin": ["tian", "zhu", "san", "zang"]}
+{"word": "太子参", "pinyin": ["tai", "zi", "shen"]}
+{"word": "夷为平地", "pinyin": ["yi", "wei", "ping", "di"]}
+{"word": "女仔", "pinyin": ["nv", "zai"]}
+{"word": "女角", "pinyin": ["nv", "jue"]}
+{"word": "妖猫传", "pinyin": ["yao", "mao", "zhuan"]}
+{"word": "妮娜", "pinyin": ["ni", "na"]}
+{"word": "妮莎", "pinyin": ["ni", "sha"]}
+{"word": "娜塔", "pinyin": ["na", "ta"]}
+{"word": "娜塔莉", "pinyin": ["na", "ta", "li"]}
+{"word": "娜塔莎", "pinyin": ["na", "ta", "sha"]}
+{"word": "娜姐", "pinyin": ["na", "jie"]}
+{"word": "娜扎", "pinyin": ["na", "zha"]}
+{"word": "娜贝", "pinyin": ["na", "bei"]}
+{"word": "嫁给", "pinyin": ["jia", "gei"]}
+{"word": "安吉丽娜", "pinyin": ["an", "ji", "li", "na"]}
+{"word": "安塞", "pinyin": ["an", "sai"]}
+{"word": "安娜", "pinyin": ["an", "na"]}
+{"word": "官了", "pinyin": ["guan", "liao"]}
+{"word": "审判长", "pinyin": ["shen", "pan", "zhang"]}
+{"word": "审度", "pinyin": ["shen", "duo"]}
+{"word": "审校", "pinyin": ["shen", "jiao"]}
+{"word": "家长里短", "pinyin": ["jia", "zhang", "li", "duan"]}
+{"word": "容嬷", "pinyin": ["rong", "ma"]}
+{"word": "宾塞", "pinyin": ["bin", "sai"]}
+{"word": "寄给", "pinyin": ["ji", "gei"]}
+{"word": "密钥", "pinyin": ["mi", "yue"]}
+{"word": "富国银行", "pinyin": ["fu", "guo", "yin", "hang"]}
+{"word": "尔代什", "pinyin": ["er", "dai", "shi"]}
+{"word": "尖沙咀", "pinyin": ["jian", "sha", "zui"]}
+{"word": "尿泡", "pinyin": ["niao", "pao"]}
+{"word": "尿血", "pinyin": ["niao", "xue"]}
+{"word": "局副局长", "pinyin": ["ju", "fu", "ju", "zhang"]}
+{"word": "局局长", "pinyin": ["ju", "ju", "zhang"]}
+{"word": "局长", "pinyin": ["ju", "zhang"]}
+{"word": "层留给", "pinyin": ["ceng", "liu", "gei"]}
+{"word": "属意", "pinyin": ["shu", "yi"]}
+{"word": "山大王", "pinyin": ["shan", "dai", "wang"]}
+{"word": "岛町", "pinyin": ["dao", "ding"]}
+{"word": "川町", "pinyin": ["chuan", "ding"]}
+{"word": "川藏", "pinyin": ["chuan", "zang"]}
+{"word": "川藏线", "pinyin": ["chuan", "zang", "xian"]}
+{"word": "州长", "pinyin": ["zhou", "zhang"]}
+{"word": "工长", "pinyin": ["gong", "zhang"]}
+{"word": "左传", "pinyin": ["zuo", "zhuan"]}
+{"word": "差派", "pinyin": ["chai", "pai"]}
+{"word": "巴塞", "pinyin": ["ba", "sai"]}
+{"word": "巴塞尔", "pinyin": ["ba", "sai", "er"]}
+{"word": "巴塞罗", "pinyin": ["ba", "sai", "luo"]}
+{"word": "巴塞隆", "pinyin": ["ba", "sai", "long"]}
+{"word": "巴塞隆纳", "pinyin": ["ba", "sai", "long", "na"]}
+{"word": "市市长", "pinyin": ["shi", "shi", "zhang"]}
+{"word": "市长", "pinyin": ["shi", "zhang"]}
+{"word": "布什", "pinyin": ["bu", "shi"]}
+{"word": "布鲁塞", "pinyin": ["bu", "lu", "sai"]}
+{"word": "布鲁塞尔", "pinyin": ["bu", "lu", "sai", "er"]}
+{"word": "师团长", "pinyin": ["shi", "tuan", "zhang"]}
+{"word": "带著", "pinyin": ["dai", "zhe"]}
+{"word": "帱", "pinyin": ["dao"]}
+{"word": "平埔", "pinyin": ["ping", "pu"]}
+{"word": "年长", "pinyin": ["nian", "zhang"]}
+{"word": "库藏", "pinyin": ["ku", "cang"]}
+{"word": "庭长", "pinyin": ["ting", "zhang"]}
+{"word": "建行", "pinyin": ["jian", "hang"]}
+{"word": "开户行", "pinyin": ["kai", "hu", "hang"]}
+{"word": "弄错了", "pinyin": ["nong", "cuo", "le"]}
+{"word": "弗朗什", "pinyin": ["fu", "lang", "shi"]}
+{"word": "张柏芝", "pinyin": ["zhang", "bo", "zhi"]}
+{"word": "弦乐", "pinyin": ["xian", "yue"]}
+{"word": "弱弱地", "pinyin": ["ruo", "ruo", "de"]}
+{"word": "弹琴", "pinyin": ["tan", "qin"]}
+{"word": "弹钢琴", "pinyin": ["tan", "gang", "qin"]}
+{"word": "德塞", "pinyin": ["de", "sai"]}
+{"word": "德塞夫", "pinyin": ["de", "sai", "fu"]}
+{"word": "德塞夫勒", "pinyin": ["de", "sai", "fu", "le"]}
+{"word": "徽调", "pinyin": ["hui", "tiao"]}
+{"word": "心事重重", "pinyin": ["xin", "shi", "chong", "chong"]}
+{"word": "必得", "pinyin": ["bi", "de"]}
+{"word": "忘了", "pinyin": ["wang", "le"]}
+{"word": "快疯了", "pinyin": ["kuai", "feng", "le"]}
+{"word": "怎的", "pinyin": ["zen", "de"]}
+{"word": "怪谁", "pinyin": ["guai", "shui"]}
+{"word": "总局局长", "pinyin": ["zong", "ju", "ju", "zhang"]}
+{"word": "总行", "pinyin": ["zong", "hang"]}
+{"word": "悟空传", "pinyin": ["wu", "kong", "zhuan"]}
+{"word": "惊觉", "pinyin": ["jing", "jue"]}
+{"word": "惑仔", "pinyin": ["huo", "zai"]}
+{"word": "懿传", "pinyin": ["yi", "zhuan"]}
+{"word": "成都", "pinyin": ["cheng", "du"]}
+{"word": "戴安娜", "pinyin": ["dai", "an", "na"]}
+{"word": "戴著", "pinyin": ["dai", "zhuo"]}
+{"word": "扎布", "pinyin": ["za", "bu"]}
+{"word": "扎染", "pinyin": ["za", "ran"]}
+{"word": "扎花", "pinyin": ["za", "hua"]}
+{"word": "扎萨", "pinyin": ["za", "sa"]}
+{"word": "扎萨克", "pinyin": ["za", "sa", "ke"]}
+{"word": "扒车", "pinyin": ["pa", "che"]}
+{"word": "打击乐", "pinyin": ["da", "ji", "yue"]}
+{"word": "打工仔", "pinyin": ["da", "gong", "zai"]}
+{"word": "打错了", "pinyin": ["da", "cuo", "le"]}
+{"word": "扛鼎", "pinyin": ["kang", "ding"]}
+{"word": "抓差", "pinyin": ["zhua", "chai"]}
+{"word": "拉什", "pinyin": ["la", "shi"]}
+{"word": "拉塞尔", "pinyin": ["la", "sai", "er"]}
+{"word": "拉贾", "pinyin": ["la", "jia"]}
+{"word": "拉贾斯", "pinyin": ["la", "jia", "si"]}
+{"word": "拉贾斯坦", "pinyin": ["la", "jia", "si", "tan"]}
+{"word": "拍卖行", "pinyin": ["pai", "mai", "hang"]}
+{"word": "拓印", "pinyin": ["ta", "yin"]}
+{"word": "拙著", "pinyin": ["zhuo", "zhu"]}
+{"word": "捐给", "pinyin": ["juan", "gei"]}
+{"word": "换血", "pinyin": ["huan", "xue"]}
+{"word": "探长", "pinyin": ["tan", "zhang"]}
+{"word": "接塞", "pinyin": ["jie", "sai"]}
+{"word": "接塞纳", "pinyin": ["jie", "sai", "na"]}
+{"word": "接滨海塞", "pinyin": ["jie", "bin", "hai", "sai"]}
+{"word": "接著", "pinyin": ["jie", "zhe"]}
+{"word": "掸邦", "pinyin": ["shan", "bang"]}
+{"word": "握爪", "pinyin": ["wo", "zhua"]}
+{"word": "搞忘了", "pinyin": ["gao", "wang", "le"]}
+{"word": "搞错了", "pinyin": ["gao", "cuo", "le"]}
+{"word": "摸不着头脑", "pinyin": ["mo", "bu", "zhao", "tou", "nao"]}
+{"word": "播放音乐", "pinyin": ["bo", "fang", "yin", "yue"]}
+{"word": "攒够", "pinyin": ["zan", "gou"]}
+{"word": "攒着", "pinyin": ["zan", "zhe"]}
+{"word": "攒钱", "pinyin": ["zan", "qian"]}
+{"word": "支差", "pinyin": ["zhi", "chai"]}
+{"word": "支行", "pinyin": ["zhi", "hang"]}
+{"word": "放血", "pinyin": ["fang", "xue"]}
+{"word": "故地重游", "pinyin": ["gu", "di", "chong", "you"]}
+{"word": "敏镐", "pinyin": ["min", "hao"]}
+{"word": "敢露", "pinyin": ["gan", "lou"]}
+{"word": "整宿", "pinyin": ["zheng", "xiu"]}
+{"word": "整觉", "pinyin": ["zheng", "jiao"]}
+{"word": "斯宾塞", "pinyin": ["si", "bin", "sai"]}
+{"word": "新罕布什尔州", "pinyin": ["xin", "han", "bu", "shi", "er", "zhou"]}
+{"word": "新著", "pinyin": ["xin", "zhu"]}
+{"word": "旅旅长", "pinyin": ["lv", "lv", "zhang"]}
+{"word": "旅长", "pinyin": ["lv", "zhang"]}
+{"word": "无着", "pinyin": ["wu", "zhuo"]}
+{"word": "旺仔", "pinyin": ["wang", "zai"]}
+{"word": "昂塞", "pinyin": ["ang", "sai"]}
+{"word": "昂塞戈", "pinyin": ["ang", "sai", "ge"]}
+{"word": "昂塞戈维", "pinyin": ["ang", "sai", "ge", "wei"]}
+{"word": "明朝", "pinyin": ["ming", "chao"]}
+{"word": "易莎", "pinyin": ["yi", "sha"]}
+{"word": "是秘鲁", "pinyin": ["shi", "bi", "lu"]}
+{"word": "曾国藩", "pinyin": ["zeng", "guo", "fan"]}
+{"word": "曾志伟", "pinyin": ["zeng", "zhi", "wei"]}
+{"word": "曾普", "pinyin": ["zeng", "pu"]}
+{"word": "曾普伦", "pinyin": ["zeng", "pu", "lun"]}
+{"word": "曾普伦州", "pinyin": ["zeng", "pu", "lun", "zhou"]}
+{"word": "曾舜", "pinyin": ["zeng", "shun"]}
+{"word": "曾舜晞", "pinyin": ["zeng", "shun", "xi"]}
+{"word": "曾荫权", "pinyin": ["zeng", "yin", "quan"]}
+{"word": "朗什", "pinyin": ["lang", "shi"]}
+{"word": "朝九", "pinyin": ["zhao", "jiu"]}
+{"word": "朝夕相处", "pinyin": ["zhao", "xi", "xiang", "chu"]}
+{"word": "朝暮", "pinyin": ["zhao", "mu"]}
+{"word": "朝歌", "pinyin": ["zhao", "ge"]}
+{"word": "朝花", "pinyin": ["zhao", "hua"]}
+{"word": "朝花夕拾", "pinyin": ["zhao", "hua", "xi", "shi"]}
+{"word": "朝阳市", "pinyin": ["zhao", "yang", "shi"]}
+{"word": "朝阳花", "pinyin": ["zhao", "yang", "hua"]}
+{"word": "期年", "pinyin": ["ji", "nian"]}
+{"word": "木模", "pinyin": ["mu", "mu"]}
+{"word": "本町", "pinyin": ["ben", "ding"]}
+{"word": "本色", "pinyin": ["ben", "se"]}
+{"word": "朱塞", "pinyin": ["zhu", "sai"]}
+{"word": "朱塞佩", "pinyin": ["zhu", "sai", "pei"]}
+{"word": "朴丽", "pinyin": ["piao", "li"]}
+{"word": "朴丽鱼", "pinyin": ["piao", "li", "yu"]}
+{"word": "朴子", "pinyin": ["piao", "zi"]}
+{"word": "朴树", "pinyin": ["po", "shu"]}
+{"word": "朴正", "pinyin": ["piao", "zheng"]}
+{"word": "朴正熙", "pinyin": ["piao", "zheng", "xi"]}
+{"word": "机长", "pinyin": ["ji", "zhang"]}
+{"word": "杀人不见血", "pinyin": ["sha", "ren", "bu", "jian", "xue"]}
+{"word": "杉杉来", "pinyin": ["shan", "shan", "lai"]}
+{"word": "杉来", "pinyin": ["shan", "lai"]}
+{"word": "杉树", "pinyin": ["shan", "shu"]}
+{"word": "杉田", "pinyin": ["shan", "tian"]}
+{"word": "杉田智和", "pinyin": ["shan", "tian", "zhi", "he"]}
+{"word": "李娜", "pinyin": ["li", "na"]}
+{"word": "李敏镐", "pinyin": ["li", "min", "hao"]}
+{"word": "李晟", "pinyin": ["li", "sheng"]}
+{"word": "杏脯", "pinyin": ["xing", "fu"]}
+{"word": "村长", "pinyin": ["cun", "zhang"]}
+{"word": "杜塞尔", "pinyin": ["du", "sai", "er"]}
+{"word": "杜莎", "pinyin": ["du", "sha"]}
+{"word": "枞阳", "pinyin": ["zong", "yang"]}
+{"word": "柏克", "pinyin": ["bo", "ke"]}
+{"word": "柏克莱", "pinyin": ["bo", "ke", "lai"]}
+{"word": "柏格", "pinyin": ["bo", "ge"]}
+{"word": "柑桔", "pinyin": ["gan", "ju"]}
+{"word": "查重", "pinyin": ["cha", "chong"]}
+{"word": "柬埔寨", "pinyin": ["jian", "pu", "zhai"]}
+{"word": "柳杉", "pinyin": ["liu", "shan"]}
+{"word": "标识", "pinyin": ["biao", "zhi"]}
+{"word": "标识符", "pinyin": ["biao", "zhi", "fu"]}
+{"word": "校本", "pinyin": ["xiao", "ben"]}
+{"word": "校验", "pinyin": ["jiao", "yan"]}
+{"word": "校验和", "pinyin": ["jiao", "yan", "he"]}
+{"word": "桔子", "pinyin": ["ju", "zi"]}
+{"word": "桲", "pinyin": ["po"]}
+{"word": "检校", "pinyin": ["jian", "jiao"]}
+{"word": "楚乔传", "pinyin": ["chu", "qiao", "zhuan"]}
+{"word": "次长", "pinyin": ["ci", "zhang"]}
+{"word": "欧佩什", "pinyin": ["ou", "pei", "shi"]}
+{"word": "欧塞", "pinyin": ["ou", "sai"]}
+{"word": "欧塞尔", "pinyin": ["ou", "sai", "er"]}
+{"word": "歌仔", "pinyin": ["ge", "zai"]}
+{"word": "歌仔戏", "pinyin": ["ge", "zai", "xi"]}
+{"word": "正传", "pinyin": ["zheng", "zhuan"]}
+{"word": "武藏", "pinyin": ["wu", "zang"]}
+{"word": "段长", "pinyin": ["duan", "zhang"]}
+{"word": "毙了", "pinyin": ["bi", "le"]}
+{"word": "毛呢", "pinyin": ["mao", "ni"]}
+{"word": "汇丰银行", "pinyin": ["hui", "feng", "yin", "hang"]}
+{"word": "汉娜", "pinyin": ["han", "na"]}
+{"word": "沃什", "pinyin": ["wo", "shi"]}
+{"word": "沈星", "pinyin": ["shen", "xing"]}
+{"word": "沈氏", "pinyin": ["shen", "shi"]}
+{"word": "沈约", "pinyin": ["shen", "yue"]}
+{"word": "沈钧儒", "pinyin": ["shen", "jun", "ru"]}
+{"word": "沈阳市", "pinyin": ["shen", "yang", "shi"]}
+{"word": "沈阳站", "pinyin": ["shen", "yang", "zhan"]}
+{"word": "沈鸿烈", "pinyin": ["shen", "hong", "lie"]}
+{"word": "沙参", "pinyin": ["sha", "shen"]}
+{"word": "没奈何", "pinyin": ["mei", "nai", "he"]}
+{"word": "没收财产", "pinyin": ["mo", "shou", "cai", "chan"]}
+{"word": "没着落", "pinyin": ["mei", "zhao", "luo"]}
+{"word": "沿著", "pinyin": ["yan", "zhuo"]}
+{"word": "泄露", "pinyin": ["xie", "lu"]}
+{"word": "法藏", "pinyin": ["fa", "zang"]}
+{"word": "注册会计师", "pinyin": ["zhu", "ce", "kuai", "ji", "shi"]}
+{"word": "洛什", "pinyin": ["luo", "shi"]}
+{"word": "洛杉矶", "pinyin": ["luo", "shan", "ji"]}
+{"word": "活著", "pinyin": ["huo", "zhe"]}
+{"word": "海塞", "pinyin": ["hai", "sai"]}
+{"word": "海塞纳", "pinyin": ["hai", "sai", "na"]}
+{"word": "海塞纳省", "pinyin": ["hai", "sai", "na", "sheng"]}
+{"word": "涅欧佩什", "pinyin": ["nie", "ou", "pei", "shi"]}
+{"word": "淤血", "pinyin": ["yu", "xue"]}
+{"word": "渣打银行", "pinyin": ["zha", "da", "yin", "hang"]}
+{"word": "温莎", "pinyin": ["wen", "sha"]}
+{"word": "湾仔", "pinyin": ["wan", "zai"]}
+{"word": "湾仔区", "pinyin": ["wan", "zai", "qu"]}
+{"word": "滨海塞", "pinyin": ["bin", "hai", "sai"]}
+{"word": "滨海塞纳", "pinyin": ["bin", "hai", "sai", "na"]}
+{"word": "潘玮柏", "pinyin": ["pan", "wei", "bo"]}
+{"word": "澄清", "pinyin": ["cheng", "qing"]}
+{"word": "灵长类动物", "pinyin": ["ling", "zhang", "lei", "dong", "wu"]}
+{"word": "热疯了", "pinyin": ["re", "feng", "le"]}
+{"word": "热轧", "pinyin": ["re", "zha"]}
+{"word": "煲仔", "pinyin": ["bao", "zai"]}
+{"word": "煲仔饭", "pinyin": ["bao", "zai", "fan"]}
+{"word": "熨烫", "pinyin": ["yun", "tang"]}
+{"word": "爪机", "pinyin": ["zhua", "ji"]}
+{"word": "牙利沃什", "pinyin": ["ya", "li", "wo", "shi"]}
+{"word": "牛仔", "pinyin": ["niu", "zai"]}
+{"word": "牛仔服", "pinyin": ["niu", "zai", "fu"]}
+{"word": "牛圈", "pinyin": ["niu", "juan"]}
+{"word": "牛轧", "pinyin": ["niu", "ga"]}
+{"word": "牟娄郡", "pinyin": ["mu", "lou", "jun"]}
+{"word": "特蕾莎", "pinyin": ["te", "lei", "sha"]}
+{"word": "特行", "pinyin": ["te", "xing"]}
+{"word": "狗仔", "pinyin": ["gou", "zai"]}
+{"word": "狗刨", "pinyin": ["gou", "pao"]}
+{"word": "猜错了", "pinyin": ["cai", "cuo", "le"]}
+{"word": "猪仔", "pinyin": ["zhu", "zai"]}
+{"word": "猪圈", "pinyin": ["zhu", "juan"]}
+{"word": "猫警长", "pinyin": ["mao", "jing", "zhang"]}
+{"word": "玄参", "pinyin": ["xuan", "shen"]}
+{"word": "率众", "pinyin": ["shuai", "zhong"]}
+{"word": "率兵", "pinyin": ["shuai", "bing"]}
+{"word": "率军", "pinyin": ["shuai", "jun"]}
+{"word": "率部", "pinyin": ["shuai", "bu"]}
+{"word": "率队", "pinyin": ["shuai", "dui"]}
+{"word": "玛莎", "pinyin": ["ma", "sha"]}
+{"word": "珊娜", "pinyin": ["shan", "na"]}
+{"word": "班长", "pinyin": ["ban", "zhang"]}
+{"word": "琢磨", "pinyin": ["zuo", "mo"]}
+{"word": "琳娜", "pinyin": ["lin", "na"]}
+{"word": "瑕瑜互见", "pinyin": ["xia", "yu", "hu", "jian"]}
+{"word": "瑟琳娜", "pinyin": ["se", "lin", "na"]}
+{"word": "瓜蔓", "pinyin": ["gua", "wan"]}
+{"word": "生长因子", "pinyin": ["sheng", "zhang", "yin", "zi"]}
+{"word": "町线", "pinyin": ["ding", "xian"]}
+{"word": "留给", "pinyin": ["liu", "gei"]}
+{"word": "留著", "pinyin": ["liu", "zhuo"]}
+{"word": "畜圈", "pinyin": ["chu", "juan"]}
+{"word": "番仔", "pinyin": ["fan", "zai"]}
+{"word": "番禺", "pinyin": ["pan", "yu"]}
+{"word": "番禺县", "pinyin": ["pan", "yu", "xian"]}
+{"word": "疯了", "pinyin": ["feng", "le"]}
+{"word": "盟长", "pinyin": ["meng", "zhang"]}
+{"word": "着地", "pinyin": ["zhuo", "di"]}
+{"word": "着床", "pinyin": ["zhuo", "chuang"]}
+{"word": "睡着", "pinyin": ["shui", "zhao"]}
+{"word": "矿长", "pinyin": ["kuang", "zhang"]}
+{"word": "砉", "pinyin": ["xu"]}
+{"word": "碎觉", "pinyin": ["sui", "jiao"]}
+{"word": "磏", "pinyin": ["lian"]}
+{"word": "社社长", "pinyin": ["she", "she", "zhang"]}
+{"word": "社长", "pinyin": ["she", "zhang"]}
+{"word": "秃尾巴", "pinyin": ["tu", "yi", "ba"]}
+{"word": "秘鲁", "pinyin": ["bi", "lu"]}
+{"word": "秦桧", "pinyin": ["qin", "hui"]}
+{"word": "穿著", "pinyin": ["chuan", "zhuo"]}
+{"word": "立传", "pinyin": ["li", "zhuan"]}
+{"word": "站长", "pinyin": ["zhan", "zhang"]}
+{"word": "竺三藏", "pinyin": ["zhu", "san", "zang"]}
+{"word": "笑疯了", "pinyin": ["xiao", "feng", "le"]}
+{"word": "管乐", "pinyin": ["guan", "yue"]}
+{"word": "米娜", "pinyin": ["mi", "na"]}
+{"word": "米芾", "pinyin": ["mi", "fu"]}
+{"word": "粘土", "pinyin": ["nian", "tu"]}
+{"word": "粘度", "pinyin": ["nian", "du"]}
+{"word": "粘度计", "pinyin": ["nian", "du", "ji"]}
+{"word": "粘着", "pinyin": ["zhan", "zhuo"]}
+{"word": "粘膜", "pinyin": ["nian", "mo"]}
+{"word": "粮囤", "pinyin": ["liang", "dun"]}
+{"word": "粮行", "pinyin": ["liang", "hang"]}
+{"word": "索还", "pinyin": ["suo", "huan"]}
+{"word": "紧接著", "pinyin": ["jin", "jie", "zhe"]}
+{"word": "紫杉", "pinyin": ["zi", "shan"]}
+{"word": "红参", "pinyin": ["hong", "shen"]}
+{"word": "纳什", "pinyin": ["na", "shi"]}
+{"word": "组长", "pinyin": ["zu", "zhang"]}
+{"word": "细嚼慢咽", "pinyin": ["xi", "jiao", "man", "yan"]}
+{"word": "经济增长", "pinyin": ["jing", "ji", "zeng", "zhang"]}
+{"word": "给力", "pinyin": ["gei", "li"]}
+{"word": "给跪", "pinyin": ["gei", "gui"]}
+{"word": "维什", "pinyin": ["wei", "shi"]}
+{"word": "缪尔", "pinyin": ["miao", "er"]}
+{"word": "缺觉", "pinyin": ["que", "jiao"]}
+{"word": "网易云音乐", "pinyin": ["wang", "yi", "yun", "yin", "yue"]}
+{"word": "罗布泊", "pinyin": ["luo", "bu", "po"]}
+{"word": "罗莎", "pinyin": ["luo", "sha"]}
+{"word": "罢了", "pinyin": ["ba", "le"]}
+{"word": "署署长", "pinyin": ["shu", "shu", "zhang"]}
+{"word": "署长", "pinyin": ["shu", "zhang"]}
+{"word": "羊圈", "pinyin": ["yang", "juan"]}
+{"word": "美国银行", "pinyin": ["mei", "guo", "yin", "hang"]}
+{"word": "美的", "pinyin": ["mei", "di"]}
+{"word": "翟天", "pinyin": ["zhai", "tian"]}
+{"word": "老贾", "pinyin": ["lao", "jia"]}
+{"word": "肉脯", "pinyin": ["rou", "fu"]}
+{"word": "股长", "pinyin": ["gu", "zhang"]}
+{"word": "肥仔", "pinyin": ["fei", "zai"]}
+{"word": "胡塞", "pinyin": ["hu", "sai"]}
+{"word": "胳肢窝", "pinyin": ["ge", "zhi", "wo"]}
+{"word": "膀胱癌", "pinyin": ["pang", "guang", "ai"]}
+{"word": "自动重启", "pinyin": ["zi", "dong", "chong", "qi"]}
+{"word": "自省", "pinyin": ["zi", "xing"]}
+{"word": "至塞", "pinyin": ["zhi", "sai"]}
+{"word": "至塞纳", "pinyin": ["zhi", "sai", "na"]}
+{"word": "舍我其谁", "pinyin": ["she", "wo", "qi", "shui"]}
+{"word": "般若", "pinyin": ["bo", "re"]}
+{"word": "舰长", "pinyin": ["jian", "zhang"]}
+{"word": "艾佛", "pinyin": ["ai", "fu"]}
+{"word": "艾莎", "pinyin": ["ai", "sha"]}
+{"word": "芒什", "pinyin": ["mang", "shi"]}
+{"word": "芒什省", "pinyin": ["mang", "shi", "sheng"]}
+{"word": "芙娜", "pinyin": ["fu", "na"]}
+{"word": "花旗银行", "pinyin": ["hua", "qi", "yin", "hang"]}
+{"word": "苏珊娜", "pinyin": ["su", "shan", "na"]}
+{"word": "茁壮成长", "pinyin": ["zhuo", "zhuang", "cheng", "zhang"]}
+{"word": "莉娜", "pinyin": ["li", "na"]}
+{"word": "莉安娜", "pinyin": ["li", "an", "na"]}
+{"word": "莉莎", "pinyin": ["li", "sha"]}
+{"word": "莉莎白", "pinyin": ["li", "sha", "bai"]}
+{"word": "莎士比亚", "pinyin": ["sha", "shi", "bi", "ya"]}
+{"word": "莎姐", "pinyin": ["sha", "jie"]}
+{"word": "莎拉", "pinyin": ["sha", "la"]}
+{"word": "莎普爱思", "pinyin": ["sha", "pu", "ai", "si"]}
+{"word": "莎白", "pinyin": ["sha", "bai"]}
+{"word": "莎莉", "pinyin": ["sha", "li"]}
+{"word": "莎贝", "pinyin": ["sha", "bei"]}
+{"word": "莎贝尔", "pinyin": ["sha", "bei", "er"]}
+{"word": "莎贝拉", "pinyin": ["sha", "bei", "la"]}
+{"word": "莘庄", "pinyin": ["xin", "zhuang"]}
+{"word": "莱昂塞", "pinyin": ["lai", "ang", "sai"]}
+{"word": "莱昂塞戈", "pinyin": ["lai", "ang", "sai", "ge"]}
+{"word": "莲娜", "pinyin": ["lian", "na"]}
+{"word": "萝卜糕", "pinyin": ["luo", "bo", "gao"]}
+{"word": "营长", "pinyin": ["ying", "zhang"]}
+{"word": "萨诸塞", "pinyin": ["sa", "zhu", "sai"]}
+{"word": "萨诸塞湾", "pinyin": ["sa", "zhu", "sai", "wan"]}
+{"word": "落市", "pinyin": ["lao", "shi"]}
+{"word": "著手", "pinyin": ["zhuo", "shou"]}
+{"word": "著重", "pinyin": ["zhuo", "zhong"]}
+{"word": "著陆", "pinyin": ["zhuo", "lu"]}
+{"word": "葚", "pinyin": ["shen"]}
+{"word": "蒂娜", "pinyin": ["di", "na"]}
+{"word": "蒙娜丽莎", "pinyin": ["meng", "na", "li", "sha"]}
+{"word": "蒙藏", "pinyin": ["meng", "zang"]}
+{"word": "蔓儿", "pinyin": ["man", "er"]}
+{"word": "蕃茄", "pinyin": ["fan", "qie"]}
+{"word": "蕾娜", "pinyin": ["lei", "na"]}
+{"word": "蕾莎", "pinyin": ["lei", "sha"]}
+{"word": "薄片", "pinyin": ["bao", "pian"]}
+{"word": "薄脆", "pinyin": ["bo", "cui"]}
+{"word": "薄雾", "pinyin": ["bao", "wu"]}
+{"word": "藉著", "pinyin": ["jie", "zhu"]}
+{"word": "藏传", "pinyin": ["zang", "chuan"]}
+{"word": "藏军", "pinyin": ["zang", "jun"]}
+{"word": "藏广", "pinyin": ["zang", "guang"]}
+{"word": "藏广胜", "pinyin": ["zang", "guang", "sheng"]}
+{"word": "藏广胜寺", "pinyin": ["zang", "guang", "sheng", "si"]}
+{"word": "藏文", "pinyin": ["zang", "wen"]}
+{"word": "藏獒", "pinyin": ["zang", "ao"]}
+{"word": "藏红花", "pinyin": ["zang", "hong", "hua"]}
+{"word": "藏胞", "pinyin": ["zang", "bao"]}
+{"word": "藏药", "pinyin": ["zang", "yao"]}
+{"word": "藏语", "pinyin": ["zang", "yu"]}
+{"word": "蚌埠", "pinyin": ["beng", "bu"]}
+{"word": "蚌埠市", "pinyin": ["beng", "bu", "shi"]}
+{"word": "血晕", "pinyin": ["xue", "yun"]}
+{"word": "血淋淋", "pinyin": ["xue", "lin", "lin"]}
+{"word": "血糊糊", "pinyin": ["xue", "hu", "hu"]}
+{"word": "行业标准", "pinyin": ["hang", "ye", "biao", "zhun"]}
+{"word": "行成于思", "pinyin": ["xing", "cheng", "yu", "si"]}
+{"word": "行长", "pinyin": ["hang", "zhang"]}
+{"word": "补觉", "pinyin": ["bu", "jiao"]}
+{"word": "裁判长", "pinyin": ["cai", "pan", "zhang"]}
+{"word": "褪色", "pinyin": ["tui", "se"]}
+{"word": "西塞罗", "pinyin": ["xi", "sai", "luo"]}
+{"word": "西接塞", "pinyin": ["xi", "jie", "sai"]}
+{"word": "西接塞纳", "pinyin": ["xi", "jie", "sai", "na"]}
+{"word": "西藏", "pinyin": ["xi", "zang"]}
+{"word": "西藏自治区", "pinyin": ["xi", "zang", "zi", "zhi", "qu"]}
+{"word": "要疯了", "pinyin": ["yao", "feng", "le"]}
+{"word": "要著", "pinyin": ["yao", "zhu"]}
+{"word": "见长", "pinyin": ["jian", "chang"]}
+{"word": "觉睡", "pinyin": ["jiao", "shui"]}
+{"word": "角咀", "pinyin": ["jiao", "zui"]}
+{"word": "角色名", "pinyin": ["jue", "se", "ming"]}
+{"word": "警长", "pinyin": ["jing", "zhang"]}
+{"word": "记错了", "pinyin": ["ji", "cuo", "le"]}
+{"word": "说不着", "pinyin": ["shuo", "bu", "zhao"]}
+{"word": "诸塞", "pinyin": ["zhu", "sai"]}
+{"word": "诸塞湾", "pinyin": ["zhu", "sai", "wan"]}
+{"word": "诺娜", "pinyin": ["nuo", "na"]}
+{"word": "调休", "pinyin": ["tiao", "xiu"]}
+{"word": "调快", "pinyin": ["tiao", "kuai"]}
+{"word": "调演", "pinyin": ["tiao", "yan"]}
+{"word": "调色", "pinyin": ["tiao", "se"]}
+{"word": "调色板", "pinyin": ["tiao", "se", "ban"]}
+{"word": "调节剂", "pinyin": ["tiao", "jie", "ji"]}
+{"word": "调配", "pinyin": ["diao", "pei"]}
+{"word": "调酒", "pinyin": ["tiao", "jiu"]}
+{"word": "调音", "pinyin": ["tiao", "yin"]}
+{"word": "谢娜", "pinyin": ["xie", "na"]}
+{"word": "财长", "pinyin": ["cai", "zhang"]}
+{"word": "败给", "pinyin": ["bai", "gei"]}
+{"word": "贾乃", "pinyin": ["jia", "nai"]}
+{"word": "贾乃亮", "pinyin": ["jia", "nai", "liang"]}
+{"word": "贾充", "pinyin": ["jia", "chong"]}
+{"word": "贾南风", "pinyin": ["jia", "nan", "feng"]}
+{"word": "贾坎", "pinyin": ["jia", "kan"]}
+{"word": "贾坎德", "pinyin": ["jia", "kan", "de"]}
+{"word": "贾坎德邦", "pinyin": ["jia", "kan", "de", "bang"]}
+{"word": "贾奈", "pinyin": ["jia", "nai"]}
+{"word": "贾尼", "pinyin": ["jia", "ni"]}
+{"word": "贾平凹", "pinyin": ["jia", "ping", "wa"]}
+{"word": "贾德", "pinyin": ["jia", "de"]}
+{"word": "贾总", "pinyin": ["jia", "zong"]}
+{"word": "贾斯", "pinyin": ["jia", "si"]}
+{"word": "贾斯坦", "pinyin": ["jia", "si", "tan"]}
+{"word": "贾斯坦邦", "pinyin": ["jia", "si", "tan", "bang"]}
+{"word": "贾斯汀", "pinyin": ["jia", "si", "ting"]}
+{"word": "贾维", "pinyin": ["jia", "wei"]}
+{"word": "贾静雯", "pinyin": ["jia", "jing", "wen"]}
+{"word": "赐给", "pinyin": ["ci", "gei"]}
+{"word": "赢了", "pinyin": ["ying", "le"]}
+{"word": "起滨海塞", "pinyin": ["qi", "bin", "hai", "sai"]}
+{"word": "起落架", "pinyin": ["qi", "luo", "jia"]}
+{"word": "趁著", "pinyin": ["chen", "zhe"]}
+{"word": "趄", "pinyin": ["qie"]}
+{"word": "越桔", "pinyin": ["yue", "ju"]}
+{"word": "路卡", "pinyin": ["lu", "qia"]}
+{"word": "路易莎", "pinyin": ["lu", "yi", "sha"]}
+{"word": "蹢", "pinyin": ["di"]}
+{"word": "车行", "pinyin": ["che", "hang"]}
+{"word": "车陂", "pinyin": ["che", "bei"]}
+{"word": "轧制", "pinyin": ["zha", "zhi"]}
+{"word": "转文", "pinyin": ["zhuan", "wen"]}
+{"word": "输给", "pinyin": ["shu", "gei"]}
+{"word": "辟邪", "pinyin": ["bi", "xie"]}
+{"word": "还乡", "pinyin": ["huan", "xiang"]}
+{"word": "还乡团", "pinyin": ["huan", "xiang", "tuan"]}
+{"word": "还政", "pinyin": ["huan", "zheng"]}
+{"word": "还田", "pinyin": ["huan", "tian"]}
+{"word": "还贷", "pinyin": ["huan", "dai"]}
+{"word": "进藏", "pinyin": ["jin", "zang"]}
+{"word": "迫降", "pinyin": ["po", "jiang"]}
+{"word": "送给", "pinyin": ["song", "gei"]}
+{"word": "送还", "pinyin": ["song", "huan"]}
+{"word": "选角", "pinyin": ["xuan", "jue"]}
+{"word": "递给", "pinyin": ["di", "gei"]}
+{"word": "逮着", "pinyin": ["dai", "zhao"]}
+{"word": "部长", "pinyin": ["bu", "zhang"]}
+{"word": "都柏林", "pinyin": ["du", "bo", "lin"]}
+{"word": "酷毙了", "pinyin": ["ku", "bi", "le"]}
+{"word": "醉了", "pinyin": ["zui", "le"]}
+{"word": "采血", "pinyin": ["cai", "xue"]}
+{"word": "重做", "pinyin": ["chong", "zuo"]}
+{"word": "重写", "pinyin": ["chong", "xie"]}
+{"word": "重划", "pinyin": ["chong", "hua"]}
+{"word": "重制", "pinyin": ["chong", "zhi"]}
+{"word": "重华", "pinyin": ["chong", "hua"]}
+{"word": "重启", "pinyin": ["chong", "qi"]}
+{"word": "重命名", "pinyin": ["chong", "ming", "ming"]}
+{"word": "重围", "pinyin": ["zhong", "wei"]}
+{"word": "重塑", "pinyin": ["chong", "su"]}
+{"word": "重复序列", "pinyin": ["chong", "fu", "xu", "lie"]}
+{"word": "重夺", "pinyin": ["chong", "duo"]}
+{"word": "重定向", "pinyin": ["chong", "ding", "xiang"]}
+{"word": "重庆", "pinyin": ["chong", "qing"]}
+{"word": "重庆市", "pinyin": ["chong", "qing", "shi"]}
+{"word": "重庆火锅", "pinyin": ["chong", "qing", "huo", "guo"]}
+{"word": "重建", "pinyin": ["chong", "jian"]}
+{"word": "重开", "pinyin": ["chong", "kai"]}
+{"word": "重弹", "pinyin": ["chong", "tan"]}
+{"word": "重拾", "pinyin": ["chong", "shi"]}
+{"word": "重振", "pinyin": ["chong", "zhen"]}
+{"word": "重排", "pinyin": ["chong", "pai"]}
+{"word": "重提", "pinyin": ["chong", "ti"]}
+{"word": "重整", "pinyin": ["chong", "zheng"]}
+{"word": "重新做人", "pinyin": ["chong", "xin", "zuo", "ren"]}
+{"word": "重新启动", "pinyin": ["chong", "xin", "qi", "dong"]}
+{"word": "重新安装", "pinyin": ["chong", "xin", "an", "zhuang"]}
+{"word": "重新连接", "pinyin": ["chong", "xin", "lian", "jie"]}
+{"word": "重构", "pinyin": ["chong", "gou"]}
+{"word": "重檐", "pinyin": ["chong", "yan"]}
+{"word": "重温", "pinyin": ["chong", "wen"]}
+{"word": "重犯", "pinyin": ["chong", "fan"]}
+{"word": "重现", "pinyin": ["chong", "xian"]}
+{"word": "重置", "pinyin": ["chong", "zhi"]}
+{"word": "重联", "pinyin": ["chong", "lian"]}
+{"word": "重聚", "pinyin": ["chong", "ju"]}
+{"word": "重获", "pinyin": ["chong", "huo"]}
+{"word": "重言", "pinyin": ["zhong", "yan"]}
+{"word": "重蹈", "pinyin": ["chong", "dao"]}
+{"word": "重蹈复", "pinyin": ["chong", "dao", "fu"]}
+{"word": "重蹈复辙", "pinyin": ["chong", "dao", "fu", "zhe"]}
+{"word": "重返", "pinyin": ["chong", "fan"]}
+{"word": "野山参", "pinyin": ["ye", "shan", "shen"]}
+{"word": "金桔", "pinyin": ["jin", "ju"]}
+{"word": "金莎", "pinyin": ["jin", "sha"]}
+{"word": "金藏广", "pinyin": ["jin", "zang", "guang"]}
+{"word": "金藏广胜", "pinyin": ["jin", "zang", "guang", "sheng"]}
+{"word": "铁杉", "pinyin": ["tie", "shan"]}
+{"word": "铜管乐", "pinyin": ["tong", "guan", "yue"]}
+{"word": "银杉", "pinyin": ["yin", "shan"]}
+{"word": "银行家", "pinyin": ["yin", "hang", "jia"]}
+{"word": "银行行长", "pinyin": ["yin", "hang", "hang", "zhang"]}
+{"word": "铻", "pinyin": ["yu"]}
+{"word": "销差", "pinyin": ["xiao", "chai"]}
+{"word": "错了", "pinyin": ["cuo", "le"]}
+{"word": "镇长", "pinyin": ["zhen", "zhang"]}
+{"word": "长兄", "pinyin": ["zhang", "xiong"]}
+{"word": "长势", "pinyin": ["chang", "shi"]}
+{"word": "长大", "pinyin": ["zhang", "da"]}
+{"word": "长女", "pinyin": ["zhang", "nv"]}
+{"word": "长幼", "pinyin": ["zhang", "you"]}
+{"word": "长得", "pinyin": ["zhang", "de"]}
+{"word": "长得丑", "pinyin": ["zhang", "de", "chou"]}
+{"word": "长歪", "pinyin": ["zhang", "wai"]}
+{"word": "长残", "pinyin": ["zhang", "can"]}
+{"word": "长痘", "pinyin": ["zhang", "dou"]}
+{"word": "长痘痘", "pinyin": ["zhang", "dou", "dou"]}
+{"word": "长相", "pinyin": ["chang", "xiang"]}
+{"word": "长肉", "pinyin": ["zhang", "rou"]}
+{"word": "长肉肉", "pinyin": ["zhang", "rou", "rou"]}
+{"word": "长胖", "pinyin": ["zhang", "pang"]}
+{"word": "长脸", "pinyin": ["chang", "lian"]}
+{"word": "长门", "pinyin": ["chang", "men"]}
+{"word": "闵行", "pinyin": ["min", "hang"]}
+{"word": "队长", "pinyin": ["dui", "zhang"]}
+{"word": "阳翟", "pinyin": ["yang", "zhai"]}
+{"word": "阿加莎", "pinyin": ["a", "jia", "sha"]}
+{"word": "阿古柏", "pinyin": ["a", "gu", "bo"]}
+{"word": "阿塞", "pinyin": ["a", "sai"]}
+{"word": "阿塞拜", "pinyin": ["a", "sai", "bai"]}
+{"word": "阿塞拜疆", "pinyin": ["a", "sai", "bai", "jiang"]}
+{"word": "阿尔代什", "pinyin": ["a", "er", "dai", "shi"]}
+{"word": "阿贾克斯", "pinyin": ["a", "jia", "ke", "si"]}
+{"word": "附著", "pinyin": ["fu", "zhuo"]}
+{"word": "陈省身", "pinyin": ["chen", "xing", "shen"]}
+{"word": "陈蕃", "pinyin": ["chen", "fan"]}
+{"word": "降将", "pinyin": ["xiang", "jiang"]}
+{"word": "降魔", "pinyin": ["xiang", "mo"]}
+{"word": "院长", "pinyin": ["yuan", "zhang"]}
+{"word": "随著", "pinyin": ["sui", "zhe"]}
+{"word": "雅典娜", "pinyin": ["ya", "dian", "na"]}
+{"word": "霓娜", "pinyin": ["ni", "na"]}
+{"word": "露头", "pinyin": ["lu", "tou"]}
+{"word": "露娜", "pinyin": ["lu", "na"]}
+{"word": "露富", "pinyin": ["lu", "fu"]}
+{"word": "露底", "pinyin": ["lu", "di"]}
+{"word": "露白", "pinyin": ["lu", "bai"]}
+{"word": "露肉", "pinyin": ["lou", "rou"]}
+{"word": "露脚", "pinyin": ["lou", "jiao"]}
+{"word": "露脚踝", "pinyin": ["lou", "jiao", "huai"]}
+{"word": "露脸", "pinyin": ["lu", "lian"]}
+{"word": "露面", "pinyin": ["lu", "mian"]}
+{"word": "露馅儿", "pinyin": ["lu", "xian", "er"]}
+{"word": "露马脚", "pinyin": ["lu", "ma", "jiao"]}
+{"word": "青藏", "pinyin": ["qing", "zang"]}
+{"word": "靓仔", "pinyin": ["liang", "zai"]}
+{"word": "静静地", "pinyin": ["jing", "jing", "de"]}
+{"word": "非对称", "pinyin": ["fei", "dui", "chen"]}
+{"word": "靠著", "pinyin": ["kao", "zhe"]}
+{"word": "靸", "pinyin": ["ta"]}
+{"word": "音乐学院", "pinyin": ["yin", "yue", "xue", "yuan"]}
+{"word": "音乐播放", "pinyin": ["yin", "yue", "bo", "fang"]}
+{"word": "顿觉", "pinyin": ["dun", "jue"]}
+{"word": "颁给", "pinyin": ["ban", "gei"]}
+{"word": "颜色", "pinyin": ["yan", "se"]}
+{"word": "饹", "pinyin": ["le"]}
+{"word": "馆长", "pinyin": ["guan", "zhang"]}
+{"word": "马仔", "pinyin": ["ma", "zai"]}
+{"word": "马圈", "pinyin": ["ma", "juan"]}
+{"word": "马萨诸塞", "pinyin": ["ma", "sa", "zhu", "sai"]}
+{"word": "驻藏", "pinyin": ["zhu", "zang"]}
+{"word": "骠骑", "pinyin": ["piao", "qi"]}
+{"word": "高丽参", "pinyin": ["gao", "li", "shen"]}
+{"word": "鲁塞", "pinyin": ["lu", "sai"]}
+{"word": "鲁塞尔", "pinyin": ["lu", "sai", "er"]}
+{"word": "鸡爪", "pinyin": ["ji", "zhua"]}
+{"word": "鸡蛋仔", "pinyin": ["ji", "dan", "zai"]}
+{"word": "麻萨诸塞", "pinyin": ["ma", "sa", "zhu", "sai"]}
+{"word": "黄埔", "pinyin": ["huang", "pu"]}
+{"word": "黄柏", "pinyin": ["huang", "bo"]}
+{"word": "黑猫警长", "pinyin": ["hei", "mao", "jing", "zhang"]}
+{"word": "黛安娜", "pinyin": ["dai", "an", "na"]}
+{"word": "龙爪槐", "pinyin": ["long", "zhua", "huai"]}

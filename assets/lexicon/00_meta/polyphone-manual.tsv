@@ -1,24 +1,49 @@
 # 多音字：人工待定（不自动改）。理由见第三列。
 # 词	词库读音	为什么人工看	CC-CEDICT 的建议
 一宿	yi su	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yi su → yi xiu
-一针见血	yi zhen jian xue	CC-CEDICT 给的是台湾读音（血）	yi zhen jian xue → yi zhen jian xie
+三藏	san cang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	san cang → san zang
 不着	bu zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bu zhe → bu zhao
+世界银行	shi jie yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shi jie yin xing → shi jie yin hang
+东莞市	dong wan shi	地名：以大陆现行地名读音为准，人工定	dong wan shi → dong guan shi
 两重天	liang zhong tian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	liang zhong tian → liang chong tian
+中信银行	zhong xin yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong xin yin xing → zhong xin yin hang
+中国人民银行	zhong guo ren min yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong guo ren min yin xing → zhong guo ren min yin hang
+中国农业银行	zhong guo nong ye yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong guo nong ye yin xing → zhong guo nong ye yin hang
+中国工商银行	zhong guo gong shang yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong guo gong shang yin xing → zhong guo gong shang yin hang
+中国建设银行	zhong guo jian she yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong guo jian she yin xing → zhong guo jian she yin hang
+中国银行	zhong guo yin xing	地名：以大陆现行地名读音为准，人工定	zhong guo yin xing → zhong guo yin hang
+中牟	zhong mou	地名：以大陆现行地名读音为准，人工定	zhong mou → zhong mu
 中的	zhong de	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong de → zhong di
-丹棱	dan leng	地名：以大陆现行地名读音为准，人工定	dan leng → dan ling
+中行	zhong xing	地名：以大陆现行地名读音为准，人工定	zhong xing → zhong hang
+久别重逢	jiu bie zhong feng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jiu bie zhong feng → jiu bie chong feng
 么	yao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yao → ma
+乌什	wu shen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	wu shen → wu shi
 乍暖还寒	zha nuan hai han	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zha nuan hai han → zha nuan huan han
-乐亭	le ting	CC-CEDICT 的建议读音 Unihan 也不认（例如地名当地读音）	与 CC-CEDICT 不一致（CEDICT：lao ting）；CEDICT 读音 Unihan 也不认
 乐句	le ju	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	le ju → yue ju
 乐感	le gan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	le gan → yue gan
 乐手	le shou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	le shou → yue shou
+乐清	le qing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	le qing → yue qing
+乐清市	le qing shi	地名：以大陆现行地名读音为准，人工定	le qing shi → yue qing shi
+乐迷	le mi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	le mi → yue mi
+乐陵市	le ling shi	CC-CEDICT 的建议读音 Unihan 也不认（例如地名当地读音）	与 CC-CEDICT 不一致（CEDICT：lao ling shi）；CEDICT 读音 Unihan 也不认
 乳臭未干	ru chou wei gan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ru chou wei gan → ru xiu wei gan
-便血	bian xue	CC-CEDICT 给的是台湾读音（血）	bian xue → bian xie
+交通银行	jiao tong yin xing	地名：以大陆现行地名读音为准，人工定	jiao tong yin xing → jiao tong yin hang
+人参果	ren can guo	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ren can guo → ren shen guo
+什刹海	shen sha hai	地名：以大陆现行地名读音为准，人工定	shen sha hai → shi cha hai
+什叶	shen ye	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shen ye → shi ye
+什叶派	shen ye pai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shen ye pai → shi ye pai
+什邡市	shen fang shi	地名：以大陆现行地名读音为准，人工定	shen fang shi → shi fang shi
+今朝有酒今朝醉	jin chao you jiu jin chao zui	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jin chao you jiu jin chao zui → jin zhao you jiu jin zhao zui
 儿媳妇儿	er xi fu er	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	er xi fu er → er xi fu r
+克什克腾	ke shen ke teng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ke shen ke teng → ke shi ke teng
 克什米尔	ke shen mi er	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ke shen mi er → ke shi mi er
-公了	gong le	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gong le → gong liao
+全军覆没	quan jun fu mei	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	quan jun fu mei → quan jun fu mo
+公仔	gong zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gong zi → gong zai
+六安市	liu an shi	地名：以大陆现行地名读音为准，人工定	liu an shi → lu an shi
+兴业银行	xing ye yin xing	地名：以大陆现行地名读音为准，人工定	xing ye yin xing → xing ye yin hang
 冷轧	leng ya	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	leng ya → leng zha
 分行	fen xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	fen xing → fen hang
+利什曼病	li shen man bing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	li shen man bing → li shi man bing
 到了	dao le	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	dao le → dao liao
 削球	xue qiu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xue qiu → xiao qiu
 功不可没	gong bu ke mei	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gong bu ke mei → gong bu ke mo
@@ -26,31 +51,53 @@
 劲爆	jin bao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jin bao → jing bao
 劲风	jin feng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jin feng → jing feng
 半生不熟	ban sheng bu shu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ban sheng bu shu → ban sheng bu shou
-卡壳	ka ke	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ka ke → qia ke
-卡子	ka zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ka zi → qia zi
-卡脖子	ka bo zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ka bo zi → qia bo zi
-史丹佛	shi dan fu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shi dan fu → shi dan fo
+华夏银行	hua xia yin xing	地名：以大陆现行地名读音为准，人工定	hua xia yin xing → hua xia yin hang
+厚朴	hou pu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hou pu → hou po
+厦门	sha men	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	sha men → xia men
+厦门市	sha men shi	地名：以大陆现行地名读音为准，人工定	sha men shi → xia men shi
+参茸	can rong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	can rong → shen rong
+古惑仔	gu huo zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gu huo zi → gu huo zai
 叶韵	ye yun	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ye yun → xie yun
 吃拿卡要	chi na ka yao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chi na ka yao → chi na qia yao
 各行各业	ge xing ge ye	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ge xing ge ye → ge hang ge ye
 含情脉脉	han qing mai mai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	han qing mai mai → han qing mo mo
 呐	ne	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ne → na
 命令行	ming ling xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ming ling xing → ming ling hang
-咯血	ka xue	CC-CEDICT 给的是台湾读音（血）	ka xue → ka xie
+唐三藏	tang san cang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	tang san cang → tang san zang
+商业银行	shang ye yin xing	地名：以大陆现行地名读音为准，人工定	shang ye yin xing → shang ye yin hang
+喀什	ka shen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ka shen → ka shi
+喀什市	ka shen shi	地名：以大陆现行地名读音为准，人工定	ka shen shi → ka shi shi
+噶厦	ga sha	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ga sha → ga xia
 嚼	jue	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jue → jiao
-圣赫勒拿	sheng he le na	地名：以大陆现行地名读音为准，人工定	sheng he le na → sheng he lei na
+回弹	hui dan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hui dan → hui tan
+国家开发银行	guo jia kai fa yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	guo jia kai fa yin xing → guo jia kai fa yin hang
+塞勒姆	se le mu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	se le mu → sai le mu
+塞拉利昂	se la li ang	地名：以大陆现行地名读音为准，人工定	se la li ang → sai la li ang
+塞舌尔	se she er	地名：以大陆现行地名读音为准，人工定	se she er → sai she er
+多重	duo zhong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	duo zhong → duo chong
 够不着	gou bu zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gou bu zhe → gou bu zhao
 够得着	gou de zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gou de zhe → gou de zhao
 大乘	da cheng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	da cheng → da sheng
+天和	tian he	地名：以大陆现行地名读音为准，人工定	tian he → tian hu
+奇偶	qi ou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	qi ou → ji ou
+安塞	an se	地名：以大陆现行地名读音为准，人工定	an se → an sai
 审度	shen du	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shen du → shen duo
 审校	shen xiao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shen xiao → shen jiao
 察合台	cha he tai	地名：以大陆现行地名读音为准，人工定	cha he tai → cha ge tai
-尿泡	niao pao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	niao pao → sui pao
-属意	shu yi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shu yi → zhu yi
+尖沙咀	jian sha ju	地名：以大陆现行地名读音为准，人工定	jian sha ju → jian sha zui
+川藏	chuan cang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chuan cang → chuan zang
+工商银行	gong shang yin xing	地名：以大陆现行地名读音为准，人工定	gong shang yin xing → gong shang yin hang
+工行	gong xing	地名：以大陆现行地名读音为准，人工定	gong xing → gong hang
+左传	zuo chuan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zuo chuan → zuo zhuan
 差派	cha pai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cha pai → chai pai
+巴克莱银行	ba ke lai yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ba ke lai yin xing → ba ke lai yin hang
+布什	bu shen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bu shen → bu shi
+建行	jian xing	地名：以大陆现行地名读音为准，人工定	jian xing → jian hang
+张柏芝	zhang bai zhi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhang bai zhi → zhang bo zhi
+张角	zhang jiao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhang jiao → zhang jue
 弦乐	xian le	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xian le → xian yue
 弹琴	dan qin	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	dan qin → tan qin
-必得	bi de	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bi de → bi dei
+心事重重	xin shi zhong zhong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xin shi zhong zhong → xin shi chong chong
 忘不了	wang bu le	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	wang bu le → wang bu liao
 怎么着	zen me zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zen me zhe → zen me zhao
 成都	cheng dou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cheng dou → cheng du
@@ -58,86 +105,162 @@
 打工仔	da gong zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	da gong zi → da gong zai
 拙著	zhuo zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhuo zhe → zhuo zhu
 摩挲	mo sa	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mo sa → ma sa
+摸不着头脑	mo bu zhe tou nao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mo bu zhe tou nao → mo bu zhao tou nao
 支差	zhi cha	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhi cha → zhi chai
 支行	zhi xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhi xing → zhi hang
-放血	fang xue	CC-CEDICT 给的是台湾读音（血）	fang xue → fang xie
 故地重游	gu di zhong you	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gu di zhong you → gu di chong you
 无着	wu zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	wu zhe → wu zhuo
-朝阳市	zhao yang shi	地名：以大陆现行地名读音为准，人工定	zhao yang shi → chao yang shi
+曾参	ceng can	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng can → zeng shen
+曾国藩	ceng guo fan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng guo fan → zeng guo fan
+曾子	ceng zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng zi → zeng zi
+曾巩	ceng gong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng gong → zeng gong
+曾朴	ceng pu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng pu → zeng pu
+曾纪泽	ceng ji ze	地名：以大陆现行地名读音为准，人工定	ceng ji ze → zeng ji ze
+曾荫权	ceng yin quan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ceng yin quan → zeng yin quan
+朝夕相处	chao xi xiang chu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chao xi xiang chu → zhao xi xiang chu
+朝歌	chao ge	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chao ge → zhao ge
+朝花夕拾	chao hua xi shi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chao hua xi shi → zhao hua xi shi
 期	ji	CC-CEDICT 给的是台湾读音（期）	ji → qi
+术赤	shu chi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shu chi → zhu chi
+朴正熙	pu zheng xi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	pu zheng xi → piao zheng xi
+李适	li shi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	li shi → li kuo
+李重茂	li zhong mao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	li zhong mao → li chong mao
+枞阳	cong yang	地名：以大陆现行地名读音为准，人工定	cong yang → zong yang
 柏拉图	bai la tu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bai la tu → bo la tu
+柞水	zuo shui	地名：以大陆现行地名读音为准，人工定	zuo shui → zha shui
+查重	cha zhong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cha zhong → cha chong
 校验	xiao yan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xiao yan → jiao yan
+校验码	xiao yan ma	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xiao yan ma → jiao yan ma
+检校	jian xiao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	jian xiao → jian jiao
 棋高一着	qi gao yi zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	qi gao yi zhe → qi gao yi zhao
 模压	mo ya	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mo ya → mu ya
 模版	mo ban	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mo ban → mu ban
+歌仔戏	ge zi xi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ge zi xi → ge zai xi
 正传	zheng chuan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zheng chuan → zheng zhuan
+汇丰银行	hui feng yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hui feng yin xing → hui feng yin hang
+沈阳市	chen yang shi	地名：以大陆现行地名读音为准，人工定	chen yang shi → shen yang shi
 沙参	sha can	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	sha can → sha shen
-没奈何	mei nai he	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mei nai he → mo nai he
-泄露	xie lu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xie lu → xie lou
+没药	mei yao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mei yao → mo yao
+注册会计师	zhu ce hui ji shi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhu ce hui ji shi → zhu ce kuai ji shi
+洛杉矶	luo sha ji	地名：以大陆现行地名读音为准，人工定	luo sha ji → luo shan ji
 涡阳	wo yang	地名：以大陆现行地名读音为准，人工定	wo yang → guo yang
 混熟	hun shu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hun shu → hun shou
+渣打银行	zha da yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zha da yin xing → zha da yin hang
+湾仔	wan zi	地名：以大陆现行地名读音为准，人工定	wan zi → wan zai
 热轧	re ya	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	re ya → re zha
 煮熟	zhu shu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhu shu → zhu shou
 牛仔	niu zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	niu zi → niu zai
 牛轧糖	niu ya tang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	niu ya tang → niu ga tang
+狗仔	gou zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gou zi → gou zai
 狗血	gou xue	CC-CEDICT 给的是台湾读音（血）	gou xue → gou xie
 狗血喷头	gou xue pen tou	CC-CEDICT 给的是台湾读音（血）	gou xue pen tou → gou xie pen tou
+猪仔	zhu zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhu zi → zhu zai
 猪圈	zhu quan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhu quan → zhu juan
 猪血	zhu xue	CC-CEDICT 给的是台湾读音（血）	zhu xue → zhu xie
-着地	zhuo di	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhuo di → zhao di
+玄参	xuan can	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xuan can → xuan shen
+男儿有泪不轻弹	nan er you lei bu qing dan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	nan er you lei bu qing dan → nan er you lei bu qing tan
+番禺	fan yu	地名：以大陆现行地名读音为准，人工定	fan yu → pan yu
+白术	bai shu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bai shu → bai zhu
 着床	zhao chuang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhao chuang → zhuo chuang
 睡着	shui zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shui zhe → shui zhao
 硍	yin	CC-CEDICT 的建议读音 Unihan 也不认（例如地名当地读音）	与 CC-CEDICT 不一致（CEDICT：ken）；CEDICT 读音 Unihan 也不认
+秘鲁	mi lu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	mi lu → bi lu
+穆棱市	mu leng shi	地名：以大陆现行地名读音为准，人工定	mu leng shi → mu ling shi
 立传	li chuan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	li chuan → li zhuan
 粮行	liang xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	liang xing → liang hang
+纳什	na shen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	na shen → na shi
 细嚼慢咽	xi jiao man ye	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xi jiao man ye → xi jiao man yan
 绿园	lv yuan	地名：以大陆现行地名读音为准，人工定	lv yuan → lu yuan
+缺觉	que jue	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	que jue → que jiao
+罗布泊	luo bu bo	地名：以大陆现行地名读音为准，人工定	luo bu bo → luo bu po
+美的	mei de	地名：以大陆现行地名读音为准，人工定	mei de → mei di
 肉脯	rou pu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	rou pu → rou fu
-胳肢窝	ge zhi wo	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ge zhi wo → ga zhi wo
+膀胱炎	bang guang yan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bang guang yan → pang guang yan
 自省	zi sheng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zi sheng → zi xing
+般若	ban ruo	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ban ruo → bo re
+花旗银行	hua qi yin xing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hua qi yin xing → hua qi yin hang
+苍术	cang shu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cang shu → cang zhu
+荥经	xing jing	地名：以大陆现行地名读音为准，人工定	xing jing → ying jing
 著	zhao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhao → zhu
 著	zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhe → zhu
 葵涌	kui yong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	kui yong → kui chong
+蕃茄	bo qie	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bo qie → fan qie
 藏文	cang wen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cang wen → zang wen
+藏獒	cang ao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cang ao → zang ao
 藏红花	cang hong hua	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cang hong hua → zang hong hua
 藏语	cang yu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	cang yu → zang yu
-血淋淋	xue lin lin	CC-CEDICT 给的是台湾读音（血）	xue lin lin → xie lin lin
+蚌埠市	bang bu shi	地名：以大陆现行地名读音为准，人工定	bang bu shi → beng bu shi
+蚵仔煎	he zi jian	CC-CEDICT 的建议读音 Unihan 也不认（例如地名当地读音）	与 CC-CEDICT 不一致（CEDICT：e zi jian）；CEDICT 读音 Unihan 也不认
 血肠	xue chang	CC-CEDICT 给的是台湾读音（血）	xue chang → xie chang
 行商	xing shang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xing shang → hang shang
+行长	xing chang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xing chang → hang zhang
+补觉	bu jue	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	bu jue → bu jiao
 西藏	xi cang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xi cang → xi zang
+西藏自治区	xi cang zi zhi qu	地名：以大陆现行地名读音为准，人工定	xi cang zi zhi qu → xi zang zi zhi qu
 要著	yao zhe	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yao zhe → yao zhu
 说	yue	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yue → shui
 说客	shuo ke	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shuo ke → shui ke
 谁	shui	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shui → shei
 谁知道	shui zhi dao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	shui zhi dao → shei zhi dao
+贾平凹	gu ping ao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gu ping ao → jia ping wa
 轧制	ya zhi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ya zhi → zha zhi
+轧空	ya kong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ya kong → ga kong
+辐射对称	fu she dui cheng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	fu she dui cheng → fu she dui chen
 还乡	hai xiang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hai xiang → huan xiang
 还给	hai gei	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hai gei → huan gei
 还贷	hai dai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	hai dai → huan dai
 送还	song hai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	song hai → song huan
-重围	zhong wei	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong wei → chong wei
+选角	xuan jiao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	xuan jiao → xuan jue
+逐行扫描	zhu xing sao miao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhu xing sao miao → zhu hang sao miao
+都柏林	du bai lin	地名：以大陆现行地名读音为准，人工定	du bai lin → du bo lin
+重估	zhong gu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong gu → chong gu
+重做	zhong zuo	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zuo → chong zuo
+重制	zhong zhi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zhi → chong zhi
+重启	zhong qi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong qi → chong qi
+重命名	zhong ming ming	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong ming ming → chong ming ming
+重塑	zhong su	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong su → chong su
+重定向	zhong ding xiang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong ding xiang → chong ding xiang
 重庆	zhong qing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong qing → chong qing
+重庆市	zhong qing shi	地名：以大陆现行地名读音为准，人工定	zhong qing shi → chong qing shi
 重建	zhong jian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong jian → chong jian
+重开	zhong kai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong kai → chong kai
+重拾	zhong shi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong shi → chong shi
 重振	zhong zhen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zhen → chong zhen
+重排	zhong pai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong pai → chong pai
 重提	zhong ti	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong ti → chong ti
+重操旧业	zhong cao jiu ye	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong cao jiu ye → chong cao jiu ye
 重整	zhong zheng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zheng → chong zheng
+重新做人	zhong xin zuo ren	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong xin zuo ren → chong xin zuo ren
+重新启动	zhong xin qi dong	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong xin qi dong → chong xin qi dong
+重构	zhong gou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong gou → chong gou
+重楼	zhong lou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong lou → chong lou
 重温	zhong wen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong wen → chong wen
 重现	zhong xian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong xian → chong xian
+重码	zhong ma	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong ma → chong ma
+重结晶	zhong jie jing	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong jie jing → chong jie jing
+重置	zhong zhi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zhi → chong zhi
+重联	zhong lian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong lian → chong lian
 重聚	zhong ju	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong ju → chong ju
+重获	zhong huo	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong huo → chong huo
 重装	zhong zhuang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong zhuang → chong zhuang
+重试	zhong shi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong shi → chong shi
+重蹈	zhong dao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong dao → chong dao
 重返	zhong fan	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	zhong fan → chong fan
 钥	yao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yao → yue
-露头	lu tou	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu tou → lou tou
-露富	lu fu	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu fu → lou fu
-露底	lu di	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu di → lou di
-露白	lu bai	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu bai → lou bai
+银行家	yin xing jia	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	yin xing jia → yin hang jia
+阿图什市	a tu shen shi	地名：以大陆现行地名读音为准，人工定	a tu shen shi → a tu shi shi
+陈省身	chen sheng shen	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	chen sheng shen → chen xing shen
+隔行扫描	ge xing sao miao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ge xing sao miao → ge hang sao miao
 露肩	lu jian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu jian → lou jian
 露背	lu bei	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu bei → lou bei
-露脸	lu lian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu lian → lou lian
-露面	lu mian	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu mian → lou mian
-露馅儿	lu xian er	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu xian er → lou xian r
-露马脚	lu ma jiao	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	lu ma jiao → lou ma jiao
+青藏	qing cang	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	qing cang → qing zang
+靓仔	liang zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	liang zi → liang zai
+非对称	fei dui cheng	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	fei dui cheng → fei dui chen
+音乐学院	yin le xue yuan	地名：以大陆现行地名读音为准，人工定	yin le xue yuan → yin yue xue yuan
+马仔	ma zi	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	ma zi → ma zai
 马圈	ma quan	地名：以大陆现行地名读音为准，人工定	ma quan → ma juan
 验血	yan xue	CC-CEDICT 给的是台湾读音（血）	yan xue → yan xie
 高丽参	gao li can	方向相反：CC-CEDICT 给的是罕用音，词库那个是常用音	gao li can → gao li shen
 鸠摩罗什	jiu mo luo shen	地名：以大陆现行地名读音为准，人工定	jiu mo luo shen → jiu mo luo shi
+黄埔	huang bu	地名：以大陆现行地名读音为准，人工定	huang bu → huang pu
+黄柏	huang bai	地名：以大陆现行地名读音为准，人工定	huang bai → huang bo

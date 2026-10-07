@@ -1,0 +1,5 @@
+# 回收不了的多音字读音（旧库与新库不一致，两条条件都不满足）
+# 词	旧读音	新读音	为什么不收
+发错了	fa cuo le	fa cuo liao	CC-CEDICT 与 Unihan 都不认（或台湾读音）
+朝花夕	zhao hua xi	chao hua xi	CC-CEDICT 与 Unihan 都不认（或台湾读音）
+重发	chong fa	zhong fa	CC-CEDICT 与 Unihan 都不认（或台湾读音）

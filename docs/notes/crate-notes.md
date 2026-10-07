@@ -350,8 +350,11 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 
 产品数据的生成工具，输出到 `data/generated/`（gitignore）。
 
-- `lexicon`：从 `assets/lexicon/`（自建词库源：规范字 + 常用词 + THUOCL 领域词）加 Unihan 读音（`data/unihan/Unihan_Readings.txt`）、LLM 多音字标注（`gloss-gen pinyin`，
-  结果 `data/generated/pinyin-llm.jsonl`，不进 git）、语料词频（`lm-unigram.tsv`）建基础词库 `dict.tsv`（8.7 万条），拆领域包之前先过词库分层的第 1 步规则
+- `lexicon`：从 `assets/lexicon/`（自建词库源：规范字 + 常用词 + THUOCL 领域词）加 Unihan 读音（`data/unihan/Unihan_Readings.txt`）、语料词频（`lm-unigram.tsv`）建基础词库 `dict.tsv`（2026-10-07 重建后 9.2 万条）。
+  **读音三方校验，`--pinyin` 可给多个、后给的覆盖先给的**：① Unihan（`kMandarin` / `kHanyuPinlu` / `kXHC1983`）是底；
+  ② `00_meta/pinyin-recovered.jsonl`（入 git）是从旧产物回收的读音 —— 与 CC-CEDICT 一致、或 Unihan 认且不在台湾读音表
+  （`tools/lexicon/recover-readings.py`）；③ `00_meta/pinyin-corrections.jsonl`（产物，见下）是人工判定与降权标记；
+  ④ LLM 标注（`gloss-gen pinyin`，`data/generated/pinyin-llm.jsonl`，不进 git）只能提建议、进人工队列，拆领域包之前先过词库分层的第 1 步规则
   （`lexicon/domain_filter.rs`，见 `docs/plan/dictionary-layering.md`）：领域包默认丢 > 6 字的词（成语与白名单 `assets/lexicon/00_meta/domain-keep.tsv` 除外）、
   动物与医学里寄主 + 学名的拼接词（`犬复孔绦虫`）、地名只留县级及以上与文档频次 ≥ `--places-min-df`（缺省 500）的著名地点（其余进 `places-extended`）、
   诗词名句整本不进基础词库（`poetry_lines` 这本包就是名句包，缺省关）；删了什么、改派到哪一本、哪几条从基础词库移出去，

@@ -72,7 +72,7 @@ fn run() -> Result<(), ConvertError> {
         } => lexicon::convert(&lexicon::Options {
             pack: &pack,
             unihan: &unihan,
-            pinyin: pinyin.as_deref(),
+            pinyin: &pinyin,
             frequency: frequency.as_deref(),
             emit_ambiguous: emit_ambiguous.as_deref(),
             extra_words: &extra_words,

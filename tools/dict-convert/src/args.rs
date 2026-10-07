@@ -32,9 +32,11 @@ pub enum Command {
         #[arg(long, default_value = "data/unihan/Unihan_Readings.txt")]
         unihan: PathBuf,
 
-        /// LLM 标注的多音字词读音（`gloss-gen pinyin` 的 JSONL）
+        /// 多音字读音标注（JSONL：`{"word":…,"pinyin":[…]}`）。三种来源都可以给，后给的覆盖先给的：
+        /// `gloss-gen pinyin` 的 LLM 标注、`00_meta/pinyin-recovered.jsonl`（从旧产物回收的读音）、
+        /// `00_meta/pinyin-corrections.jsonl`（人工判定与降权标记）
         #[arg(long)]
-        pinyin: Option<PathBuf>,
+        pinyin: Vec<PathBuf>,
 
         /// 语料词频（lm-unigram.tsv）；没有就按排序号 / 文档频次给底值
         #[arg(long)]

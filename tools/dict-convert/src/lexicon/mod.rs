@@ -97,8 +97,8 @@ pub struct Options<'a> {
     /// Unihan_Readings.txt
     pub unihan: &'a Path,
 
-    /// LLM 标注的多音字词读音 JSONL
-    pub pinyin: Option<&'a Path>,
+    /// 多音字读音标注 JSONL（可给多个：LLM 标注 → 回收 → 人工判定，后给的覆盖先给的）
+    pub pinyin: &'a [std::path::PathBuf],
 
     /// 语料词频（lm-unigram.tsv）
     pub frequency: Option<&'a Path>,
@@ -169,10 +169,11 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         tracing::info!(path = %path.display(), rows = pack.domain.len() - before, "额外词已读取");
     }
     let readings = CharReadings::load(unihan)?;
-    let annotations = match pinyin {
-        Some(path) => annotations::load(path)?,
-        None => HashMap::new(),
-    };
+    // 后来的覆盖先来的：LLM 标注 → pinyin-recovered.jsonl（回收）→ pinyin-corrections.jsonl（人工判定）
+    let mut annotations: HashMap<String, annotations::Annotation> = HashMap::new();
+    for path in pinyin {
+        annotations.extend(annotations::load(path)?);
+    }
     let mut counts = match frequency {
         Some(path) => corpus::load(path)?,
         None => HashMap::new(),
@@ -679,7 +680,7 @@ mod tests {
         convert(&Options {
             pack: &pack,
             unihan: &unihan,
-            pinyin: None,
+            pinyin: &[],
             frequency: None,
             emit_ambiguous: None,
             extra_words: &[],

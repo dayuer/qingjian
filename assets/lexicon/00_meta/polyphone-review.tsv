@@ -1,159 +1,296 @@
 # 多音字待审清单（对标报告 P0-3）：只报告，不改读音。
 # 三方 = 词库读音 / Unihan（kHanyuPinlu + kXHC1983 + kMandarin）/ CC-CEDICT。
-# 真分歧 423 条（与 CC-CEDICT 读音不一致；词库读音 Unihan 不认的 0 条）；另有 194 条只是儿化写法不同，见文件尾。
-# 三方 = 词库读音 / Unihan（kHanyuPinlu + kXHC1983 + kMandarin）/ CC-CEDICT。只报告，不改读音。
 # 词	词库读音	问题	多音字
+一个劲儿	yi ge jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
+一会儿	yi hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
+一块儿	yi kuai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 一宿	yi su	与 CC-CEDICT 不一致（CEDICT：yi xiu）	宿
-一针见血	yi zhen jian xue	与 CC-CEDICT 不一致（CEDICT：yi zhen jian xie）	见血
+一时半会儿	yi shi ban hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
+一水儿	yi shui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+一点儿	yi dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+一股脑儿	yi gu nao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+万儿八千	wan er ba qian	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	万儿
+三藏	san cang	与 CC-CEDICT 不一致（CEDICT：san zang）	藏
 上调	shang diao	与 CC-CEDICT 不一致（CEDICT：shang tiao）	调
 下咽	xia ye	与 CC-CEDICT 不一致（CEDICT：xia yan）	咽
+不对劲儿	bu dui jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
+不是味儿	bu shi wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 不着	bu zhe	与 CC-CEDICT 不一致（CEDICT：bu zhao）	着
 不觉	bu jiao	与 CC-CEDICT 不一致（CEDICT：bu jue）	觉
 且	ju	与 CC-CEDICT 不一致（CEDICT：qie）	且
+世界银行	shi jie yin xing	与 CC-CEDICT 不一致（CEDICT：shi jie yin hang）	行
+东莞	dong wan	与 CC-CEDICT 不一致（CEDICT：dong guan）	莞
+东莞市	dong wan shi	与 CC-CEDICT 不一致（CEDICT：dong guan shi）	莞市
 两重天	liang zhong tian	与 CC-CEDICT 不一致（CEDICT：liang chong tian）	重
+个儿	ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+个头儿	ge tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+中信银行	zhong xin yin xing	与 CC-CEDICT 不一致（CEDICT：zhong xin yin hang）	行
+中国人民银行	zhong guo ren min yin xing	与 CC-CEDICT 不一致（CEDICT：zhong guo ren min yin hang）	行
+中国农业银行	zhong guo nong ye yin xing	与 CC-CEDICT 不一致（CEDICT：zhong guo nong ye yin hang）	行
+中国工商银行	zhong guo gong shang yin xing	与 CC-CEDICT 不一致（CEDICT：zhong guo gong shang yin hang）	行
+中国建设银行	zhong guo jian she yin xing	与 CC-CEDICT 不一致（CEDICT：zhong guo jian she yin hang）	行
+中国银行	zhong guo yin xing	与 CC-CEDICT 不一致（CEDICT：zhong guo yin hang）	行
+中牟	zhong mou	与 CC-CEDICT 不一致（CEDICT：zhong mu）	牟
 中的	zhong de	与 CC-CEDICT 不一致（CEDICT：zhong di）	的
-丹棱	dan leng	与 CC-CEDICT 不一致（CEDICT：dan ling）	棱
+中行	zhong xing	与 CC-CEDICT 不一致（CEDICT：zhong hang）	行
+串门儿	chuan men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+久别重逢	jiu bie zhong feng	与 CC-CEDICT 不一致（CEDICT：jiu bie chong feng）	重
 么	yao	与 CC-CEDICT 不一致（CEDICT：ma / me）	么
+乌什	wu shen	与 CC-CEDICT 不一致（CEDICT：wu shi）	什
 乍暖还寒	zha nuan hai han	与 CC-CEDICT 不一致（CEDICT：zha nuan huan han）	还
-乐亭	le ting	与 CC-CEDICT 不一致（CEDICT：lao ting）；CEDICT 读音 Unihan 也不认	乐
 乐句	le ju	与 CC-CEDICT 不一致（CEDICT：yue ju）	乐句
 乐感	le gan	与 CC-CEDICT 不一致（CEDICT：yue gan）	乐
 乐手	le shou	与 CC-CEDICT 不一致（CEDICT：yue shou）	乐
-乜斜	nie xie	与 CC-CEDICT 不一致（CEDICT：mie xie）	乜
+乐清	le qing	与 CC-CEDICT 不一致（CEDICT：yue qing）	乐
+乐清市	le qing shi	与 CC-CEDICT 不一致（CEDICT：yue qing shi）	乐市
+乐迷	le mi	与 CC-CEDICT 不一致（CEDICT：yue mi）	乐
+乐陵市	le ling shi	与 CC-CEDICT 不一致（CEDICT：lao ling shi）；CEDICT 读音 Unihan 也不认	乐市
 乡长	xiang chang	与 CC-CEDICT 不一致（CEDICT：xiang zhang）	长
 乳臭未干	ru chou wei gan	与 CC-CEDICT 不一致（CEDICT：ru xiu wei gan）	臭
 乾	gan	与 CC-CEDICT 不一致（CEDICT：qian）	乾
+事儿	shi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 云杉	yun sha	与 CC-CEDICT 不一致（CEDICT：yun shan）	杉
-交恶	jiao e	与 CC-CEDICT 不一致（CEDICT：jiao wu）	恶
+交通银行	jiao tong yin xing	与 CC-CEDICT 不一致（CEDICT：jiao tong yin hang）	行
+人儿	ren er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+人参果	ren can guo	与 CC-CEDICT 不一致（CEDICT：ren shen guo）	参
+人情味儿	ren qing wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+什刹海	shen sha hai	与 CC-CEDICT 不一致（CEDICT：shi cha hai）	什刹
+什叶	shen ye	与 CC-CEDICT 不一致（CEDICT：shi ye）	什叶
+什叶派	shen ye pai	与 CC-CEDICT 不一致（CEDICT：shi ye pai）	什叶派
+什邡市	shen fang shi	与 CC-CEDICT 不一致（CEDICT：shi fang shi）	什市
+今儿	jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+今朝有酒今朝醉	jin chao you jiu jin chao zui	与 CC-CEDICT 不一致（CEDICT：jin zhao you jiu jin zhao zui）	朝朝
+份儿	fen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+份儿饭	fen er fan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+伊丽莎白	yi li suo bai	与 CC-CEDICT 不一致（CEDICT：yi li sha bai）	莎
+伊莉莎白	yi li suo bai	与 CC-CEDICT 不一致（CEDICT：yi li sha bai）	莎
+会儿	hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
 会长	hui chang	与 CC-CEDICT 不一致（CEDICT：hui zhang）	会长
+传给	chuan ji	与 CC-CEDICT 不一致（CEDICT：chuan gei）	传给
 伧	chen	与 CC-CEDICT 不一致（CEDICT：cang）	伧
-伽马	jia ma	与 CC-CEDICT 不一致（CEDICT：ga ma）	伽
-伽马射线	jia ma she xian	与 CC-CEDICT 不一致（CEDICT：ga ma she xian）	伽
+伽利略	ga li lve	与 CC-CEDICT 不一致（CEDICT：jia li lve）	伽
 作乐	zuo yue	与 CC-CEDICT 不一致（CEDICT：zuo le）	乐
 佴	nai	与 CC-CEDICT 不一致（CEDICT：er）	佴
+使劲儿	shi jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
 侧	ze	与 CC-CEDICT 不一致（CEDICT：ce / zhai）	侧
-便秘	bian bi	与 CC-CEDICT 不一致（CEDICT：bian mi）	便秘
-便血	bian xue	与 CC-CEDICT 不一致（CEDICT：bian xie）	便血
 俶	ti	与 CC-CEDICT 不一致（CEDICT：chu）	俶
+倍儿	bei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 倏地	shu di	与 CC-CEDICT 不一致（CEDICT：shu de）	地
+借给	jie ji	与 CC-CEDICT 不一致（CEDICT：jie gei）	给
+做活儿	zuo huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+僧伽	seng ga	与 CC-CEDICT 不一致（CEDICT：seng qie）	伽
 儿媳妇儿	er xi fu er	与 CC-CEDICT 不一致（CEDICT：er xi fu r）	儿儿
+光棍儿	guang gun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+克什克腾	ke shen ke teng	与 CC-CEDICT 不一致（CEDICT：ke shi ke teng）	什
 克什米尔	ke shen mi er	与 CC-CEDICT 不一致（CEDICT：ke shi mi er）	什
-公了	gong le	与 CC-CEDICT 不一致（CEDICT：gong liao）	了
+全军覆没	quan jun fu mei	与 CC-CEDICT 不一致（CEDICT：quan jun fu mo）	没
+公仔	gong zi	与 CC-CEDICT 不一致（CEDICT：gong zai）	仔
+公子哥儿	gong zi ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+六安市	liu an shi	与 CC-CEDICT 不一致（CEDICT：lu an shi）	六市
+兴业银行	xing ye yin xing	与 CC-CEDICT 不一致（CEDICT：xing ye yin hang）	行
 其	ji	与 CC-CEDICT 不一致（CEDICT：qi）	其
 冒	mo	与 CC-CEDICT 不一致（CEDICT：mao）	冒
+冰棍儿	bing gun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 冷轧	leng ya	与 CC-CEDICT 不一致（CEDICT：leng zha）	轧
+准谱儿	zhun pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+凤爪	feng zhao	与 CC-CEDICT 不一致（CEDICT：feng zhua）	爪
+出圈儿	chu quan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	圈儿
+出摊儿	chu tan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 出血	chu xie	与 CC-CEDICT 不一致（CEDICT：chu xue）	血
 凿	zuo	与 CC-CEDICT 不一致（CEDICT：zao）	凿
 分行	fen xing	与 CC-CEDICT 不一致（CEDICT：fen hang）	行
 划	huai	与 CC-CEDICT 不一致（CEDICT：hua）	划
 刘禅	liu chan	与 CC-CEDICT 不一致（CEDICT：liu shan）	禅
-利兹	li ci	与 CC-CEDICT 不一致（CEDICT：li zi）	兹
+刨根儿	pao gen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	刨儿
+利什曼病	li shen man bing	与 CC-CEDICT 不一致（CEDICT：li shi man bing）	什
 别无长物	bie wu zhang wu	与 CC-CEDICT 不一致（CEDICT：bie wu chang wu）	无长
 到了	dao le	与 CC-CEDICT 不一致（CEDICT：dao liao）	了
 券	xuan	与 CC-CEDICT 不一致（CEDICT：quan）	券
+刺儿头	ci er tou	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 削球	xue qiu	与 CC-CEDICT 不一致（CEDICT：xiao qiu）	削
 剋	ke	与 CC-CEDICT 不一致（CEDICT：kei）	剋
+副市长	fu shi chang	与 CC-CEDICT 不一致（CEDICT：fu shi zhang）	市长
 功不可没	gong bu ke mei	与 CC-CEDICT 不一致（CEDICT：gong bu ke mo）	没
+加塞儿	jia sai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	塞儿
 加德满都	jia de man dou	与 CC-CEDICT 不一致（CEDICT：jia de man du）	都
+劲儿	jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
 劲爆	jin bao	与 CC-CEDICT 不一致（CEDICT：jing bao）	劲
 劲风	jin feng	与 CC-CEDICT 不一致（CEDICT：jing feng）	劲
 勒紧裤带	le jin ku dai	与 CC-CEDICT 不一致（CEDICT：lei jin ku dai）	勒
+包圆儿	bao yuan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+包干儿	bao gan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+包袱皮儿	bao fu pi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+千儿八百	qian er ba bai	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 半生不熟	ban sheng bu shu	与 CC-CEDICT 不一致（CEDICT：ban sheng bu shou）	熟
-卡壳	ka ke	与 CC-CEDICT 不一致（CEDICT：qia ke）	卡壳
-卡子	ka zi	与 CC-CEDICT 不一致（CEDICT：qia zi）	卡
-卡脖子	ka bo zi	与 CC-CEDICT 不一致（CEDICT：qia bo zi）	卡
+华夏银行	hua xia yin xing	与 CC-CEDICT 不一致（CEDICT：hua xia yin hang）	行
+单个儿	dan ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	单儿
 厂	an	与 CC-CEDICT 不一致（CEDICT：chang / han）	厂
+厂长	chang chang	与 CC-CEDICT 不一致（CEDICT：chang zhang）	厂长
+厅长	ting chang	与 CC-CEDICT 不一致（CEDICT：ting zhang）	长
+压根儿	ya gen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 厖	mang	与 CC-CEDICT 不一致（CEDICT：pang）	厖
+厚朴	hou pu	与 CC-CEDICT 不一致（CEDICT：hou po）	朴
+厦门	sha men	与 CC-CEDICT 不一致（CEDICT：xia men）	厦
+厦门市	sha men shi	与 CC-CEDICT 不一致（CEDICT：xia men shi）	厦市
 县长	xian chang	与 CC-CEDICT 不一致（CEDICT：xian zhang）	长
+参茸	can rong	与 CC-CEDICT 不一致（CEDICT：shen rong）	参
 参谋长	can mou chang	与 CC-CEDICT 不一致（CEDICT：can mou zhang）	参长
 变色	bian shai	与 CC-CEDICT 不一致（CEDICT：bian se）	色
 古刹	gu sha	与 CC-CEDICT 不一致（CEDICT：gu cha）	刹
-史丹佛	shi dan fu	与 CC-CEDICT 不一致（CEDICT：shi dan fo）	佛
+古惑仔	gu huo zi	与 CC-CEDICT 不一致（CEDICT：gu huo zai）	仔
 叶韵	ye yun	与 CC-CEDICT 不一致（CEDICT：xie yun）	叶
+司长	si chang	与 CC-CEDICT 不一致（CEDICT：si zhang）	长
 吃拿卡要	chi na ka yao	与 CC-CEDICT 不一致（CEDICT：chi na qia yao）	卡
 各行各业	ge xing ge ye	与 CC-CEDICT 不一致（CEDICT：ge hang ge ye）	行
+吊儿郎当	diao er lang dang	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+后儿	hou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+吞咽困难	tun ye kun nan	与 CC-CEDICT 不一致（CEDICT：tun yan kun nan）	咽
 吡	pi	与 CC-CEDICT 不一致（CEDICT：bi）	吡
 含情脉脉	han qing mai mai	与 CC-CEDICT 不一致（CEDICT：han qing mo mo）	脉脉
 吱吱嘎嘎	zhi zhi ga ga	与 CC-CEDICT 不一致（CEDICT：zi zi ga ga）	吱吱
 吱声	zi sheng	与 CC-CEDICT 不一致（CEDICT：zhi sheng）	吱
 呆	ai	与 CC-CEDICT 不一致（CEDICT：dai）	呆
+呆会儿	dai hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	呆会儿
 呇	men	与 CC-CEDICT 不一致（CEDICT：qi）	呇
 呐	ne	与 CC-CEDICT 不一致（CEDICT：na）	呐
 员	yun	与 CC-CEDICT 不一致（CEDICT：yuan）	员
+味儿	wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 呵	ke	与 CC-CEDICT 不一致（CEDICT：a / he）	呵
 命令行	ming ling xing	与 CC-CEDICT 不一致（CEDICT：ming ling hang）	行
 咯	ka	与 CC-CEDICT 不一致（CEDICT：ge / lo / luo）	咯
-咯血	ka xue	与 CC-CEDICT 不一致（CEDICT：ka xie）	咯血
 咽炎	ye yan	与 CC-CEDICT 不一致（CEDICT：yan yan）	咽
+哇塞	wa se	与 CC-CEDICT 不一致（CEDICT：wa sai）	塞
+哥们儿	ge men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 哩	ying	与 CC-CEDICT 不一致（CEDICT：li）	哩
 哪	nai	与 CC-CEDICT 不一致（CEDICT：na / ne / nei）	哪
+哪儿	na er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	哪儿
+唐三藏	tang san cang	与 CC-CEDICT 不一致（CEDICT：tang san zang）	藏
 唬	xia	与 CC-CEDICT 不一致（CEDICT：hu）	唬
+商业银行	shang ye yin xing	与 CC-CEDICT 不一致（CEDICT：shang ye yin hang）	行
 啜	chuai	与 CC-CEDICT 不一致（CEDICT：chuo）	啜
-啪嚓	pa ca	与 CC-CEDICT 不一致（CEDICT：pa cha）	嚓
+喀什	ka shen	与 CC-CEDICT 不一致（CEDICT：ka shi）	什
+喀什市	ka shen shi	与 CC-CEDICT 不一致（CEDICT：ka shi shi）	什市
 喋	zha	与 CC-CEDICT 不一致（CEDICT：die）	喋
-喳喳	zha zha	与 CC-CEDICT 不一致（CEDICT：cha cha）	喳喳
 嗟	jue	与 CC-CEDICT 不一致（CEDICT：jie）	嗟
 嗨	hei	与 CC-CEDICT 不一致（CEDICT：hai）	嗨
 嘘	shi	与 CC-CEDICT 不一致（CEDICT：xu）	嘘
 嘚	dei	与 CC-CEDICT 不一致（CEDICT：de）	嘚
-嘚瑟	dei se	与 CC-CEDICT 不一致（CEDICT：de se）	嘚
 嘿	mo	与 CC-CEDICT 不一致（CEDICT：hei）	嘿
 噱	xue	与 CC-CEDICT 不一致（CEDICT：jue）	噱
+噶厦	ga sha	与 CC-CEDICT 不一致（CEDICT：ga xia）	厦
 嚣	ao	与 CC-CEDICT 不一致（CEDICT：xiao）	嚣
 嚼	jue	与 CC-CEDICT 不一致（CEDICT：jiao）	嚼
+回弹	hui dan	与 CC-CEDICT 不一致（CEDICT：hui tan）	弹
+团长	tuan chang	与 CC-CEDICT 不一致（CEDICT：tuan zhang）	长
+国家开发银行	guo jia kai fa yin xing	与 CC-CEDICT 不一致（CEDICT：guo jia kai fa yin hang）	家行
 圌	chuan	与 CC-CEDICT 不一致（CEDICT：chui）	圌
-圣赫勒拿	sheng he le na	与 CC-CEDICT 不一致（CEDICT：sheng he lei na）	勒
+地儿	di er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	地儿
+地塞米松	di se mi song	与 CC-CEDICT 不一致（CEDICT：di sai mi song）	地塞
 圻	yin	与 CC-CEDICT 不一致（CEDICT：qi）	圻
 坋	fen	与 CC-CEDICT 不一致（CEDICT：ben）	坋
+坎儿	kan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+坎儿井	kan er jing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 坏	pi	与 CC-CEDICT 不一致（CEDICT：huai）	坏
 坷	jiong	与 CC-CEDICT 不一致（CEDICT：ke）	坷
 垌	tong	与 CC-CEDICT 不一致（CEDICT：dong）	垌
+埃塞	ai se	与 CC-CEDICT 不一致（CEDICT：ai sai）	塞
 堆	zui	与 CC-CEDICT 不一致（CEDICT：dui）	堆
 堕	hui	与 CC-CEDICT 不一致（CEDICT：duo）	堕
 塔	da	与 CC-CEDICT 不一致（CEDICT：ta）	塔
-塞缪尔	sai miao er	与 CC-CEDICT 不一致（CEDICT：sai miu er）	塞缪
+塞勒姆	se le mu	与 CC-CEDICT 不一致（CEDICT：sai le mu）	塞勒
+塞尔维亚	se er wei ya	与 CC-CEDICT 不一致（CEDICT：sai er wei ya）	塞
+塞拉利昂	se la li ang	与 CC-CEDICT 不一致（CEDICT：sai la li ang）	塞
+塞纳河	se na he	与 CC-CEDICT 不一致（CEDICT：sai na he）	塞
+塞维利亚	se wei li ya	与 CC-CEDICT 不一致（CEDICT：sai wei li ya）	塞
+塞缪尔	se mou er	与 CC-CEDICT 不一致（CEDICT：sai miu er）	塞缪
+塞舌尔	se she er	与 CC-CEDICT 不一致（CEDICT：sai she er）	塞
 处长	chu chang	与 CC-CEDICT 不一致（CEDICT：chu zhang）	长
+多重	duo zhong	与 CC-CEDICT 不一致（CEDICT：duo chong）	重
 够不着	gou bu zhe	与 CC-CEDICT 不一致（CEDICT：gou bu zhao）	着
 够得着	gou de zhe	与 CC-CEDICT 不一致（CEDICT：gou de zhao）	得着
+大个儿	da ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大儿
 大乘	da cheng	与 CC-CEDICT 不一致（CEDICT：da sheng）	大乘
+大伙儿	da huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大儿
+大家伙儿	da jia huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大家儿
+天和	tian he	与 CC-CEDICT 不一致（CEDICT：tian hu）	和
+头儿	tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 夷为平地	yi wei ping de	与 CC-CEDICT 不一致（CEDICT：yi wei ping di）	地
+奇偶	qi ou	与 CC-CEDICT 不一致（CEDICT：ji ou）	奇
 契	xie	与 CC-CEDICT 不一致（CEDICT：qi）	契
+奔头儿	ben tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+女孩儿	nv hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+好玩儿	hao wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+娘儿们	niang er men	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+娜塔莉	nuo ta li	与 CC-CEDICT 不一致（CEDICT：na ta li）	娜塔
 婼	ruo	与 CC-CEDICT 不一致（CEDICT：chuo）	婼
+媳妇儿	xi fu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 嬷	ma	与 CC-CEDICT 不一致（CEDICT：mo）	嬷
 孛	bo	与 CC-CEDICT 不一致（CEDICT：bei）	孛
+孩儿	hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+安塞	an se	与 CC-CEDICT 不一致（CEDICT：an sai）	塞
+安娜	an nuo	与 CC-CEDICT 不一致（CEDICT：an na）	娜
 完了	wan liao	与 CC-CEDICT 不一致（CEDICT：wan le）	了
+宝贝儿	bao bei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 审判长	shen pan chang	与 CC-CEDICT 不一致（CEDICT：shen pan zhang）	长
 审度	shen du	与 CC-CEDICT 不一致（CEDICT：shen duo）	度
 审校	shen xiao	与 CC-CEDICT 不一致（CEDICT：shen jiao）	校
 家	jie	与 CC-CEDICT 不一致（CEDICT：jia）	家
-密钥	mi yue	与 CC-CEDICT 不一致（CEDICT：mi yao）	钥
 察合台	cha he tai	与 CC-CEDICT 不一致（CEDICT：cha ge tai）	合
+对味儿	dui wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 寻	xin	与 CC-CEDICT 不一致（CEDICT：xun）	寻
+尉迟恭	wei chi gong	与 CC-CEDICT 不一致（CEDICT：yu chi gong）	尉
+小伙儿	xiao huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+小孩儿	xiao hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+小心眼儿	xiao xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+小抄儿	xiao chao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+小摊儿	xiao tan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+小辫儿	xiao bian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+尖沙咀	jian sha ju	与 CC-CEDICT 不一致（CEDICT：jian sha zui）	咀
 尢	you	与 CC-CEDICT 不一致（CEDICT：wang）	尢
 尨	meng	与 CC-CEDICT 不一致（CEDICT：mang / pang）	尨
-尿泡	niao pao	与 CC-CEDICT 不一致（CEDICT：sui pao）	尿
-属意	shu yi	与 CC-CEDICT 不一致（CEDICT：zhu yi）	属
+局长	ju chang	与 CC-CEDICT 不一致（CEDICT：ju zhang）	长
 屹	ge	与 CC-CEDICT 不一致（CEDICT：yi）	屹
 峤	qiao	与 CC-CEDICT 不一致（CEDICT：jiao）	峤
+川藏	chuan cang	与 CC-CEDICT 不一致（CEDICT：chuan zang）	藏
 州长	zhou chang	与 CC-CEDICT 不一致（CEDICT：zhou zhang）	长
+工商银行	gong shang yin xing	与 CC-CEDICT 不一致（CEDICT：gong shang yin hang）	行
+工行	gong xing	与 CC-CEDICT 不一致（CEDICT：gong hang）	行
+左传	zuo chuan	与 CC-CEDICT 不一致（CEDICT：zuo zhuan）	传
 差派	cha pai	与 CC-CEDICT 不一致（CEDICT：chai pai）	差派
+差点儿	cha dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	差儿
 已	si	与 CC-CEDICT 不一致（CEDICT：yi）	已
+巴儿狗	ba er gou	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+巴克莱银行	ba ke lai yin xing	与 CC-CEDICT 不一致（CEDICT：ba ke lai yin hang）	行
+巴塞尔	ba se er	与 CC-CEDICT 不一致（CEDICT：ba sai er）	塞
+巴塞隆纳	ba se long na	与 CC-CEDICT 不一致（CEDICT：ba sai long na）	塞
 巷	hang	与 CC-CEDICT 不一致（CEDICT：xiang）	巷
 市	fu	与 CC-CEDICT 不一致（CEDICT：shi）	市
+市长	shi chang	与 CC-CEDICT 不一致（CEDICT：shi zhang）	市长
+布什	bu shen	与 CC-CEDICT 不一致（CEDICT：bu shi）	什
+布鲁塞尔	bu lu se er	与 CC-CEDICT 不一致（CEDICT：bu lu sai er）	塞
+帕拉塞尔苏斯	pa la se er su si	与 CC-CEDICT 不一致（CEDICT：pa la sai er su si）	塞
 帧	zheng	与 CC-CEDICT 不一致（CEDICT：zhen）	帧
+干活儿	gan huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+年头儿	nian tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 年长	nian chang	与 CC-CEDICT 不一致（CEDICT：nian zhang）	长
 广	an	与 CC-CEDICT 不一致（CEDICT：guang / yan）	广
 库藏	ku zang	与 CC-CEDICT 不一致（CEDICT：ku cang）	藏
+庭长	ting chang	与 CC-CEDICT 不一致（CEDICT：ting zhang）	长
+建行	jian xing	与 CC-CEDICT 不一致（CEDICT：jian hang）	行
+张柏芝	zhang bai zhi	与 CC-CEDICT 不一致（CEDICT：zhang bo zhi）	柏
+张角	zhang jiao	与 CC-CEDICT 不一致（CEDICT：zhang jue）	角
 弦乐	xian le	与 CC-CEDICT 不一致（CEDICT：xian yue）	乐
 弹琴	dan qin	与 CC-CEDICT 不一致（CEDICT：tan qin）	弹
 彷	fang	与 CC-CEDICT 不一致（CEDICT：pang）	彷
+待会儿	dai hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
 徊	hui	与 CC-CEDICT 不一致（CEDICT：huai）	徊
 徵	zheng	与 CC-CEDICT 不一致（CEDICT：zhi）	徵
-徽调	hui tiao	与 CC-CEDICT 不一致（CEDICT：hui diao）	调
+心事重重	xin shi zhong zhong	与 CC-CEDICT 不一致（CEDICT：xin shi chong chong）	重重
 心塞	xin se	与 CC-CEDICT 不一致（CEDICT：xin sai）	塞
-必得	bi de	与 CC-CEDICT 不一致（CEDICT：bi dei）	得
+心眼儿	xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 忒	tui	与 CC-CEDICT 不一致（CEDICT：te / tei）	忒
 忘不了	wang bu le	与 CC-CEDICT 不一致（CEDICT：wang bu liao）	了
+快板儿	kuai ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 怎么着	zen me zhe	与 CC-CEDICT 不一致（CEDICT：zen me zhao）	么着
 怎的	zen di	与 CC-CEDICT 不一致（CEDICT：zen de）	的
 怙	tie	与 CC-CEDICT 不一致（CEDICT：hu）	怙
@@ -163,53 +300,113 @@
 惝	tang	与 CC-CEDICT 不一致（CEDICT：chang）	惝
 戏	hu	与 CC-CEDICT 不一致（CEDICT：xi）	戏
 成都	cheng dou	与 CC-CEDICT 不一致（CEDICT：cheng du）	都
+我这儿	wo zhe er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这儿
+戳儿	chuo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+戴安娜	dai an nuo	与 CC-CEDICT 不一致（CEDICT：dai an na）	娜
 扎染	zha ran	与 CC-CEDICT 不一致（CEDICT：za ran）	扎
-扒车	pa che	与 CC-CEDICT 不一致（CEDICT：ba che）	扒车
+打嗝儿	da ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 打工仔	da gong zi	与 CC-CEDICT 不一致（CEDICT：da gong zai）	仔
+打挺儿	da ting er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+打盹儿	da dun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+抄近儿	chao jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+把儿	ba er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+抠门儿	kou men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 拆	ca	与 CC-CEDICT 不一致（CEDICT：chai）	拆
 拓印	tuo yin	与 CC-CEDICT 不一致（CEDICT：ta yin）	拓
 拙著	zhuo zhe	与 CC-CEDICT 不一致（CEDICT：zhuo zhu）	著
 择	zhai	与 CC-CEDICT 不一致（CEDICT：ze）	择
 括	gua	与 CC-CEDICT 不一致（CEDICT：kuo）	括
+挨个儿	ai ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+挨肩儿	ai jian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+挨边儿	ai bian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+挪窝儿	nuo wo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 挲	sha	与 CC-CEDICT 不一致（CEDICT：sa / suo）	挲
 捉襟见肘	zhuo jin xian zhou	与 CC-CEDICT 不一致（CEDICT：zhuo jin jian zhou）	见
+捐给	juan ji	与 CC-CEDICT 不一致（CEDICT：juan gei）	给
+换个儿	huan ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+掉点儿	diao dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 掉色	diao shai	与 CC-CEDICT 不一致（CEDICT：diao se）	色
+掉过儿	diao guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 掞	yan	与 CC-CEDICT 不一致（CEDICT：shan）	掞
+探长	tan chang	与 CC-CEDICT 不一致（CEDICT：tan zhang）	长
 掴	guo	与 CC-CEDICT 不一致（CEDICT：guai）	掴
 掸	shan	与 CC-CEDICT 不一致（CEDICT：dan）	掸
+掸邦	dan bang	与 CC-CEDICT 不一致（CEDICT：shan bang）	掸
 掺	can	与 CC-CEDICT 不一致（CEDICT：chan / shan）	掺
+握爪	wo zhao	与 CC-CEDICT 不一致（CEDICT：wo zhua）	爪
+摆谱儿	bai pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 摩挲	mo sa	与 CC-CEDICT 不一致（CEDICT：ma sa / mo suo）	摩挲
+摸不着头脑	mo bu zhe tou nao	与 CC-CEDICT 不一致（CEDICT：mo bu zhao tou nao）	着
+撒欢儿	sa huan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 擘	bai	与 CC-CEDICT 不一致（CEDICT：bo）	擘
+擦黑儿	ca hei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+攀高枝儿	pan gao zhi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 攒钱	cuan qian	与 CC-CEDICT 不一致（CEDICT：zan qian）	攒
 支差	zhi cha	与 CC-CEDICT 不一致（CEDICT：zhi chai）	差
 支行	zhi xing	与 CC-CEDICT 不一致（CEDICT：zhi hang）	行
-放血	fang xue	与 CC-CEDICT 不一致（CEDICT：fang xie）	血
 故地重游	gu di zhong you	与 CC-CEDICT 不一致（CEDICT：gu di chong you）	地重
 敦	dui	与 CC-CEDICT 不一致（CEDICT：dun）	敦
+斯宾塞	si bin se	与 CC-CEDICT 不一致（CEDICT：si bin sai）	塞
+斯宾诺莎	si bin nuo suo	与 CC-CEDICT 不一致（CEDICT：si bin nuo sha）	莎
+旅长	lv chang	与 CC-CEDICT 不一致（CEDICT：lv zhang）	长
 无着	wu zhe	与 CC-CEDICT 不一致（CEDICT：wu zhuo）	无着
+早早儿	zao zao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+旮旯儿	ga la er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+明儿	ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+昨儿	zuo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+是味儿	shi wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 昳	yi	与 CC-CEDICT 不一致（CEDICT：die）	昳
 暧	nuan	与 CC-CEDICT 不一致（CEDICT：ai）	暧
-朝阳市	zhao yang shi	与 CC-CEDICT 不一致（CEDICT：chao yang shi）	朝市
+曾参	ceng can	与 CC-CEDICT 不一致（CEDICT：zeng shen）	曾参
+曾国藩	ceng guo fan	与 CC-CEDICT 不一致（CEDICT：zeng guo fan）	曾
+曾子	ceng zi	与 CC-CEDICT 不一致（CEDICT：zeng zi）	曾
+曾巩	ceng gong	与 CC-CEDICT 不一致（CEDICT：zeng gong）	曾
+曾朴	ceng pu	与 CC-CEDICT 不一致（CEDICT：zeng pu）	曾朴
+曾纪泽	ceng ji ze	与 CC-CEDICT 不一致（CEDICT：zeng ji ze）	曾
+曾荫权	ceng yin quan	与 CC-CEDICT 不一致（CEDICT：zeng yin quan）	曾
+月头儿	yue tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+有点儿	you dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+有空儿	you kong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+有谱儿	you pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+朝夕相处	chao xi xiang chu	与 CC-CEDICT 不一致（CEDICT：zhao xi xiang chu）	朝
+朝歌	chao ge	与 CC-CEDICT 不一致（CEDICT：zhao ge）	朝
+朝花夕拾	chao hua xi shi	与 CC-CEDICT 不一致（CEDICT：zhao hua xi shi）	朝
 期	ji	与 CC-CEDICT 不一致（CEDICT：qi）	期
-朴子	piao zi	与 CC-CEDICT 不一致（CEDICT：pu zi）	朴
+末儿	mo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	末儿
+术赤	shu chi	与 CC-CEDICT 不一致（CEDICT：zhu chi）	术
+朴正熙	pu zheng xi	与 CC-CEDICT 不一致（CEDICT：piao zheng xi）	朴
 机长	ji chang	与 CC-CEDICT 不一致（CEDICT：ji zhang）	长
+杂拌儿	za ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 杉	sha	与 CC-CEDICT 不一致（CEDICT：shan）	杉
+李娜	li nuo	与 CC-CEDICT 不一致（CEDICT：li na）	娜
+李昌镐	li chang gao	与 CC-CEDICT 不一致（CEDICT：li chang hao）	镐
+李适	li shi	与 CC-CEDICT 不一致（CEDICT：li kuo）	适
+李重茂	li zhong mao	与 CC-CEDICT 不一致（CEDICT：li chong mao）	重
 村长	cun chang	与 CC-CEDICT 不一致（CEDICT：cun zhang）	长
 杕	duo	与 CC-CEDICT 不一致（CEDICT：di）	杕
+板擦儿	ban ca er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+枞阳	cong yang	与 CC-CEDICT 不一致（CEDICT：zong yang）	枞
 枹	bao	与 CC-CEDICT 不一致（CEDICT：fu）	枹
 柁	duo	与 CC-CEDICT 不一致（CEDICT：tuo）	柁
-柏克莱	bo ke lai	与 CC-CEDICT 不一致（CEDICT：bai ke lai）	柏
 柏拉图	bai la tu	与 CC-CEDICT 不一致（CEDICT：bo la tu）	柏
+柞水	zuo shui	与 CC-CEDICT 不一致（CEDICT：zha shui）	柞
+查重	cha zhong	与 CC-CEDICT 不一致（CEDICT：cha chong）	查重
 柬埔寨	jian bu zhai	与 CC-CEDICT 不一致（CEDICT：jian pu zhai）	埔
 柳杉	liu sha	与 CC-CEDICT 不一致（CEDICT：liu shan）	杉
 柷	chu	与 CC-CEDICT 不一致（CEDICT：zhu）	柷
 栅	shan	与 CC-CEDICT 不一致（CEDICT：zha）	栅
+栅格	zha ge	与 CC-CEDICT 不一致（CEDICT：shan ge）	栅
 栎	yue	与 CC-CEDICT 不一致（CEDICT：li）	栎
 栝	kuo	与 CC-CEDICT 不一致（CEDICT：gua）	栝
 栟	ben	与 CC-CEDICT 不一致（CEDICT：bing）	栟
 校验	xiao yan	与 CC-CEDICT 不一致（CEDICT：jiao yan）	校
+校验码	xiao yan ma	与 CC-CEDICT 不一致（CEDICT：jiao yan ma）	校
+样儿	yang er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 核	hu	与 CC-CEDICT 不一致（CEDICT：he）	核
+核儿	hu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	核儿
+桔子	jie zi	与 CC-CEDICT 不一致（CEDICT：ju zi）	桔
 梢	sao	与 CC-CEDICT 不一致（CEDICT：shao）	梢
+检校	jian xiao	与 CC-CEDICT 不一致（CEDICT：jian jiao）	校
 棋高一着	qi gao yi zhe	与 CC-CEDICT 不一致（CEDICT：qi gao yi zhao）	着
 椑	pi	与 CC-CEDICT 不一致（CEDICT：bei）	椑
 椹	zhen	与 CC-CEDICT 不一致（CEDICT：shen）	椹
@@ -217,200 +414,386 @@
 槟城	bin cheng	与 CC-CEDICT 不一致（CEDICT：bing cheng）	槟
 模压	mo ya	与 CC-CEDICT 不一致（CEDICT：mu ya）	模
 模版	mo ban	与 CC-CEDICT 不一致（CEDICT：mu ban）	模
+模特儿	mo te er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	模儿
 橙	chen	与 CC-CEDICT 不一致（CEDICT：cheng）	橙
 次长	ci chang	与 CC-CEDICT 不一致（CEDICT：ci zhang）	长
+歌仔戏	ge zi xi	与 CC-CEDICT 不一致（CEDICT：ge zai xi）	仔戏
 歙	xi	与 CC-CEDICT 不一致（CEDICT：she）	歙
 正传	zheng chuan	与 CC-CEDICT 不一致（CEDICT：zheng zhuan）	传
+死劲儿	si jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
+死心眼儿	si xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 殖	shi	与 CC-CEDICT 不一致（CEDICT：zhi）	殖
 氿	jiu	与 CC-CEDICT 不一致（CEDICT：gui）	氿
+汇丰银行	hui feng yin xing	与 CC-CEDICT 不一致（CEDICT：hui feng yin hang）	行
+汉娜	han nuo	与 CC-CEDICT 不一致（CEDICT：han na）	娜
 沈	chen	与 CC-CEDICT 不一致（CEDICT：shen）	沈
+沈从文	chen cong wen	与 CC-CEDICT 不一致（CEDICT：shen cong wen）	沈
+沈括	chen kuo	与 CC-CEDICT 不一致（CEDICT：shen kuo）	沈括
+沈约	chen yue	与 CC-CEDICT 不一致（CEDICT：shen yue）	沈约
+沈莹	chen ying	与 CC-CEDICT 不一致（CEDICT：shen ying）	沈
+沈葆桢	chen bao zhen	与 CC-CEDICT 不一致（CEDICT：shen bao zhen）	沈
+沈阳市	chen yang shi	与 CC-CEDICT 不一致（CEDICT：shen yang shi）	沈市
 沌	zhuan	与 CC-CEDICT 不一致（CEDICT：dun）	沌
 沙参	sha can	与 CC-CEDICT 不一致（CEDICT：sha shen）	参
-没奈何	mei nai he	与 CC-CEDICT 不一致（CEDICT：mo nai he）	没
-泄露	xie lu	与 CC-CEDICT 不一致（CEDICT：xie lou）	露
+没事儿	mei shi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
+没准儿	mei zhun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
+没法儿	mei fa er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
+没药	mei yao	与 CC-CEDICT 不一致（CEDICT：mo yao）	没
+没谱儿	mei pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
+没门儿	mei men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
+注册会计师	zhu ce hui ji shi	与 CC-CEDICT 不一致（CEDICT：zhu ce kuai ji shi）	会
 泺	po	与 CC-CEDICT 不一致（CEDICT：luo）	泺
 洒	xi	与 CC-CEDICT 不一致（CEDICT：sa）	洒
+洛杉矶	luo sha ji	与 CC-CEDICT 不一致（CEDICT：luo shan ji）	杉
+活儿	huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 浍	hui	与 CC-CEDICT 不一致（CEDICT：kuai）	浍
 浒	xu	与 CC-CEDICT 不一致（CEDICT：hu）	浒
 浬	hai	与 CC-CEDICT 不一致（CEDICT：li）	浬
 涡阳	wo yang	与 CC-CEDICT 不一致（CEDICT：guo yang）	涡
 涴	yuan	与 CC-CEDICT 不一致（CEDICT：wo）	涴
 淤血	yu xie	与 CC-CEDICT 不一致（CEDICT：yu xue）	血
+混混儿	hun hun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 混熟	hun shu	与 CC-CEDICT 不一致（CEDICT：hun shou）	熟
+渣打银行	zha da yin xing	与 CC-CEDICT 不一致（CEDICT：zha da yin hang）	行
 湫	qiu	与 CC-CEDICT 不一致（CEDICT：jiao）	湫
+湾仔	wan zi	与 CC-CEDICT 不一致（CEDICT：wan zai）	仔
 溱	qin	与 CC-CEDICT 不一致（CEDICT：zhen）	溱
+点儿	dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 烟	yin	与 CC-CEDICT 不一致（CEDICT：yan）	烟
+烟卷儿	yan juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	烟儿
 热轧	re ya	与 CC-CEDICT 不一致（CEDICT：re zha）	轧
 焯	zhuo	与 CC-CEDICT 不一致（CEDICT：chao）	焯
 煮熟	zhu shu	与 CC-CEDICT 不一致（CEDICT：zhu shou）	熟
 熟	shou	与 CC-CEDICT 不一致（CEDICT：shu）	熟
 熨烫	yu tang	与 CC-CEDICT 不一致（CEDICT：yun tang）	熨
+爆肚儿	bao du er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+爪机	zhao ji	与 CC-CEDICT 不一致（CEDICT：zhua ji）	爪
+爷们儿	ye men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+片儿	pian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+片儿警	pian er jing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 牛仔	niu zi	与 CC-CEDICT 不一致（CEDICT：niu zai）	仔
 牛轧糖	niu ya tang	与 CC-CEDICT 不一致（CEDICT：niu ga tang）	轧
+狗仔	gou zi	与 CC-CEDICT 不一致（CEDICT：gou zai）	仔
 狗刨	gou bao	与 CC-CEDICT 不一致（CEDICT：gou pao）	刨
 狗血	gou xue	与 CC-CEDICT 不一致（CEDICT：gou xie）	血
 狗血喷头	gou xue pen tou	与 CC-CEDICT 不一致（CEDICT：gou xie pen tou）	血
+猛劲儿	meng jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
+猪仔	zhu zi	与 CC-CEDICT 不一致（CEDICT：zhu zai）	仔
 猪圈	zhu quan	与 CC-CEDICT 不一致（CEDICT：zhu juan）	圈
 猪血	zhu xue	与 CC-CEDICT 不一致（CEDICT：zhu xie）	血
+玄参	xuan can	与 CC-CEDICT 不一致（CEDICT：xuan shen）	参
+玩儿	wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+玩儿不转	wan er bu zhuan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿转
+玩儿命	wan er ming	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+玩儿完	wan er wan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+玩儿票	wan er piao	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+玩意儿	wan yi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 珩	hang	与 CC-CEDICT 不一致（CEDICT：heng）	珩
 班长	ban chang	与 CC-CEDICT 不一致（CEDICT：ban zhang）	长
 珲	hui	与 CC-CEDICT 不一致（CEDICT：hun）	珲
+生长激素	sheng chang ji su	与 CC-CEDICT 不一致（CEDICT：sheng zhang ji su）	长
+甲壳素	jia ke su	与 CC-CEDICT 不一致（CEDICT：jia qiao su）	壳
+男儿有泪不轻弹	nan er you lei bu qing dan	与 CC-CEDICT 不一致（CEDICT：nan er you lei bu qing tan）	儿弹
+男孩儿	nan hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+画儿	hua er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+留给	liu ji	与 CC-CEDICT 不一致（CEDICT：liu gei）	给
+番禺	fan yu	与 CC-CEDICT 不一致（CEDICT：pan yu）	番
+病包儿	bing bao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+白干儿	bai gan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+白术	bai shu	与 CC-CEDICT 不一致（CEDICT：bai zhu）	术
+白面儿	bai mian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 癿	bie	与 CC-CEDICT 不一致（CEDICT：qie）	癿
+盖帽儿	gai mao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	盖儿
 盟	ming	与 CC-CEDICT 不一致（CEDICT：meng）	盟
-着地	zhuo di	与 CC-CEDICT 不一致（CEDICT：zhao di）	着地
 着床	zhao chuang	与 CC-CEDICT 不一致（CEDICT：zhuo chuang）	着
 睡着	shui zhe	与 CC-CEDICT 不一致（CEDICT：shui zhao）	着
 瞿	ju	与 CC-CEDICT 不一致（CEDICT：qu）	瞿
 矜	guan	与 CC-CEDICT 不一致（CEDICT：jin）	矜
 矜	qin	与 CC-CEDICT 不一致（CEDICT：jin）	矜
+石子儿	shi zi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	石儿
 硌	luo	与 CC-CEDICT 不一致（CEDICT：ge）	硌
 硍	yin	与 CC-CEDICT 不一致（CEDICT：ken）；CEDICT 读音 Unihan 也不认	硍
 硐	liu	与 CC-CEDICT 不一致（CEDICT：dong / tong）	硐
+社长	she chang	与 CC-CEDICT 不一致（CEDICT：she zhang）	长
 祇	zhi	与 CC-CEDICT 不一致（CEDICT：qi）	祇
 种	chong	与 CC-CEDICT 不一致（CEDICT：zhong）	种
+秘鲁	mi lu	与 CC-CEDICT 不一致（CEDICT：bi lu）	秘
+秦桧	qin gui	与 CC-CEDICT 不一致（CEDICT：qin hui）	桧
+穆棱市	mu leng shi	与 CC-CEDICT 不一致（CEDICT：mu ling shi）	棱市
 穜	zhong	与 CC-CEDICT 不一致（CEDICT：tong）	穜
+空儿	kong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+窑姐儿	yao jie er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 立传	li chuan	与 CC-CEDICT 不一致（CEDICT：li zhuan）	传
 站长	zhan chang	与 CC-CEDICT 不一致（CEDICT：zhan zhang）	长
 笮	zuo	与 CC-CEDICT 不一致（CEDICT：ze）	笮
+米芾	mi fei	与 CC-CEDICT 不一致（CEDICT：mi fu）	芾
 粮行	liang xing	与 CC-CEDICT 不一致（CEDICT：liang hang）	行
 糁	shen	与 CC-CEDICT 不一致（CEDICT：san）	糁
 紫杉	zi sha	与 CC-CEDICT 不一致（CEDICT：zi shan）	杉
+紫杉醇	zi sha chun	与 CC-CEDICT 不一致（CEDICT：zi shan chun）	杉
 綮	qing	与 CC-CEDICT 不一致（CEDICT：qi）	綮
+纳什	na shen	与 CC-CEDICT 不一致（CEDICT：na shi）	什
+纳闷儿	na men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 纶	guan	与 CC-CEDICT 不一致（CEDICT：lun）	纶
 组长	zu chang	与 CC-CEDICT 不一致（CEDICT：zu zhang）	长
 细嚼慢咽	xi jiao man ye	与 CC-CEDICT 不一致（CEDICT：xi jiao man yan）	嚼咽
+经济增长	jing ji zeng chang	与 CC-CEDICT 不一致（CEDICT：jing ji zeng zhang）	长
+绕弯儿	rao wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+绕远儿	rao yuan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+给力	ji li	与 CC-CEDICT 不一致（CEDICT：gei li）	给
 绿园	lv yuan	与 CC-CEDICT 不一致（CEDICT：lu yuan）	绿
 缩	su	与 CC-CEDICT 不一致（CEDICT：suo）	缩
 缴	zhuo	与 CC-CEDICT 不一致（CEDICT：jiao）	缴
+缺心眼儿	que xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+缺觉	que jue	与 CC-CEDICT 不一致（CEDICT：que jiao）	觉
+罗布泊	luo bu bo	与 CC-CEDICT 不一致（CEDICT：luo bu po）	泊
+罗莎	luo suo	与 CC-CEDICT 不一致（CEDICT：luo sha）	莎
+罗锅儿	luo guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+美的	mei de	与 CC-CEDICT 不一致（CEDICT：mei di）	的
+老伴儿	lao ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+老头儿	lao tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 耳朵眼儿	er duo yan er	与 CC-CEDICT 不一致（CEDICT：er duo yan r）	儿
+耳鼻咽喉	er bi ye hou	与 CC-CEDICT 不一致（CEDICT：er bi yan hou）	咽
 肉脯	rou pu	与 CC-CEDICT 不一致（CEDICT：rou fu）	脯
 肋	le	与 CC-CEDICT 不一致（CEDICT：lei）	肋
+股长	gu chang	与 CC-CEDICT 不一致（CEDICT：gu zhang）	长
 育	yo	与 CC-CEDICT 不一致（CEDICT：yu）	育
-胳肢窝	ge zhi wo	与 CC-CEDICT 不一致（CEDICT：ga zhi wo）	胳
+胆儿	dan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+胖墩儿	pang dun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	胖儿
+脑瓜儿	nao gua er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+脖梗儿	bo geng er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+脖颈儿	bo geng er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	颈儿
+脸盘儿	lian pan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+脸蛋儿	lian dan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+腕儿	wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+膀胱炎	bang guang yan	与 CC-CEDICT 不一致（CEDICT：pang guang yan）	膀
 臂	bei	与 CC-CEDICT 不一致（CEDICT：bi）	臂
 自省	zi sheng	与 CC-CEDICT 不一致（CEDICT：zi xing）	省
+般若	ban ruo	与 CC-CEDICT 不一致（CEDICT：bo re）	般若
+舰长	jian chang	与 CC-CEDICT 不一致（CEDICT：jian zhang）	长
+节骨眼儿	jie gu yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 芒	wang	与 CC-CEDICT 不一致（CEDICT：mang）	芒
 芘	bi	与 CC-CEDICT 不一致（CEDICT：pi）	芘
+花旗银行	hua qi yin xing	与 CC-CEDICT 不一致（CEDICT：hua qi yin hang）	行
+苍术	cang shu	与 CC-CEDICT 不一致（CEDICT：cang zhu）	术
+苦活儿	ku huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+范儿	fan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+荥经	xing jing	与 CC-CEDICT 不一致（CEDICT：ying jing）	荥
 荨	xun	与 CC-CEDICT 不一致（CEDICT：qian）	荨
+莎士比亚	suo shi bi ya	与 CC-CEDICT 不一致（CEDICT：sha shi bi ya）	莎
+莎拉	suo la	与 CC-CEDICT 不一致（CEDICT：sha la）	莎
+莎拉波娃	suo la bo wa	与 CC-CEDICT 不一致（CEDICT：sha la bo wa）	莎
 莨	liang	与 CC-CEDICT 不一致（CEDICT：lang）	莨
 莫	mu	与 CC-CEDICT 不一致（CEDICT：mo）	莫
 菉	lv	与 CC-CEDICT 不一致（CEDICT：lu）	菉
+萝卜糕	luo bu gao	与 CC-CEDICT 不一致（CEDICT：luo bo gao）	卜
 营长	ying chang	与 CC-CEDICT 不一致（CEDICT：ying zhang）	长
 著	zhao	与 CC-CEDICT 不一致（CEDICT：zhu / zhuo）	著
 著	zhe	与 CC-CEDICT 不一致（CEDICT：zhu / zhuo）	著
 葚	ren	与 CC-CEDICT 不一致（CEDICT：shen）	葚
 葵涌	kui yong	与 CC-CEDICT 不一致（CEDICT：kui chong）	涌
+蒙娜丽莎	meng nuo li suo	与 CC-CEDICT 不一致（CEDICT：meng na li sha）	娜莎
 蓝	la	与 CC-CEDICT 不一致（CEDICT：lan）	蓝
 蓦地	mo di	与 CC-CEDICT 不一致（CEDICT：mo de）	地
+蕃茄	bo qie	与 CC-CEDICT 不一致（CEDICT：fan qie）	蕃茄
 薁	ao	与 CC-CEDICT 不一致（CEDICT：yu）	薁
 薄板	bo ban	与 CC-CEDICT 不一致（CEDICT：bao ban）	薄
-薄脆	bo cui	与 CC-CEDICT 不一致（CEDICT：bao cui）	薄
-薄雾	bao wu	与 CC-CEDICT 不一致（CEDICT：bo wu）	薄
+薄片	bo pian	与 CC-CEDICT 不一致（CEDICT：bao pian）	薄
 藏文	cang wen	与 CC-CEDICT 不一致（CEDICT：zang wen）	藏
+藏獒	cang ao	与 CC-CEDICT 不一致（CEDICT：zang ao）	藏
 藏红花	cang hong hua	与 CC-CEDICT 不一致（CEDICT：zang hong hua）	藏红
 藏语	cang yu	与 CC-CEDICT 不一致（CEDICT：zang yu）	藏
 蘖	bo	与 CC-CEDICT 不一致（CEDICT：nie）	蘖
+虫儿	chong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 虹	jiang	与 CC-CEDICT 不一致（CEDICT：hong）	虹
+蚌埠	bang bu	与 CC-CEDICT 不一致（CEDICT：beng bu）	蚌
+蚌埠市	bang bu shi	与 CC-CEDICT 不一致（CEDICT：beng bu shi）	蚌市
+蚵仔煎	he zi jian	与 CC-CEDICT 不一致（CEDICT：e zi jian）；CEDICT 读音 Unihan 也不认	仔
+蛋卷儿	dan juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+蛐蛐儿	qu qu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 蛾	yi	与 CC-CEDICT 不一致（CEDICT：e）	蛾
 蜡	zha	与 CC-CEDICT 不一致（CEDICT：la）	蜡
+蝈蝈儿	guo guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 蝤	you	与 CC-CEDICT 不一致（CEDICT：qiu）	蝤
 螣	te	与 CC-CEDICT 不一致（CEDICT：teng）	螣
-血淋淋	xue lin lin	与 CC-CEDICT 不一致（CEDICT：xie lin lin）	血
 血肠	xue chang	与 CC-CEDICT 不一致（CEDICT：xie chang）	血
 行商	xing shang	与 CC-CEDICT 不一致（CEDICT：hang shang）	行
+行长	xing chang	与 CC-CEDICT 不一致（CEDICT：hang zhang）	行长
+补觉	bu jue	与 CC-CEDICT 不一致（CEDICT：bu jiao）	觉
+被窝儿	bei wo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 装模作样	zhuang mu zuo yang	与 CC-CEDICT 不一致（CEDICT：zhuang mo zuo yang）	模
 褪色	tui shai	与 CC-CEDICT 不一致（CEDICT：tui se）	褪色
+褪黑素	tun hei su	与 CC-CEDICT 不一致（CEDICT：tui hei su）	褪
+西塞罗	xi se luo	与 CC-CEDICT 不一致（CEDICT：xi sai luo）	塞
 西藏	xi cang	与 CC-CEDICT 不一致（CEDICT：xi zang）	藏
+西藏自治区	xi cang zi zhi qu	与 CC-CEDICT 不一致（CEDICT：xi zang zi zhi qu）	藏区
 要著	yao zhe	与 CC-CEDICT 不一致（CEDICT：yao zhu）	著
 见长	jian zhang	与 CC-CEDICT 不一致（CEDICT：jian chang）	见长
 诘	ji	与 CC-CEDICT 不一致（CEDICT：jie）	诘
+话茬儿	hua cha er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 说	yue	与 CC-CEDICT 不一致（CEDICT：shui / shuo）	说
 说客	shuo ke	与 CC-CEDICT 不一致（CEDICT：shui ke）	说
 谁	shui	与 CC-CEDICT 不一致（CEDICT：shei）	谁
 谁知道	shui zhi dao	与 CC-CEDICT 不一致（CEDICT：shei zhi dao）	谁
 调休	diao xiu	与 CC-CEDICT 不一致（CEDICT：tiao xiu）	调
+调色	diao se	与 CC-CEDICT 不一致（CEDICT：tiao se）	调色
 调色板	diao se ban	与 CC-CEDICT 不一致（CEDICT：tiao se ban）	调色
+调酒	diao jiu	与 CC-CEDICT 不一致（CEDICT：tiao jiu）	调
+调门儿	diao men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	调儿
+调音	diao yin	与 CC-CEDICT 不一致（CEDICT：tiao yin）	调
 谷	yu	与 CC-CEDICT 不一致（CEDICT：gu）	谷
+豆角儿	dou jiao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	角儿
 貉	hao	与 CC-CEDICT 不一致（CEDICT：he / mo）	貉
+财长	cai chang	与 CC-CEDICT 不一致（CEDICT：cai zhang）	长
+贪玩儿	tan wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+贾平凹	gu ping ao	与 CC-CEDICT 不一致（CEDICT：jia ping wa）	贾凹
+贾谊	gu yi	与 CC-CEDICT 不一致（CEDICT：jia yi）	贾
+赐给	ci ji	与 CC-CEDICT 不一致（CEDICT：ci gei）	给
+走神儿	zou shen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+赶明儿	gan ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+起名儿	qi ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 起落架	qi lao jia	与 CC-CEDICT 不一致（CEDICT：qi luo jia）	落
 趣	cu	与 CC-CEDICT 不一致（CEDICT：qu）	趣
 趵	bo	与 CC-CEDICT 不一致（CEDICT：bao）	趵
+跑腿儿	pao tui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 跞	luo	与 CC-CEDICT 不一致（CEDICT：li）	跞
 蹢	zhi	与 CC-CEDICT 不一致（CEDICT：di）	蹢
 蹴	jiu	与 CC-CEDICT 不一致（CEDICT：cu）	蹴
+身板儿	shen ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+车份儿	che fen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	车儿
 轧制	ya zhi	与 CC-CEDICT 不一致（CEDICT：zha zhi）	轧
+轧空	ya kong	与 CC-CEDICT 不一致（CEDICT：ga kong）	轧
+较真儿	jiao zhen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+辐射对称	fu she dui cheng	与 CC-CEDICT 不一致（CEDICT：fu she dui chen）	称
+输给	shu ji	与 CC-CEDICT 不一致（CEDICT：shu gei）	给
+辟邪	pi xie	与 CC-CEDICT 不一致（CEDICT：bi xie）	辟邪
 还乡	hai xiang	与 CC-CEDICT 不一致（CEDICT：huan xiang）	还
 还给	hai gei	与 CC-CEDICT 不一致（CEDICT：huan gei）	还给
 还贷	hai dai	与 CC-CEDICT 不一致（CEDICT：huan dai）	还
+这会儿	zhe hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这会儿
+这儿	zhe er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这儿
+送给	song ji	与 CC-CEDICT 不一致（CEDICT：song gei）	给
 送还	song hai	与 CC-CEDICT 不一致（CEDICT：song huan）	还
+选角	xuan jiao	与 CC-CEDICT 不一致（CEDICT：xuan jue）	角
+逐行扫描	zhu xing sao miao	与 CC-CEDICT 不一致（CEDICT：zhu hang sao miao）	行
+递给	di ji	与 CC-CEDICT 不一致（CEDICT：di gei）	给
+逗趣儿	dou qu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	趣儿
 遗	wei	与 CC-CEDICT 不一致（CEDICT：yi）	遗
+遛弯儿	liu wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 那	nai	与 CC-CEDICT 不一致（CEDICT：na / nuo）	那
 那	ne	与 CC-CEDICT 不一致（CEDICT：na / nuo）	那
 那	nei	与 CC-CEDICT 不一致（CEDICT：na / nuo）	那
+那会儿	na hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	那会儿
+那儿	na er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	那儿
 邪	ye	与 CC-CEDICT 不一致（CEDICT：xie）	邪
 郇	huan	与 CC-CEDICT 不一致（CEDICT：xun）	郇
 部长	bu chang	与 CC-CEDICT 不一致（CEDICT：bu zhang）	长
+都柏林	du bai lin	与 CC-CEDICT 不一致（CEDICT：du bo lin）	都柏
 酂	cuo	与 CC-CEDICT 不一致（CEDICT：zan）	酂
 酾	shai	与 CC-CEDICT 不一致（CEDICT：shi）	酾
-重围	zhong wei	与 CC-CEDICT 不一致（CEDICT：chong wei）	重
+醋劲儿	cu jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
+重估	zhong gu	与 CC-CEDICT 不一致（CEDICT：chong gu）	重
+重做	zhong zuo	与 CC-CEDICT 不一致（CEDICT：chong zuo）	重
+重制	zhong zhi	与 CC-CEDICT 不一致（CEDICT：chong zhi）	重
+重启	zhong qi	与 CC-CEDICT 不一致（CEDICT：chong qi）	重
+重命名	zhong ming ming	与 CC-CEDICT 不一致（CEDICT：chong ming ming）	重
+重塑	zhong su	与 CC-CEDICT 不一致（CEDICT：chong su）	重
+重定向	zhong ding xiang	与 CC-CEDICT 不一致（CEDICT：chong ding xiang）	重
 重庆	zhong qing	与 CC-CEDICT 不一致（CEDICT：chong qing）	重
+重庆市	zhong qing shi	与 CC-CEDICT 不一致（CEDICT：chong qing shi）	重市
 重建	zhong jian	与 CC-CEDICT 不一致（CEDICT：chong jian）	重
+重开	zhong kai	与 CC-CEDICT 不一致（CEDICT：chong kai）	重
+重拾	zhong shi	与 CC-CEDICT 不一致（CEDICT：chong shi）	重
 重振	zhong zhen	与 CC-CEDICT 不一致（CEDICT：chong zhen）	重
+重排	zhong pai	与 CC-CEDICT 不一致（CEDICT：chong pai）	重
 重提	zhong ti	与 CC-CEDICT 不一致（CEDICT：chong ti）	重提
+重操旧业	zhong cao jiu ye	与 CC-CEDICT 不一致（CEDICT：chong cao jiu ye）	重
 重整	zhong zheng	与 CC-CEDICT 不一致（CEDICT：chong zheng）	重
+重新做人	zhong xin zuo ren	与 CC-CEDICT 不一致（CEDICT：chong xin zuo ren）	重
+重新启动	zhong xin qi dong	与 CC-CEDICT 不一致（CEDICT：chong xin qi dong）	重
+重构	zhong gou	与 CC-CEDICT 不一致（CEDICT：chong gou）	重
+重楼	zhong lou	与 CC-CEDICT 不一致（CEDICT：chong lou）	重
+重活儿	zhong huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	重儿
 重温	zhong wen	与 CC-CEDICT 不一致（CEDICT：chong wen）	重
 重犯	chong fan	与 CC-CEDICT 不一致（CEDICT：zhong fan）	重
 重现	zhong xian	与 CC-CEDICT 不一致（CEDICT：chong xian）	重
+重码	zhong ma	与 CC-CEDICT 不一致（CEDICT：chong ma）	重
+重结晶	zhong jie jing	与 CC-CEDICT 不一致（CEDICT：chong jie jing）	重
+重置	zhong zhi	与 CC-CEDICT 不一致（CEDICT：chong zhi）	重
+重联	zhong lian	与 CC-CEDICT 不一致（CEDICT：chong lian）	重
 重聚	zhong ju	与 CC-CEDICT 不一致（CEDICT：chong ju）	重
+重获	zhong huo	与 CC-CEDICT 不一致（CEDICT：chong huo）	重
 重装	zhong zhuang	与 CC-CEDICT 不一致（CEDICT：chong zhuang）	重
+重试	zhong shi	与 CC-CEDICT 不一致（CEDICT：chong shi）	重
+重蹈	zhong dao	与 CC-CEDICT 不一致（CEDICT：chong dao）	重
 重返	zhong fan	与 CC-CEDICT 不一致（CEDICT：chong fan）	重
+金桔	jin jie	与 CC-CEDICT 不一致（CEDICT：jin ju）	桔
+针尖儿对麦芒儿	zhen jian er dui mai mang er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿芒儿
+针线活儿	zhen xian huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 钥	yao	与 CC-CEDICT 不一致（CEDICT：yue）	钥
 钭	dou	与 CC-CEDICT 不一致（CEDICT：tou）	钭
+铁哥们儿	tie ge men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 铁杉	tie sha	与 CC-CEDICT 不一致（CEDICT：tie shan）	杉
+铆劲儿	mao jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
 铊	tuo	与 CC-CEDICT 不一致（CEDICT：ta）	铊
+银行家	yin xing jia	与 CC-CEDICT 不一致（CEDICT：yin hang jia）	行家
+铺盖卷儿	pu gai juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	盖儿
 铻	yu	与 CC-CEDICT 不一致（CEDICT：wu）	铻
 锬	xian	与 CC-CEDICT 不一致（CEDICT：tan）	锬
 镇长	zhen chang	与 CC-CEDICT 不一致（CEDICT：zhen zhang）	长
 镡	chan	与 CC-CEDICT 不一致（CEDICT：tan / xin）	镡
 镦	dui	与 CC-CEDICT 不一致（CEDICT：dun）	镦
 长兄	chang xiong	与 CC-CEDICT 不一致（CEDICT：zhang xiong）	长
-长势	chang shi	与 CC-CEDICT 不一致（CEDICT：zhang shi）	长
 长大	chang da	与 CC-CEDICT 不一致（CEDICT：zhang da）	长大
 长女	chang nv	与 CC-CEDICT 不一致（CEDICT：zhang nv）	长
+长孙无忌	chang sun wu ji	与 CC-CEDICT 不一致（CEDICT：zhang sun wu ji）	长无
 长幼	chang you	与 CC-CEDICT 不一致（CEDICT：zhang you）	长
+长得	chang de	与 CC-CEDICT 不一致（CEDICT：zhang de）	长得
+长残	chang can	与 CC-CEDICT 不一致（CEDICT：zhang can）	长
 长男	chang nan	与 CC-CEDICT 不一致（CEDICT：zhang nan）	长
-长相	chang xiang	与 CC-CEDICT 不一致（CEDICT：zhang xiang）	长
-长脸	chang lian	与 CC-CEDICT 不一致（CEDICT：zhang lian）	长
+长肉	chang rou	与 CC-CEDICT 不一致（CEDICT：zhang rou）	长
+长胖	chang pang	与 CC-CEDICT 不一致（CEDICT：zhang pang）	长胖
+闹着玩儿	nao zhe wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	着儿
 阘	da	与 CC-CEDICT 不一致（CEDICT：ta）	阘
 阚	han	与 CC-CEDICT 不一致（CEDICT：kan）	阚
 队长	dui chang	与 CC-CEDICT 不一致（CEDICT：dui zhang）	长
 阽	yan	与 CC-CEDICT 不一致（CEDICT：dian）	阽
+阿图什市	a tu shen shi	与 CC-CEDICT 不一致（CEDICT：a tu shi shi）	阿什市
+阿塞拜疆	a se bai jiang	与 CC-CEDICT 不一致（CEDICT：a sai bai jiang）	阿塞
+陈省身	chen sheng shen	与 CC-CEDICT 不一致（CEDICT：chen xing shen）	省
 降将	jiang jiang	与 CC-CEDICT 不一致（CEDICT：xiang jiang）	降将
 院长	yuan chang	与 CC-CEDICT 不一致（CEDICT：yuan zhang）	长
 陶	yao	与 CC-CEDICT 不一致（CEDICT：tao）	陶
+隔行扫描	ge xing sao miao	与 CC-CEDICT 不一致（CEDICT：ge hang sao miao）	行
 隩	ao	与 CC-CEDICT 不一致（CEDICT：yu）	隩
+雅典娜	ya dian nuo	与 CC-CEDICT 不一致（CEDICT：ya dian na）	娜
 霰	san	与 CC-CEDICT 不一致（CEDICT：xian）	霰
-露头	lu tou	与 CC-CEDICT 不一致（CEDICT：lou tou）	露
-露富	lu fu	与 CC-CEDICT 不一致（CEDICT：lou fu）	露
-露底	lu di	与 CC-CEDICT 不一致（CEDICT：lou di）	露底
-露白	lu bai	与 CC-CEDICT 不一致（CEDICT：lou bai）	露
 露肩	lu jian	与 CC-CEDICT 不一致（CEDICT：lou jian）	露
 露背	lu bei	与 CC-CEDICT 不一致（CEDICT：lou bei）	露
-露脸	lu lian	与 CC-CEDICT 不一致（CEDICT：lou lian）	露
-露面	lu mian	与 CC-CEDICT 不一致（CEDICT：lou mian）	露
-露馅儿	lu xian er	与 CC-CEDICT 不一致（CEDICT：lou xian r）	露儿
-露马脚	lu ma jiao	与 CC-CEDICT 不一致（CEDICT：lou ma jiao）	露脚
+露馅儿	lou xian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	露儿
+青藏	qing cang	与 CC-CEDICT 不一致（CEDICT：qing zang）	藏
+靓仔	liang zi	与 CC-CEDICT 不一致（CEDICT：liang zai）	靓仔
+非对称	fei dui cheng	与 CC-CEDICT 不一致（CEDICT：fei dui chen）	称
+面人儿	mian ren er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 革	ji	与 CC-CEDICT 不一致（CEDICT：ge）	革
 靸	ta	与 CC-CEDICT 不一致（CEDICT：sa）	靸
 鞘	shao	与 CC-CEDICT 不一致（CEDICT：qiao）	鞘
+音乐学院	yin le xue yuan	与 CC-CEDICT 不一致（CEDICT：yin yue xue yuan）	乐
+顶牛儿	ding niu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
 顿	du	与 CC-CEDICT 不一致（CEDICT：dun）	顿
 顿觉	dun jiao	与 CC-CEDICT 不一致（CEDICT：dun jue）	顿觉
+颁给	ban ji	与 CC-CEDICT 不一致（CEDICT：ban gei）	给
 颌	ge	与 CC-CEDICT 不一致（CEDICT：he）	颌
 颜色	yan shai	与 CC-CEDICT 不一致（CEDICT：yan se）	色
 颤	zhan	与 CC-CEDICT 不一致（CEDICT：chan）	颤
 食	yi	与 CC-CEDICT 不一致（CEDICT：shi / si）	食
 饧	tang	与 CC-CEDICT 不一致（CEDICT：xing）	饧
+饱嗝儿	bao ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+馅儿	xian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+馅儿饼	xian er bing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+马仔	ma zi	与 CC-CEDICT 不一致（CEDICT：ma zai）	仔
 马圈	ma quan	与 CC-CEDICT 不一致（CEDICT：ma juan）	圈
+马萨诸塞	ma sa zhu se	与 CC-CEDICT 不一致（CEDICT：ma sa zhu sai）	塞
 骀	dai	与 CC-CEDICT 不一致（CEDICT：tai）	骀
 验血	yan xue	与 CC-CEDICT 不一致（CEDICT：yan xie）	血
 骠	biao	与 CC-CEDICT 不一致（CEDICT：piao）	骠
@@ -420,204 +803,17 @@
 鲅	bo	与 CC-CEDICT 不一致（CEDICT：ba）	鲅
 鲌	ba	与 CC-CEDICT 不一致（CEDICT：bo）	鲌
 鲑	xie	与 CC-CEDICT 不一致（CEDICT：gui）	鲑
+鸟儿	niao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	鸟儿
 鸠摩罗什	jiu mo luo shen	与 CC-CEDICT 不一致（CEDICT：jiu mo luo shi）	摩什
+鸡爪	ji zhao	与 CC-CEDICT 不一致（CEDICT：ji zhua）	爪
 麽	me	与 CC-CEDICT 不一致（CEDICT：mo）	麽
+黄埔	huang bu	与 CC-CEDICT 不一致（CEDICT：huang pu）	埔
+黄柏	huang bai	与 CC-CEDICT 不一致（CEDICT：huang bo）	柏
+黛安娜	dai an nuo	与 CC-CEDICT 不一致（CEDICT：dai an na）	娜
 黾	mian	与 CC-CEDICT 不一致（CEDICT：meng / min）	黾
+鼻儿	bi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
+鼻咽	bi ye	与 CC-CEDICT 不一致（CEDICT：bi yan）	咽
+鼻咽癌	bi ye ai	与 CC-CEDICT 不一致（CEDICT：bi yan ai）	咽
 齐	ji	与 CC-CEDICT 不一致（CEDICT：qi）	齐
 𬘭	lin	与 CC-CEDICT 不一致（CEDICT：chen）	𬘭
 𬭚	dui	与 CC-CEDICT 不一致（CEDICT：chun）	𬭚
-# 以下只是儿化写法不同（词库把 儿 写成一个音节，CC-CEDICT 写作 r），不是读音分歧：
-一个劲儿	yi ge jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-一会儿	yi hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
-一块儿	yi kuai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-一时半会儿	yi shi ban hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
-一水儿	yi shui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-一点儿	yi dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-一股脑儿	yi gu nao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-万儿八千	wan er ba qian	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	万儿
-不对劲儿	bu dui jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-不是味儿	bu shi wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-个儿	ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-个头儿	ge tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-串门儿	chuan men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-事儿	shi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-人儿	ren er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-人情味儿	ren qing wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-今儿	jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-份儿	fen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-份儿饭	fen er fan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-会儿	hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
-使劲儿	shi jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-倍儿	bei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-做活儿	zuo huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-光棍儿	guang gun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-公子哥儿	gong zi ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-冰棍儿	bing gun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-准谱儿	zhun pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-出圈儿	chu quan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	圈儿
-出摊儿	chu tan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-刨根儿	pao gen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	刨儿
-刺儿头	ci er tou	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-加塞儿	jia sai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	塞儿
-劲儿	jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-包圆儿	bao yuan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-包干儿	bao gan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-包袱皮儿	bao fu pi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-千儿八百	qian er ba bai	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-单个儿	dan ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	单儿
-压根儿	ya gen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-吊儿郎当	diao er lang dang	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-后儿	hou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-呆会儿	dai hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	呆会儿
-味儿	wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-哥们儿	ge men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-哪儿	na er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	哪儿
-地儿	di er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	地儿
-坎儿	kan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-坎儿井	kan er jing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-大个儿	da ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大儿
-大伙儿	da huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大儿
-大家伙儿	da jia huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	大家儿
-头儿	tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-奔头儿	ben tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-女孩儿	nv hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-好玩儿	hao wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-娘儿们	niang er men	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-媳妇儿	xi fu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-孩儿	hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-宝贝儿	bao bei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-对味儿	dui wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小伙儿	xiao huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小孩儿	xiao hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小心眼儿	xiao xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小抄儿	xiao chao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小摊儿	xiao tan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-小辫儿	xiao bian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-差点儿	cha dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	差儿
-巴儿狗	ba er gou	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-干活儿	gan huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-年头儿	nian tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-待会儿	dai hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	会儿
-心眼儿	xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-快板儿	kuai ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-我这儿	wo zhe er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这儿
-戳儿	chuo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-打嗝儿	da ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-打挺儿	da ting er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-打盹儿	da dun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-抄近儿	chao jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-把儿	ba er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-抠门儿	kou men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-挨个儿	ai ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-挨肩儿	ai jian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-挨边儿	ai bian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-挪窝儿	nuo wo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-换个儿	huan ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-掉点儿	diao dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-掉过儿	diao guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-摆谱儿	bai pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-撒欢儿	sa huan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-擦黑儿	ca hei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-攀高枝儿	pan gao zhi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-早早儿	zao zao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-旮旯儿	ga la er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-明儿	ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-昨儿	zuo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-是味儿	shi wei er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-月头儿	yue tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-有点儿	you dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-有空儿	you kong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-有谱儿	you pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-末儿	mo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	末儿
-杂拌儿	za ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-板擦儿	ban ca er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-样儿	yang er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-核儿	hu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	核儿
-模特儿	mo te er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	模儿
-死劲儿	si jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-死心眼儿	si xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-没事儿	mei shi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
-没准儿	mei zhun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
-没法儿	mei fa er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
-没谱儿	mei pu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
-没门儿	mei men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	没儿
-活儿	huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-混混儿	hun hun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-点儿	dian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-烟卷儿	yan juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	烟儿
-爆肚儿	bao du er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-爷们儿	ye men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-片儿	pian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-片儿警	pian er jing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-猛劲儿	meng jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-玩儿	wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-玩儿不转	wan er bu zhuan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿转
-玩儿命	wan er ming	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-玩儿完	wan er wan	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-玩儿票	wan er piao	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-玩意儿	wan yi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-男孩儿	nan hai er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-画儿	hua er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-病包儿	bing bao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-白干儿	bai gan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-白面儿	bai mian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-盖帽儿	gai mao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	盖儿
-石子儿	shi zi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	石儿
-空儿	kong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-窑姐儿	yao jie er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-纳闷儿	na men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-绕弯儿	rao wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-绕远儿	rao yuan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-缺心眼儿	que xin yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-罗锅儿	luo guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-老伴儿	lao ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-老头儿	lao tou er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-胆儿	dan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-胖墩儿	pang dun er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	胖儿
-脑瓜儿	nao gua er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-脖梗儿	bo geng er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-脖颈儿	bo geng er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	颈儿
-脸盘儿	lian pan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-脸蛋儿	lian dan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-腕儿	wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-节骨眼儿	jie gu yan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-苦活儿	ku huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-范儿	fan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-虫儿	chong er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-蛋卷儿	dan juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-蛐蛐儿	qu qu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-蝈蝈儿	guo guo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-被窝儿	bei wo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-话茬儿	hua cha er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-调门儿	diao men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	调儿
-豆角儿	dou jiao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	角儿
-贪玩儿	tan wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-走神儿	zou shen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-赶明儿	gan ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-起名儿	qi ming er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-跑腿儿	pao tui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-身板儿	shen ban er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-车份儿	che fen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	车儿
-较真儿	jiao zhen er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-这会儿	zhe hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这会儿
-这儿	zhe er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	这儿
-逗趣儿	dou qu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	趣儿
-遛弯儿	liu wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-那会儿	na hui er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	那会儿
-那儿	na er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	那儿
-醋劲儿	cu jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-重活儿	zhong huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	重儿
-针尖儿对麦芒儿	zhen jian er dui mai mang er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿芒儿
-针线活儿	zhen xian huo er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-铁哥们儿	tie ge men er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-铆劲儿	mao jin er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	劲儿
-铺盖卷儿	pu gai juan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	盖儿
-闹着玩儿	nao zhe wan er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	着儿
-露馅儿	lou xian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	露儿
-面人儿	mian ren er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-顶牛儿	ding niu er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-饱嗝儿	bao ge er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-馅儿	xian er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-馅儿饼	xian er bing	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
-鸟儿	niao er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	鸟儿
-鼻儿	bi er	儿化音写法不同（CEDICT 把 er 写成 r），不是读音分歧	儿
