@@ -175,6 +175,12 @@ fn is_host_and_taxon(word: &str) -> bool {
 }
 
 /// 地名留不留：县级及以上的短名，或文档频次够高的著名地点。
+/// 县级及以上地名（省 / 市 / 县 / 区 / 镇 / 乡 / 自治区 …结尾的短名）：地址里天天要打，
+/// 不受语料次数影响，一律留基础词库（审计定的；总数三千来个）
+pub(crate) fn is_admin_place(word: &str) -> bool {
+    word.chars().count() <= MAX_CHARS && has_tail(word, ADMIN_TAILS)
+}
+
 pub(crate) fn is_major_place(word: &str, df: u64, places_min_df: u64) -> bool {
     let count = word.chars().count();
     if count <= MAX_CHARS && has_tail(word, ADMIN_TAILS) {
