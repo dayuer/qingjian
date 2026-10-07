@@ -4,7 +4,7 @@
 
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSButton, NSPopUpButton, NSSecureTextField, NSTextField};
+use objc2_app_kit::{NSButton, NSColor, NSPopUpButton, NSSecureTextField, NSTextField};
 use objc2_foundation::NSString;
 use qingjian_cloud_mac::CloudStatus;
 use qingjian_platform::Config;
@@ -27,6 +27,9 @@ pub struct CloudPage {
 
     /// 已开通时的设备行：这台设备的名字。
     device: Retained<NSTextField>,
+
+    /// 上一次操作的提示（加入失败、已清空等）；没有时是空串。
+    hint: Retained<NSTextField>,
 
     /// 没开通时才显示的两颗按钮。
     create: Retained<NSButton>,
@@ -93,6 +96,8 @@ impl CloudPage {
         // 状态
         let state = note_label(layout, mtm, "…");
         let device = note_label(layout, mtm, "");
+        let hint = note_label(layout, mtm, "");
+        hint.setTextColor(Some(&NSColor::systemRedColor()));
         let create = button(mtm, "开通素笺云", Setting::CloudCreateSpace, target);
         let join = button(mtm, "输入匹配码加入…", Setting::CloudJoinWithCode, target);
         layout.place(&create, PAGE_PADDING, 190.0, ROW_HEIGHT + 4.0);
@@ -239,6 +244,7 @@ impl CloudPage {
         Self {
             state,
             device,
+            hint,
             create,
             join,
             unbind,
@@ -269,7 +275,13 @@ impl CloudPage {
     /// 状态块与开关的勾选：读素笺云现在的状态（`qingjian_cloud_mac::status`）。
     /// 每 0.5 秒跟着素笺云的菜单刷新走（见 `PreferencesWindow::sync_cloud_status`）。
     pub fn sync_status(&self, status: &CloudStatus) {
-        self.state.setStringValue(&NSString::from_str(&status.line));
+        // 正在等另一台设备允许时，状态行说得更具体
+        self.state
+            .setStringValue(&NSString::from_str(if status.joining {
+                "正在等另一台设备允许…（手机上会弹出一条申请）"
+            } else {
+                &status.line
+            }));
         self.device
             .setStringValue(&NSString::from_str(&if status.signed_in {
                 if status.device.is_empty() {
@@ -280,6 +292,8 @@ impl CloudPage {
             } else {
                 String::new()
             }));
+        self.hint
+            .setStringValue(&NSString::from_str(status.note.as_deref().unwrap_or("")));
         self.device.setHidden(!status.signed_in);
         self.unbind.setHidden(!status.signed_in);
         self.create.setHidden(status.signed_in);

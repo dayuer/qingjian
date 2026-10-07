@@ -140,6 +140,9 @@ pub struct CloudStatus {
     /// 同步暂停着（按钮要显示「继续同步」）。
     pub paused: bool,
 
+    /// 最近一次操作的提示（加入失败、已清空等），设置页显示它。
+    pub note: Option<String>,
+
     /// 五项开关：(功能名, 开着没有)。
     pub consents: [(&'static str, bool); 5],
 }
@@ -506,6 +509,7 @@ impl Service {
                 .unwrap_or_default(),
             joining: self.flow.signing_in(),
             paused: self.paused,
+            note: self.note.clone(),
             consents,
         }
     }
