@@ -352,7 +352,9 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
   动物与医学里寄主 + 学名的拼接词（`犬复孔绦虫`）、地名只留县级及以上与文档频次 ≥ `--places-min-df`（缺省 500）的著名地点（其余进 `places-extended`）、
   诗词名句整本不进基础词库（`poetry_lines` 这本包就是名句包，缺省关）；删了什么、改派到哪一本、哪几条从基础词库移出去，
   写进 `data/generated/domain-report.tsv`（每本包还给 20 条被删样本，按文档频次降序）；然后把剩下的按语料次数 < 50 拆成
-  `dicts/<领域>.tsv` + `.qj`（10 本 + 3 本扩展，`--domain-keep-min`），流程见 `assets/lexicon/QINGJIAN.md`；`--extra-words` 并入人工挑的领域词 `assets/lexicon/domain_words.tsv`（2026-09-27 起该文件另含按 jieba 词表（MIT）对照出的缺失高频词：读音逐字取 Unihan、多音字逐条人工判定（判定明细与理由在 `assets/lexicon/00_meta/polyphone-judgments.tsv`），词频按 log-log 回归从 jieba 次数折算；另含「姓氏+总」称谓层 98 条与符号词 6 条，定值依据见文件头注。注意：新词不在 lm.qj 里只能拿兜底分，同音 lm 词会压它，选一次即被 choice_weight 翻正）。
+  `dicts/<领域>.tsv` + `.qj`（10 本 + 3 本扩展，`--domain-keep-min`），流程见 `assets/lexicon/QINGJIAN.md`；
+  **改完规则要在有 `data/corpus` 与 `data/unihan` 的机器上重跑第 1–4 步，并按 `tools/release/data-bundle.sh` + `data.lock`（SHA256SUMS）
+  发新的 `data-vN`** —— 只换 `data/generated/` 不走这一步，装机与 CI 拿到的还是旧词库（细节见 `docs/plan/dictionary-layering.md` 末节）；`--extra-words` 并入人工挑的领域词 `assets/lexicon/domain_words.tsv`（2026-09-27 起该文件另含按 jieba 词表（MIT）对照出的缺失高频词：读音逐字取 Unihan、多音字逐条人工判定（判定明细与理由在 `assets/lexicon/00_meta/polyphone-judgments.tsv`），词频按 log-log 回归从 jieba 次数折算；另含「姓氏+总」称谓层 98 条与符号词 6 条，定值依据见文件头注。注意：新词不在 lm.qj 里只能拿兜底分，同音 lm 词会压它，选一次即被 choice_weight 翻正）。
 - `english`：转 `assets/lexicon/05_english/00_all_words.tsv`；同编码优先保留含大写的专名写法（Windows ≠ windows），
   展示写法补充表 `07_display_forms.tsv` 后置读入；`cedict`：释义表备用来源。中英混杂词源在 `assets/lexicon/mixed_words.tsv`（`lexicon --extra-words`）。
 - `wubi`：Rime 形码码表（`.dict.yaml`，极点 86 五笔）→ `词\t编码\t词频`（`wubi.rs`，`--name` 决定文件名，缺省 `wubi86.tsv`）。
