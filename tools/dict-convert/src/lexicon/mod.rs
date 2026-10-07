@@ -487,7 +487,10 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             insert(entry);
             continue;
         };
-        // 第 1 步的规则：判死的丢掉，判走的换一本包
+        // 拆包的顺序（2026-10-08 审计定）：**先看语料里的独立出现次数**（用 lm 一元表的 token 计数，
+        // 不是子串计数 —— 否则「兰西」会被「法兰西」拖出高分），够 domain_keep_min 就留基础词库；
+        // 县级及以上地名不受次数影响（地址天天要打）；再交给 R1–R4 决定剩下的进哪本包。
+        // R1 的长度门槛仍然**先判**：长机构名不能因为次数够就回到基础库。
         let verdict = domain_filter::judge(
             &domain,
             &entry.text,
@@ -496,43 +499,44 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             &keep,
             &row.source,
         );
-        // 著名地点（R3 判过 df ≥ 门槛的）不受语料次数门槛影响：R3 认定它该留在基础词库，
-        // 再被「语料里出现够多」挡一道就等于白判 —— 商务中心（THUOCL df 3383）就因此被推到缺省关着的包里
-        let famous_place = domain == "places"
-            && domain_filter::is_major_place(
-                &entry.text,
-                row.df,
-                if row.source == "wikipedia-titles" {
-                    domain_filter::WIKI_TITLE_MIN_MENTIONS
-                } else {
-                    options.places_min_df
-                },
-            );
-        let from_base = famous_place || corpus_count.unwrap_or(0) >= domain_keep_min;
+        let count = corpus_count.unwrap_or(0);
+        let keep_in_base = count >= domain_keep_min
+            || (domain == "places" && domain_filter::is_admin_place(&entry.text));
+        let drop_too_long = matches!(verdict, Some((Sink::Drop, domain_filter::Reason::TooLong)));
+        if drop_too_long {
+            report.record_drop(&domain, &entry.text, row.df, domain_filter::Reason::TooLong);
+            continue;
+        }
+        if keep_in_base {
+            report.record_kept(&domain);
+            insert(entry);
+            continue;
+        }
         match verdict {
             Some((Sink::Drop, reason)) => {
                 report.record_drop(&domain, &entry.text, row.df, reason);
                 continue;
             }
             Some((Sink::Pack(to), _)) => {
-                report.record_move(&domain, to, from_base);
+                report.record_move(&domain, to, false);
                 domains
                     .entry(to.to_owned())
                     .or_default()
                     .insert((entry.text.clone(), entry.syllables.clone()), entry);
                 continue;
             }
-            None => {}
-        }
-        report.record_kept(&domain);
-        // 语料里常见的领域词其实是通用词（医疗器械、侵权行为），留在基础词库；其余进各自的领域词库
-        if from_base {
-            insert(entry);
-        } else {
-            domains
-                .entry(domain)
-                .or_default()
-                .insert((entry.text.clone(), entry.syllables.clone()), entry);
+            // 没有规则管它的（额外词 / 挖出来的词）：按语料次数定，次数不够就进它来源的那本包
+            None => {
+                report.record_kept(&domain);
+                if count >= domain_keep_min {
+                    insert(entry);
+                } else {
+                    domains
+                        .entry(domain)
+                        .or_default()
+                        .insert((entry.text.clone(), entry.syllables.clone()), entry);
+                }
+            }
         }
     }
 
