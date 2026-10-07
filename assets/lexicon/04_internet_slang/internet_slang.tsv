@@ -1,182 +1,177 @@
 # 青简网络用语包（缺省关）。词	拼音	词频	年份	来源
 # 词频待语料、年份待人工过一遍时标（维基条目正文能查到「某年流行」的按条目写，查不到标 unknown）；
 # 来源与许可见 README.md，候选与三类判定见 candidates.tsv / triage.tsv。
-city不city				wikipedia
-丈育				wiktionary
-上巴				wiktionary
-不明觉厉	bu ming jue li			wiktionary
-中二病	zhong er bing			wikipedia、wiktionary
-乙烷	yi wan			wiktionary
-二次原				wiktionary
-云玩家				wikipedia、wiktionary
-互粉	hu fen			wiktionary
-五二零				wiktionary
-亚美爹				wiktionary
-人傻钱多				wiktionary
-仇女				wiktionary
-伪中国语				wikipedia
-伪人				wiktionary
-伸手党				wiktionary
-何意味				wiktionary
-侵删	qin shan			wiktionary
-假素人				wikipedia
-兽人控				wiktionary
-兽圈				wiktionary
-兽控				wiktionary
-兽迷	shou mi			wiktionary
-冈易				wiktionary
-冲塔	chong ta			wiktionary
-剁手党	duo shou dang			wiktionary
-前摇				wiktionary
-厂厂				wiktionary
-厕妹				wiktionary
-厚礼蟹				wiktionary
-反复横跳				wikipedia
-口国				wiktionary
-口牙				wiktionary
-口球	kou qiu			wiktionary
-口胡				wiktionary
-呜呜呜				wiktionary
-哈人				wiktionary
-哈基米	ha ji mi			wiktionary
-哦凑				wiktionary
-唐人	tang ren			wiktionary
-啊我死了				wiktionary
-喜大普奔	xi da pu ben			wiktionary
-国吹				wikipedia
-圈地自萌				wiktionary
-土鸡	tu ji			wiktionary
-地狱朝鲜				wikipedia
-垃圾桶	la ji tong			wiktionary
-埃苏丹				wiktionary
-复制文				wiktionary
-天啦噜				wiktionary
-天朝	Tian chao			wiktionary
-太长不看	tai chang bu kan			wikipedia
-夹子音	jia zi yin			wiktionary
-夺舍	duo she			wikipedia
-女性向				wiktionary
-女拳				wiktionary
-女频				wiktionary
-安倍口罩				wikipedia
-小水管				wiktionary
-小狼狗				wiktionary
-小胡子				wiktionary
-尾款人				wikipedia
-尿性				wiktionary
-屌丝	diao si			wikipedia
-山寨文化				wikipedia
-岂可修				wiktionary
-工业党				wikipedia
-德国骨科				wiktionary
-恋爱脑				wiktionary
-悲报	bei bao			wiktionary
-慨督				wikipedia
-扩列	kuo lie			wiktionary
-拉踩				wiktionary
-拔草				wiktionary
-拖更				wiktionary
-拼音缩写				wikipedia
-搬运工	ban yun gong			wiktionary
-攻城狮				wiktionary
-斩杀线缐				wiktionary
-施法	shi fa			wiktionary
-无敌之人				wikipedia
-春哥				wikipedia
-服美役				wikipedia
-木毛				wiktionary
-果粉	guo fen			wiktionary
-某乎				wiktionary
-柠檬熟了				wiktionary
-查水表	cha shui biao			wiktionary
-校内体				wikipedia
-步术我值				wikipedia
-歪楼				wiktionary
-水硕				wikipedia-list
-永恒九月				wikipedia
-汉语盘点				wikipedia-list
-汲汲营营				wiktionary
-流量明星	liu liang ming xing			wikipedia
-淘客	tao ke			wikipedia
-港漂				wikipedia-list
-火星人	Huo xing ren			wikipedia
-炎上				wiktionary
-炸鱼	zha yu			wiktionary
-炼铜				wiktionary
-然并卵	ran bing luan			wikipedia
-爷青回				wiktionary
-牛头人				wiktionary
-特定亚洲				wikipedia
-玉玉症	yu yu zheng			wiktionary
-王德发				wiktionary
-瑞典人	rui dian ren			wiktionary
-生草				wiktionary
-用爱发电				wiktionary
-田力				wiktionary
-电信诈骗	dian xin zha pian			wiktionary
-电子榨菜	dian zi zha cai			cedict
-男娘	nan niang			wiktionary
-男性向				wiktionary
-男默女泪				wiktionary
-直播贴				wikipedia
-直球	zhi qiu			wiktionary
-省流	sheng liu			wiktionary
-真卍				wikipedia
-石更				wiktionary
-砖家				wikipedia
-福瑞控				wiktionary
-米国	Mi guo			wiktionary
-纸片人	zhi pian ren			wiktionary
-纸飞机	zhi fei ji			wiktionary
-细思恐极				wiktionary
-细颈瓶	xi jing ping			wiktionary
-绘文字	hui wen zi			wikipedia
-绝绝子	jue jue zi			cedict
-绷不住	beng bu zhu			wiktionary
-网吧难民				wikipedia
-网络打手	Wang luo da shou			wikipedia
-网络特工	wang luo te gong			wikipedia
-老中	lao zhong			wiktionary
-老盆友				wiktionary
-耗子尾汁	hao zi wei zhi			wiktionary
-肿么麽				wiktionary
-背影杀手	bei ying sha shou			wiktionary
-胖次	pang ci			wiktionary
-能好怎				wikipedia
-脑抽	nao chou			wiktionary
-膜法师				wiktionary
-自干乾五				wikipedia、wiktionary
-自肃警察				wikipedia
-英雌	ying ci			wikipedia
-营销号	ying xiao hao			wiktionary
-蒙古人	Meng gu ren			wiktionary
-被就业				wikipedia
-西红市				wikipedia
-视歼				wiktionary
-赛高				wiktionary
-起号	qi hao			wiktionary
-躬匠精神				wiktionary
-转世灵童				wiktionary
-输家男				wikipedia
-边缘人	bian yuan ren			wikipedia、wiktionary
-迫真	po zhen			wiktionary
-铲屎官	chan shi guan			wiktionary
-键盘政治				wikipedia
-阴间滤镜				wikipedia
-阿婆主				wiktionary
-阿巴阿巴				wiktionary
-阿米诺斯				wiktionary
-难民现象				wikipedia
-零元购				wikipedia
-零帧起手				wiktionary
-雷普				wiktionary
-震撼网站				wikipedia
-非法献花				wikipedia
-非洲人	Fei zhou ren			wiktionary
-鞭尸	bian shi			wiktionary
-领便当	ling bian dang			wikipedia、wiktionary
-风评被害				wiktionary
-魔丸				wiktionary
-魔人				wiktionary
-黑历史	hei li shi			wikipedia
-黑称				wiktionary
+丈育	zhang yu	1429	unknown	wiktionary
+上巴	shang ba	159	unknown	wiktionary
+不明觉厉	bu ming jue li	100	unknown	wiktionary
+中二病	zhong er bing	100	unknown	wikipedia、wiktionary
+乙烷	yi wan	2000	unknown	wiktionary
+二次原	er ci yuan	1224	unknown	wiktionary
+云玩家	yun wan jia	100	unknown	wikipedia、wiktionary
+互粉	hu fen	100	unknown	wiktionary
+五二零	wu er ling	100	unknown	wiktionary
+亚美爹	ya mei die	100	unknown	wiktionary
+人傻钱多	ren sha qian duo	100	unknown	wiktionary
+仇女	chou nv	100	unknown	wiktionary
+伪中国语	wei zhong guo yu	100	2009	wikipedia
+伪人	wei ren	2000	unknown	wiktionary
+伸手党	shen shou dang	100	unknown	wiktionary
+何意味	he yi wei	100	unknown	wiktionary
+侵删	qin shan	221	unknown	wiktionary
+假素人	jia su ren	100	unknown	wikipedia
+兽人控	shou ren kong	100	unknown	wiktionary
+兽圈	shou quan	2000	unknown	wiktionary
+兽控	shou kong	308	unknown	wiktionary
+兽迷	shou mi	100	unknown	wiktionary
+冈易	gang yi	112	unknown	wiktionary
+冲塔	chong ta	100	unknown	wiktionary
+剁手党	duo shou dang	100	unknown	wiktionary
+前摇	qian yao	100	unknown	wiktionary
+厂厂	chang chang	2000	unknown	wiktionary
+厕妹	ce mei	100	unknown	wiktionary
+厚礼蟹	hou li xie	100	unknown	wiktionary
+反复横跳	fan fu heng tiao	100	unknown	wikipedia
+口国	kou guo	100	unknown	wiktionary
+口牙	kou ya	634	unknown	wiktionary
+口球	kou qiu	101	unknown	wiktionary
+口胡	kou hu	100	unknown	wiktionary
+呜呜呜	wu wu wu	100	unknown	wiktionary
+哈人	ha ren	100	unknown	wiktionary
+哈基米	ha ji mi	100	unknown	wiktionary
+哦凑	o cou	100	unknown	wiktionary
+唐人	tang ren	100	unknown	wiktionary
+啊我死了	a wo si le	100	unknown	wiktionary
+喜大普奔	xi da pu ben	100	unknown	wiktionary
+国吹	guo chui	100	unknown	wikipedia
+圈地自萌	quan di zi meng	100	unknown	wiktionary
+土鸡	tu ji	2000	unknown	wiktionary
+地狱朝鲜	di yu chao xian	100	2010	wikipedia
+垃圾桶	la ji tong	100	unknown	wiktionary
+埃苏丹	ai su dan	100	unknown	wiktionary
+复制文	fu zhi wen	100	unknown	wiktionary
+天啦噜	tian la lu	100	unknown	wiktionary
+天朝	Tian chao	100	unknown	wiktionary
+太长不看	tai chang bu kan	100	unknown	wikipedia
+夹子音	jia zi yin	100	unknown	wiktionary
+夺舍	duo she	100	unknown	wikipedia
+女性向	nv xing xiang	100	unknown	wiktionary
+女拳	nv quan	1303	2013	wiktionary
+女频	nv pin	100	unknown	wiktionary
+安倍口罩	an bei kou zhao	100	2020	wikipedia
+小水管	xiao shui guan	100	unknown	wiktionary
+小狼狗	xiao lang gou	100	unknown	wiktionary
+小胡子	xiao hu zi	100	unknown	wiktionary
+尾款人	wei kuan ren	100	2020	wikipedia
+尿性	niao xing	100	unknown	wiktionary
+屌丝	diao si	100	2012	wikipedia
+山寨文化	shan zhai wen hua	100	2000	wikipedia
+岂可修	qi ke xiu	100	unknown	wiktionary
+工业党	gong ye dang	100	unknown	wikipedia
+德国骨科	de guo gu ke	100	unknown	wiktionary
+恋爱脑	lian ai nao	100	unknown	wiktionary
+悲报	bei bao	1660	unknown	wiktionary
+慨督	kai du	100	unknown	wikipedia
+扩列	kuo lie	100	unknown	wiktionary
+拉踩	la cai	100	unknown	wiktionary
+拔草	ba cao	100	unknown	wiktionary
+拖更	tuo geng	100	unknown	wiktionary
+拼音缩写	pin yin suo xie	100	unknown	wikipedia
+搬运工	ban yun gong	100	unknown	wiktionary
+攻城狮	gong cheng shi	2000	unknown	wiktionary
+施法	shi fa	1020	unknown	wiktionary
+无敌之人	wu di zhi ren	100	unknown	wikipedia
+春哥	chun ge	100	2005	wikipedia
+服美役	fu mei yi	100	unknown	wikipedia
+木毛	mu mao	311	unknown	wiktionary
+果粉	guo fen	2000	unknown	wiktionary
+某乎	mou hu	100	unknown	wiktionary
+柠檬熟了	ning meng shu le	100	unknown	wiktionary
+查水表	cha shui biao	100	unknown	wiktionary
+校内体	xiao nei ti	100	unknown	wikipedia
+歪楼	wai lou	100	unknown	wiktionary
+水硕	shui shuo	2000	unknown	wikipedia-list
+永恒九月	yong heng jiu yue	100	unknown	wikipedia
+汉语盘点	han yu pan dian	100	unknown	wikipedia-list
+汲汲营营	ji ji ying ying	100	unknown	wiktionary
+流量明星	liu liang ming xing	100	unknown	wikipedia
+淘客	tao ke	2000	unknown	wikipedia
+港漂	gang piao	100	unknown	wikipedia-list
+火星人	Huo xing ren	100	unknown	wikipedia
+炎上	yan shang	100	unknown	wiktionary
+炸鱼	zha yu	100	unknown	wiktionary
+炼铜	lian tong	2000	unknown	wiktionary
+然并卵	ran bing luan	100	2015	wikipedia
+爷青回	ye qing hui	100	unknown	wiktionary
+牛头人	niu tou ren	100	unknown	wiktionary
+特定亚洲	te ding ya zhou	100	unknown	wikipedia
+玉玉症	yu yu zheng	100	unknown	wiktionary
+王德发	wang de fa	100	unknown	wiktionary
+瑞典人	rui dian ren	100	unknown	wiktionary
+生草	sheng cao	100	unknown	wiktionary
+用爱发电	yong ai fa dian	100	unknown	wiktionary
+田力	tian li	881	unknown	wiktionary
+电信诈骗	dian xin zha pian	100	unknown	wiktionary
+电子榨菜	dian zi zha cai	100	2022	cedict
+男娘	nan niang	100	unknown	wiktionary
+男性向	nan xing xiang	100	unknown	wiktionary
+男默女泪	nan mo nv lei	100	unknown	wiktionary
+直播贴	zhi bo tie	100	unknown	wikipedia
+直球	zhi qiu	100	unknown	wiktionary
+省流	sheng liu	100	unknown	wiktionary
+真卍	zhen wan	232	unknown	wikipedia
+石更	shi geng	100	unknown	wiktionary
+砖家	zhuan jia	2000	unknown	wikipedia
+福瑞控	fu rui kong	100	unknown	wiktionary
+米国	Mi guo	100	unknown	wiktionary
+纸片人	zhi pian ren	2000	unknown	wiktionary
+纸飞机	zhi fei ji	100	unknown	wiktionary
+细思恐极	xi si kong ji	100	unknown	wiktionary
+细颈瓶	xi jing ping	100	unknown	wiktionary
+绘文字	hui wen zi	100	unknown	wikipedia
+绝绝子	jue jue zi	100	2021	cedict
+绷不住	beng bu zhu	100	unknown	wiktionary
+网吧难民	wang ba nan min	100	unknown	wikipedia
+网络打手	Wang luo da shou	100	unknown	wikipedia
+网络特工	wang luo te gong	100	unknown	wikipedia
+老中	lao zhong	100	unknown	wiktionary
+老盆友	lao pen you	100	unknown	wiktionary
+耗子尾汁	hao zi wei zhi	235	unknown	wiktionary
+背影杀手	bei ying sha shou	100	unknown	wiktionary
+胖次	pang ci	100	unknown	wiktionary
+能好怎	neng hao zen	100	unknown	wikipedia
+脑抽	nao chou	100	unknown	wiktionary
+膜法师	mo fa shi	100	unknown	wiktionary
+自肃警察	zi su jing cha	100	unknown	wikipedia
+英雌	ying ci	100	unknown	wikipedia
+营销号	ying xiao hao	100	unknown	wiktionary
+蒙古人	Meng gu ren	100	unknown	wiktionary
+被就业	bei jiu ye	100	unknown	wikipedia
+西红市	xi hong shi	2000	unknown	wikipedia
+赛高	sai gao	100	unknown	wiktionary
+起号	qi hao	1357	unknown	wiktionary
+躬匠精神	gong jiang jing shen	100	unknown	wiktionary
+转世灵童	zhuan shi ling tong	100	unknown	wiktionary
+输家男	shu jia nan	100	unknown	wikipedia
+边缘人	bian yuan ren	100	unknown	wikipedia、wiktionary
+迫真	po zhen	100	unknown	wiktionary
+铲屎官	chan shi guan	100	unknown	wiktionary
+键盘政治	jian pan zheng zhi	100	unknown	wikipedia
+阴间滤镜	yin jian lv jing	100	2010	wikipedia
+阿婆主	a po zhu	100	unknown	wiktionary
+阿巴阿巴	a ba a ba	100	unknown	wiktionary
+阿米诺斯	a mi nuo si	100	unknown	wiktionary
+难民现象	nan min xian xiang	100	unknown	wikipedia
+零元购	ling yuan gou	100	2020	wikipedia
+零帧起手	ling zhen qi shou	100	unknown	wiktionary
+雷普	lei pu	100	2007	wiktionary
+震撼网站	zhen han wang zhan	100	unknown	wikipedia
+非法献花	fei fa xian hua	100	unknown	wikipedia
+非洲人	Fei zhou ren	100	unknown	wiktionary
+鞭尸	bian shi	2000	unknown	wiktionary
+领便当	ling bian dang	100	unknown	wikipedia、wiktionary
+风评被害	feng ping bei hai	100	unknown	wiktionary
+魔丸	mo wan	100	unknown	wiktionary
+魔人	mo ren	1646	unknown	wiktionary
+黑历史	hei li shi	100	unknown	wikipedia
+黑称	hei cheng	100	unknown	wiktionary
+真香	zhen xiang	2000	2018	cedict

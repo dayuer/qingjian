@@ -1,17 +1,17 @@
 # 青简网络用语（粗口）包（缺省关，与干净那本分开）。词	拼音	词频	年份	来源
 # 词频待语料、年份待人工过一遍时标（维基条目正文能查到「某年流行」的按条目写，查不到标 unknown）；
 # 来源与许可见 README.md，候选与三类判定见 candidates.tsv / triage.tsv。
-兲蛋				wiktionary
-卧槽	wo cao			wiktionary
-口吐芬芳				wiktionary
-大屌能量				wikipedia
-妈卖批	ma mai pi			wiktionary
-射爆				wiktionary
-手冲				wiktionary
-步兵片				wiktionary
-牛子	niu zi			wiktionary
-色图				wiktionary
-草你妈				wiktionary
-草泥马	cao ni ma			wikipedia
-视奸	shi jian			wiktionary
-雅蠛蝶				wiktionary
+兲蛋	tian dan	100	unknown	wiktionary
+卧槽	wo cao	100	unknown	wiktionary
+口吐芬芳	kou tu fen fang	100	unknown	wiktionary
+大屌能量	da diao neng liang	100	unknown	wikipedia
+妈卖批	ma mai pi	100	unknown	wiktionary
+射爆	she bao	100	unknown	wiktionary
+手冲	shou chong	172	unknown	wiktionary
+步兵片	bu bing pian	100	unknown	wiktionary
+牛子	niu zi	248	unknown	wiktionary
+色图	se tu	100	unknown	wiktionary
+草你妈	cao ni ma	100	unknown	wiktionary
+草泥马	cao ni ma	100	2009	wikipedia
+视奸	shi jian	2000	unknown	wiktionary
+雅蠛蝶	ya mie die	100	unknown	wiktionary

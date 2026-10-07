@@ -35,11 +35,21 @@ CC BY-SA 的 ShareAlike 与仓库的 GPL-3.0-or-later 相容（Creative Commons 
 `internet_slang_coarse.tsv` 会被 `lexicon` 读走打成 `.qj`；工作稿（候选表、判定稿）放 `wip/` 子目录，
 不会被打包（目录只读顶层的 `*.tsv`）。
 
-| 文件 | 内容 | 还缺什么 |
+| 文件 | 内容 | 状态 |
 |---|---|---|
-| `internet_slang.tsv` | 干净的网络用语（179 条，缺省关） | 词频（要语料）、年份（人工过一遍时标） |
+| `internet_slang.tsv` | 干净的网络用语（174 条，缺省关） | 词频、读音、年份都填好了（怎么填的见下） |
 | `internet_slang_coarse.tsv` | 粗口单独一包（14 条，缺省关） | 同上 |
-| `assets/lexicon/internet_base.tsv` | 够「天天会打」、准备并进基础库的（27 条） | 次数（对着同音竞争词人工定）、部分读音 |
+| `assets/lexicon/internet_base.tsv` | 够「天天会打」、准备并进基础库的（26 条） | 次数按同音竞争词定好；走 `--internet-base` 并库时仍要跑一次评估 |
+
+### 没有语料、没有 LLM 密钥时这三列怎么定（2026-10-07）
+
+- **词频**：规格说的「对着同音的竞争词人工定」不需要语料 —— 竞争词就是 `dict.tsv` 里同音节串的词（它自带音节与词频）。
+  规则：`词频 = clamp(最强竞争词的词频, 100, 2000)`；逐条依据在 `data/generated/internet-slang-freq-evidence.tsv`。
+  **基础库那批**另加一道「同音不危险」实测：竞争词强过 2000 就退回网络用语包（**真香**就是这样退的 —— 同音的真相同音词频 9162，打字时多半想要的是「真相」）。
+- **读音**：由大模型（本会话）逐条给出，再放进 `lexicon` 跑一遍 —— 读音不合法（Unihan 里该字没有这个音节）的词会被引擎丢掉，
+  跑完 174 + 14 条一条没丢，等于用仓库自己的 Unihan 校验器核过了。
+- **年份**：维基条目正文里的「某年流行」靠不住（人物条目会抽到生年），所以只按能站住的条目写，其余一律 `unknown`；
+  16 条有年份、160 条 `unknown`，依据在 `data/generated/internet-slang-year-evidence.tsv`。`unknown` 的不进以后的按年份卸载分组。
 | `wip/candidates.tsv` | 从维基与维基词典拉的原始候选（270 条，未过目） | —— |
 | `wip/triage.tsv` | 270 条的三类判定（人工过目稿，含理由） | 审计已审 |
 
