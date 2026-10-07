@@ -386,6 +386,15 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
   **码表自带的权重不用**——那是码表顺序不是语料词频，用了同一个词在形码下和在拼音下会排得不一样；词频从青简词库按**词面**交叉回填，
   词库里没有的词给 `UNKNOWN_FREQUENCY = 1`。解析复用 `qingjian_dictionary::import::rime`（与用户导入 Rime 词库同一个解析器，
   形码码表的第二列是编码，格式一样）。词库还没收的词不收（码表整张进，不做取码推导，见 `docs/plan/wubi.md`）。
+- 语料准备（2026-10-08 起）：`tools/corpus/build_corpus.sh` 调 `clean_corpus.py` —— **全部用 Python + sqlite 计数，
+  shell 的 `sort` / `uniq -c` / `awk` 在 CJK 上会给出错的结果**（出过一次事故：LCCC 前 20 句占 85.8% 是假的，
+  真值 74.5% 的单句互不相同、最多的「哈哈」四万次）。脚本同时写一份 `data/corpus/<名>-raw.txt`（只读不改）
+  与派生文件；整段对话去重（哈希进 sqlite）+ 单句封顶（`--max-repeat`）都在里面，留出集与开发集用 `--trim` 剔掉。
+- 分语域的语言模型：`build_register_lms.sh` 分别统计对话（LCCC）与书面（维基），`build_lm_sets.py` 合成三套
+  （dialog / prose / mixed）到 `data/sets/<套>/`；mixed 的一元 = 对话 ×N + 书面，二元 = 两侧各取前 N 再合并
+  （按语域分配额，不按全局计数截）。分工见 `docs/notes/eval-data.md`。
+- `bigram` 的统计层规则：**被两个数字夹住的长度 ≥2 的汉字串不计数**（「3月1日至10日」的「日至」；
+  加之前 日至 52634 次把真词 日志 772 次压得看不见）。测试见 `bigram::tests::han_runs_*`。
 - `bigram`：统计语料；`--phrases` 给短语层、`--brand` 给品牌词（`assets/lexicon/brand.tsv`，青简 210）与中英混杂词（`mixed_words.tsv`，C盘 / B站：合成计数要成分词在语料里，C 不是 token，只能直接给一元，次数对着同音竞争词定），领域词也走合成计数（语料里只有几十次的词当 token 统计会吸走成分词的二元证据）。
 - `mine`：从语料挖词库没收的高频词并过滤（`oov_filter.rs`：虚词规则 + 相邻字对 PMI≥3，`--candidates` 只重过滤）。
 - `phrases`：挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，
