@@ -248,3 +248,23 @@ fn spelling_correction_compares_static_paths_without_rescoring() {
     // 只有展示的那条整句会重排（纠正后的一种按键条件），不是每个纠正候选一种
     assert!(conditions.len() <= 1, "重排了 {conditions:?}");
 }
+
+/// 读得通的整句超过 [`MAX_READABLE_GENERATED_LETTERS`] 个字母就不生成：生成逐字串行，长句是延迟长尾。
+#[test]
+fn a_long_readable_sentence_is_not_generated() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n一起\tyi qi\t80000\n去\tqu\t70000\n我\two\t90000\n们\tmen\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(PrefersAndGenerates("", &["生成的"])),
+        Some(0.5),
+        None,
+        None,
+    );
+    let keys = "womenyiqiqu".repeat(4);
+    assert!(keys.len() > MAX_READABLE_GENERATED_LETTERS);
+    engine.set_input(&keys);
+    let items = engine.query().unwrap().candidates.items;
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Generated));
+}

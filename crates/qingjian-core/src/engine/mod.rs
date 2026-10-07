@@ -413,6 +413,11 @@ const ALTERNATE_MIN_SYLLABLES: usize = 4;
 /// 短于这么多字母的不让模型直接生成整句：那么短的输入词级候选够用，生成的几十毫秒不值。
 const MIN_GENERATED_LETTERS: usize = 6;
 
+/// 读得通的整句（融合：生成的插在词图首选之后）最多几个字母还生成：生成是逐字串行前向，长句是延迟长尾的来源。
+/// 40 卡在 300 ms 上：sentences.tsv 上前三 59.8 → 58.4、最慢 449 → 300 ms（docs/notes/neural-rescoring.md 第四节）。
+/// 读不通的输入（中英混输）不受它限制，那时词图给不出能用的结果。
+const MAX_READABLE_GENERATED_LETTERS: usize = 40;
+
 /// 神经重打分的缺省权重 λ（见 `Engine::neural_weight`）：整句评测集上 0.5 到 1.0 一样好、0.75 最高（见 docs/notes/neural-rescoring.md），
 /// 取 0.5 给个人 n-gram 留余量；回放里看到的「λ 大整句掉」是那把尺子的偏差。
 pub const NEURAL_WEIGHT: f64 = 0.5;

@@ -41,7 +41,7 @@ impl Engine {
         // 上面已经保证整段都是小写字母，没有 `'`，`letters()` 与字节长度可比
         let covers_all = best.letters() == keys.len();
         let unreadable = best.incomplete_count() > 0 || !covers_all || corrected;
-        if !unreadable && !readable_too {
+        if !unreadable && (!readable_too || keys.len() > MAX_READABLE_GENERATED_LETTERS) {
             return (Vec::new(), false);
         }
         let mut out: Vec<Candidate> = Vec::new();
