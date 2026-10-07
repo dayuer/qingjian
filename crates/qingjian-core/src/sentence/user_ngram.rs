@@ -316,7 +316,13 @@ impl UserNgram {
         for (earlier, by_previous) in &model.triples {
             let totals = model.triple_totals.entry(earlier.clone()).or_default();
             for (previous, next) in by_previous {
-                *totals.entry(previous.clone()).or_default() += next.values().sum::<u32>();
+                // 求和要饱和：上下文里的计数个头都不小，debug 构建下 u32 溢出会直接 panic，
+                // release 下则悄悄回绕成错的数（历史数据攒久了真会撞上）
+                let sum = next
+                    .values()
+                    .fold(0u32, |acc, count| acc.saturating_add(*count));
+                let total = totals.entry(previous.clone()).or_default();
+                *total = total.saturating_add(sum);
             }
         }
         model
