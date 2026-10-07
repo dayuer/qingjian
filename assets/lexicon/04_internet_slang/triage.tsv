@@ -1,0 +1,277 @@
+# 网络用语候选的三类判定（第 2 步的人工过目稿，等审计审）：
+# ①基础库=天天会打 + 同音不危险；②网络用语包=是词但不天天打（粗口另立缺省关的一包）；
+# ③不收=台港用语（进待办）、专有名词误入、查不到的方言拼写；政治与辱骂用语单列「待定」，建议不收。
+# 理由写在第三列；year 一律留空待标（人工过这一遍时一起标：能从维基条目正文查到「某年流行」的按条目写，
+# 查不到的标 unknown，unknown 的那批不进以后的卸载分组；不拿语料首现位置推年份，那个不准）。
+# 「基础库」那 20 条的「同音不危险」还没实测：要等读音定下来、拿同音竞争词的词频比一遍（语料到位后做）。
+# word	归类	理由	来源
+停更	基础库	天天打	wiktionary
+删帖	基础库	天天打	wikipedia
+割韭菜	基础库	天天打，pinyin 唯一	wikipedia
+吹爆	基础库	天天打	wiktionary
+套娃	基础库	天天打	wiktionary
+工具人	基础库	常用	wikipedia
+已读不回	基础库	天天打	wikipedia
+断更	基础库	天天打，与停更同义双收	wiktionary
+智商税	基础库	天天打	wiktionary
+标题党	基础库	天天打	wikipedia
+白给	基础库	天天打	wiktionary
+真香	基础库	天天打，zhenxiang 顺	wiktionary
+破防	基础库	常用到进日常对话，拼音 pofang 无强竞争词	wiktionary
+社牛	基础库	常用，与社恐同类	wiktionary
+老六	基础库	常用称呼	wiktionary
+舔狗	基础库	常用	wiktionary
+表情符号	基础库	中性词，不是网络梗也该收	wikipedia
+贴贴	基础库	聊天里天天打	wiktionary
+跳票	基础库	天天打	wiktionary
+避雷	基础库	天天打	wiktionary
+云玩家	网络用语包	是词不天天打	wikipedia、wiktionary
+互粉	网络用语包	平台用语	wiktionary
+五二零	网络用语包	谐音日期	wiktionary
+人傻钱多	网络用语包	梗	wiktionary
+侵删	网络用语包	转载用语	wiktionary
+假素人	网络用语包	是词不天天打	wikipedia
+冲塔	网络用语包	是词但有争议语境，先放包	wiktionary
+剁手党	网络用语包	梗，不天天打	wiktionary
+前摇	网络用语包	游戏用语	wiktionary
+厂厂	网络用语包	同形梗，弱	wiktionary
+厕妹	网络用语包	小圈子	wiktionary
+厚礼蟹	网络用语包	谐音梗	wiktionary
+反复横跳	网络用语包	梗	wikipedia
+呜呜呜	网络用语包	拟声，聊天常见但更适合包	wiktionary
+哈人	网络用语包	山东方言梗	wiktionary
+哈基米	网络用语包	梗	wiktionary
+哦凑	网络用语包	委婉	wiktionary
+唐人	网络用语包	梗（有贬义）	wiktionary
+啊我死了	网络用语包	缩写词的中文形态	wiktionary
+喜大普奔	网络用语包	梗	wiktionary
+国吹	网络用语包	梗	wikipedia
+圈地自萌	网络用语包	话术	wiktionary
+土鸡	网络用语包	蔑称，先放包	wiktionary
+地狱朝鲜	网络用语包	梗	wikipedia
+垃圾桶	网络用语包	网络义	wiktionary
+埃苏丹	网络用语包	绰号	wiktionary
+复制文	网络用语包	平台用语	wiktionary
+天啦噜	网络用语包	语气梗	wiktionary
+天朝	网络用语包	网络义	wiktionary
+太长不看	网络用语包	话术	wikipedia
+夹子音	网络用语包	平台热词	wiktionary
+夺舍	网络用语包	网络义	wikipedia
+女性向	网络用语包	分类词	wiktionary
+女拳	网络用语包	攻击性，先放包	wiktionary
+女频	网络用语包	分类词	wiktionary
+安倍口罩	网络用语包	专有事件词，弱	wikipedia
+小水管	网络用语包	比喻，弱	wiktionary
+小狼狗	网络用语包	称呼梗	wiktionary
+小胡子	网络用语包	绰号	wiktionary
+尾款人	网络用语包	梗	wikipedia
+尿性	网络用语包	方言词	wiktionary
+屌丝	网络用语包	梗	wikipedia
+山寨文化	网络用语包	旧梗	wikipedia
+岂可修	网络用语包	日语谐音	wiktionary
+工业党	网络用语包	是词	wikipedia
+德国骨科	网络用语包	小众梗	wiktionary
+恋爱脑	网络用语包	天天打，可从基础库候补	wiktionary
+悲报	网络用语包	是词不天天打	wiktionary
+慨督	网络用语包	方言拼写? 弱	wikipedia
+扩列	网络用语包	平台用语	wiktionary
+拉踩	网络用语包	平台用语	wiktionary
+拔草	网络用语包	平台用语	wiktionary
+拖更	网络用语包	平台用语	wiktionary
+拼音缩写	网络用语包	中性描述词	wikipedia
+搬运工	网络用语包	平台用语	wiktionary
+攻城狮	网络用语包	谐音梗	wiktionary
+斩杀线缐	网络用语包	疑为「斩杀线」误写，重取	wiktionary
+施法	网络用语包	游戏用语	wiktionary
+无敌之人	网络用语包	梗	wikipedia
+春哥	网络用语包	旧梗	wikipedia
+服美役	网络用语包	社会话题词	wikipedia
+木毛	网络用语包	小众梗	wiktionary
+果粉	网络用语包	称呼	wiktionary
+某乎	网络用语包	平台代称	wiktionary
+柠檬熟了	网络用语包	谐音梗	wiktionary
+查水表	网络用语包	梗	wiktionary
+校内体	网络用语包	旧梗	wikipedia
+步术我值	网络用语包	疑为误写，重取	wikipedia
+歪楼	网络用语包	平台用语	wiktionary
+水硕	网络用语包	社会话题词	wikipedia-list
+永恒九月	网络用语包	梗	wikipedia
+汉语盘点	网络用语包	专有活动，不收	wikipedia-list
+汲汲营营	网络用语包	成语，不是网络用语	wiktionary
+流量明星	网络用语包	中性词	wikipedia
+淘客	网络用语包	行业词	wikipedia
+港漂	网络用语包	是词	wikipedia-list
+火星人	网络用语包	旧梗	wikipedia
+炎上	网络用语包	日语借词	wiktionary
+炸鱼	网络用语包	游戏用语	wiktionary
+炼铜	网络用语包	谐音梗（涉未成年人，放包不進基础库）	wiktionary
+然并卵	网络用语包	梗	wikipedia
+爷青回	网络用语包	梗	wiktionary
+牛头人	网络用语包	梗	wiktionary
+特定亚洲	网络用语包	谐音梗	wikipedia
+玉玉症	网络用语包	调侃梗	wiktionary
+王德发	网络用语包	谐音梗	wiktionary
+瑞典人	网络用语包	谐音梗	wiktionary
+生草	网络用语包	日语借词	wiktionary
+用爱发电	网络用语包	梗	wiktionary
+田力	网络用语包	拆字梗	wiktionary
+电信诈骗	网络用语包	常用词，可从基础库候补	wiktionary
+男娘	网络用语包	称呼	wiktionary
+男性向	网络用语包	分类词	wiktionary
+男默女泪	网络用语包	梗	wiktionary
+直播贴	网络用语包	平台用语	wikipedia
+直球	网络用语包	日语借词	wiktionary
+省流	网络用语包	平台用语	wiktionary
+真卍	网络用语包	拆字梗，弱	wikipedia
+石更	网络用语包	拆字梗	wiktionary
+砖家	网络用语包	谐音梗	wikipedia
+福瑞控	网络用语包	小圈子	wiktionary
+米国	网络用语包	网络代称	wiktionary
+纸片人	网络用语包	ACG 用语	wiktionary
+纸飞机	网络用语包	网络义（Telegram）	wiktionary
+细思恐极	网络用语包	梗	wiktionary
+细颈瓶	网络用语包	梗，弱	wiktionary
+绘文字	网络用语包	旧译词，不收	wikipedia
+绷不住	网络用语包	常用口语	wiktionary
+网吧难民	网络用语包	是词	wikipedia
+网络打手	网络用语包	是词	wikipedia
+网络特工	网络用语包	是词	wikipedia
+老中	网络用语包	网络代称	wiktionary
+老盆友	网络用语包	谐音梗	wiktionary
+耗子尾汁	网络用语包	梗	wiktionary
+肿么麽	网络用语包	疑误写，重取	wiktionary
+背影杀手	网络用语包	是词	wiktionary
+胖次	网络用语包	日语借词	wiktionary
+能好怎	网络用语包	缩写梗	wikipedia
+脑抽	网络用语包	常用口语	wiktionary
+膜法师	网络用语包	谐音梗	wiktionary
+自干乾五	网络用语包	转换有问题，重取	wikipedia、wiktionary
+自肃警察	网络用语包	小众梗	wikipedia
+英雌	网络用语包	生造词，弱	wikipedia
+营销号	网络用语包	平台用语	wiktionary
+蒙古人	网络用语包	梗（游戏圈）	wiktionary
+被就业	网络用语包	旧梗	wikipedia
+西红市	网络用语包	谐音梗	wikipedia
+视歼	网络用语包	误写? 与视奸重复，重取	wiktionary
+赛高	网络用语包	日语借词	wiktionary
+起号	网络用语包	平台用语	wiktionary
+躬匠精神	网络用语包	梗	wiktionary
+转世灵童	网络用语包	宗教/政治词，不收	wiktionary
+输家男	网络用语包	是词，弱	wikipedia
+边缘人	网络用语包	是词	wikipedia、wiktionary
+迫真	网络用语包	日语借词	wiktionary
+铲屎官	网络用语包	常用称呼	wiktionary
+键盘政治	网络用语包	是词	wikipedia
+阴间滤镜	网络用语包	梗	wikipedia
+阿婆主	网络用语包	谐音梗	wiktionary
+阿巴阿巴	网络用语包	梗	wiktionary
+阿米诺斯	网络用语包	谐音梗	wiktionary
+难民现象	网络用语包	是词	wikipedia
+零元购	网络用语包	社会话题词	wikipedia
+零帧起手	网络用语包	游戏用语	wiktionary
+雷普	网络用语包	音译梗	wiktionary
+震撼网站	网络用语包	梗，弱	wikipedia
+非法献花	网络用语包	旧梗	wikipedia
+非洲人	网络用语包	游戏圈梗	wiktionary
+鞭尸	网络用语包	游戏圈梗	wiktionary
+领便当	网络用语包	ACG 用语	wikipedia、wiktionary
+风评被害	网络用语包	日语借词	wiktionary
+魔丸	网络用语包	梗	wiktionary
+魔人	网络用语包	ACG 词	wiktionary
+黑历史	网络用语包	常用词	wikipedia
+黑称	网络用语包	饭圈用语	wiktionary
+卧槽	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+口吐芬芳	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+大屌能量	网络用语（粗口）	粗口单独一包，缺省关	wikipedia
+妈卖批	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+射爆	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+手冲	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+步兵片	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+牛子	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+色图	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+草你妈	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+草泥马	网络用语（粗口）	粗口单独一包，缺省关	wikipedia
+视奸	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+雅蠛蝶	网络用语（粗口）	粗口单独一包，缺省关	wiktionary
+你国	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+你妈死了	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+台湾价值	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+塔绿班	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+大中华胶	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+大撒币	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+小粉绿	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+岛蛙	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+总加速师	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+慕洋犬	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+支语	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+殖人	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+狗粉丝	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+目田	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+精日	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+紫蛋	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+红豆兵	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wikipedia
+肏不百	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+蛤丝	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+西朝鲜	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+黄俄	待定：争议词	政治或辱骂用语；不是天天打，随包分发有风险 —— 建议不收，要收另立缺省关的包，等审	wiktionary
+三高男	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+丝打	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+丧女	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+傻眼猫咪	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+咩噗	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+回带	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+大头症	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+大酱女	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+契弟	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+巴打	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+归刚欸	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+惯老板	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+懒人包	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+拍谢	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+毒男	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+池面	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+洗版	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+派胶	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+理盲	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+硬胶文化	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+网路白目	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+花惹发	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+被塑胶	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+酱子	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+酸民	不收：台港用语	台港用语，记进待办（用户多半不打）	wikipedia
+鲁蛇	不收：台港用语	台港用语，记进待办（用户多半不打）	wiktionary
+中国教育	不收	普通短语（误入）	wikipedia
+任天堂	不收	专有厂商名（误入）	wikipedia-list
+市井词典	不收	专有产品名	wikipedia
+新乡	不收	地名（误入）	wiktionary
+丈育	网络用语包	拆字梗（文盲）	wiktionary
+上巴	网络用语包	错写梗（下巴）	wiktionary
+不明觉厉	网络用语包	四字梗，常用	wiktionary
+中二病	网络用语包	日语借词，常用	wikipedia、wiktionary
+乙烷	网络用语包	谐音梗（完了），弱	wiktionary
+二次原	网络用语包	谐音梗（二次元）	wiktionary
+亚美爹	网络用语包	日语谐音，粗俗语境但不单列	wiktionary
+仇女	网络用语包	社会态度词（有贬义）	wiktionary
+从从帮	不收	查不到出处	wiktionary
+伄戼	不收	生僻字拆字，不成词	wiktionary
+伊法治国	待定：争议词	谐音政治梗	wiktionary
+伪中国语	网络用语包	是词不天天打	wikipedia
+伪人	网络用语包	梗	wiktionary
+伸手党	网络用语包	是词不天天打	wiktionary
+何意味	网络用语包	日语借词	wiktionary
+俄爹	待定：争议词	政治绰号	wiktionary
+兲蛋	网络用语（粗口）	拆字脏话	wiktionary
+兽人控	网络用语包	ACG 小圈子	wiktionary
+兽圈	网络用语包	ACG 小圈子	wiktionary
+兽控	网络用语包	ACG 小圈子	wiktionary
+兽迷	网络用语包	ACG 小圈子	wiktionary
+冈易	网络用语包	谐音梗（网易）	wiktionary
+分裂网	不收	查不到出处	wikipedia
+口国	网络用语包	形近梗	wiktionary
+口牙	网络用语包	形近梗	wiktionary
+口球	网络用语包	形近梗（粗俗语境）	wiktionary
+口胡	网络用语包	常用口语	wiktionary
+左上角	不收	太泛，不是词	wiktionary
+批小将	待定：争议词	群体蔑称	wiktionary
+推普机	待定：争议词	政治语境	wiktionary
+露露	不收	疑人名，歧义大	wiktionary
