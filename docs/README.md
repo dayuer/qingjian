@@ -34,6 +34,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/constant-sweep.md](notes/constant-sweep.md) | 排序常数扫描（2026-09-12）：插值与敲错代价在冻结日志上扫网格，全在平台区不改；没命中的构成与复现步骤 |
 | [notes/replay-clean.md](notes/replay-clean.md) | 干净回放口径（2026-10-07）：剔除撤销、删掉重打、拼音残段上屏的规则（冻结），新旧库基线与 +10% 目标线 |
 | [notes/old-lexicon-analysis.md](notes/old-lexicon-analysis.md) | 旧库为什么在对话上强（2026-10-08）：dict / lm 交叉四格、外部集逐条归因、一元先验的语域偏移、新管线怎么补回来 |
+| [notes/statistical-lm-ceiling.md](notes/statistical-lm-ceiling.md) | 统计 LM 在 500 万二元预算下的上限（2026-10-08）：旧配方 / 剪枝 / 拆两份插值三组实验，验算规矩（verify.py、leak2.py、对照），待测的 dict 词频配套 |
 | [notes/windows-win10.md](notes/windows-win10.md) | Windows 10 与设置程序（2026-09-13）：Reactor 早期绑定 Windows 11 才有的 AppModel API 导致加载期失败，改自包含部署 + 延迟加载 |
 
 约定：文档写中文，代码标识符一律英文。实现与文档产生分歧时以代码为准，并同步更新文档。
