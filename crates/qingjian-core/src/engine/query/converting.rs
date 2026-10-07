@@ -42,17 +42,28 @@ impl Engine {
                 let position = leading_english(items);
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
-                // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分
-                let generated: Vec<Candidate> = self
-                    .generated_sentence_candidates(best, keys, !typos)
-                    .into_iter()
-                    .filter(|g| {
-                        !items
-                            .iter()
-                            .chain(sentences.iter())
-                            .any(|c| c.text == g.text)
+                // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分。
+                // 纠错把整段纠成了一个词库词（`enngli` → 能力、`kehudaun` → 客户端）时词图已经读通，不生成：
+                // 模型照着原样按键写，只会是 恩能力 / 可互断，插在最前反把纠对的词挤下去
+                let corrected_to_word = !typos && {
+                    let letters = best.joined("");
+                    items.iter().any(|c| {
+                        c.kind == CandidateKind::Chinese && c.syllables.concat() == letters
                     })
-                    .collect();
+                };
+                let generated: Vec<Candidate> = if corrected_to_word {
+                    Vec::new()
+                } else {
+                    self.generated_sentence_candidates(best, keys, !typos)
+                }
+                .into_iter()
+                .filter(|g| {
+                    !items
+                        .iter()
+                        .chain(sentences.iter())
+                        .any(|c| c.text == g.text)
+                })
+                .collect();
                 let generated_count = generated.len();
                 for (offset, candidate) in generated.into_iter().enumerate() {
                     items.insert((position + offset).min(items.len()), candidate);
@@ -213,8 +224,10 @@ impl Engine {
             |index, syllable| expanded.cost(index, syllable),
             &mut self.span_cache.borrow_mut(),
         );
+        // 静态最优路径整段就是一个词时不重排：「整段本来就是一个词」归词级排序与纠错判断（`plain_sentence` 据此不出整句），
+        // 重排把多词拆分换到第一条会绕过那道关、挤掉词级首选（`enngli` 能力 → 恩能力、`shihou` 时候 → 是后）
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的
-        if paths.len() > 1 {
+        if paths.len() > 1 && paths[0].word_count() > 1 {
             let floor = paths[0].score - self.neural_margin;
             paths.retain(|p| p.score >= floor);
             // 条件是这批路径共同解释的那段按键，不是整个作用域：英文尾巴那条只转换了 head，

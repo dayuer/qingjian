@@ -127,3 +127,64 @@ fn changed_keys_discard_the_cached_scores() {
     assert_eq!(texts(&paths), ["开饭", "开放"]);
     assert!(engine.rescoring_pending());
 }
+
+/// 假打分器：偏爱某个文本，生成时给出固定的几条。
+struct PrefersAndGenerates(&'static str, &'static [&'static str]);
+
+impl SentenceScorer for PrefersAndGenerates {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
+        texts
+            .iter()
+            .map(|t| if *t == self.0 { -1.0 } else { -20.0 })
+            .collect()
+    }
+
+    fn generate(&self, _keys: &str, _beam: usize, _max_chars: usize) -> Vec<String> {
+        self.1.iter().map(|t| (*t).to_owned()).collect()
+    }
+}
+
+/// 静态最优路径整段就是一个词时不重排：重排把多词拆分换上来，会绕过「整段是一个词就不出整句」那道关，
+/// 把词级首选挤下去（2026-10-08 回放：`shihou` 时候 → 是后、`hexin` 核心 → 和新）。
+#[test]
+fn a_single_word_reading_is_not_displaced_by_a_rescored_split() {
+    let dictionary =
+        Dictionary::parse("时候\tshi hou\t90000\n是\tshi\t90000\n后\thou\t50000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(Prefers("是后")),
+        Some(0.5),
+        Some(f64::INFINITY),
+        None,
+    );
+    engine.set_input("shihou");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "时候");
+    assert!(query.candidates.items.iter().all(|c| c.text != "是后"));
+}
+
+/// 拼写纠错把整段纠成一个词库词时词图已经读通，不让模型照着原样按键生成：
+/// `kehudaun` 纠成 客户端，生成的 可互断 插在最前会把它挤下去。
+#[test]
+fn no_generation_when_correction_lands_on_a_whole_word() {
+    let dictionary = Dictionary::parse(
+        "客户端\tke hu duan\t90000\n客户\tke hu\t80000\n可\tke\t90000\n互\thu\t100\n断\tduan\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(PrefersAndGenerates("可互断", &["可互断"])),
+        Some(0.5),
+        None,
+        None,
+    );
+    engine.set_input("kehudaun");
+    let query = engine.query().unwrap();
+    assert!(query.correction.is_some(), "这条要走拼写纠错");
+    assert_eq!(query.candidates.items[0].text, "客户端");
+    assert!(
+        query
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.kind != CandidateKind::Generated)
+    );
+}
