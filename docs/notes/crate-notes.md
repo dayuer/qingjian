@@ -388,6 +388,9 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
 - `phrases`：挖短语层（两遍扫语料：相邻两词、两段二元都够频的相邻三词，总次数与对话语料次数都 ≥ 2000 + 边界规则，读音由成分词拼出；我的 / 不知道 / 有没有 这类常用词表不收的组合，
   `assets/lexicon/phrases.tsv`；词库已并入过短语时重跑加 `--refresh`）。
 - `pack dict|lm|glossary|codes`：打 `.qj`（释义表也进容器；`codes` 是唯一带计算的一种，见下）。
+- 装机门槛：词库/语言模型的改动要过 `tools/release/gate-pass.sh`（整句评测 + 回放，容差 −0.3 个点）才会写
+  `data/generated/GATE_PASSED`；`apps/macos/scripts/bundle.sh` 与 `cloud/ios/scripts/build-bridge.sh` 没看到这个标记就
+  回退 `data/generated.shipped/`（上次发版那份），两份都没有就拒绝装机。见 `docs/plan/dictionary-layering.md` 5.2。
 - `stroke`：CNS11643 全字庫筆順（`data/cns/`，官方 Properties.zip / MapingTables.zip 解出，gitignore）+ 大陆序覆盖表
   `assets/stroke/prc-rules.tsv` → `data/generated/codes/stroke.tsv`（随包笔画表的源数据：7,991 字、127 KB，
   1 横 2 竖 3 撇 5 折 n 点捺；首笔按《通用规范汉字笔顺规范》GF 0023—2020 全对：门字头 / 戶→户 两条前缀规则 + 66 行整字覆盖，阝第二笔随规范改竖）；`--verify` 双对照——笔画数按一级字每 12 字取 1（291 字）、首笔按一级字 3,500 全量，白名单
