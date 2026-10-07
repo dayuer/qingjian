@@ -84,15 +84,6 @@ struct IdleBar: View {
         HStack(spacing: 0) {
             ScopeChip(model: model)
             Spacer(minLength: 4)
-            if model.pasteboardChanged {
-                tool("发到其他设备") { model.pushPasteboard() }
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.ink3)
-                    .frame(width: 24, height: KeyStyle.candidateBarHeight)
-                    .onKeyboardPress { model.dismissPasteboard() }
-                    .accessibilityLabel("不发送")
-            }
             if model.canNote, model.noteDraft == nil, !model.noteDone {
                 tool("记一笔") { model.startNote() }
             }

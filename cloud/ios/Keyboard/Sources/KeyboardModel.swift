@@ -27,7 +27,9 @@ final class KeyboardModel {
     private(set) var clipOffer: ClipOffer?
 
     /// 本机剪贴板自上次处理后变过（有文字）：候选栏给「发到其他设备」。
-    private(set) var pasteboardChanged = false
+    /// 本机剪贴板有没有新内容要发出去（工具栏上那颗「发到其他设备」用）。
+
+
 
     /// 焦点在验证码、密码、信用卡号这类输入框。
     private(set) var privateField = false
@@ -330,7 +332,7 @@ final class KeyboardModel {
     func appear() {
         engine?.syncNow()
         engine?.refreshClipboard()
-        checkPasteboard()
+        pushPasteboardIfChanged()
         syncScope()
         reloadRewriteSkills()
         if fullAccess, let dropped = engine?.memoryDropped() {
@@ -348,10 +350,9 @@ final class KeyboardModel {
             endComposedNote()
             dismissRewrite()
             clipOffer = nil
-            pasteboardChanged = false
             noteDraft = nil
         } else {
-            checkPasteboard()
+            pushPasteboardIfChanged()
         }
         refreshHint()
     }
@@ -369,20 +370,11 @@ final class KeyboardModel {
         clipOffer = nil
     }
 
-    /// 读本机剪贴板（可能弹系统的粘贴授权提示）发给别的设备。
-    func pushPasteboard() {
-        guard let engine, !privateField else { return }
-        if let text = sink.readPasteboard(), !text.isEmpty {
-            engine.pushClip(text)
-        }
-        markPasteboardSeen()
-    }
-
-    func dismissPasteboard() {
-        markPasteboardSeen()
-    }
-
-    private func checkPasteboard() {
+    /// 本机剪贴板有新内容就自动读出来发给别的设备（键盘开着的时候每拍都会看一眼）。
+    /// 先只比值变化计数（不弹提示），确认真变了才读内容 —— 读那一下 iOS 会弹一次
+    /// 「允许粘贴」（系统管着，用户可以只放行这一次）；读不到也记账，免得同一段反复弹。
+    /// 私密输入框（密码、验证码）里不发，也不读。
+    private func pushPasteboardIfChanged() {
         guard let engine, engine.clipboardEnabled, output != nil, !privateField else { return }
         let count = sink.pasteboardChangeCount
         // 第一次用：装键盘之前就在剪贴板里的不算新复制的
@@ -390,12 +382,11 @@ final class KeyboardModel {
             Self.seenPasteboardCount = count
             return
         }
-        pasteboardChanged = count != seen && sink.pasteboardHasText
-    }
-
-    private func markPasteboardSeen() {
-        if output != nil { Self.seenPasteboardCount = sink.pasteboardChangeCount }
-        pasteboardChanged = false
+        guard count != seen, sink.pasteboardHasText else { return }
+        Self.seenPasteboardCount = count
+        if let text = sink.readPasteboard(), !text.isEmpty {
+            engine.pushClip(text)
+        }
     }
 
     /// 上次处理过的剪贴板变化计数，存在扩展自己的 UserDefaults 里（键盘进程随时被杀）。
@@ -415,6 +406,7 @@ final class KeyboardModel {
         }
         if engine.poll() { candidates = engine.candidates }
         guardMemoryPressure()
+        pushPasteboardIfChanged()
         if !privateField {
             let offer = engine.clipOffer
             if offer != clipOffer { clipOffer = offer }
