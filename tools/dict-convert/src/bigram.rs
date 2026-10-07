@@ -504,10 +504,20 @@ pub fn convert(
         .collect();
     pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     pairs.truncate(max_bigrams);
+    // 真实行 + 合成行的**总预算就是 max_bigrams**：产品侧（iOS 键盘内存预算、与旧库同规模对比）
+    // 要的是「这份 lm.qj 到底多大」，真实行与合成行分头设限会让总量失控（见 synthesize_phrases）
+    let synth_budget = max_bigrams.saturating_sub(pairs.len());
     if !phrase_parts.is_empty() {
-        let synthesized = synthesize_phrases(&phrase_parts, &mut unigram, &bigram, min_count);
+        let synthesized = synthesize_phrases(
+            &phrase_parts,
+            &mut unigram,
+            &bigram,
+            min_count,
+            synth_budget,
+        );
         pairs.extend(synthesized);
     }
+    debug_assert!(pairs.len() <= max_bigrams.max(1));
     let bigram_path = out_dir.join("lm-bigram.tsv");
     let mut writer = BufWriter::new(File::create(&bigram_path)?);
     writeln!(
@@ -589,6 +599,7 @@ fn synthesize_phrases(
     unigram: &mut [u64],
     bigram: &HashMap<u64, u32>,
     min_count: u32,
+    max_synth_bigrams: usize,
 ) -> Vec<(u64, u32)> {
     let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
     // 按后词 / 前词索引一遍二元表，合成时按成分查前接与后接
@@ -636,6 +647,11 @@ fn synthesize_phrases(
             }
         }
     }
+    // 合成行也要有上限：每个短语会把它首尾成分的**所有**邻居都合成一遍，常用成分（的 / 了 / 是）
+    // 的邻居上百万，5838 条短语就能合成出上千万行 —— 2026-10-08 实测 1068 万行，把 500 万上限的
+    // 语言模型撑到 1568 万，产品侧（iOS 内存预算）与「和旧库同规模对比」都做不到。
+    rows.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    rows.truncate(max_synth_bigrams);
     tracing::info!(phrases = added, bigrams = rows.len(), "短语计数已合成");
     rows
 }
@@ -643,6 +659,33 @@ fn synthesize_phrases(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 合成行不能超过预算：每个短语会把它首尾成分的所有邻居都合成一遍，常用成分（的 / 了 / 是）
+    /// 的邻居上百万 —— 不限量的话 5838 条短语能合成出上千万行，把 500 万上限的模型撑到 1568 万。
+    #[test]
+    fn synthesized_phrases_respect_their_budget() {
+        let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
+        let mut bigram: HashMap<u64, u32> = HashMap::new();
+        // 短语 = [1, 2]：它前面的一万个词（prev → 1），它后面的一万个词（2 → next）
+        for prev in 100u32..10_100 {
+            bigram.insert(key(prev, 1), 10);
+        }
+        for next in 20_000u32..30_000 {
+            bigram.insert(key(2, next), 10);
+        }
+        bigram.insert(key(1, 2), 50); // 短语自身的成分对
+        let mut unigram = vec![0u64; 40_000];
+        unigram[1] = 100; // 首词总次数：合成计数 = 邻居次数 × 短语次数 / 总次数 = 10 × 50 / 100 = 5
+        unigram[2] = 100;
+        let phrases = vec![(9u32, vec![1u32, 2u32])];
+        let rows = synthesize_phrases(&phrases, &mut unigram, &bigram, 3, 100);
+        assert!(!rows.is_empty(), "预算内应该还有合成行");
+        assert!(
+            rows.len() <= 100,
+            "合成行超过预算：{} 行（上限 100）",
+            rows.len()
+        );
+    }
 
     /// 贴着数字的汉字串是日期/范围的碎片（「3月1日至10日」里的「日至」），统计时不计数；
     /// 不贴着数字的正常词照旧。2026-10-08 加：新语料下 日至 52634 次，把真词 日志 2380 次压得看不见。
