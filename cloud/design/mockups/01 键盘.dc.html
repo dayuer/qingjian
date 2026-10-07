@@ -1,425 +1,471 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /></helmet>
-      <section class="dv-turn" id="t1" data-screen-label="键盘">
-        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">输入时：键盘里的关系记忆</span></div>
-        <p class="dv-intro">假设：记忆只以一行提示出现在候选条上方，不进候选、不弹窗；对象和场景由用户在工具栏左侧的小牌子里手动切。配色只用一个灰玫瑰强调色，它只出现在「和这个人有关」的地方——对象牌子、提示行、首选候选。工作场景里它完全消失。宿主聊天界面是中性占位，不模仿任何真实应用。</p>
-        <div class="dv-opts">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /><style>@keyframes spin{to{transform:rotate(360deg)}}</style></helmet>
+<section class="dv-turn" id="t3" data-screen-label="第 3 轮 · 已实现">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">第 3 轮 · 跟上 iOS 实现：工具栏、改写、完全访问、手写一笔</span></div>
+  <p class="dv-intro">这一轮只让设计稿跟上 iOS 的实现。键盘几何照 iOS 26 自带键盘：栏高 50，键高 44.5，圆角 8.5。「场景」这个概念已经删掉：工具栏左边切人，右边切技能。浅绿只给代表某个人的元素；出错提示和没开完全访问时都用中性色。键盘上一律显示代号（这里的「阿美」），App 里显示真名「小美」。小卡片只截了键盘上半部分，看的是那一条的状态。</p>
+  <div class="dv-opts">
 
-          <div class="dv-opt" id="1a">
-            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · 打字时的记忆提示</div>
-            <div class="ios">
-              <div class="sb-ios"><span>21:42</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them">累死了，刚从驾校回来</div>
-                  <div class="bub me">辛苦啦</div>
-                </div>
-                <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="k-hint"><span class="dot"></span><span>她周三考<b>科目二</b>，今天该出成绩了</span><span class="arw sp" title="展开"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"></path></svg></span></div>
-                <div class="k-comp">
-                  <div class="k-py">kao'shi</div>
-                  <div class="k-cands"><span class="first">考试</span><span>考得怎么样</span><span>考是</span><span>拷是</span><span class="exp">∨</span></div>
-                </div>
-                <div class="krows">
-                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                </div>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">展开（↑）与收起（↓）都在最右侧同一位置。提示行由本地匹配触发（「kaoshi」命中「科目二」卡），最多一条，点右侧向上箭头进 <a class="dv-oid" href="#1b">1b</a>。提示不能上屏，只是给人看的。</p>
-          </div>
-
-          <div class="dv-opt" id="1b">
-            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 不离开聊天，在键盘里看对象卡</div>
-            <div class="ios">
-              <div class="sb-ios"><span>21:42</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them">累死了，刚从驾校回来</div>
-                  <div class="bub me">辛苦啦</div>
-                </div>
-                <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="k-bar"><div class="chip love"><span class="dot"></span>小美</div><span class="arw sp" title="收起"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
-                <div class="panel" style="height:auto;padding-bottom:4px;gap:0">
-                  <div class="fx ac gap12" style="padding:2px 2px 12px"><div class="avatar lg r">美</div><div class="fx col gap4"><span style="font:600 18px var(--serif)">小美</span><span style="font:12px var(--sans);color:var(--ink-3)">认识 214 天 · 今早学习过</span></div></div>
-                  <div class="group" style="margin:0">
-                    <div class="row"><div class="when">今天</div><div class="main"><span class="ttl">科目二出成绩</span><span class="sub">她周三考的，说倒车入库没把握</span></div></div>
-                    <div class="row"><div class="when">周六</div><div class="main"><span class="ttl">你答应陪她去看海</span><span class="sub">约定 · 9 月 28 日说的</span></div></div>
-                    <div class="row"><div class="when" style="color:var(--ink-3)">喜好</div><div class="main"><span class="ttl">不吃香菜 · 喜欢冰美式</span></div></div>
-                  </div>
-                </div>
-                <div class="fx jb ac" style="padding:10px 14px 2px;font:12px var(--sans);color:var(--ink-3)"><span>只显示与今天有关的 3 条</span><span style="color:var(--accent-ink)">全部记忆</span></div>
-                <div class="kfoot" style="height:34px"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">这是竞品里都没有的一屏：人脉工具要跳出聊天才能看，这里就在键盘区域里。高度与键盘一致，宿主界面不跳动；点「全部记忆」才打开容器 App。</p>
-          </div>
-
-          <div class="dv-opt" id="1c">
-            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>iOS · 空闲工具栏 + 今日提醒</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs"><div class="bub them">早呀</div></div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="k-hint"><span class="dot"></span><span>明天是她<b>生日</b></span><span class="more">知道了</span></div>
-                <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp" onClick="{{ toggleQuick }}" style="cursor:pointer"><span class="dot"></span>{{ who }}</span></div>
-                  <sc-if value="{{ quick }}" hint-placeholder-val="{{ false }}">
-                    <div style="display:flex;gap:6px;flex:1;min-width:0;overflow:hidden">
-                      <sc-for list="{{ others }}" as="p" hint-placeholder-count="2"><span class="chip" onClick="{{ p.pick }}" style="cursor:pointer">{{ p.name }}</span></sc-for>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ notQuick }}" hint-placeholder-val="{{ true }}">
-                    <span class="tool">记一笔</span><span class="tool">改写</span><span class="arw sp" title="收起"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
-                  </sc-if>
-                </div>
-                <div class="krows">
-                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                </div>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">切到对象时只显示一次今日提醒，点「知道了」当天不再出现。工具栏左侧牌子分两半：左边是场景，点它进 <a class="dv-oid" href="#1d">1d</a>；右边是人物，点它在工具栏里直接列出这个场景的其他人，一点就切，不用进面板（可以试点）。</p>
-          </div>
-
-          <div class="dv-opt" id="1d">
-            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>iOS · 场景与对象选择（替换键位区）</div>
-            <div class="ios">
-              <div class="sb-ios"><span>21:40</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs"><div class="bub them">累死了，刚从驾校回来</div></div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="k-bar"><div class="chip split {{ dChipCls }}"><span class="cs">{{ dScene }}</span><span class="cp"><span class="dot"></span>{{ dWho }}</span></div><span class="tool sp">完成</span></div>
-                <div class="panel">
-                  <div class="seg"><sc-for list="{{ dScenes }}" as="s" hint-placeholder-count="3"><span class="{{ s.cls }}" onClick="{{ s.pick }}" style="cursor:pointer">{{ s.name }}</span></sc-for></div>
-                  <div class="cgrid">
-                    <sc-for list="{{ dPeople }}" as="c" hint-placeholder-count="3"><div class="{{ c.cls }}" onClick="{{ c.pick }}" style="cursor:pointer"><div class="{{ c.av }}">{{ c.ch }}</div><span class="nm">{{ c.name }}</span><span class="sub">{{ c.sub }}</span></div></sc-for>
-                    <div class="cell add"><div class="avatar" style="background:transparent">+</div><span class="nm">新对象</span><span class="sub">{{ dCount }}</span></div>
-                  </div>
-                  <div class="pfoot"><span>对象只能你自己切，键盘不知道你在和谁聊</span></div>
-                </div>
-                <div class="kfoot" style="height:40px"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">面板占键位区而不是弹层，宿主界面不动。每个场景下面是各自的一组人，互不相通；切场景时，各场景记着自己上次选的人。「不指定」= 只用该场景的人设，不写任何对象分区。新建对象跳容器 App（可以试点）。</p>
-          </div>
-
-          <div class="dv-opt" id="1e">
-            <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>iOS · 记一笔：复制对方的话</div>
-            <div class="ios">
-              <div class="sb-ios"><span>21:50</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them" style="box-shadow:0 0 0 2px oklch(0.7 0.1 250)">下个月想去厦门，听说沙坡尾很好逛</div>
-                </div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="clip"><div class="q"><b>刚复制的</b>下个月想去厦门，听说沙坡尾很…</div><span class="btn ghost">忽略</span><span class="btn acc">记到小美</span></div>
-                <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp"><span class="dot"></span>小美</span></div><span class="tool">记一笔</span><span class="tool">改写</span><span class="arw sp" title="收起"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
-                <div class="krows">
-                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                </div>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">只在用户点「记一笔」或刚复制过文字时读剪贴板（iOS 会弹粘贴许可），不读聊天界面。复制的内容里得有时间、地点、喜好、计划这类可记的东西才出这条；没有就什么都不出，也不提示「未识别」。点「记到小美」进 <a class="dv-oid" href="#1e2">1e-2</a>。</p>
-          </div>
-
-          <div class="dv-opt" id="1e2">
-            <div class="dv-olabel"><a class="dv-oid" href="#1e2">1e-2</a>iOS · 记一笔：拆成草稿卡（可改）</div>
-            <div class="ios">
-              <div class="sb-ios"><span>21:50</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them">下个月想去厦门，听说沙坡尾很好逛</div>
-                </div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}">
-                  <div class="toast" onClick="{{ e2Reset }}" style="cursor:pointer"><span class="dot"></span><span style="flex:1">{{ e2Msg }}</span><span style="font-size:11.5px;color:var(--ink-3)">重来</span></div>
-                </sc-if>
-                <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp"><span class="dot"></span>小美</span></div>
-                  <sc-if value="{{ e2Editing }}" hint-placeholder-val="{{ true }}"><span style="font:13px var(--sans);color:var(--ink-3);padding-left:4px">记一笔</span></sc-if>
-                  <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}"><span class="tool">记一笔</span><span class="tool">改写</span></sc-if>
-                  <span class="arw sp" title="收起"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
-                </div>
-                <sc-if value="{{ e2Editing }}" hint-placeholder-val="{{ true }}">
-                  <div class="panel" style="height:268px;gap:10px">
-                    <div onClick="{{ e2ToggleSrc }}" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:0 2px">
-                      <span style="font:500 11px/18px var(--sans);color:var(--ink-3);flex:none">原话</span>
-                      <span style="flex:1;min-width:0;font:12.5px/18px var(--sans);color:var(--ink-2);overflow:hidden;white-space:{{ e2SrcWrap }}">下个月想去厦门，听说沙坡尾很好逛</span>
-                      <span style="font:11px/18px var(--sans);color:var(--ink-3);flex:none">{{ e2SrcLabel }}</span>
-                    </div>
-                    <div style="background:var(--key);border-radius:10px;box-shadow:0 1px 0 rgba(0,0,0,.1);display:flex;flex-direction:column">
-                      <sc-for list="{{ e2Fields }}" as="f" hint-placeholder-count="3">
-                        <div style="display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;min-height:40px;border-bottom:1px solid oklch(0.94 0 0)">
-                          <span style="font:12px var(--sans);color:var(--ink-3);width:28px;flex:none">{{ f.label }}</span>
-                          <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:6px 0">
-                            <div style="display:flex;align-items:center;gap:6px">
-                              <input value="{{ f.val }}" onChange="{{ f.onChange }}" style="flex:1;min-width:0;border:none;outline:none;background:transparent;padding:2px 0;font:14px var(--sans);color:var(--ink);border-bottom:{{ f.line }}"></input>
-                              <sc-if value="{{ f.unsure }}" hint-placeholder-val="{{ false }}"><span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--ink-3);font:600 10px/16px var(--sans);text-align:center;color:var(--ink-2);flex:none">?</span></sc-if>
-                            </div>
-                            <sc-if value="{{ f.unsure }}" hint-placeholder-val="{{ false }}"><span style="font:11px/1.4 var(--sans);color:var(--ink-3);margin-top:2px">{{ f.why }}</span></sc-if>
-                          </div>
-                          <span onClick="{{ f.remove }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);cursor:pointer;flex:none"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"></path></svg></span>
-                        </div>
-                      </sc-for>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-top:auto">
-                      <span class="btn ghost" onClick="{{ e2Skip }}" style="cursor:pointer">不记</span>
-                      <span class="btn acc" onClick="{{ e2Save }}" style="flex:1;cursor:pointer">记下 {{ e2Count }} 条</span>
-                    </div>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}">
-                  <div class="krows">
-                    <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                    <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                    <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                  </div>
-                </sc-if>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">点 <a class="dv-oid" href="#1e">1e</a> 的「记到小美」后，草稿卡占住键位区，宿主界面不动。原话留在顶部作对照，点它展开全文。每项都是原生输入框，点进去就改，× 删掉。拿不准的项（「下个月」换算成「11 月」）下面画虚线、加问号，并说明为什么拿不准。只有点「记下」才会写进记忆（可以试点、改、删）。</p>
-          </div>
-
-          <div class="dv-opt" id="1e3">
-            <div class="dv-olabel"><a class="dv-oid" href="#1e3">1e-3</a>iOS · 记一笔：和已有记忆冲突</div>
-            <div class="ios">
-              <div class="sb-ios"><span>22:05</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them">最近突然爱上香菜了，以前真不懂</div>
-                </div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}">
-                  <div class="toast" onClick="{{ e3Reset }}" style="cursor:pointer"><span class="dot"></span><span style="flex:1">{{ e3Msg }}</span><span style="font-size:11.5px;color:var(--ink-3)">重来</span></div>
-                </sc-if>
-                <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp"><span class="dot"></span>小美</span></div>
-                  <sc-if value="{{ e3Open }}" hint-placeholder-val="{{ true }}"><span style="font:13px var(--sans);color:var(--ink-3);padding-left:4px">记一笔</span></sc-if>
-                  <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}"><span class="tool">记一笔</span><span class="tool">改写</span></sc-if>
-                  <span class="arw sp" title="收起"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
-                </div>
-                <sc-if value="{{ e3Open }}" hint-placeholder-val="{{ true }}">
-                  <div class="panel" style="height:268px;gap:10px">
-                    <div style="display:flex;align-items:flex-start;gap:8px;padding:0 2px">
-                      <span style="font:500 11px/18px var(--sans);color:var(--ink-3);flex:none">原话</span>
-                      <span style="flex:1;min-width:0;font:12.5px/18px var(--sans);color:var(--ink-2)">最近突然爱上香菜了，以前真不懂</span>
-                    </div>
-                    <span style="font:500 13px var(--sans);color:var(--ink);padding:2px 2px 0">和小美的一条记忆说法不一样</span>
-                    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px">
-                      <div style="background:var(--key);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 0 rgba(0,0,0,.1)">
-                        <span style="font:11px var(--sans);color:var(--ink-3)">已有 · 9 月 2 日</span>
-                        <span style="font:14px/1.4 var(--sans);color:var(--ink-2);text-decoration:line-through">不吃香菜</span>
-                      </div>
-                      <div style="background:var(--key);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 0 0 1.5px var(--accent)">
-                        <span style="font:11px var(--sans);color:var(--accent-ink)">新的 · 今天</span>
-                        <span style="font:14px/1.4 var(--sans);color:var(--ink)">最近爱吃香菜</span>
-                      </div>
-                    </div>
-                    <span style="font:11.5px/1.5 var(--sans);color:var(--ink-3);padding:0 2px">「两条都留」会按时间排，改写时以新的为准</span>
-                    <div style="display:flex;gap:8px;margin-top:auto">
-                      <span class="btn ghost" onClick="{{ e3Skip }}" style="cursor:pointer">不记</span>
-                      <span class="btn line" onClick="{{ e3Both }}" style="flex:1;cursor:pointer">两条都留</span>
-                      <span class="btn acc" onClick="{{ e3Update }}" style="flex:1;cursor:pointer">更新为新的</span>
-                    </div>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}">
-                  <div class="krows">
-                    <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                    <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                    <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                  </div>
-                </sc-if>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">只有新内容和已有记忆冲突时才出现这一屏，不弹窗。旧的和新的并排摆着，由用户决定是更新还是两条都留，键盘不替人下结论（可以试点）。</p>
-          </div>
-
-          <div class="dv-opt" id="1f">
-            <div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>iOS · 工作场景：什么都没有</div>
-            <div class="ios">
-              <div class="sb-ios"><span>10:05</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>项目群</div>
-                <div class="host-msgs"><div class="bub them">方案今天能发吗</div></div>
-                <div class="host-input"><div class="host-field">下午<span class="caret"></span></div></div>
-              </div>
-              <div class="kbd">
-                <div class="k-comp">
-                  <div class="k-py">fa'gei'ni</div>
-                  <div class="k-cands"><span style="font-weight:500">发给你</span><span>发给</span><span>法</span><span>发</span><span class="exp">∨</span></div>
-                </div>
-                <div class="krows">
-                  <sc-for list="{{ rows }}" as="row"><div class="krow"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                  <div class="krow"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                  <div class="krow"><div class="key fn">123</div><div class="key fn">英</div><div class="key space">空格</div><div class="key ret">发送</div></div>
-                </div>
-                <div class="kfoot"></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">工作场景没有提示行、没有强调色、不叠加恋爱分区的学习。空闲时牌子只显示灰色「工作」二字，屏幕被人看到也不尴尬。</p>
-          </div>
-
-          <div class="dv-opt" id="1g">
-            <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Android · 打字时的记忆提示</div>
-            <div class="and">
-              <div class="sb-and"><span>21:42</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs">
-                  <div class="bub them">累死了，刚从驾校回来</div>
-                  <div class="bub me">辛苦啦</div>
-                </div>
-                <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
-              </div>
-              <div class="kbd and-k">
-                <div class="k-hint"><span class="dot"></span><span>她周三考<b>科目二</b>，今天该出成绩了</span><span class="arw sp" title="展开"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"></path></svg></span></div>
-                <div class="k-comp">
-                  <div class="k-py">kao'shi</div>
-                  <div class="k-cands"><span class="first">考试</span><span>考得怎么样</span><span>考是</span><span>拷是</span><span class="exp">∨</span></div>
-                </div>
-                <div class="krows" style="gap:9px">
-                  <sc-for list="{{ rows }}" as="row"><div class="krow" style="gap:5px"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
-                  <div class="krow" style="gap:5px"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
-                  <div class="krow" style="gap:5px"><div class="key fn">?123</div><div class="key fn">，</div><div class="key space">空格</div><div class="key fn">。</div><div class="key ret go" style="width:60px">发送</div></div>
-                </div>
-                <div class="kfoot" style="height:28px"></div>
-              </div>
-              <div class="gest-and"></div>
-            </div>
-            <p class="dv-note">Android 版只换系统外壳：更高的无阴影键、标点直出、发送键用强调色。提示行与候选结构与 iOS 完全一致，两端共用 Core 的帧。</p>
-          </div>
-
-          <div class="dv-opt" id="1h">
-            <div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Android · 场景与对象选择</div>
-            <div class="and">
-              <div class="sb-and"><span>21:40</span><span class="sb-dots"><i></i></span></div>
-              <div class="host">
-                <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
-                <div class="host-msgs"><div class="bub them">累死了，刚从驾校回来</div></div>
-                <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
-              </div>
-              <div class="kbd and-k">
-                <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp"><span class="dot"></span>小美</span></div><span class="tool sp">完成</span></div>
-                <div class="panel" style="height:262px">
-                  <div class="seg" style="border-radius:18px"><span style="border-radius:16px">日常</span><span class="on" style="border-radius:16px">恋爱</span><span style="border-radius:16px">工作</span></div>
-                  <div class="cgrid">
-                    <div class="cell on"><div class="avatar r">美</div><span class="nm">小美</span><span class="sub">今天</span></div>
-                    <div class="cell"><div class="avatar">林</div><span class="nm">阿林</span><span class="sub">3 天前</span></div>
-                    <div class="cell"><div class="avatar">不</div><span class="nm">不指定</span><span class="sub">只用场景</span></div>
-                    <div class="cell add"><div class="avatar" style="background:transparent">+</div><span class="nm">新对象</span><span class="sub">2 / 8</span></div>
-                  </div>
-                  <div class="pfoot"><span>对象只能你自己切，键盘不知道你在和谁聊</span></div>
-                </div>
-                <div class="kfoot" style="height:28px"></div>
-              </div>
-              <div class="gest-and"></div>
-            </div>
-          </div>
-
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a><span class="ntag">第 3 轮 · 已实现</span>工具栏：左边切人、右边切技能</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs"><div class="bub them">早呀</div></div>
+          <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
         </div>
-        <p class="dv-next">可以接着说：「提示行改成只在候选条右侧留一个小点」·「<a class="dv-oid" href="#1b">1b</a> 做成半屏可上拉」·「对象牌子更隐蔽一些」</p>
-      </section>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{}'>
-      class Component extends DCLogic {
-        state = { quick: false, who: '小美', dScene: '恋爱', dPick: { '日常': '妈妈', '恋爱': '小美', '工作': '不指定' } };
-        people = {
-          '日常': [['妈', '妈妈', '今天'], ['周', '老周', '昨天'], ['小', '小杨', '上周']],
-          '恋爱': [['美', '小美', '今天'], ['林', '阿林', '3 天前']],
-          '工作': [['陈', '陈经理', '今天'], ['设', '设计组', '2 天前']]
-        };
-        e2Init = () => [
-          { id: 1, label: '计划', val: '去厦门' },
-          { id: 2, label: '时间', val: '11 月', unsure: true, why: '「下个月」按今天（10 月）算的' },
-          { id: 3, label: '地点', val: '沙坡尾' }
-        ];
-        renderVals() {
-          const { quick, who, dScene, dPick } = this.state;
-          const e2 = this.state.e2 || this.e2Init();
-          const e2Done = !!this.state.e2Msg, e3Done = !!this.state.e3Msg;
-          const setE2 = fn => this.setState(s => ({ e2: fn(s.e2 || this.e2Init()) }));
-          const e2Vals = {
-            e2Done, e2Editing: !e2Done, e2Msg: this.state.e2Msg || '',
-            e2Count: e2.length,
-            e2SrcWrap: this.state.e2Src ? 'normal' : 'nowrap',
-            e2SrcLabel: this.state.e2Src ? '收起' : '展开',
-            e2ToggleSrc: () => this.setState(s => ({ e2Src: !s.e2Src })),
-            e2Fields: e2.map(f => ({ ...f, line: f.unsure ? '1px dashed var(--ink-3)' : '1px solid transparent',
-              onChange: e => { const v = e.target.value; setE2(l => l.map(x => x.id === f.id ? { ...x, val: v, unsure: false } : x)); },
-              remove: () => setE2(l => l.filter(x => x.id !== f.id)) })),
-            e2Save: () => this.setState({ e2Msg: e2.length ? '记下了 ' + e2.length + ' 条，明早学进去' : '没有可记的' }),
-            e2Skip: () => this.setState({ e2Msg: '没记，剪贴板里的这段不会再提示' }),
-            e2Reset: () => this.setState({ e2Msg: null, e2: null, e2Src: false }),
-            e3Done, e3Open: !e3Done, e3Msg: this.state.e3Msg || '',
-            e3OldDeco: 'line-through',
-            e3Update: () => this.setState({ e3Msg: '已更新：最近爱吃香菜' }),
-            e3Both: () => this.setState({ e3Msg: '两条都留了，按时间排' }),
-            e3Skip: () => this.setState({ e3Msg: '没记' }),
-            e3Reset: () => this.setState({ e3Msg: null })
-          };
-          const list = [...this.people[dScene], ['不', '不指定', '只用场景']];
-          const dWho = dPick[dScene];
-          return {
-            ...e2Vals,
-            dScene, dWho,
-            dChipCls: dScene === '工作' ? '' : 'love',
-            dCount: (list.length - 1) + ' / 8',
-            dScenes: ['日常', '恋爱', '工作'].map(name => ({ name, cls: name === dScene ? 'on' : '', pick: () => this.setState({ dScene: name }) })),
-            dPeople: list.map(([ch, name, sub]) => ({ ch, name, sub, cls: name === dWho ? 'cell on' : 'cell', av: name === dWho ? 'avatar r' : 'avatar', pick: () => this.setState(s => ({ dPick: { ...s.dPick, [dScene]: name } })) })),
-            quick, notQuick: !quick, who,
-            toggleQuick: () => this.setState(s => ({ quick: !s.quick })),
-            others: ['小美', '阿林', '不指定'].filter(n => n !== who).map(name => ({ name, pick: () => this.setState({ who: name, quick: false }) })),
-            rows: [{ k: ['q','w','e','r','t','y','u','i','o','p'] }, { k: ['a','s','d','f','g','h','j','k','l'] }],
-            r3: ['z','x','c','v','b','n','m']
-          };
-        }
-      }
-    </script>
-  </body>
+        <div class="kbd">
+          <div class="k-bar">
+            <sc-if value="{{ tbIdle }}" hint-placeholder-val="{{ true }}">
+              <div class="chip love" onClick="{{ openPeople }}" style="cursor:pointer"><span class="dot"></span>{{ who }}</div>
+              <span class="tool">记一笔</span>
+              <span class="tool" onClick="{{ openSkills }}" style="cursor:pointer">{{ skill }}</span>
+              <span class="arw sp" title="收起键盘"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
+            </sc-if>
+            <sc-if value="{{ tbPeople }}" hint-placeholder-val="{{ false }}">
+              <div class="chip love" onClick="{{ closeBar }}" style="cursor:pointer"><span class="dot"></span>{{ who }}</div>
+              <div style="display:flex;gap:6px;flex:1;min-width:0;overflow:hidden">
+                <sc-for list="{{ others }}" as="p" hint-placeholder-count="4"><span class="kpill" onClick="{{ p.pick }}" style="cursor:pointer;color:var(--ink)">{{ p.name }}</span></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ tbSkills }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:6px;flex:1;min-width:0;overflow:hidden">
+                <sc-for list="{{ skills }}" as="s" hint-placeholder-count="3"><span class="{{ s.cls }}" onClick="{{ s.pick }}" style="cursor:pointer">{{ s.name }}</span></sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div class="krows"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow r2"><sc-for list="{{ r2 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow"><div class="key fn sh">⇧</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn bk">⌫</div></div><div class="krow"><div class="key fn">123</div><div class="key fn">😀</div><div class="key space">空格<span class="py">拼</span></div><div class="key fn ret"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v5a2 2 0 0 1-2 2H5"></path><path d="M8 8.5L4.5 12 8 15.5"></path></svg></div></div></div>
+          <div class="kfoot"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">① 默认状态，可以点着试：牌子是一整个胶囊，不再拆成两半，没选人时写「不指定」。点牌子，右边横排列出最多 6 个其他人，置顶的人在前，其余按最近使用排，最后一个是「不指定」，点一个就切换并收起。点技能按钮（文字就是当前技能名），整条换成技能胶囊，点一个就立刻用它改写。最右边的向下箭头是收起键盘。</p>
+    </div>
+
+    <div class="dv-opt" id="3a-s">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a-s">3a</a><span class="ntag">第 3 轮 · 已实现</span>工具栏的另外三个状态</div>
+      <div class="frag">
+        <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><div style="display:flex;gap:6px;flex:1;min-width:0;overflow:hidden"><span class="kpill" style="color:var(--ink)">阿林</span><span class="kpill" style="color:var(--ink)">妈妈</span><span class="kpill" style="color:var(--ink)">老周</span><span class="kpill" style="color:var(--ink)">小杨</span><span class="kpill" style="color:var(--ink)">陈经理</span><span class="kpill" style="color:var(--ink)">不指定</span></div></div>
+      </div>
+      <span class="frag-cap">② 点了牌子：牌子留在左边，右边是白底的人名胶囊（13pt）</span>
+      <div class="frag">
+        <div class="k-bar"><div style="display:flex;gap:6px;flex:1;min-width:0;overflow:hidden"><span class="kpill">用默认</span><span class="kpill on">润色</span><span class="kpill">高情商</span></div></div>
+      </div>
+      <span class="frag-cap">③ 点了技能按钮：选中的那个是黑字，加 1.5pt 浅绿描边</span>
+      <div class="frag">
+        <div class="k-hint"><span class="dot"></span><span>明天是她的<b>生日</b></span><span style="margin-left:auto;padding-right:9px;font-size:11.5px;color:var(--ink-3)">知道了</span></div>
+        <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><span class="tool">记一笔</span><span class="tool">润色</span><span class="arw sp"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
+      </div>
+      <span class="frag-cap">④ 今日提醒：右侧是「知道了」，不是箭头</span>
+    </div>
+
+    <div class="dv-opt" id="3b">
+      <div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a><span class="ntag">第 3 轮 · 已实现</span>改写结果条（占工具栏那一条）</div>
+      <div class="frag">
+        <div class="host-input"><div class="host-field">今天考得怎么样啊<span class="caret"></span></div></div>
+        <div class="k-bar"><span style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);border-top-color:var(--ink-2);flex:none;animation:spin .8s linear infinite"></span><span style="font:13px var(--sys);color:var(--ink-2)">改写中…</span></div>
+      </div>
+      <span class="frag-cap">改写中</span>
+      <div class="frag">
+        <div class="host-input"><div class="host-field">今天考得怎么样啊<span class="caret"></span></div></div>
+        <div class="k-bar" style="gap:8px"><span style="font:12px var(--sys);color:var(--ink-2);flex:none">润色</span><span style="flex:1;min-width:0;font:17px var(--sys);color:var(--ink);white-space:nowrap;overflow:hidden">…考得怎么样？我猜一定过了</span><span class="kpill" style="padding:0 10px">用默认</span><span class="kpill" style="padding:0 10px">高情商</span><span class="arw" style="color:var(--ink-3)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"></path></svg></span></div>
+      </div>
+      <span class="frag-cap">出结果：点那句话就替换原文，没有单独的确认按钮；点别的技能会用它重改，✕ 是放弃</span>
+      <div class="frag">
+        <div class="host-input"><div class="host-field">今天考得怎么样啊<span class="caret"></span></div></div>
+        <div class="k-bar" style="gap:8px"><span style="flex:1;min-width:0;font:13px var(--sys);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">改写没成功，检查网络后再试</span><span class="kpill" style="padding:0 10px">润色</span><span class="kpill" style="padding:0 10px">高情商</span><span class="arw" style="color:var(--ink-3)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"></path></svg></span></div>
+      </div>
+      <span class="frag-cap">失败：也可能是「没改好，换一个试试」</span>
+      <p class="dv-note">改写范围：有选中的文字就改选中的；没选中就改光标所在的这一句，往回找到上一个句号、问号、叹号、分号或换行为止。句子太长时截掉开头，保留靠近光标的结尾。</p>
+    </div>
+
+    <div class="dv-opt" id="3c">
+      <div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a><span class="ntag">第 3 轮 · 已实现</span>没开完全访问</div>
+      <div class="frag">
+        <div class="k-bar" onClick="{{ c3Toggle }}" style="cursor:pointer;gap:8px"><span style="flex:1;min-width:0;font:12.5px/1.4 var(--sys);color:var(--ink-2)">改写和记忆都要开完全访问。开了也不会上传你没让它上传的内容。</span><span class="arw"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
+        <sc-if value="{{ c3Open }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)">
+            <span style="flex:1;min-width:0;font:12.5px/1.5 var(--sys);color:var(--ink-2)">{{ c3Text }}</span>
+            <sc-if value="{{ c3NotGo }}" hint-placeholder-val="{{ true }}"><span class="btn line" onClick="{{ c3Go }}" style="cursor:pointer;height:30px">去开启</span></sc-if>
+          </div>
+        </sc-if>
+      </div>
+      <span class="frag-cap">收起状态：没有圆点、没有底色，「记一笔」和技能按钮都不显示（点这条可以展开）</span>
+      <div class="frag">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)">
+          <span style="flex:1;min-width:0;font:12.5px/1.5 var(--sys);color:var(--ink-2)">开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上</span>
+          <span class="btn line" style="height:30px">去开启</span>
+        </div>
+      </div>
+      <span class="frag-cap">展开后：整条说明 + 线框胶囊「去开启」</span>
+      <div class="frag">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)">
+          <span style="flex:1;min-width:0;font:12.5px/1.5 var(--sys);color:var(--ink-2)">设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问</span>
+        </div>
+      </div>
+      <span class="frag-cap">点了「去开启」：键盘跳不到设置，只能告诉用户路径</span>
+    </div>
+
+    <div class="dv-opt" id="3d">
+      <div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a><span class="ntag">第 3 轮 · 已实现</span>手写一笔</div>
+      <div class="frag">
+        <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+        <sc-if value="{{ d3Done }}" hint-placeholder-val="{{ false }}">
+          <div class="ktoast" onClick="{{ d3Reset }}" style="cursor:pointer"><span class="dot"></span><span style="flex:1">记下了 1 条，明早整理</span><span style="font-size:11.5px;color:var(--ink-3)">重来</span></div>
+        </sc-if>
+        <sc-if value="{{ d3Editing }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:8px;height:44px;box-sizing:border-box;padding:0 6px 0 12px;background:var(--accent-soft);border-bottom:1px solid #D2E8D5">
+            <input value="{{ d3Text }}" onChange="{{ d3Change }}" placeholder="记一件关于阿美的事" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font:14px var(--sys);color:var(--ink)"></input>
+            <span onClick="{{ d3Reset }}" style="cursor:pointer;font:13px var(--sys);color:var(--ink-2);padding:0 4px">取消</span>
+            <span class="btn acc" onClick="{{ d3Save }}" style="cursor:pointer;height:30px;opacity:{{ d3Op }}">记到阿美</span>
+          </div>
+        </sc-if>
+        <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div></div>
+        <div class="krows" style="padding-bottom:10px"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div></div>
+      </div>
+      <p class="dv-note">没复制东西时点「记一笔」，提示行变成输入条，工具栏只剩牌子。「记到阿美」在没写字时是 40% 透明的。可以试着打字再点。</p>
+    </div>
+
+    <div class="dv-opt" id="3e">
+      <div class="dv-olabel"><a class="dv-oid" href="#3e">3e</a><span class="ntag">第 3 轮 · 已实现</span>别的设备刚复制的</div>
+      <div class="frag">
+        <div class="k-bar" style="gap:8px"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--ink-3)" stroke-width="1.4" stroke-linejoin="round"><rect x="4" y="3.5" width="10" height="12" rx="2"></rect><path d="M7 3.5V2.5h4v1"></path></svg><span style="font:13px var(--sys);color:var(--ink-3);flex:none">MacBook</span><span style="flex:1;min-width:0;font:17px var(--sys);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">周六下午三点，地铁站 B 口见</span><span class="arw" style="color:var(--ink-3)"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"></path></svg></span></div>
+        <div class="krows" style="padding-bottom:10px"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div></div>
+      </div>
+      <p class="dv-note">点那段文字就插入到光标处，✕ 是不要。本机复制的内容会自动发到别的设备，键盘上没有对应按钮。</p>
+    </div>
+
+    <div class="dv-opt" id="3f">
+      <div class="dv-olabel"><a class="dv-oid" href="#3f">3f</a><span class="ntag">第 3 轮 · 已实现</span>隐私输入（密码框里）</div>
+      <div class="frag">
+        <div class="host-input"><div class="host-field" style="letter-spacing:3px">••••••<span class="caret"></span></div></div>
+        <div class="k-bar" style="justify-content:center;gap:6px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="var(--ink-3)" stroke-width="1.4"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5"></rect><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6"></path></svg><span style="font:13px var(--sys);color:var(--ink-3)">隐私输入：不学习、不上传</span></div>
+        <div class="krows" style="padding-bottom:10px"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="dv-turn" id="t1" data-screen-label="键盘">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">输入时：键盘里的关系记忆</span></div>
+  <p class="dv-intro">记忆只以一行提示出现在候选条上方，不进候选、不弹窗。对象由用户在工具栏左侧的牌子里手动切。浅绿只出现在和这个人有关的地方：牌子、提示行、头像、关于这个人的提醒、「记到某人」按钮、首选候选。</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · 打字时的记忆提示（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>21:42</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs">
+            <div class="bub them">累死了，刚从驾校回来</div>
+            <div class="bub me">辛苦啦</div>
+          </div>
+          <div class="host-input"><div class="host-field">今天<span class="mk">kao'shi</span><span class="caret"></span></div></div>
+        </div>
+        <div class="kbd">
+          <div class="k-hint"><span class="dot"></span><span>她周三考<b>科目二</b>，今天该出成绩了</span><span class="arw" title="展开"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"></path></svg></span></div>
+          <div class="cands"><div class="cl"><span class="cand first p">考试</span><span class="cand">考得怎么样</span><span class="cand">考是</span><span class="cand">拷是</span><span class="cand">靠</span></div><span class="cexp"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></span></div>
+          <div class="krows"><div class="krow"><div class="key">q</div><div class="key">w</div><div class="key">e</div><div class="key">r</div><div class="key">t</div><div class="key">y</div><div class="key">u</div><div class="key pressed" data-k="i">i</div><div class="key">o</div><div class="key">p</div></div><div class="krow r2"><sc-for list="{{ r2 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow"><div class="key fn sh">⇧</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn bk">⌫</div></div><div class="krow"><div class="key fn">123</div><div class="key fn">😀</div><div class="key space">空格<span class="py">拼</span></div><div class="key fn ret"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v5a2 2 0 0 1-2 2H5"></path><path d="M8 8.5L4.5 12 8 15.5"></path></svg></div></div></div>
+          <div class="kfoot"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">拼音不另起一行，以带下划线的未上屏文字写在宿主输入框里。首选候选带一块灰底，选了人时首选字是浅绿深字。候选条右端的 ⌄ 点开后，候选铺满键区。提示行由本地匹配触发（「kaoshi」命中「科目二」卡），最多一条，点右侧向上箭头进 <a class="dv-oid" href="#1b">1b</a>。</p>
+    </div>
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 键盘里看对象卡（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>21:42</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs">
+            <div class="bub them">累死了，刚从驾校回来</div>
+            <div class="bub me">辛苦啦</div>
+          </div>
+          <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
+        </div>
+        <div class="kbd">
+          <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><span class="arw sp" title="收起对象卡"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
+          <div style="display:flex;flex-direction:column;padding:12px 12px 0">
+            <div style="display:flex;align-items:center;gap:12px;padding:0 2px 12px"><div class="avatar lg r" style="font-family:var(--serif)">阿</div><div style="display:flex;flex-direction:column;gap:4px"><span style="font:600 18px var(--serif)">阿美</span><span style="font:12px var(--sys);color:var(--ink-3)">认识 214 天</span></div></div>
+            <div style="background:#fff;border-radius:14px;display:flex;flex-direction:column">
+              <div style="display:flex;gap:10px;padding:11px 14px 11px 8px;border-bottom:1px solid oklch(0.94 0 0)"><span style="width:44px;flex:none;text-align:center;font:600 13px/20px var(--serif);color:var(--accent-ink)">今天</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:15px/20px var(--sys)">科目二出成绩</span><span style="font:11.5px var(--sys);color:var(--ink-3)">科目二 · 考试 · 驾校</span></div></div>
+              <div style="display:flex;gap:10px;padding:11px 14px 11px 8px;border-bottom:1px solid oklch(0.94 0 0)"><span style="width:44px;flex:none;text-align:center;font:600 13px/20px var(--serif);color:var(--accent-ink)">周六</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:15px/20px var(--sys)">你答应陪她去看海</span><span style="font:11.5px var(--sys);color:var(--ink-3)">看海 · 周末</span></div></div>
+              <div style="display:flex;gap:10px;padding:11px 14px 11px 8px"><span style="width:44px;flex:none;text-align:center;font:600 13px/20px var(--serif);color:var(--ink-3)">喜好</span><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:15px/20px var(--sys)">不吃香菜，喜欢冰美式</span><span style="font:11.5px var(--sys);color:var(--ink-3)">香菜 · 咖啡</span></div></div>
+            </div>
+          </div>
+          <div onClick="{{ b1Tap }}" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 14px 2px;font:12px var(--sys);color:var(--ink-3)">
+            <sc-if value="{{ b1Normal }}" hint-placeholder-val="{{ true }}"><span>只显示与今天有关的 3 条</span><span style="color:var(--accent-ink)">全部记忆</span></sc-if>
+            <sc-if value="{{ b1Path }}" hint-placeholder-val="{{ false }}"><span style="color:var(--ink-2)">打开素笺 App → 记住的</span></sc-if>
+          </div>
+          <div class="kfoot" style="height:34px"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">名字显示代号，没设代号才用真名。卡片最多 3 条：左列有日子就写「今天 / 明天 / 周X / M.dd」，没日子就写种类。键盘不能跳到 App，所以点页脚只会把文字换成 2 秒的路径提示（可以试点）。工具栏只剩牌子和收起箭头。</p>
+    </div>
+
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>iOS · 记一笔：复制对方的话（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>21:50</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs">
+            <div class="bub them" style="box-shadow:0 0 0 2px oklch(0.7 0.1 250)">下个月想去厦门，听说沙坡尾很好逛</div>
+          </div>
+          <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+        </div>
+        <div class="kbd">
+          <div style="height:49px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;border-bottom:1px solid var(--line)">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font:11px var(--sys);color:var(--ink-3)">刚复制的</span><span style="font:13px var(--sys);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">下个月想去厦门，听说沙坡尾很好逛</span></div>
+            <span class="btn ghost" style="padding:0 8px">忽略</span><span class="btn acc">记到阿美</span>
+          </div>
+          <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><span class="tool">记一笔</span><span class="tool">润色</span><span class="arw sp"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span></div>
+          <div class="krows"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow r2"><sc-for list="{{ r2 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow"><div class="key fn sh">⇧</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn bk">⌫</div></div><div class="krow"><div class="key fn">123</div><div class="key fn">😀</div><div class="key space">空格<span class="py">拼</span></div><div class="key fn ret"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5v5a2 2 0 0 1-2 2H5"></path><path d="M8 8.5L4.5 12 8 15.5"></path></svg></div></div></div>
+          <div class="kfoot"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <div class="frag"><div class="ktoast"><span class="dot"></span>记下了 2 条，明早整理</div><div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><span class="tool">记一笔</span><span class="tool">润色</span></div></div>
+      <span class="frag-cap">存好后的 toast；没开云服务时写「记下了 2 条，开通素笺云后整理」</span>
+      <div class="frag"><div class="ktoast"><span class="dot ink"></span>这个人还有 200 条没整理，先去 App 里看看</div><div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div><span class="tool">记一笔</span><span class="tool">润色</span></div></div>
+      <span class="frag-cap">失败的 toast（灰点）</span>
+      <p class="dv-note">确认条高 49，取代提示行。复制了多段时写「刚复制的 · 3 条」。「记到」后面紧跟代号，中间不加空格。只有复制的内容里真有时间、地点、喜好或计划才出这条，验证码、链接都不出。点「记到阿美」进 <a class="dv-oid" href="#1e2">1e-2</a>。</p>
+    </div>
+
+    <div class="dv-opt" id="1e2">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e2">1e-2</a>iOS · 记一笔：拆成草稿卡（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>21:50</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs"><div class="bub them">下个月想去厦门，听说沙坡尾很好逛</div></div>
+          <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+        </div>
+        <div class="kbd">
+          <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}">
+            <div class="ktoast" onClick="{{ e2Reset }}" style="cursor:pointer"><span class="dot"></span><span style="flex:1">{{ e2Msg }}</span><span style="font-size:11.5px;color:var(--ink-3)">重来</span></div>
+          </sc-if>
+          <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div>
+            <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}"><span class="tool">记一笔</span><span class="tool">润色</span></sc-if>
+            <span class="arw sp"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
+          </div>
+          <sc-if value="{{ e2Editing }}" hint-placeholder-val="{{ true }}">
+            <div class="panel" style="height:262px;gap:10px">
+              <div onClick="{{ e2ToggleSrc }}" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:0 2px">
+                <span style="font:11px/18px var(--sys);color:var(--ink-3);flex:none">原话</span>
+                <span style="flex:1;min-width:0;font:12.5px/18px var(--sys);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:{{ e2SrcWrap }}">下个月想去厦门，听说沙坡尾很好逛</span>
+                <span style="font:11px/18px var(--sys);color:var(--ink-3);flex:none">{{ e2SrcLabel }}</span>
+              </div>
+              <div style="background:#fff;border-radius:10px;display:flex;flex-direction:column">
+                <sc-for list="{{ e2Fields }}" as="f" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;min-height:40px;border-bottom:1px solid oklch(0.94 0 0)">
+                    <span style="font:12px var(--sys);color:var(--ink-3);width:28px;flex:none">{{ f.label }}</span>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:6px 0">
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <sc-if value="{{ f.unsure }}" hint-placeholder-val="{{ false }}"><span style="width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--ink-2);font:600 10px/16px var(--sys);text-align:center;color:var(--ink-2);flex:none">?</span></sc-if>
+                        <input value="{{ f.val }}" onChange="{{ f.onChange }}" style="flex:1;min-width:0;border:none;outline:none;background:transparent;padding:2px 0;font:14px var(--sys);color:var(--ink);border-bottom:{{ f.line }}"></input>
+                      </div>
+                      <sc-if value="{{ f.unsure }}" hint-placeholder-val="{{ false }}"><span style="font:11px/1.4 var(--sys);color:var(--ink-2);margin-top:2px">{{ f.why }}</span></sc-if>
+                    </div>
+                    <span onClick="{{ f.remove }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);cursor:pointer;flex:none"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"></path></svg></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:auto">
+                <span class="btn ghost" onClick="{{ e2Skip }}" style="cursor:pointer">不记</span>
+                <span class="btn acc" onClick="{{ e2Save }}" style="flex:1;cursor:pointer">记下 {{ e2Count }} 条</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ e2Done }}" hint-placeholder-val="{{ false }}">
+            <div class="krows"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow r2"><sc-for list="{{ r2 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow"><div class="key fn sh">⇧</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn bk">⌫</div></div></div>
+          </sc-if>
+          <div class="kfoot"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">键盘总高不变：提示行收起，把高度让给草稿卡。拿不准的字段前面有一个圈「?」，文字下面画虚线，下方写明理由，全部用中性灰，不用黄色。每项都能直接改，× 删掉（可以试点、改、删）。</p>
+    </div>
+
+    <div class="dv-opt" id="1e3">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e3">1e-3</a>iOS · 记一笔：和已有记忆冲突（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>22:05</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs"><div class="bub them">最近突然爱上香菜了，以前真不懂</div></div>
+          <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+        </div>
+        <div class="kbd">
+          <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}">
+            <div class="ktoast" onClick="{{ e3Reset }}" style="cursor:pointer"><span class="dot"></span><span style="flex:1">{{ e3Msg }}</span><span style="font-size:11.5px;color:var(--ink-3)">重来</span></div>
+          </sc-if>
+          <div class="k-bar"><div class="chip love"><span class="dot"></span>阿美</div>
+            <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}"><span class="tool">记一笔</span><span class="tool">润色</span></sc-if>
+            <span class="arw sp"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l4 4 4-4"></path></svg></span>
+          </div>
+          <sc-if value="{{ e3Open }}" hint-placeholder-val="{{ true }}">
+            <div class="panel" style="height:262px;gap:10px">
+              <div style="display:flex;align-items:flex-start;gap:8px;padding:0 2px">
+                <span style="font:11px/18px var(--sys);color:var(--ink-3);flex:none">原话</span>
+                <span style="flex:1;min-width:0;font:12.5px/18px var(--sys);color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">最近突然爱上香菜了，以前真不懂</span>
+              </div>
+              <span style="font:500 13px var(--sys);color:var(--ink);padding:2px 2px 0">和阿美的一条记忆说法不一样</span>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px">
+                <div style="background:#fff;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px">
+                  <span style="font:11px var(--sys);color:var(--ink-3)">已有 · 9 月 2 日</span>
+                  <span style="font:14px/1.4 var(--sys);color:var(--ink-2);text-decoration:line-through">不吃香菜</span>
+                </div>
+                <div style="background:#fff;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 0 0 1.5px var(--accent)">
+                  <span style="font:11px var(--sys);color:var(--accent-ink)">新的 · 今天</span>
+                  <span style="font:14px/1.4 var(--sys);color:var(--ink)">最近爱吃香菜</span>
+                </div>
+              </div>
+              <span style="font:11.5px/1.5 var(--sys);color:var(--ink-3);padding:0 2px">「两条都留」会按时间排，改写时以新的为准</span>
+              <div style="display:flex;gap:8px;margin-top:auto">
+                <span class="btn ghost" onClick="{{ e3Skip }}" style="cursor:pointer">不记</span>
+                <span class="btn line" onClick="{{ e3Both }}" style="flex:1;cursor:pointer">两条都留</span>
+                <span class="btn acc" onClick="{{ e3Update }}" style="flex:1;cursor:pointer">更新为新的</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ e3Done }}" hint-placeholder-val="{{ false }}">
+            <div class="krows"><div class="krow"><sc-for list="{{ r1 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow r2"><sc-for list="{{ r2 }}" as="k"><div class="key">{{ k }}</div></sc-for></div><div class="krow"><div class="key fn sh">⇧</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn bk">⌫</div></div></div>
+          </sc-if>
+          <div class="kfoot"></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">同样收起提示行。「原话」最多显示两行，标题里的人名用代号。旧的和新的并排摆，由用户决定（可以试点）。</p>
+    </div>
+
+    <div class="dv-opt" id="1g">
+      <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Android · 打字时的记忆提示</div>
+      <div class="and">
+        <div class="sb-and"><span>21:42</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs">
+            <div class="bub them">累死了，刚从驾校回来</div>
+            <div class="bub me">辛苦啦</div>
+          </div>
+          <div class="host-input"><div class="host-field">今天<span class="caret"></span></div></div>
+        </div>
+        <div class="kbd and-k">
+          <div class="k-hint"><span class="dot"></span><span>她周三考<b>科目二</b>，今天该出成绩了</span><span class="arw sp" title="展开"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l4-4 4 4"></path></svg></span></div>
+          <div class="k-comp">
+            <div class="k-py">kao'shi</div>
+            <div class="k-cands"><span class="first">考试</span><span>考得怎么样</span><span>考是</span><span>拷是</span><span class="exp">∨</span></div>
+          </div>
+          <div class="krows" style="gap:9px">
+            <sc-for list="{{ rows }}" as="row"><div class="krow" style="gap:5px"><sc-for list="{{ row.k }}" as="k"><div class="key">{{ k }}</div></sc-for></div></sc-for>
+            <div class="krow" style="gap:5px"><div class="key fn">分词</div><sc-for list="{{ r3 }}" as="k"><div class="key">{{ k }}</div></sc-for><div class="key fn">⌫</div></div>
+            <div class="krow" style="gap:5px"><div class="key fn">?123</div><div class="key fn">，</div><div class="key space">空格</div><div class="key fn">。</div><div class="key ret go" style="width:60px">发送</div></div>
+          </div>
+          <div class="kfoot" style="height:28px"></div>
+        </div>
+        <div class="gest-and"></div>
+      </div>
+      <p class="dv-note">Android 版只换系统外壳：更高的无阴影键、标点直出、发送键用强调色。提示行与候选结构与 iOS 完全一致，两端共用 Core 的帧。</p>
+    </div>
+
+    <div class="dv-opt" id="1h">
+      <div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>Android · 场景与对象选择</div>
+      <div class="and">
+        <div class="sb-and"><span>21:40</span><span class="sb-dots"><i></i></span></div>
+        <div class="host">
+          <div class="host-hd"><span class="host-tag">宿主应用</span>小美</div>
+          <div class="host-msgs"><div class="bub them">累死了，刚从驾校回来</div></div>
+          <div class="host-input"><div class="host-field"><span class="caret"></span></div></div>
+        </div>
+        <div class="kbd and-k">
+          <div class="k-bar"><div class="chip love split"><span class="cs">恋爱</span><span class="cp"><span class="dot"></span>小美</span></div><span class="tool sp">完成</span></div>
+          <div class="panel" style="height:262px">
+            <div class="seg" style="border-radius:18px"><span style="border-radius:16px">日常</span><span class="on" style="border-radius:16px">恋爱</span><span style="border-radius:16px">工作</span></div>
+            <div class="cgrid">
+              <div class="cell on"><div class="avatar r">美</div><span class="nm">小美</span><span class="sub">今天</span></div>
+              <div class="cell"><div class="avatar">林</div><span class="nm">阿林</span><span class="sub">3 天前</span></div>
+              <div class="cell"><div class="avatar">不</div><span class="nm">不指定</span><span class="sub">只用场景</span></div>
+              <div class="cell add"><div class="avatar" style="background:transparent">+</div><span class="nm">新对象</span><span class="sub">2 / 8</span></div>
+            </div>
+            <div class="pfoot"><span>对象只能你自己切，键盘不知道你在和谁聊</span></div>
+          </div>
+          <div class="kfoot" style="height:28px"></div>
+        </div>
+        <div class="gest-and"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tb: 'idle', who: '阿美', skill: '润色', b1: false, c3Open: false, c3Go: false, d3: '', d3Done: false };
+  e2Init = () => [
+    { id: 1, label: '计划', val: '去厦门' },
+    { id: 2, label: '时间', val: '11 月', unsure: true, why: '「下个月」按今天（10 月）算的' },
+    { id: 3, label: '地点', val: '沙坡尾' }
+  ];
+  componentWillUnmount() { clearTimeout(this.t); }
+  renderVals() {
+    const s = this.state;
+    const e2 = s.e2 || this.e2Init();
+    const setE2 = fn => this.setState(st => ({ e2: fn(st.e2 || this.e2Init()) }));
+    const all = ['阿美', '阿林', '妈妈', '老周', '小杨', '陈经理'];
+    const others = [...all.filter(n => n !== s.who).slice(0, 6), ...(s.who === '不指定' ? [] : ['不指定'])];
+    return {
+      tbIdle: s.tb === 'idle', tbPeople: s.tb === 'people', tbSkills: s.tb === 'skills',
+      who: s.who, skill: s.skill,
+      openPeople: () => this.setState({ tb: 'people' }),
+      openSkills: () => this.setState({ tb: 'skills' }),
+      closeBar: () => this.setState({ tb: 'idle' }),
+      others: others.map(name => ({ name, pick: () => this.setState({ who: name, tb: 'idle' }) })),
+      skills: ['用默认', '润色', '高情商'].map(name => ({ name, cls: name === s.skill ? 'kpill on' : 'kpill', pick: () => this.setState({ skill: name, tb: 'idle' }) })),
+      b1Normal: !s.b1, b1Path: s.b1,
+      b1Tap: () => { clearTimeout(this.t); this.setState({ b1: true }); this.t = setTimeout(() => this.setState({ b1: false }), 2000); },
+      c3Open: s.c3Open, c3NotGo: !s.c3Go,
+      c3Text: s.c3Go ? '设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问' : '开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上',
+      c3Toggle: () => this.setState(st => ({ c3Open: !st.c3Open, c3Go: false })),
+      c3Go: () => this.setState({ c3Go: true }),
+      d3Text: s.d3, d3Done: s.d3Done, d3Editing: !s.d3Done, d3Op: s.d3.trim() ? 1 : 0.4,
+      d3Change: e => this.setState({ d3: e.target.value }),
+      d3Save: () => { if (s.d3.trim()) this.setState({ d3Done: true }); },
+      d3Reset: () => this.setState({ d3: '', d3Done: false }),
+      e2Done: !!s.e2Msg, e2Editing: !s.e2Msg, e2Msg: s.e2Msg || '', e2Count: e2.length,
+      e2SrcWrap: s.e2Src ? 'normal' : 'nowrap', e2SrcLabel: s.e2Src ? '收起' : '展开',
+      e2ToggleSrc: () => this.setState(st => ({ e2Src: !st.e2Src })),
+      e2Fields: e2.map(f => ({ ...f, line: f.unsure ? '1px dashed var(--ink-3)' : '1px solid transparent',
+        onChange: e => { const v = e.target.value; setE2(l => l.map(x => x.id === f.id ? { ...x, val: v, unsure: false } : x)); },
+        remove: () => setE2(l => l.filter(x => x.id !== f.id)) })),
+      e2Save: () => this.setState({ e2Msg: e2.length ? '记下了 ' + e2.length + ' 条，明早整理' : '没有可记的' }),
+      e2Skip: () => this.setState({ e2Msg: '没记，这段不会再提示' }),
+      e2Reset: () => this.setState({ e2Msg: null, e2: null, e2Src: false }),
+      e3Done: !!s.e3Msg, e3Open: !s.e3Msg, e3Msg: s.e3Msg || '',
+      e3Update: () => this.setState({ e3Msg: '已更新：最近爱吃香菜' }),
+      e3Both: () => this.setState({ e3Msg: '两条都留了，按时间排' }),
+      e3Skip: () => this.setState({ e3Msg: '没记' }),
+      e3Reset: () => this.setState({ e3Msg: null }),
+      r1: ['q','w','e','r','t','y','u','i','o','p'],
+      r2: ['a','s','d','f','g','h','j','k','l'],
+      r3: ['z','x','c','v','b','n','m'],
+      rows: [{ k: ['q','w','e','r','t','y','u','i','o','p'] }, { k: ['a','s','d','f','g','h','j','k','l'] }]
+    };
+  }
+}
+</script>
+</body>
 </html>

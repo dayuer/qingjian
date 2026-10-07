@@ -1,323 +1,447 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./support.js"></script>
-  </head>
-  <body>
-    <x-dc>
-      <helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /></helmet>
-      <section class="dv-turn" id="t2" data-screen-label="首页改为记录中台">
-        <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">首页改为记录中台：日历 · 事件 · 功勋路</span></div>
-        <p class="dv-intro">首页「记得」不再列人，而是回答「接下来要记着什么」：顶部 7 天日历，中间是选中那天的事件，下面是功勋路。「本周」并进首页：日历下方加一张本周回顾卡。人挪到「通讯录」，按字母排序。底部导航只剩三项：记得 · 通讯录 · 我，所有页面统一，三栏等宽，用线性图标。</p>
-        <div class="dv-opts">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas" /><link rel="stylesheet" href="./theme.css" /></helmet>
+<section class="dv-turn" id="t3" data-screen-label="第 3 轮 · 已实现">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">第 3 轮 · 已实现：记一条、补上、加一个人</span></div>
+  <p class="dv-intro">这三屏是 iOS 实现里有、设计稿里原来没有的。记的时候不问是谁，之后在首页点「补上」再归给某个人。App 里一律显示真名，键盘上显示代号。</p>
+  <div class="dv-opts">
 
-          <div class="dv-opt" id="2a">
-            <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>iOS · 首页：记得（日历可点）</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 6px;flex:none"><span style="font:600 30px/1.2 var(--serif);letter-spacing:.5px">记得</span><span style="height:28px;padding:0 12px 0 10px;border-radius:14px;background:var(--accent);display:flex;align-items:center;gap:4px;font:500 13px var(--sans);color:var(--ink)"><span style="font:17px/1 var(--sans)">+</span>记一条</span></div>
-                <div style="display:flex;align-items:center;gap:8px;padding:0 20px 2px;font:12.5px var(--sans);color:var(--ink-3);flex:none"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:11px;background:#fff;box-shadow:0 0 0 1px var(--line);color:var(--ink-2)"><span class="dot"></span>记录中 · 恋爱</span><span>10 月 · 第 40 周 · 今天 04:12 整理过</span></div>
-                <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:6px 14px 0;flex:none">
-                  <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
-                    <div onClick="{{ d.pick }}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 0 8px;border-radius:12px;background:{{ d.bg }}">
-                      <span style="font:11px var(--sans);color:var(--ink-3)">{{ d.wk }}</span>
-                      <span style="font:600 17px var(--serif);color:var(--ink)">{{ d.n }}</span>
-                      <span style="width:5px;height:5px;border-radius:50%;background:{{ d.dot }}"></span>
-                    </div>
-                  </sc-for>
-                </div>
-                <div class="scroll" style="gap:12px;padding-top:14px">
-                  <div class="sec-t">{{ dayTitle }}</div>
-                  <div class="group">
-                    <sc-for list="{{ events }}" as="e" hint-placeholder-count="2">
-                      <div class="row"><div class="avatar {{ e.av }}">{{ e.ch }}</div><div class="main"><span class="ttl">{{ e.t }}</span><span class="sub">{{ e.s }}</span></div><span class="{{ e.tagCls }}">{{ e.tag }}</span></div>
-                    </sc-for>
-                    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
-                      <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">这天没有要记着的</span></div></div>
-                    </sc-if>
-                  </div>
-                  <div class="sec-t" style="display:flex;justify-content:space-between;padding-right:20px"><span>本周 · 9.28 – 10.4</span><span style="font-weight:400">周日晚回顾</span></div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">这周记住了小美 5 件事</span><span class="sub">还有 2 条待确认，一张一张过，约 1 分钟</span></div><span class="btn acc" style="height:30px;padding:0 12px">去确认</span></div>
-                  </div>
-                  <div class="sec-t" style="display:flex;justify-content:space-between;padding-right:20px"><span>功勋路 · 小美</span><span style="font-weight:400">认识 214 天</span></div>
-                  <div style="margin:0 16px;background:#fff;border-radius:14px;box-shadow:0 0 0 1px oklch(0.92 0 0);padding:16px 14px 14px;position:relative">
-                    <div style="position:absolute;left:28px;right:28px;top:23px;height:1px;background:var(--line)"></div>
-                    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;position:relative">
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识</span><span style="font:11px var(--sans);color:var(--ink-3)">3.4</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">记满 10 张</span><span style="font:11px var(--sans);color:var(--ink-3)">4.2</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 100 天</span><span style="font:11px var(--sans);color:var(--ink-3)">6.12</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 200 天</span><span style="font:11px var(--sans);color:var(--ink-3)">9.20</span></div>
-                      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)"></span><span style="font:500 12px var(--sans);color:var(--accent-ink)">记满 50 张</span><span style="font:11px var(--sans);color:var(--ink-3)">还差 4 张</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tabbar"><div class="tab on"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">日历只显示 7 天（今天起），有事的日子下面有小点，点哪天下面就换成哪天的事件（可以试点）。「+ 记一条」用来手写一张卡。功勋路只用两种节点，点亮规则如下：一是认识天数，满 100、200 天和一周年各亮一次；二是确认过的卡片数，满 10、50、100、200 张各亮一次。不做连续打卡，断了也不扣，避免让人有负担。黑点是已经亮的，浅绿点是最近的下一站，左右滑可以换人。「记录中 · 恋爱」放在标题下方。「还没归到人的」作为当天事件出现。工作场景的事件不会出现在这里。</p>
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a><span class="ntag">第 3 轮 · 已实现</span>记一条（首页「+ 记一条」弹出）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div class="nav"><span style="color:var(--ink-2)">取消</span><span class="t">记一条</span><span style="color:var(--accent-ink);font-weight:500">记下</span></div>
+          <div style="padding:8px 16px 0;display:flex;flex-direction:column;gap:10px">
+            <div class="field" style="min-height:220px;color:var(--ink)">周五晚上订了两个人的位子，七点半<span class="caret" style="vertical-align:middle"></span></div>
+            <span style="font:12.5px/1.6 var(--sans);color:var(--ink-3);padding:0 4px">先记下就好，之后在首页用「补上」归给某个人。</span>
           </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">记的时候不问是谁，记下后会作为「还没归到人的」出现在首页当天的事件里。</p>
+    </div>
 
-          <div class="dv-opt" id="2b">
-            <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>iOS · 通讯录：人与场景</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 6px;flex:none"><span style="font:600 30px/1.2 var(--serif);letter-spacing:.5px">通讯录</span><span title="加一个人" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font:24px/1 var(--sans);color:var(--ink)">+</span></div>
-                <div style="margin:6px 16px 0;height:36px;border-radius:10px;background:var(--paper-2);display:flex;align-items:center;padding:0 12px;font:14px var(--sans);color:var(--ink-3);flex:none">搜索 7 个人</div>
-                <div style="flex:1;min-height:0;display:flex;position:relative">
-                  <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-top:8px">
-                    <sc-for list="{{ contacts }}" as="g" hint-placeholder-count="5">
-                      <div style="font:600 13px/24px var(--sans);color:var(--ink-3);margin:0 24px 0 20px;padding-top:4px;border-bottom:0.5px solid var(--line)">{{ g.k }}</div>
-                      <sc-for list="{{ g.people }}" as="p" hint-placeholder-count="1">
-                        <div style="display:flex;align-items:center;padding:0 24px 0 20px">
-                          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:44px;border-bottom:0.5px solid var(--line)">
-                            <span style="font:17px var(--sans);color:var(--ink)">{{ p.name }}</span>
-                            <span style="font:13px var(--sans);color:var(--ink-3)">{{ p.scene }}</span>
-                            <span style="margin-left:auto;font:13px var(--sans);color:var(--accent-ink)">{{ p.note }}</span>
-                          </div>
-                        </div>
+    <div class="dv-opt" id="3b">
+      <div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a><span class="ntag">第 3 轮 · 已实现</span>记到谁那儿？（点「补上」）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div style="display:flex;align-items:center;padding:14px 20px 6px;flex:none"><span style="font:600 30px/1.2 var(--sans)">记得</span></div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet" style="top:400px;gap:6px">
+          <div class="grab"></div>
+          <div class="fx jb ac" style="display:flex;justify-content:space-between;align-items:center"><span style="width:40px"></span><span style="font:600 16px var(--sans)">记到谁那儿？</span><span style="color:var(--ink-2);font:15px var(--sans);width:40px;text-align:right">取消</span></div>
+          <span style="font:13px/1.5 var(--sans);color:var(--ink-3);text-align:center;padding-bottom:6px">周五晚上订了两个人的位子，七点半</span>
+          <div class="group" style="margin:0">
+            <sc-for list="{{ pickPeople }}" as="p" hint-placeholder-count="4">
+              <div class="row" onClick="{{ p.pick }}" style="cursor:pointer;padding:9px 14px"><div class="avatar">{{ p.ch }}</div><div class="main"><span class="ttl">{{ p.name }}</span></div><span style="color:var(--accent-ink);font:15px var(--sans)">{{ p.mark }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <div style="width:390px;box-sizing:border-box;background:var(--paper);border-radius:18px;box-shadow:0 0 0 1px rgba(0,0,0,.08);padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center">
+        <span style="font:600 15px var(--sans)">记到谁那儿？</span>
+        <span style="font:13.5px/1.6 var(--sans);color:var(--ink-3)">还没有记下任何人。先去通讯录加一个人，再回来归这张卡。</span>
+      </div>
+      <span class="frag-cap">空态</span>
+      <p class="dv-note">半屏弹层，点一个人就归进去（可以试点）。</p>
+    </div>
+
+    <div class="dv-opt" id="3c">
+      <div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a><span class="ntag">第 3 轮 · 已实现</span>加一个人（通讯录「+」和引导第 4 步共用）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>20:05</span><span class="sb-dots"><i></i></span></div>
+        <div class="app" style="position:relative">
+          <div class="nav"><span style="color:var(--ink-2)">取消</span><span></span></div>
+          <div style="padding:0 24px;display:flex;flex-direction:column">
+            <span style="font:600 26px var(--sans);margin-top:8px">想记得谁？</span>
+            <div class="lbl" style="margin-top:22px">名字或代号</div>
+            <input value="{{ nName }}" onChange="{{ nChange }}" placeholder="比如：小美" class="field" style="margin-top:8px;border:none;outline:none;font:16px/1.5 var(--sans);color:var(--ink)"></input>
+            <span style="font:12.5px/1.6 var(--sans);color:var(--ink-3);margin-top:8px">只保存在这台手机上。</span>
+            <div class="lbl" style="margin-top:20px">提示里怎么称呼</div>
+            <div style="margin-top:8px;display:flex;background:rgba(118,118,128,.12);border-radius:9px;padding:2px"><sc-for list="{{ nProns }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.pick }}" style="cursor:pointer;flex:1;text-align:center;font:13px/30px var(--sans);border-radius:7px;color:#000;font-weight:{{ o.fw }};background:{{ o.bg }};box-shadow:{{ o.sh }}">{{ o.name }}</div></sc-for></div>
+            <div class="lbl" style="margin-top:22px">先写几件你已经知道的事（可以跳过）</div>
+            <div class="group" style="margin:8px 0 0">
+              <div class="row"><div class="main"><span class="ttl">生日</span></div><span class="side">填一下</span></div>
+              <div class="row"><div class="main"><span class="ttl">喜欢</span></div><span class="side">填一下</span></div>
+              <div class="row"><div class="main"><span class="ttl">不喜欢</span></div><span class="side">填一下</span></div>
+              <div class="row"><div class="main"><span class="ttl" style="color:var(--accent-ink)">+ 再写一条</span></div></div>
+            </div>
+          </div>
+          <div style="position:absolute;left:24px;right:24px;bottom:46px;display:flex"><span class="btn lg acc" style="flex:1;display:flex;opacity:{{ nOp }}">好了</span></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">称呼缺省是 TA。没填名字时「好了」是 35% 透明的（可以试着输入）。</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="dv-turn" id="t2" data-screen-label="首页改为记录中台">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">首页「记得」与通讯录</span></div>
+  <p class="dv-intro">首页「记得」回答「接下来要记着什么」：标题、周次和 7 天日历钉在顶上，下面滚动显示当天事件、本周和功勋路。人在「通讯录」里，按字母排序。底部导航是 iOS 26 的浮动玻璃胶囊，只有三项：记得 · 通讯录 · 我。</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>iOS · 首页：记得（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 4px;flex:none"><span style="font:600 30px/1.2 var(--sans)">记得</span><span style="height:28px;padding:0 12px 0 10px;border-radius:14px;background:var(--accent);display:flex;align-items:center;gap:4px;font:500 13px var(--sans);color:var(--ink)"><span style="font:17px/1 var(--sans)">+</span>记一条</span></div>
+          <div style="padding:0 20px 2px;font:12.5px var(--sans);color:var(--ink-3);flex:none">10 月 · 第 41 周</div>
+          <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:6px 14px 8px;flex:none;border-bottom:1px solid oklch(0.94 0 0)">
+            <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+              <div onClick="{{ d.pick }}" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 0 8px;border-radius:12px;background:{{ d.bg }}">
+                <span style="font:11px var(--sans);color:var(--ink-3)">{{ d.wk }}</span>
+                <span style="font:600 17px var(--sans);color:var(--ink)">{{ d.n }}</span>
+                <span style="width:5px;height:5px;border-radius:50%;background:{{ d.dot }}"></span>
+              </div>
+            </sc-for>
+          </div>
+          <div class="scroll" style="gap:12px;padding-top:14px">
+            <div class="sec-t">{{ dayTitle }}</div>
+            <div class="group">
+              <sc-for list="{{ events }}" as="e" hint-placeholder-count="2">
+                <div class="row"><div class="{{ e.avCls }}">{{ e.ch }}</div><div class="main"><span class="ttl">{{ e.t }}</span><span class="sub">{{ e.s }}</span></div><span class="{{ e.tagCls }}">{{ e.tag }}</span></div>
+              </sc-for>
+              <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+                <div class="row"><div class="main"><span class="ttl" style="color:var(--ink-3)">这天没有要记着的</span></div></div>
+              </sc-if>
+            </div>
+            <div class="sec-t" style="display:flex;justify-content:space-between;padding-right:20px"><span>本周 · 10.5 – 10.11</span><span style="font-weight:400">周日晚回顾</span></div>
+            <div class="group">
+              <div class="row" style="padding:10px 14px"><div class="main"><span class="ttl">妈妈复查</span></div><span class="side">今天</span></div>
+              <div class="row" style="padding:10px 14px"><div class="main"><span class="ttl">小美生日</span></div><span class="side">明天</span></div>
+              <div class="row" style="padding:10px 14px"><div class="main"><span class="ttl">答应陪小美去看海</span></div><span class="side">3 天后 · 10-11</span></div>
+            </div>
+            <div class="sec-t" style="display:flex;justify-content:space-between;padding-right:20px"><span>功勋路 · 小美</span><span style="font-weight:400">认识 218 天</span></div>
+            <div style="margin:0 16px;background:#fff;border-radius:14px;box-shadow:0 0 0 1px oklch(0.92 0 0);padding:16px 14px 14px;position:relative">
+              <div style="position:absolute;left:28px;right:28px;top:23px;height:1px;background:var(--line)"></div>
+              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;position:relative">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识</span><span style="font:11px var(--sans);color:var(--ink-3)">3.4</span></div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">记满 10 张</span><span style="font:11px var(--sans);color:var(--ink-3)">4.2</span></div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 100 天</span><span style="font:11px var(--sans);color:var(--ink-3)">6.12</span></div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--ink)"></span><span style="font:500 12px var(--sans)">认识 200 天</span><span style="font:11px var(--sans);color:var(--ink-3)">9.20</span></div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center"><span style="width:14px;height:14px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)"></span><span style="font:500 12px var(--sans);color:var(--accent-ink)">记满 50 张</span><span style="font:11px var(--sans);color:var(--ink-3)">还差 4 张</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tab on"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">「还没归到人的」头像位置是灰圈里一个「?」，右侧「补上」进 <a class="dv-oid" href="#3b">3b</a>。事件右侧的种类标签是线框胶囊。功勋路的节点包括：认识，认识 100 / 200 / 365 天，记满 10 / 50 / 100 / 200 张。下一站是浅绿点加光晕。只显示键盘最近选的那一个人，先不做左右滑。「记录中」和「整理过」的状态还没做，这里留空。日历可以点。</p>
+    </div>
+
+    <div class="dv-opt" id="2b">
+      <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>iOS · 通讯录（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 6px;flex:none"><span style="font:600 30px/1.2 var(--sans)">通讯录</span><span title="加一个人" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font:24px/1 var(--sans);color:var(--ink)">+</span></div>
+          <div style="margin:6px 16px 0;height:36px;border-radius:10px;background:var(--paper-2);display:flex;align-items:center;gap:6px;padding:0 6px 0 12px;flex:none">
+            <input value="{{ q }}" onChange="{{ qChange }}" placeholder="搜索 7 个人" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font:15px var(--sans);color:var(--ink)"></input>
+            <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><span onClick="{{ qClear }}" style="cursor:pointer;width:18px;height:18px;border-radius:50%;background:#c4c4c7;color:#fff;display:flex;align-items:center;justify-content:center;font:600 11px var(--sans)">✕</span></sc-if>
+          </div>
+          <div style="flex:1;min-height:0;display:flex;position:relative">
+            <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-top:8px">
+              <sc-for list="{{ contacts }}" as="g" hint-placeholder-count="5">
+                <div style="font:600 13px/24px var(--sans);color:var(--ink-3);margin:0 24px 0 20px;padding-top:4px;border-bottom:0.5px solid var(--line)">{{ g.k }}</div>
+                <sc-for list="{{ g.people }}" as="p" hint-placeholder-count="1">
+                  <div onClick="{{ p.toggle }}" style="cursor:pointer;display:flex;align-items:center;padding:0 24px 0 20px">
+                    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:44px;border-bottom:0.5px solid var(--line)">
+                      <span style="font:17px var(--sans);color:var(--ink)">{{ p.name }}</span>
+                      <span style="margin-left:auto;font:13px var(--sans);color:var(--accent-ink)">{{ p.note }}</span>
+                    </div>
+                  </div>
+                  <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="background:var(--paper-2);padding:6px 24px 4px 20px;display:flex;flex-direction:column">
+                      <sc-for list="{{ p.cards }}" as="c" hint-placeholder-count="3">
+                        <div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:0.5px solid var(--line)"><span style="font:15px/1.4 var(--sans);color:var(--ink)">{{ c.t }}</span><span style="font:11px var(--sans);color:var(--ink-3)">{{ c.k }}</span></div>
                       </sc-for>
-                    </sc-for>
-                  </div>
-                  <div style="position:absolute;right:3px;top:12px;display:flex;flex-direction:column;font:600 11px/15px var(--sans);color:var(--ink-2);text-align:center"><span>A</span><span>C</span><span>L</span><span>M</span><span>S</span><span>X</span><span style="color:var(--ink-3)">#</span></div>
-                </div>
-                <div class="tabbar"><div class="tab"><i class="i-cal"></i>记得</div><div class="tab on"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
-              </div>
-              <div class="home-ind"></div>
+                      <span style="font:14px/40px var(--sans);color:var(--accent-ink)">全部 {{ p.total }} 条记忆 ›</span>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </sc-for>
             </div>
-            <p class="dv-note">参照系统通讯录：不用卡片，用通栏列表，行与行之间是细分隔线，字母做小节标题，右侧有字母索引。名字后面用灰字标场景，有事的人在行尾用浅绿字提示。右上角「+」加一个人。首字母由输入法的拼音引擎算，App 不自己算。场景设置挪到「我」里。点人进 <a class="dv-oid" href="#1b">1b</a>。</p>
+            <div style="position:absolute;right:3px;top:12px;display:flex;flex-direction:column;font:600 11px/15px var(--sans);color:var(--ink-2);text-align:center"><span>A</span><span>C</span><span>L</span><span>M</span><span>X</span><span style="color:var(--ink-3)">#</span></div>
           </div>
-
-          <div class="dv-opt" id="2c">
-            <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>iOS · 我（免费版）</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:20</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 6px;flex:none"><span style="font:600 30px/1.2 var(--serif);letter-spacing:.5px">我</span></div>
-                <div class="scroll" style="gap:12px;padding-top:8px">
-                  <div class="group" style="box-shadow:none;background:var(--paper-2)">
-                    <div class="row" style="align-items:flex-start"><div class="main"><span class="ttl" style="font-weight:500">懒得自己写？</span><span class="sub" style="line-height:1.6">开通素笺云服务后，键盘会在你选的场景里自己记、每天整理，你只用每周确认一下。</span><span style="font:500 13px var(--sans);color:var(--accent-ink);margin-top:6px">了解一下</span></div></div>
-                  </div>
-                  <div class="sec-t">场景</div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">恋爱</span><span class="sub">人设温和 · 2 个应用</span></div><span class="chev">›</span></div>
-                    <div class="row"><div class="main"><span class="ttl">日常</span><span class="sub">只用基础输入</span></div><span class="chev">›</span></div>
-                    <div class="row"><div class="main"><span class="ttl">工作</span><span class="sub">不提示、不叠加 · 4 个应用</span></div><span class="chev">›</span></div>
-                    <div class="row"><div class="main"><span class="ttl">哪些应用里自动切到哪个场景</span></div><span class="chev">›</span></div>
-                  </div>
-                  <div class="sec-t">数据</div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">导出记忆卡</span><span class="sub">都是你写的 · 只存在这台手机上</span></div><span class="chev">›</span></div>
-                  </div>
-                </div>
-                <div class="tabbar"><div class="tab"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab on"><i class="i-me"></i>我</div></div>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">「懒得自己写？」从首页挪到「我」，只在免费版显示。场景固定为恋爱、日常、工作三个，不提供添加。云服务版的「我」见 05 的 2j。</p>
-          </div>
-
+          <div class="tabbar"><div class="tab"><i class="i-cal"></i>记得</div><div class="tab on"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
         </div>
-        <p class="dv-next">可以接着说：「功勋路改成竖向时间线」·「日历改成月视图」·「去掉本周，只留三个标签」</p>
-      </section>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">名字后面不再写场景。右上角「+」直接建人，进 <a class="dv-oid" href="#3c">3c</a>。点一行，下面就地展开这个人最近 3 张卡，同一时间只展开一行。搜索框有字时右侧出现清空按钮。可以试着点和搜。</p>
+    </div>
 
-      <section class="dv-turn" id="t1" data-screen-label="记忆卡管理">
-        <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">容器 App：对象与记忆卡</span></div>
-        <p class="dv-intro">假设：容器 App 只有三个标签——对象、本周、我。记忆卡按「日子 / 约定 / 喜好 / 近况」分组，不按时间流；云端抽出来、还没确认的卡带「待确认」并排在最前。对象名字只存在本机，页面里说清楚这一点。标题用衬线体，像一本私人的本子。</p>
-        <div class="dv-opts">
+    </div>
+</section>
 
-          <div class="dv-opt" id="1a">
-            <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>iOS · 首页：对象</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:15</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div class="nav"><span></span><span style="color:var(--accent-ink)">编辑</span></div>
-                <div class="big-t">记得</div>
-                <div class="scroll">
-                  <div class="group" style="background:var(--accent-soft);box-shadow:none">
-                    <div class="row"><div class="when">明天</div><div class="main"><span class="ttl">小美生日</span><span class="sub">去年送的是香水，她说太浓了</span></div></div>
-                  </div>
-                  <div class="sec-t">恋爱 · 2 / 8</div>
-                  <div class="group">
-                    <div class="row"><div class="avatar r">美</div><div class="main"><span class="ttl">小美</span><span class="sub">46 条记忆 · 2 条待确认</span></div><span class="pill r">2</span><span class="chev">›</span></div>
-                    <div class="row"><div class="avatar">林</div><div class="main"><span class="ttl">阿林</span><span class="sub">12 条记忆</span></div><span class="chev">›</span></div>
-                    <div class="row" style="color:var(--accent-ink)"><div class="avatar" style="background:transparent;box-shadow:inset 0 0 0 1px var(--line)">+</div><div class="main"><span class="ttl" style="color:var(--accent-ink)">新对象</span></div></div>
-                  </div>
-                  <div class="sec-t">场景</div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">恋爱</span><span class="sub">人设：温和 · 在 2 个应用里自动切到</span></div><span class="chev">›</span></div>
-                    <div class="row"><div class="main"><span class="ttl">工作</span><span class="sub">不提示、不叠加、不上传 · 4 个应用</span></div><span class="chev">›</span></div>
-                    <div class="row"><div class="main"><span class="ttl">日常</span><span class="sub">只用基础输入</span></div><span class="chev">›</span></div>
-                  </div>
-                  <div class="sec-t" style="font-weight:400">今天 04:12 学完并同步 · 记忆加密存在本机</div>
-                </div>
-                <div class="tabbar"><div class="tab on"><i class="i-cal"></i>记得</div><div class="tab"><i class="i-book"></i>通讯录</div><div class="tab"><i class="i-me"></i>我</div></div>
-              </div>
-              <div class="home-ind"></div>
+<section class="dv-turn" id="t1" data-screen-label="记忆卡管理">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">容器 App：对象与记忆卡</span></div>
+  <p class="dv-intro">记忆卡按「日子 / 约定 / 喜好 / 近况」分组，不按时间流排。记下但还没整理的原话放在「待整理」里，用中性色。名字只存在本机，页面里写清楚这一点。App 里所有文字都用 MiSans。</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 对象详情（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div class="nav"><span class="back">‹ 通讯录</span><span style="color:var(--accent-ink)">设置</span></div>
+          <div style="display:flex;align-items:center;gap:14px;padding:2px 20px 6px;flex:none"><div class="avatar lg r">美</div><div style="display:flex;flex-direction:column;gap:4px"><span style="font:600 26px var(--sans)">小美</span><span style="font:12.5px var(--sans);color:var(--ink-3)">认识 218 天 · 46 条记忆</span></div></div>
+          <div class="scroll" style="gap:12px;padding-bottom:40px">
+            <div class="sec-t">日子与约定</div>
+            <div class="group">
+              <div class="row"><div style="width:48px;flex:none;text-align:center;display:flex;flex-direction:column;gap:2px"><span style="font:600 13px var(--sans);font-variant-numeric:tabular-nums;color:var(--accent-ink)">10.09</span><span style="font:10.5px var(--sans);color:var(--ink-3)">明天</span></div><div class="main"><span class="ttl">生日</span><span class="sub">不喜欢太浓的香水</span></div></div>
+              <div class="row"><div style="width:48px;flex:none;text-align:center;display:flex;flex-direction:column;gap:2px"><span style="font:600 13px var(--sans);font-variant-numeric:tabular-nums;color:var(--accent-ink)">10.11</span><span style="font:10.5px var(--sans);color:var(--ink-3)">3 天后</span></div><div class="main"><span class="ttl">答应陪她去看海</span><span class="sub">约定 · 9 月 28 日说的</span></div></div>
+              <div class="row"><div style="width:48px;flex:none;text-align:center;display:flex;flex-direction:column;gap:2px"><span style="font:600 13px var(--sans);font-variant-numeric:tabular-nums;color:var(--accent-ink)">10.06</span><span style="font:10.5px var(--sans);color:var(--ink-3)">2 天前</span></div><div class="main"><span class="ttl">科目二出成绩</span><span class="sub">过了</span></div></div>
             </div>
-            <p class="dv-note">场景也放在首页：工作场景「不提示、不叠加、不上传」直接写在副标题里，用户一眼就放心。</p>
-          </div>
-
-          <div class="dv-opt" id="1b">
-            <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>iOS · 对象详情：记忆卡</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div class="nav"><span class="back">‹ 记得</span><span style="color:var(--accent-ink)">设置</span></div>
-                <div class="fx ac gap14" style="padding:2px 20px 4px"><div class="avatar lg r">美</div><div class="fx col gap4"><span style="font:600 26px var(--serif)">小美</span><span style="font:12.5px var(--sans);color:var(--ink-3)">认识 214 天 · 46 条记忆</span></div></div>
-                <div class="scroll" style="gap:14px">
-                  <div class="sec-t" style="color:var(--accent-ink)">待确认 · 昨晚学到的</div>
-                  <div class="group">
-                    <div class="mem pending"><span class="tx">下个月想去厦门，想逛沙坡尾</span><div class="meta"><span>来自你记的一笔</span><span class="btn ghost" style="height:24px;padding:0 6px;margin-left:auto">不对</span><span class="btn acc" style="height:26px;padding:0 12px">记住</span></div></div>
-                    <div class="mem pending"><span class="tx">在学车，倒车入库不太稳</span><div class="meta"><span>来自聊天</span><span class="btn ghost" style="height:24px;padding:0 6px;margin-left:auto">不对</span><span class="btn acc" style="height:26px;padding:0 12px">记住</span></div></div>
-                  </div>
-                  <div class="sec-t">日子</div>
-                  <div class="group">
-                    <div class="row"><div class="when">10.05<small>明天</small></div><div class="main"><span class="ttl">生日</span><span class="sub">不喜欢太浓的香水</span></div></div>
-                    <div class="row"><div class="when">10.10<small>周六</small></div><div class="main"><span class="ttl">答应陪她去看海</span><span class="sub">约定 · 9 月 28 日</span></div></div>
-                  </div>
-                  <div class="sec-t">喜好</div>
-                  <div class="group">
-                    <div class="mem"><span class="tx">不吃香菜，喜欢冰美式</span></div>
-                    <div class="mem"><span class="tx">养了一只猫，叫团子</span><div class="meta"><span>覆盖了「喜欢猫」</span></div></div>
+            <div class="sec-t">喜好</div>
+            <div class="group">
+              <div class="mem"><span class="tx">不吃香菜，喜欢冰美式</span><div class="meta"><span>喜好 · 你写的</span></div></div>
+            </div>
+            <div style="padding:0 16px"><span class="btn line" style="height:36px;color:var(--accent-ink)">+ 记一条</span></div>
+            <div class="sec-t">待整理 · {{ pendCount }} 条</div>
+            <div class="group">
+              <sc-for list="{{ pend }}" as="p" hint-placeholder-count="3">
+                <div class="mem" style="gap:6px">
+                  <span style="font:11.5px var(--sans);color:var(--ink-3)">{{ p.meta }}</span>
+                  <span style="font:15px/1.5 var(--sans);color:var(--ink);display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:{{ p.clamp }};user-select:text">{{ p.text }}</span>
+                  <div style="display:flex;gap:16px;font:13px var(--sans);color:var(--ink-2)">
+                    <span onClick="{{ p.toggle }}" style="cursor:pointer">{{ p.toggleLabel }}</span>
+                    <sc-if value="{{ p.open }}" hint-placeholder-val="{{ false }}"><span onClick="{{ p.askDel }}" style="cursor:pointer">删除</span></sc-if>
                   </div>
                 </div>
-              </div>
-              <div class="home-ind"></div>
+              </sc-for>
             </div>
-            <p class="dv-note">待确认的卡片底色微微偏红，确认后归入分组。「覆盖了…」表示对方信息的更新，不是对你自己说法的比对。</p>
+            <span style="font:12px var(--sans);color:var(--ink-3);padding:0 20px">开通素笺云后，每天帮你整理成记忆卡</span>
           </div>
-
-          <div class="dv-opt" id="1c">
-            <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>iOS · 改一条记忆</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:17</span><span class="sb-dots"><i></i></span></div>
-              <div class="app" style="opacity:.9">
-                <div class="nav"><span class="back">‹ 记得</span></div>
-                <div class="fx ac gap14" style="padding:2px 20px 4px"><div class="avatar lg r">美</div><div class="fx col gap4"><span style="font:600 26px var(--serif)">小美</span></div></div>
-              </div>
-              <div class="dim"></div>
-              <div class="sheet" style="top:120px">
-                <div class="grab"></div>
-                <div class="fx jb ac"><span class="btn ghost" style="padding:0">取消</span><span style="font:600 16px var(--sans)">改一条</span><span class="btn ghost" style="padding:0;color:var(--accent-ink)">存好</span></div>
-                <div class="lbl">记忆</div>
-                <div class="field">答应陪她去看海</div>
-                <div class="lbl">是什么</div>
-                <div class="opts"><span>日子</span><span class="on">约定</span><span>喜好</span><span>近况</span><span>其他</span></div>
-                <div class="lbl">到哪天</div>
-                <div class="group" style="margin:0"><div class="row"><div class="main"><span class="ttl">10 月 10 日 周六</span></div><span class="side">前一天提醒</span></div></div>
-                <div class="lbl">从哪来的</div>
-                <div class="field" style="font-size:13.5px;color:var(--ink-2);background:var(--paper-2);box-shadow:none">9 月 28 日你发出的一句话，已脱敏。原文不保存。</div>
-                <span class="btn danger" style="align-self:center;margin-top:auto">删掉这条</span>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">「从哪来的」只给出处描述，不显示原文——设计文档里原文处理完就丢弃。</p>
-          </div>
-
-          <div class="dv-opt" id="1d">
-            <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>iOS · 对象设置与「忘掉这个人」</div>
-            <div class="ios">
-              <div class="sb-ios"><span>08:18</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div class="nav"><span class="back">‹ 小美</span><span class="t">设置</span><span style="width:40px"></span></div>
-                <div class="scroll">
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">名字</span></div><span class="side" style="color:var(--ink)">小美</span></div>
-                    <div class="row"><div class="main"><span class="ttl">在键盘上显示为</span></div><span class="side" style="color:var(--ink)">小美</span></div>
-                  </div>
-                  <div class="lead" style="font-size:12px;color:var(--ink-3);margin-top:-10px">名字只保存在这台手机上。云端只知道一个随机编号。键盘上可以改用代号。</div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">继续学习</span><span class="sub">关掉后保留已有记忆，不再上传</span></div><div class="toggle"></div></div>
-                    <div class="row"><div class="main"><span class="ttl">打字时提示</span></div><div class="toggle"></div></div>
-                    <div class="row"><div class="main"><span class="ttl">日子提醒</span></div><div class="toggle"></div></div>
-                  </div>
-                  <div class="group">
-                    <div class="row"><div class="main"><span class="ttl">本机记忆包</span><span class="sub">最近 90 天 + 常用部分 · 186 KB</span></div></div>
-                    <div class="row"><div class="main"><span class="ttl">导出记忆</span></div><span class="chev">›</span></div>
-                  </div>
-                </div>
-              </div>
-              <div class="dim"></div>
-              <div class="sheet">
-                <div class="grab"></div>
-                <span style="font:600 22px var(--serif)">忘掉小美？</span>
-                <span class="lead" style="padding:0">214 天里的 46 条记忆和学到的说话习惯，会从这台手机和云端一起删除。密钥也会销毁，任何人都无法恢复。</span>
-                <span class="btn lg" style="background:var(--ink);color:var(--paper)">忘掉</span>
-                <span class="btn lg ghost">再想想</span>
-              </div>
-              <div class="home-ind"></div>
-            </div>
-            <p class="dv-note">删除文案写明「两边一起删、密钥销毁」，对应设计文档里的密钥层级。不加倒计时、不要求输入名字，确认一次即可。</p>
-          </div>
-
-          <div class="dv-opt" id="1e">
-            <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Android · 对象详情</div>
-            <div class="and">
-              <div class="sb-and"><span>08:16</span><span class="sb-dots"><i></i></span></div>
-              <div class="app">
-                <div class="mtop"><span style="font-size:22px">←</span><span style="flex:1"></span><span class="ic"></span><span class="ic"></span></div>
-                <div class="fx ac gap14" style="padding:0 20px 6px"><div class="avatar lg r">美</div><div class="fx col gap4"><span style="font:600 28px var(--serif)">小美</span><span style="font:13px var(--sans);color:var(--ink-3)">认识 214 天 · 46 条记忆</span></div></div>
-                <div class="fx gap8" style="padding:6px 20px 0"><span class="pill r" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px">全部</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">日子</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">约定</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">喜好</span></div>
-                <div class="scroll" style="gap:14px">
-                  <div class="sec-t" style="color:var(--accent-ink)">待确认</div>
-                  <div class="group" style="border-radius:20px">
-                    <div class="mem pending"><span class="tx">下个月想去厦门，想逛沙坡尾</span><div class="meta"><span>来自你记的一笔</span><span class="btn ghost" style="height:24px;padding:0 6px;margin-left:auto">不对</span><span class="btn acc" style="height:28px;padding:0 14px;border-radius:14px">记住</span></div></div>
-                  </div>
-                  <div class="sec-t">日子</div>
-                  <div class="group" style="border-radius:20px">
-                    <div class="row"><div class="when">10.05<small>明天</small></div><div class="main"><span class="ttl">生日</span><span class="sub">不喜欢太浓的香水</span></div></div>
-                    <div class="row"><div class="when">10.10<small>周六</small></div><div class="main"><span class="ttl">答应陪她去看海</span><span class="sub">约定 · 9 月 28 日</span></div></div>
-                  </div>
-                </div>
-                <div class="fab"><span style="font-size:20px;line-height:1">+</span>记一笔</div>
-                <div class="mnav"><div class="mtab"><i class="i-cal"></i>记得</div><div class="mtab on"><i class="i-book"></i>通讯录</div><div class="mtab"><i class="i-me"></i>我</div></div>
-              </div>
-              <div class="gest-and"></div>
-            </div>
-            <p class="dv-note">Material 3：筛选用 chip 代替分组标题跳转，「记一笔」用扩展 FAB，底部导航与 iOS 标签一一对应。</p>
-          </div>
-
         </div>
-        <p class="dv-next">可以接着说：「<a class="dv-oid" href="#1b">1b</a> 改成时间线」·「待确认收进一张可滑动卡片」·「首页去掉场景分组」</p>
-      </section>
-    </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{}'>
-      class Component extends DCLogic {
-        state = { day: 0 };
-        days = [
-          { wk: '今天', n: 4, label: '今天 · 10 月 4 日', ev: [{ ch: '美', av: 'r', t: '2 条新记忆待确认', s: '昨晚从小美的聊天里学到', tag: '去确认', tagCls: 'pill r' }, { ch: '?', av: '', t: '周五晚上订了两个人的位子', s: '还没归到人 · 和谁？', tag: '补上', tagCls: 'pill' }] },
-          { wk: '一', n: 5, label: '明天 · 10 月 5 日', ev: [{ ch: '美', av: 'r', t: '小美生日', s: '去年送的是香水，她说太浓了', tag: '日子', tagCls: 'pill' }] },
-          { wk: '二', n: 6, label: '10 月 6 日 周二', ev: [] },
-          { wk: '三', n: 7, label: '10 月 7 日 周三', ev: [{ ch: '妈', av: '', t: '妈妈复查', s: '上次说膝盖还是疼', tag: '近况', tagCls: 'pill' }] },
-          { wk: '四', n: 8, label: '10 月 8 日 周四', ev: [] },
-          { wk: '五', n: 9, label: '10 月 9 日 周五', ev: [] },
-          { wk: '六', n: 10, label: '10 月 10 日 周六', ev: [{ ch: '美', av: 'r', t: '答应陪她去看海', s: '约定 · 9 月 28 日说的', tag: '约定', tagCls: 'pill' }, { ch: '林', av: '', t: '阿林搬家', s: '说过可能要人帮忙', tag: '近况', tagCls: 'pill' }] }
-        ];
-        renderVals() {
-          const cur = this.days[this.state.day];
-          return {
-            days: this.days.map((d, i) => ({ wk: d.wk, n: d.n,
-              bg: i === this.state.day ? 'var(--accent-soft)' : 'transparent',
-              dot: d.ev.length ? 'var(--ink)' : 'transparent',
-              pick: () => this.setState({ day: i }) })),
-            dayTitle: cur.label, events: cur.ev, empty: !cur.ev.length,
-            contacts: [
-              { k: 'A', people: [{ name: '阿林', scene: '恋爱', note: '' }] },
-              { k: 'C', people: [{ name: '陈经理', scene: '工作', note: '' }] },
-              { k: 'L', people: [{ name: '老周', scene: '日常', note: '' }] },
-              { k: 'M', people: [{ name: '妈妈', scene: '日常', note: '周三复查' }] },
-              { k: 'S', people: [{ name: '设计组', scene: '工作', note: '' }] },
-              { k: 'X', people: [{ name: '小美', scene: '恋爱', note: '明天生日 · 2 条待确认' }, { name: '小杨', scene: '日常', note: '' }] }
-            ]
-          };
-        }
-      }
-    </script>
-  </body>
+        <sc-if value="{{ delOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="dim" style="z-index:8"></div>
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:270px;border-radius:14px;background:rgba(250,250,250,.96);z-index:9;display:flex;flex-direction:column;text-align:center;overflow:hidden">
+            <div style="padding:18px 16px 14px;display:flex;flex-direction:column;gap:4px"><span style="font:600 16px var(--sans)">删掉这条原话？</span><span style="font:13px/1.45 var(--sans);color:var(--ink-2)">删掉后找不回来，也不会再整理成记忆卡。</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;border-top:0.5px solid var(--line)"><span onClick="{{ delCancel }}" style="cursor:pointer;font:16px/44px var(--sans);color:#007aff;border-right:0.5px solid var(--line)">取消</span><span onClick="{{ delOk }}" style="cursor:pointer;font:600 16px/44px var(--sans);color:#ff3b30">删除</span></div>
+          </div>
+        </sc-if>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">有日子的卡左列写「M.dd」（等宽数字），下面写今天、明天、周X、n 天后或 n 天前。没日子的卡下面写「喜好 · 你写的」。「待整理」用中性色：收起时显示两行；展开后可以选中复制，还能删除，删除前会弹系统确认框（可以试点），也可以左滑删除。「待确认」还没做，所以去掉了。</p>
+    </div>
+
+    <div class="dv-opt" id="1b2">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b2">1b</a>变体 · 待整理快满了</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:16</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div class="nav"><span class="back">‹ 通讯录</span><span style="color:var(--accent-ink)">设置</span></div>
+          <div style="display:flex;align-items:flex-start;gap:10px;margin:0 16px 8px;padding:10px 12px;border-radius:12px;background:var(--paper-2);flex:none">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--ink)" stroke-width="1.4" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M2.5 10.5l2-6h9l2 6v4h-13z"></path><path d="M2.5 10.5h4l1 2h3l1-2h4"></path></svg>
+            <span style="font:13px/1.5 var(--sans);color:var(--ink)">待整理快满了（186 / 200），开通素笺云整理，或者删掉一些</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:2px 20px 6px;flex:none"><div class="avatar lg r">美</div><div style="display:flex;flex-direction:column;gap:4px"><span style="font:600 26px var(--sans)">小美</span><span style="font:12.5px var(--sans);color:var(--ink-3)">认识 218 天 · 46 条记忆</span></div></div>
+          <div class="scroll" style="gap:12px">
+            <div class="sec-t">待整理 · 186 条</div>
+            <div class="group">
+              <div class="mem" style="gap:6px"><span style="font:11.5px var(--sans);color:var(--ink-3)">今天 21:40 · 剪贴板</span><span style="font:15px/1.5 var(--sans)">下个月想去厦门，听说沙坡尾很好逛</span><span style="font:13px var(--sans);color:var(--ink-2)">展开全文</span></div>
+              <div class="mem" style="gap:6px"><span style="font:11.5px var(--sans);color:var(--ink-3)">今天 12:03 · 手写</span><span style="font:15px/1.5 var(--sans)">她说最近在看《漫长的季节》</span><span style="font:13px var(--sans);color:var(--ink-2)">展开全文</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>iOS · 改一条（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:17</span><span class="sb-dots"><i></i></span></div>
+        <div class="app" style="opacity:.9">
+          <div class="nav"><span class="back">‹ 通讯录</span></div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet" style="top:56px;gap:10px;padding-bottom:30px;overflow:hidden">
+          <div class="grab"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:15px var(--sans);color:var(--ink-2)">取消</span><span style="font:600 16px var(--sans)">改一条</span><span style="font:500 15px var(--sans);color:var(--accent-ink)">存好</span></div>
+          <div class="lbl">记忆</div>
+          <div class="field" style="padding:10px 14px">答应陪她去看海</div>
+          <span style="font:11.5px var(--sans);color:var(--ink-3);text-align:right;margin-top:-6px">7 / 200</span>
+          <div class="lbl">是什么</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ kinds }}" as="o" hint-placeholder-count="5"><div onClick="{{ o.pick }}" style="cursor:pointer;height:32px;display:flex;align-items:center;padding:0 13px;border-radius:16px;font:13px var(--sans);background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.sh }}">{{ o.name }}</div></sc-for></div>
+          <div class="lbl">到哪天</div>
+          <div class="group" style="margin:0">
+            <div class="row" onClick="{{ calToggle }}" style="cursor:pointer;padding:10px 14px"><div class="main"><span class="ttl">10 月 11 日 周日</span></div><span class="side">提前 3 天提醒</span></div>
+            <sc-if value="{{ calOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;padding:8px 10px 10px;font:13px/30px var(--sans);text-align:center;color:var(--ink)">
+                <sc-for list="{{ cal }}" as="c" hint-placeholder-count="14"><span style="border-radius:15px;background:{{ c.bg }};color:{{ c.fg }}">{{ c.n }}</span></sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div class="lbl">关键词 {{ kwCount }} / 8</div>
+          <div class="group" style="margin:0">
+            <sc-for list="{{ kws }}" as="w" hint-placeholder-count="2">
+              <div class="row" style="padding:0;overflow:hidden"><div class="main" style="padding:9px 14px"><span class="ttl">{{ w.name }}</span></div><span onClick="{{ w.del }}" style="cursor:pointer;align-self:stretch;display:flex;align-items:center;padding:0 14px;background:#ff3b30;color:#fff;font:14px var(--sans)">删除</span></div>
+            </sc-for>
+            <div class="row" style="padding:6px 6px 6px 14px"><input value="{{ kwIn }}" onChange="{{ kwChange }}" placeholder="2–8 个字" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font:15px var(--sans)"></input><span class="btn ghost" onClick="{{ kwAdd }}" style="cursor:pointer;color:var(--accent-ink)">添加</span></div>
+          </div>
+          <span style="font:11.5px/1.5 var(--sans);color:var(--ink-3)">打字时出现这些词，键盘会提示这一条；不写就按这条的内容自动找。</span>
+          <span class="btn danger" style="align-self:center;margin-top:auto">删掉这条</span>
+        </div>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">「到哪天」右侧是「提前 3 天提醒」，点这一行展开日历。「前一天提醒」「每年提醒」两个开关没做。关键词实际是左滑删除，这里把删除按钮直接露出来了，可以试着加、删。「从哪来的」还没做，所以去掉了。</p>
+    </div>
+
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>iOS · 对象设置与「忘掉这个人」（已按实现更新）</div>
+      <div class="ios">
+        <div class="sb-ios"><span>08:18</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div class="nav"><span class="back">‹ 小美</span><span class="t">设置</span><span style="width:40px"></span></div>
+          <div class="scroll" style="gap:8px;padding-top:4px" data-tight="1">
+            <div class="group">
+              <div class="row"><div class="main"><span class="ttl">名字</span></div><span class="side" style="color:var(--ink)">小美</span></div>
+              <div class="row"><div class="main"><span class="ttl">在键盘上显示为</span></div><span class="side" style="color:var(--ink)">阿美</span></div>
+            </div>
+            <span style="font:12px/1.5 var(--sans);color:var(--ink-3);padding:0 20px 6px">名字只保存在这台手机上。键盘上可以改用代号。</span>
+            <div class="group">
+              <div class="row"><div class="main"><span class="ttl">置顶</span></div><div class="toggle"></div></div>
+            </div>
+            <span style="font:12px/1.5 var(--sans);color:var(--ink-3);padding:0 20px 6px">已经置顶 2 / 4 个</span>
+            <div class="group">
+              <div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="ttl">提示里怎么称呼</span><div class="seg" style="background:#eeeef0"><span>他</span><span class="on">她</span><span>TA</span><span>直接用名字</span></div></div>
+            </div>
+            <div class="group">
+              <div class="row"><div class="main"><span class="ttl">打字时提示</span></div><div class="toggle"></div></div>
+              <div class="row"><div class="main"><span class="ttl">日子提醒</span><span class="sub">关掉后，今天和本周里不再提她的日子</span></div><div class="toggle"></div></div>
+            </div>
+            <div class="group">
+              <div class="row"><div class="main"><span class="ttl">改写用哪个技能</span></div><span class="side" style="color:var(--ink-2)">润色 ⌃⌄</span></div>
+            </div>
+            <span style="font:12px/1.5 var(--sans);color:var(--ink-3);padding:0 20px 6px">在键盘上按一下就能改；这里选的是跟这个人说话时默认用哪个。</span>
+            <div class="group">
+              <div class="row"><div class="main"><span class="ttl">导出记忆</span></div><span class="chev">›</span></div>
+              <div class="row" onClick="{{ forgetOpen }}" style="cursor:pointer"><div class="main"><span class="ttl" style="color:#ff3b30">忘掉这个人</span></div></div>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ fOpen }}" hint-placeholder-val="{{ true }}">
+          <div class="dim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <span style="font:600 22px var(--sans)">忘掉小美？</span>
+            <span class="lead" style="padding:0">42 天里的 7 条记忆和学到的说话习惯，会从这台手机上删除，无法恢复</span>
+            <span class="btn lg" style="background:var(--ink);color:var(--paper)">忘掉</span>
+            <span class="btn lg ghost" onClick="{{ forgetClose }}" style="cursor:pointer">再想想</span>
+          </div>
+        </sc-if>
+        <div class="home-ind"></div>
+      </div>
+      <p class="dv-note">弹层里的天数和条数是按实现给的示例。点「再想想」关掉弹层，就能看到完整的设置列表；点「忘掉这个人」再打开。「所在场景」已作废；「继续学习」「本机记忆包」还没做，所以都去掉了。</p>
+    </div>
+
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Android · 对象详情</div>
+      <div class="and">
+        <div class="sb-and"><span>08:16</span><span class="sb-dots"><i></i></span></div>
+        <div class="app">
+          <div class="mtop"><span style="font-size:22px">←</span><span style="flex:1"></span><span class="ic"></span><span class="ic"></span></div>
+          <div class="fx ac gap14" style="display:flex;align-items:center;gap:14px;padding:0 20px 6px"><div class="avatar lg r">美</div><div style="display:flex;flex-direction:column;gap:4px"><span style="font:600 28px var(--serif)">小美</span><span style="font:13px var(--sans);color:var(--ink-3)">认识 214 天 · 46 条记忆</span></div></div>
+          <div style="display:flex;gap:8px;padding:6px 20px 0"><span class="pill r" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px">全部</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">日子</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">约定</span><span class="pill" style="height:32px;padding:0 14px;border-radius:8px;font-size:13px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)">喜好</span></div>
+          <div class="scroll" style="gap:14px">
+            <div class="sec-t" style="color:var(--accent-ink)">待确认</div>
+            <div class="group" style="border-radius:20px">
+              <div class="mem pending"><span class="tx">下个月想去厦门，想逛沙坡尾</span><div class="meta"><span>来自你记的一笔</span><span class="btn ghost" style="height:24px;padding:0 6px;margin-left:auto">不对</span><span class="btn acc" style="height:28px;padding:0 14px;border-radius:14px">记住</span></div></div>
+            </div>
+            <div class="sec-t">日子</div>
+            <div class="group" style="border-radius:20px">
+              <div class="row"><div class="when">10.05<small>明天</small></div><div class="main"><span class="ttl">生日</span><span class="sub">不喜欢太浓的香水</span></div></div>
+              <div class="row"><div class="when">10.10<small>周六</small></div><div class="main"><span class="ttl">答应陪她去看海</span><span class="sub">约定 · 9 月 28 日</span></div></div>
+            </div>
+          </div>
+          <div class="fab"><span style="font-size:20px;line-height:1">+</span>记一笔</div>
+          <div class="mnav"><div class="mtab"><i class="i-cal"></i>记得</div><div class="mtab on"><i class="i-book"></i>通讯录</div><div class="mtab"><i class="i-me"></i>我</div></div>
+        </div>
+        <div class="gest-and"></div>
+      </div>
+      <p class="dv-note">Material 3：筛选用 chip 代替分组标题跳转，「记一笔」用扩展 FAB，底部导航与 iOS 标签一一对应。</p>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { day: 0, q: '', open: null, pick: null, nName: '', nPron: 'TA', pendOpen: null, delId: null, kind: '约定', calOpen: false, kws: ['看海', '周末'], kwIn: '', fOpen: true,
+    pend: [
+      { id: 1, meta: '今天 21:40 · 剪贴板', text: '下个月想去厦门，听说沙坡尾很好逛，到时候想住在海边，最好能看到日出，你帮我留意一下有没有便宜一点的民宿' },
+      { id: 2, meta: '今天 12:03 · 手写', text: '她说最近在看《漫长的季节》，看到第六集了' },
+      { id: 3, meta: '昨天 22:15 · 剪贴板', text: '周五晚上订了两个人的位子，七点半' }
+    ] };
+  days = [
+    { wk: '今天', n: 8, label: '今天 · 10 月 8 日', ev: [{ ch: '妈', av: 'avatar', t: '妈妈复查', s: '上次说膝盖还是疼', tag: '近况', tagCls: 'pill o' }, { ch: '?', av: 'q', t: '周五晚上订了两个人的位子', s: '还没归到人 · 和谁？', tag: '补上', tagCls: 'pill r' }] },
+    { wk: '五', n: 9, label: '明天 · 10 月 9 日', ev: [{ ch: '美', av: 'avatar r', t: '小美生日', s: '去年送的是香水，她说太浓了', tag: '日子', tagCls: 'pill o' }] },
+    { wk: '六', n: 10, label: '10 月 10 日 周六', ev: [] },
+    { wk: '日', n: 11, label: '10 月 11 日 周日', ev: [{ ch: '美', av: 'avatar r', t: '答应陪她去看海', s: '约定 · 9 月 28 日说的', tag: '约定', tagCls: 'pill o' }] },
+    { wk: '一', n: 12, label: '10 月 12 日 周一', ev: [{ ch: '林', av: 'avatar', t: '阿林搬家', s: '说过可能要人帮忙', tag: '近况', tagCls: 'pill o' }] },
+    { wk: '二', n: 13, label: '10 月 13 日 周二', ev: [] },
+    { wk: '三', n: 14, label: '10 月 14 日 周三', ev: [] }
+  ];
+  people = [
+    { k: 'A', name: '阿林', note: '', total: 12, cards: [{ t: '下周一搬家，可能要人帮忙', k: '近况' }, { t: '不喝酒，开车', k: '喜好' }, { t: '养了一条柯基', k: '其他' }] },
+    { k: 'C', name: '陈经理', note: '', total: 4, cards: [{ t: '周四下午不开会', k: '其他' }, { t: '孩子今年高考', k: '近况' }, { t: '喝茶不喝咖啡', k: '喜好' }] },
+    { k: 'L', name: '老周', note: '', total: 8, cards: [{ t: '腰不好，别约爬山', k: '近况' }, { t: '喜欢钓鱼', k: '喜好' }, { t: '11 月去云南', k: '约定' }] },
+    { k: 'M', name: '妈妈', note: '今天复查', total: 21, cards: [{ t: '今天复查膝盖', k: '日子' }, { t: '不吃辣', k: '喜好' }, { t: '想学用微信视频', k: '近况' }] },
+    { k: 'X', name: '小美', note: '明天生日', total: 46, cards: [{ t: '明天生日，不喜欢太浓的香水', k: '日子' }, { t: '答应陪她去看海', k: '约定' }, { t: '不吃香菜，喜欢冰美式', k: '喜好' }] },
+    { k: 'X', name: '小杨', note: '', total: 3, cards: [{ t: '在准备考研', k: '近况' }, { t: '喜欢猫', k: '喜好' }, { t: '12 月生日', k: '日子' }] }
+  ];
+  renderVals() {
+    const s = this.state;
+    const cur = this.days[s.day];
+    const q = s.q.trim();
+    const groups = [];
+    this.people.filter(p => !q || p.name.includes(q)).forEach(p => {
+      let g = groups.find(x => x.k === p.k); if (!g) { g = { k: p.k, people: [] }; groups.push(g); }
+      g.people.push({ ...p, open: s.open === p.name, toggle: () => this.setState(st => ({ open: st.open === p.name ? null : p.name })) });
+    });
+    const calDays = [];
+    for (let i = 5; i <= 18; i++) calDays.push({ n: i, bg: i === 11 ? 'var(--ink)' : 'transparent', fg: i === 11 ? '#fff' : i === 8 ? 'var(--accent-ink)' : 'var(--ink)' });
+    return {
+      days: this.days.map((d, i) => ({ wk: d.wk, n: d.n, bg: i === s.day ? 'var(--accent-soft)' : 'transparent', dot: d.ev.length ? 'var(--ink)' : 'transparent', pick: () => this.setState({ day: i }) })),
+      dayTitle: cur.label, empty: !cur.ev.length,
+      events: cur.ev.map(e => ({ ...e, avCls: e.av === 'q' ? 'avatar' : e.av })),
+      q: s.q, hasQ: !!s.q, qChange: e => this.setState({ q: e.target.value }), qClear: () => this.setState({ q: '' }),
+      contacts: groups,
+      pickPeople: ['小美', '妈妈', '阿林', '老周'].map(name => ({ name, ch: name.slice(-1) === '妈' ? '妈' : name.slice(-1), mark: s.pick === name ? '✓' : '', pick: () => this.setState({ pick: name }) })),
+      nName: s.nName, nChange: e => this.setState({ nName: e.target.value }), nOp: s.nName.trim() ? 1 : 0.35,
+      nProns: ['他', '她', 'TA', '直接用名字'].map(name => { const on = name === s.nPron; return { name, fw: on ? 500 : 400, bg: on ? '#fff' : 'transparent', sh: on ? '0 3px 8px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)' : 'none', pick: () => this.setState({ nPron: name }) }; }),
+      pendCount: s.pend.length,
+      pend: s.pend.map(p => ({ ...p, open: s.pendOpen === p.id, clamp: s.pendOpen === p.id ? 'unset' : 2, toggleLabel: s.pendOpen === p.id ? '收起' : '展开全文',
+        toggle: () => this.setState(st => ({ pendOpen: st.pendOpen === p.id ? null : p.id })), askDel: () => this.setState({ delId: p.id }) })),
+      delOpen: s.delId != null,
+      delCancel: () => this.setState({ delId: null }),
+      delOk: () => this.setState(st => ({ pend: st.pend.filter(x => x.id !== st.delId), delId: null, pendOpen: null })),
+      kinds: ['日子', '约定', '喜好', '近况', '其他'].map(name => { const on = name === s.kind; return { name, bg: on ? 'var(--ink)' : 'transparent', fg: on ? '#fff' : 'var(--ink-2)', sh: on ? 'none' : 'inset 0 0 0 1px var(--line)', pick: () => this.setState({ kind: name }) }; }),
+      calOpen: s.calOpen, calToggle: () => this.setState(st => ({ calOpen: !st.calOpen })), cal: calDays,
+      kwCount: s.kws.length,
+      kws: s.kws.map(w => ({ name: w, del: () => this.setState(st => ({ kws: st.kws.filter(x => x !== w) })) })),
+      kwIn: s.kwIn, kwChange: e => this.setState({ kwIn: e.target.value }),
+      kwAdd: () => { const v = s.kwIn.trim(); if (v.length >= 2 && v.length <= 8 && s.kws.length < 8 && !s.kws.includes(v)) this.setState(st => ({ kws: [...st.kws, v], kwIn: '' })); },
+      fOpen: s.fOpen, forgetOpen: () => this.setState({ fOpen: true }), forgetClose: () => this.setState({ fOpen: false })
+    };
+  }
+}
+</script>
+</body>
 </html>
