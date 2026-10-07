@@ -29,6 +29,12 @@ final class MemoryDetailTextTests: XCTestCase {
         XCTAssertNil(MemoryDetailText.relativeDay(days: -31, target: day("2026-09-03")))
     }
 
+    func testMeta() {
+        XCTAssertEqual(MemoryDetailText.meta(kind: .preference, source: "manual"), "喜好 · 你写的")
+        XCTAssertEqual(MemoryDetailText.meta(kind: .recent, source: nil), "近况 · 你写的")
+        XCTAssertEqual(MemoryDetailText.meta(kind: .other, source: "cloud"), "其他")
+    }
+
     /// 只写真有的行为：键盘提示行对约定提前 3 天起提醒；日子设计稿没画不写；关了提醒的不写。
     func testReminderNoteFollowsRealBehavior() {
         XCTAssertEqual(MemoryDetailText.reminderLeadDays, 3, "与桥的 REMINDER_DAYS 一致")

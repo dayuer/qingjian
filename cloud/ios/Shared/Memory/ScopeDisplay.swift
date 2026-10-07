@@ -26,9 +26,6 @@ enum ScopeDisplay {
     /// 没开完全访问时牌子只剩说明入口（点开是开启路径），不出人名与灰绿。
     static func chipShowsPerson(fullAccess: Bool) -> Bool { fullAccess }
 
-    /// App「我」页的常驻说明：App 读不到键盘拿没拿到完全访问，所以用不分状态的中性写法，开了的人看着也不误会。
-    static let fullAccessExplanation = "「完全访问」用于按键震动，以及让键盘读到你在「记得」里写下的人与事。开了也不联网，卡片只在这台手机上。"
-
     static func chipUsesAccent(fullAccess: Bool) -> Bool { fullAccess }
 
     /// 牌子：人名，没选人时「不指定」。
@@ -44,6 +41,13 @@ enum ScopeDisplay {
         return current == nil ? head : head + [nil]
     }
 
+    /// App「我」页那一行的标题与副标题（设计稿 05 的 2j 的版式）。文字故意不照新稿那句话写：
+    /// App 读不到键盘拿没拿到完全访问，写「开启后才能用」会让已经开了的人以为没开（UI 清单约束 3 的旧坑）。
+    static let fullAccessTitle = "用记忆要开完全访问"
+
+    static let fullAccessNote = "开了也不联网，卡片只在这台手机上"
+
+    /// 键盘上牌子那句话：那里点得进来、状态明确，照实写怎么开。
     static let needsFullAccessText = "开启完全访问后才能用记忆。开了也不联网，卡片只在这台手机上"
 
     /// 没开完全访问时牌子上的说明：**改写与记忆都要它**——iOS 键盘扩展没开就没有网络，

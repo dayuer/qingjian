@@ -1,7 +1,7 @@
-// 新建 / 改一张卡（02 的 1c）：写下来（最多 200 字，带计数）、是什么（五个 .opts 胶囊，KindPill）、
-// 到哪天（日子与约定才有：一行日期，点开再选；右边的提醒说明只写真有的行为，见 MemoryDetailText.reminderNote）、
-// 关键词（一个一个加，最多 8 个、每个 2–8 字，满了「添加」不可点）、删掉这条。上限见 MemoryLimits，桥写入前也会校验。
-// 保存在后台做，期间显示「正在保存」、整页置灰；存不上时页面不关、改的内容留着，提示框说原因；存好了但有话要说（冲突已合并）时等用户点掉提示再关。
+// 新建 / 改一张卡（02 的 1c）：盖在详情页上的底部弹层，纸底、自绘表单。
+// 写下来（最多 200 字，带计数）、是什么（五个 .opts 胶囊，KindPill）、到哪天（日子与约定才有：一行日期，
+// 点开在同一组里出日历；右边的提醒说明只写真有的行为，见 MemoryDetailText.reminderNote）、关键词（KeywordRows）、删掉这条。
+// 上限见 MemoryLimits，桥写入前也会校验。保存在后台做，期间整页置灰；存不上时页面不关、改的内容留着，提示框说原因。
 
 import SwiftUI
 
@@ -23,130 +23,137 @@ struct CardEditor: View {
 
     @State private var keywords: [String] = []
 
-    @State private var newKeyword = ""
-
     @State private var closeAfterAlert = false
 
     /// 「到哪天」那一行点开了日历。
     @State private var pickingDate = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("比如：不吃香菜，喜欢冰美式", text: $text, axis: .vertical)
-                        .lineLimit(2...5)
-                        .onChange(of: text) { _, value in
-                            let clamped = MemoryLimits.clampText(value)
-                            if clamped != value { text = clamped }
-                        }
-                } header: {
-                    Text("记忆")
-                } footer: {
-                    HStack {
-                        Spacer()
-                        Text(MemoryLimits.counter(text)).monospacedDigit()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                topRow
+                PaperLabel(text: "记忆")
+                TextField("比如：不吃香菜，喜欢冰美式", text: $text, axis: .vertical)
+                    // 起手一行：设计稿的 .field 空着就是一行高（10 + 24 + 10）；写长了照样往上长
+                    .lineLimit(1...5)
+                    .modifier(PaperFieldStyle(vertical: 10))
+                    .onChange(of: text) { _, value in
+                        let clamped = MemoryLimits.clampText(value)
+                        if clamped != value { text = clamped }
                     }
-                }
-                Section("是什么") {
-                    HStack(spacing: 8) {
-                        ForEach(KindPill.pills(selected: kind)) { pill in
-                            Button {
-                                kind = pill.kind
-                            } label: {
-                                Text(pill.title)
-                                    .font(AppFont.font(size: 13))
-                                    .foregroundStyle(pill.foreground)
-                                    .padding(.horizontal, 13)
-                                    .frame(height: 32)
-                                    .background(Capsule().fill(pill.background))
-                                    .overlay {
-                                        if pill.outlined { Capsule().strokeBorder(Hairline.line) }
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(pill.selected ? .isSelected : [])
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
-                }
+                Text(MemoryLimits.counter(text))
+                    .font(AppFont.font(size: 11.5))
+                    .foregroundStyle(Theme.ink3)
+                    .monospacedDigit()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, -6)
+                PaperLabel(text: "是什么")
+                kindPills
                 if kind.hasDate {
-                    Section("到哪天") {
-                        Button {
-                            withAnimation { pickingDate.toggle() }
-                        } label: {
-                            HStack {
-                                Text(MemoryDetailText.dayTitle(when)).font(AppFont.font(size: 15)).foregroundStyle(Theme.ink)
-                                Spacer()
-                                if let note = MemoryDetailText.reminderNote(kind: kind, contact: store.contact(contactId)) {
-                                    Text(note).font(AppFont.font(size: 12)).foregroundStyle(Theme.ink3)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        if pickingDate {
-                            DatePicker("日期", selection: $when, displayedComponents: .date)
-                                .datePickerStyle(.graphical)
-                                .environment(\.timeZone, MemoryDate.timeZone)
-                                .tint(Theme.ink)
-                        }
-                    }
+                    PaperLabel(text: "到哪天")
+                    dateGroup
                 }
-                Section {
-                    ForEach(keywords, id: \.self) { keyword in Text(keyword) }
-                        .onDelete { keywords.remove(atOffsets: $0) }
-                    HStack {
-                        TextField("2–8 个字", text: $newKeyword)
-                        Button("添加") {
-                            keywords.append(newKeyword.trimmingCharacters(in: .whitespacesAndNewlines))
-                            newKeyword = ""
-                        }
-                        .foregroundStyle(ColorUsage.editorSave.role.color)
-                        .disabled(!MemoryLimits.canAdd(newKeyword, to: keywords))
-                    }
-                } header: {
-                    Text("关键词 \(keywords.count) / \(MemoryLimits.maxKeywords)")
-                } footer: {
-                    Text("打字时出现这些词，键盘会提示这一条；不写就按这条的内容自动找。")
-                }
+                KeywordRows(keywords: $keywords)
                 if let card {
-                    Section {
-                        // 设计稿 .btn.danger 是 ink 字，不是系统红
-                        Button("删掉这条") {
-                            Task { if await store.deleteCard(card.id, for: contactId) { close() } }
-                        }
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity)
+                    Button("删掉这条") {
+                        Task { if await store.deleteCard(card.id, for: contactId) { close() } }
                     }
+                    .font(AppFont.font(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
                 }
             }
-            .navigationTitle(card == nil ? "记一条" : "改一条")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }.foregroundStyle(ColorUsage.editorCancel.role.color)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if store.saving {
-                        MemorySavingLabel().foregroundStyle(ColorUsage.cardNotice.role.color)
-                    } else {
-                        Button("存好") { save() }
-                            .foregroundStyle(ColorUsage.editorConfirm.role.color)
-                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-            }
-            .disabled(store.saving)
-            .onAppear(perform: load)
-            .memoryEditorAlert(store)
-            // 存好了但有话要说（冲突已合并）：等提示框点掉再关，在按钮回调里直接关会被提示框的收起动画吞掉
-            .onChange(of: store.message == nil) { _, cleared in
-                if cleared && closeAfterAlert { dismiss() }
+            .padding(.horizontal, 20)
+            // iOS 26 的大档弹层上沿比设计稿的 top:56 高约 9pt，拖动条又是系统画的、不占内容的位置，
+            // 所以额外补 29pt 让顶端那一行落在稿子的 y≈90（叠图实测）。换机型或系统版本要重新量。
+            .padding(.top, 39)
+            .padding(.bottom, 40)
+        }
+        .background(Theme.paper)
+        .disabled(store.saving)
+        .onAppear(perform: load)
+        .memoryEditorAlert(store)
+        // 存好了但有话要说（冲突已合并）：等提示框点掉再关，在按钮回调里直接关会被提示框的收起动画吞掉
+        .onChange(of: store.message == nil) { _, cleared in
+            if cleared && closeAfterAlert { dismiss() }
+        }
+    }
+
+    // MARK: - 顶部一行
+
+    private var topRow: some View {
+        HStack(spacing: 12) {
+            Button("取消") { dismiss() }
+                .font(AppFont.font(size: 15))
+                .foregroundStyle(ColorUsage.editorCancel.role.color)
+            Spacer(minLength: 0)
+            Text(card == nil ? "记一条" : "改一条")
+                .font(AppFont.font(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+            Spacer(minLength: 0)
+            if store.saving {
+                MemorySavingLabel()
+                    .font(AppFont.font(size: 15))
+                    .foregroundStyle(ColorUsage.cardNotice.role.color)
+            } else {
+                Button("存好") { save() }
+                    .font(AppFont.font(size: 15, weight: .medium))
+                    .foregroundStyle(ColorUsage.editorConfirm.role.color)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
             }
         }
     }
+
+    // MARK: - 是什么、到哪天
+
+    private var kindPills: some View {
+        HStack(spacing: 8) {
+            ForEach(KindPill.pills(selected: kind)) { pill in
+                Button {
+                    kind = pill.kind
+                } label: {
+                    Text(pill.title)
+                        .font(AppFont.font(size: 13))
+                        .foregroundStyle(pill.foreground)
+                        .padding(.horizontal, 13)
+                        .frame(height: 32)
+                        .background(Capsule().fill(pill.background))
+                        .overlay {
+                            if pill.outlined { Capsule().strokeBorder(Hairline.line) }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(pill.selected ? .isSelected : [])
+            }
+        }
+    }
+
+    /// 设计稿 1c：「到哪天」一行右边是提前几天提醒，点这一行在同一组里展开日历。
+    private var dateGroup: some View {
+        PaperGroup(inset: 0) {
+            Button {
+                withAnimation { pickingDate.toggle() }
+            } label: {
+                PaperRow(
+                    title: MemoryDetailText.dayTitle(when),
+                    side: MemoryDetailText.reminderNote(kind: kind, contact: store.contact(contactId)),
+                    tight: true)
+            }
+            .buttonStyle(.plain)
+            if pickingDate {
+                PaperRowLine()
+                DatePicker("日期", selection: $when, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .environment(\.timeZone, MemoryDate.timeZone)
+                    .tint(Theme.ink)
+                    .padding(.horizontal, 6)
+            }
+        }
+    }
+
+    // MARK: - 数据
 
     private func load() {
         guard let card else { return }

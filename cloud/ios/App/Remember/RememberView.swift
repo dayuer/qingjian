@@ -39,6 +39,8 @@ struct RememberView: View {
             }
             .background(Color(.systemBackground))
             .toolbar(.hidden, for: .navigationBar)
+            // 导航栏是隐藏的，这个标题只给下一页当返回字（对象详情的「‹ 记得」）
+            .navigationTitle("记得")
             .navigationDestination(for: MemoryRoute.self) { route in
                 switch route {
                 case .contact(let id): ContactDetailView(store: store, contactId: id)
@@ -100,37 +102,23 @@ struct RememberView: View {
 
     private var sections: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle(current.title)
+            PaperSectionTitle(text: current.title)
             dayGroup
 
-            sectionTitle(DayEvents.thisWeekRange(), trailing: "周日晚回顾")
+            PaperSectionTitle(text: DayEvents.thisWeekRange(), trailing: "周日晚回顾")
             weekGroup
 
             if let person = milestoneContact {
-                sectionTitle(
-                    "功勋路 · \(person.name)", trailing: "认识 \(person.knownDays()) 天")
+                PaperSectionTitle(
+                    text: "功勋路 · \(person.name)", trailing: "认识 \(person.knownDays()) 天")
                 milestoneCard(person)
             }
         }
         .padding(.top, 14)
     }
 
-    private func sectionTitle(_ text: String, trailing: String? = nil) -> some View {
-        HStack {
-            Text(text)
-            Spacer()
-            if let trailing {
-                Text(trailing).fontWeight(.regular)
-            }
-        }
-        .font(AppFont.font(size: 12, weight: .medium))
-        .tracking(0.5)
-        .foregroundStyle(Theme.ink3)
-        .padding(.horizontal, 20)
-    }
-
     private var dayGroup: some View {
-        group {
+        PaperGroup {
             if current.events.isEmpty {
                 Text("这天没有要记着的")
                     .font(AppFont.font(size: 15))
@@ -140,7 +128,7 @@ struct RememberView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ForEach(Array(current.events.enumerated()), id: \.element.id) { index, event in
-                    if index > 0 { rowLine }
+                    if index > 0 { PaperRowLine() }
                     eventRow(event)
                 }
             }
@@ -214,7 +202,7 @@ struct RememberView: View {
     }
 
     private var weekGroup: some View {
-        group {
+        PaperGroup {
             let items = store.upcoming(within: 6)
             if items.isEmpty {
                 Text("这 7 天没有记下的日子和约定")
@@ -225,7 +213,7 @@ struct RememberView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 { rowLine }
+                    if index > 0 { PaperRowLine() }
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.title).font(AppFont.font(size: 15))
@@ -247,31 +235,27 @@ struct RememberView: View {
 
     private func milestoneCard(_ contact: MemoryContact) -> some View {
         let road = Milestones.road(contact: contact, cards: store.cards(of: contact.id))
-        return VStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                // 串起节点的横线（设计稿定位在圆点中线）
-                Rectangle()
-                    .fill(Hairline.line)
-                    .frame(height: 1)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 6)
-                HStack(alignment: .top, spacing: 4) {
-                    ForEach(road) { milestone in
-                        node(milestone)
-                            .frame(maxWidth: .infinity)
+        return PaperGroup {
+            VStack(spacing: 0) {
+                ZStack(alignment: .top) {
+                    // 串起节点的横线（设计稿定位在圆点中线）
+                    Rectangle()
+                        .fill(Hairline.line)
+                        .frame(height: 1)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 6)
+                    HStack(alignment: .top, spacing: 4) {
+                        ForEach(road) { milestone in
+                            node(milestone)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }
+            .padding(.top, 16)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
         }
-        .padding(.top, 16)
-        .padding(.horizontal, 14)
-        .padding(.bottom, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Hairline.ring))
-        )
-        .padding(.horizontal, 16)
     }
 
     private func node(_ milestone: Milestone) -> some View {
@@ -305,24 +289,6 @@ struct RememberView: View {
     private func shortDate(_ date: Date) -> String {
         let parts = MemoryDate.calendar.dateComponents([.month, .day], from: date)
         return "\(parts.month ?? 0).\(parts.day ?? 0)"
-    }
-
-    /// 卡片组里行与行之间的细线（设计稿 `.row` 的下沿）。
-    private var rowLine: some View {
-        Rectangle().fill(Hairline.row).frame(height: 1)
-    }
-
-    /// 设计稿的 `.group`：白底、圆角 14、一圈细线，行与行之间细分隔线。
-    private func group<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 0) {
-            content()
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Hairline.ring))
-        )
-        .padding(.horizontal, 16)
     }
 
     // MARK: - 数据
