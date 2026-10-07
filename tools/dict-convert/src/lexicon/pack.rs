@@ -46,6 +46,10 @@ pub struct DomainRow {
 
     /// 给定的词频（网络用语自带这一列，没填的已经在读的时候兜底）；`None` 按语料次数 / 文档频次折算。
     pub frequency: Option<u32>,
+
+    /// 来源列（`THUOCL` / `wikipedia-titles` / 空）。维基标题挖出来的实体，df 是「语料出现次数」，
+    /// 量级比 THUOCL 的 df 小一档，所以 fame 门槛要按来源分开算（见 domain_filter）
+    pub source: String,
 }
 
 /// 整个数据包。
@@ -122,12 +126,17 @@ impl Pack {
                     .get(3)
                     .and_then(|f| f.trim().parse().ok())
                     .unwrap_or(0);
+                let source = fields
+                    .get(5)
+                    .map(|f| f.trim().to_owned())
+                    .unwrap_or_default();
                 pack.domain.push(DomainRow {
                     text,
                     df,
                     domain: Some(stem.clone()),
                     syllables: None,
                     frequency: None,
+                    source,
                 });
             }
             tracing::info!(file = %file.display(), rows = pack.domain.len() - before, "领域词已读取");

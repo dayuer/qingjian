@@ -120,12 +120,17 @@ impl Reason {
 }
 
 /// 判一条领域词。交回 `None` 表示照旧（按语料次数决定进基础词库还是本包）。
+/// 维基标题挖出来的实体（来源列 `wikipedia-titles`）的 fame 门槛：它们的 df 是「清洗后语料里出现的行数」，
+/// 与 THUOCL 的 df 不是一个量级，所以单独一条 —— 同口径、不硬凑（值在 dev 上定，见规划 R3.2）
+pub const WIKI_TITLE_MIN_MENTIONS: u64 = 50;
+
 pub fn judge(
     stem: &str,
     word: &str,
     df: u64,
     places_min_df: u64,
     keep: &Whitelist,
+    source: &str,
 ) -> Option<(Sink, Reason)> {
     // R4：诗词名句整本从词库拿出去（含语料里 ≥ 50 次、本来会留在基础词库的那部分）
     if stem == "poetry_lines" {
@@ -145,7 +150,12 @@ pub fn judge(
         return Some((Sink::Drop, Reason::HostAndTaxon));
     }
     // R3：地名只留县级及以上与著名地点，其余进 places-extended（缺省关）
-    if stem == "places" && !is_major_place(word, df, places_min_df) {
+    let min_df = if source == "wikipedia-titles" {
+        WIKI_TITLE_MIN_MENTIONS
+    } else {
+        places_min_df
+    };
+    if stem == "places" && !is_major_place(word, df, min_df) {
         return Some((Sink::Pack("places-extended"), Reason::MinorPlace));
     }
     None
@@ -192,11 +202,11 @@ mod tests {
     fn long_words_go_first_but_idioms_stay() {
         let keep = whitelist(&[]);
         assert_eq!(
-            judge("law", "中华人民共和国公司法", 900, 500, &keep),
+            judge("law", "中华人民共和国公司法", 900, 500, &keep, ""),
             Some((Sink::Drop, Reason::TooLong))
         );
         // 成语整本不看长度
-        assert_eq!(judge("idioms", "一个巴掌拍不响", 900, 500, &keep), None);
+        assert_eq!(judge("idioms", "一个巴掌拍不响", 900, 500, &keep, ""), None);
         // 白名单能保下一条长专名
         assert_eq!(
             judge(
@@ -204,8 +214,24 @@ mod tests {
                 "中华人民共和国公司法",
                 900,
                 500,
-                &whitelist(&["中华人民共和国公司法"])
+                &whitelist(&["中华人民共和国公司法"]),
+                "",
             ),
+            None
+        );
+    }
+
+    /// 维基标题挖出来的实体（df 是「语料出现次数」，量级小一档）按自己的门槛判：
+    /// 同样 df = 60，THUOCL 来源的进 places-extended，wikipedia-titles 来源的留在 places 包
+    #[test]
+    fn wiki_title_entities_use_their_own_fame_threshold() {
+        let keep = whitelist(&[]);
+        assert_eq!(
+            judge("places", "日坛公园", 60, 500, &keep, "THUOCL"),
+            Some((Sink::Pack("places-extended"), Reason::MinorPlace))
+        );
+        assert_eq!(
+            judge("places", "日坛公园", 60, 500, &keep, "wikipedia-titles"),
             None
         );
     }
@@ -215,32 +241,32 @@ mod tests {
         let keep = whitelist(&[]);
         for word in ["犬复孔绦虫", "牛带绦虫", "猪链球菌病", "猫抓病"] {
             assert_eq!(
-                judge("animals", word, 100, 500, &keep),
+                judge("animals", word, 100, 500, &keep, ""),
                 Some((Sink::Drop, Reason::HostAndTaxon)),
                 "{word}"
             );
         }
         // 长机构名靠 R1 的长度门槛删，不另设后缀规则（否则 医院 / 卫生局 会被误伤）
         assert_eq!(
-            judge("medicine", "疾病预防控制中心", 100, 500, &keep),
+            judge("medicine", "疾病预防控制中心", 100, 500, &keep, ""),
             Some((Sink::Drop, Reason::TooLong))
         );
-        assert_eq!(judge("medicine", "人民医院", 500000, 500, &keep), None);
-        assert_eq!(judge("medicine", "卫生局", 27235, 500, &keep), None);
+        assert_eq!(judge("medicine", "人民医院", 500000, 500, &keep, ""), None);
+        assert_eq!(judge("medicine", "卫生局", 27235, 500, &keep, ""), None);
         // 寄主 + 学名只在动物、医学两本里套
-        assert_eq!(judge("law", "牛带绦虫", 100, 500, &keep), None);
+        assert_eq!(judge("law", "牛带绦虫", 100, 500, &keep, ""), None);
     }
 
     #[test]
     fn places_split_by_level_and_fame() {
         let keep = whitelist(&[]);
         // 县级及以上短名留下
-        assert_eq!(judge("places", "张家港市", 100, 500, &keep), None);
+        assert_eq!(judge("places", "张家港市", 100, 500, &keep, ""), None);
         // 著名地点按文档频次留下
-        assert_eq!(judge("places", "曹家巷", 900, 500, &keep), None);
+        assert_eq!(judge("places", "曹家巷", 900, 500, &keep, ""), None);
         // 小地名进扩展包
         assert_eq!(
-            judge("places", "曹家巷", 12, 500, &keep),
+            judge("places", "曹家巷", 12, 500, &keep, ""),
             Some((Sink::Pack("places-extended"), Reason::MinorPlace))
         );
         // 超过 6 字的地名直接删（比 6 字长的行政区划全名不该整块打）
@@ -250,7 +276,8 @@ mod tests {
                 "江西武夷山国家级自然保护区管理局",
                 700,
                 500,
-                &keep
+                &keep,
+                ""
             ),
             Some((Sink::Drop, Reason::TooLong))
         );
@@ -260,7 +287,7 @@ mod tests {
     fn poetry_lines_pack_always_moves_out() {
         let keep = whitelist(&[]);
         assert_eq!(
-            judge("poetry_lines", "更上一层楼", 9999, 500, &keep),
+            judge("poetry_lines", "更上一层楼", 9999, 500, &keep, ""),
             Some((Sink::Pack("poetry_lines"), Reason::Poetry))
         );
     }

@@ -164,6 +164,7 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                 domain: None,
                 frequency: None,
                 syllables: word.syllables,
+                source: String::new(),
             });
         }
         tracing::info!(path = %path.display(), rows = pack.domain.len() - before, "额外词已读取");
@@ -231,6 +232,7 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                 domain: Some(pack_name.clone()),
                 syllables: row.syllables,
                 frequency: Some(frequency),
+                source: String::new(),
             });
         }
         tracing::info!(pack = %pack_name, rows = pack.domain.len() - before, "网络用语已并入");
@@ -486,12 +488,26 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             continue;
         };
         // 第 1 步的规则：判死的丢掉，判走的换一本包
-        let verdict =
-            domain_filter::judge(&domain, &entry.text, row.df, options.places_min_df, &keep);
+        let verdict = domain_filter::judge(
+            &domain,
+            &entry.text,
+            row.df,
+            options.places_min_df,
+            &keep,
+            &row.source,
+        );
         // 著名地点（R3 判过 df ≥ 门槛的）不受语料次数门槛影响：R3 认定它该留在基础词库，
         // 再被「语料里出现够多」挡一道就等于白判 —— 商务中心（THUOCL df 3383）就因此被推到缺省关着的包里
         let famous_place = domain == "places"
-            && domain_filter::is_major_place(&entry.text, row.df, options.places_min_df);
+            && domain_filter::is_major_place(
+                &entry.text,
+                row.df,
+                if row.source == "wikipedia-titles" {
+                    domain_filter::WIKI_TITLE_MIN_MENTIONS
+                } else {
+                    options.places_min_df
+                },
+            );
         let from_base = famous_place || corpus_count.unwrap_or(0) >= domain_keep_min;
         match verdict {
             Some((Sink::Drop, reason)) => {
