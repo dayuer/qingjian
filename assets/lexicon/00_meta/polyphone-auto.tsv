@@ -1,0 +1,285 @@
+# 多音字：自动采纳的那批（规则见 polyphone-fix.py 文件头）。人工判定与标记见 polyphone-verdicts.tsv；
+# 两者由 polyphone-apply.py 合成 pinyin-corrections.jsonl。
+# 词	词库读音	建议读音
+上调	shang diao	shang tiao
+下咽	xia ye	xia yan
+不觉	bu jiao	bu jue
+且	ju	qie
+乜斜	nie xie	mie xie
+乡长	xiang chang	xiang zhang
+乾	gan	qian
+云杉	yun sha	yun shan
+交恶	jiao e	jiao wu
+会长	hui chang	hui zhang
+伧	chen	cang
+伽马	jia ma	ga ma
+伽马射线	jia ma she xian	ga ma she xian
+作乐	zuo yue	zuo le
+佴	nai	er
+侧	ze	ce
+便秘	bian bi	bian mi
+俶	ti	chu
+倏地	shu di	shu de
+其	ji	qi
+冒	mo	mao
+出血	chu xie	chu xue
+凿	zuo	zao
+划	huai	hua
+刘禅	liu chan	liu shan
+利兹	li ci	li zi
+别无长物	bie wu zhang wu	bie wu chang wu
+券	xuan	quan
+剋	ke	kei
+勒紧裤带	le jin ku dai	lei jin ku dai
+厂	an	chang
+厖	mang	pang
+县长	xian chang	xian zhang
+参谋长	can mou chang	can mou zhang
+变色	bian shai	bian se
+古刹	gu sha	gu cha
+吡	pi	bi
+吱吱嘎嘎	zhi zhi ga ga	zi zi ga ga
+吱声	zi sheng	zhi sheng
+呆	ai	dai
+呇	men	qi
+员	yun	yuan
+呵	ke	a
+咯	ka	ge
+咽炎	ye yan	yan yan
+哩	ying	li
+哪	nai	na
+唬	xia	hu
+啜	chuai	chuo
+啪嚓	pa ca	pa cha
+喋	zha	die
+喳喳	zha zha	cha cha
+嗟	jue	jie
+嗨	hei	hai
+嘘	shi	xu
+嘚	dei	de
+嘚瑟	dei se	de se
+嘿	mo	hei
+噱	xue	jue
+嚣	ao	xiao
+圌	chuan	chui
+圻	yin	qi
+坋	fen	ben
+坏	pi	huai
+坷	jiong	ke
+垌	tong	dong
+堆	zui	dui
+堕	hui	duo
+塔	da	ta
+塞缪尔	sai miao er	sai miu er
+处长	chu chang	chu zhang
+夷为平地	yi wei ping de	yi wei ping di
+契	xie	qi
+婼	ruo	chuo
+嬷	ma	mo
+孛	bo	bei
+完了	wan liao	wan le
+审判长	shen pan chang	shen pan zhang
+家	jie	jia
+密钥	mi yue	mi yao
+寻	xin	xun
+尢	you	wang
+尨	meng	mang
+屹	ge	yi
+峤	qiao	jiao
+州长	zhou chang	zhou zhang
+已	si	yi
+巷	hang	xiang
+市	fu	shi
+帧	zheng	zhen
+年长	nian chang	nian zhang
+广	an	guang
+库藏	ku zang	ku cang
+彷	fang	pang
+徊	hui	huai
+徵	zheng	zhi
+徽调	hui tiao	hui diao
+心塞	xin se	xin sai
+忒	tui	te
+怎的	zen di	zen de
+怙	tie	hu
+思	sai	si
+恫	tong	dong
+惊觉	jing jiao	jing jue
+惝	tang	chang
+戏	hu	xi
+扒车	pa che	ba che
+拆	ca	chai
+拓印	tuo yin	ta yin
+择	zhai	ze
+括	gua	kuo
+挲	sha	sa
+捉襟见肘	zhuo jin xian zhou	zhuo jin jian zhou
+掉色	diao shai	diao se
+掞	yan	shan
+掴	guo	guai
+掸	shan	dan
+掺	can	chan
+擘	bai	bo
+攒钱	cuan qian	zan qian
+敦	dui	dun
+昳	yi	die
+暧	nuan	ai
+朴子	piao zi	pu zi
+机长	ji chang	ji zhang
+杉	sha	shan
+村长	cun chang	cun zhang
+杕	duo	di
+枹	bao	fu
+柁	duo	tuo
+柏克莱	bo ke lai	bai ke lai
+柬埔寨	jian bu zhai	jian pu zhai
+柳杉	liu sha	liu shan
+柷	chu	zhu
+栅	shan	zha
+栎	yue	li
+栝	kuo	gua
+栟	ben	bing
+核	hu	he
+梢	sao	shao
+椑	pi	bei
+椹	zhen	shen
+楯	dun	shun
+槟城	bin cheng	bing cheng
+橙	chen	cheng
+次长	ci chang	ci zhang
+歙	xi	she
+殖	shi	zhi
+氿	jiu	gui
+沈	chen	shen
+沌	zhuan	dun
+泺	po	luo
+洒	xi	sa
+浍	hui	kuai
+浒	xu	hu
+浬	hai	li
+涴	yuan	wo
+淤血	yu xie	yu xue
+湫	qiu	jiao
+溱	qin	zhen
+烟	yin	yan
+焯	zhuo	chao
+熟	shou	shu
+熨烫	yu tang	yun tang
+狗刨	gou bao	gou pao
+珩	hang	heng
+班长	ban chang	ban zhang
+珲	hui	hun
+癿	bie	qie
+盟	ming	meng
+瞿	ju	qu
+矜	guan	jin
+矜	qin	jin
+硌	luo	ge
+硐	liu	dong
+祇	zhi	qi
+种	chong	zhong
+穜	zhong	tong
+站长	zhan chang	zhan zhang
+笮	zuo	ze
+糁	shen	san
+紫杉	zi sha	zi shan
+綮	qing	qi
+纶	guan	lun
+组长	zu chang	zu zhang
+缩	su	suo
+缴	zhuo	jiao
+耳朵眼儿	er duo yan er	er duo yan r
+肋	le	lei
+育	yo	yu
+臂	bei	bi
+芒	wang	mang
+芘	bi	pi
+荨	xun	qian
+莨	liang	lang
+莫	mu	mo
+菉	lv	lu
+营长	ying chang	ying zhang
+葚	ren	shen
+蓝	la	lan
+蓦地	mo di	mo de
+薁	ao	yu
+薄板	bo ban	bao ban
+薄脆	bo cui	bao cui
+薄雾	bao wu	bo wu
+蘖	bo	nie
+虹	jiang	hong
+蛾	yi	e
+蜡	zha	la
+蝤	you	qiu
+螣	te	teng
+装模作样	zhuang mu zuo yang	zhuang mo zuo yang
+褪色	tui shai	tui se
+见长	jian zhang	jian chang
+诘	ji	jie
+调休	diao xiu	tiao xiu
+调色板	diao se ban	tiao se ban
+谷	yu	gu
+貉	hao	he
+起落架	qi lao jia	qi luo jia
+趣	cu	qu
+趵	bo	bao
+跞	luo	li
+蹢	zhi	di
+蹴	jiu	cu
+遗	wei	yi
+那	nai	na
+那	ne	na
+那	nei	na
+邪	ye	xie
+郇	huan	xun
+部长	bu chang	bu zhang
+酂	cuo	zan
+酾	shai	shi
+重犯	chong fan	zhong fan
+钭	dou	tou
+铁杉	tie sha	tie shan
+铊	tuo	ta
+铻	yu	wu
+锬	xian	tan
+镇长	zhen chang	zhen zhang
+镡	chan	tan
+镦	dui	dun
+长兄	chang xiong	zhang xiong
+长势	chang shi	zhang shi
+长大	chang da	zhang da
+长女	chang nv	zhang nv
+长幼	chang you	zhang you
+长男	chang nan	zhang nan
+长相	chang xiang	zhang xiang
+长脸	chang lian	zhang lian
+阘	da	ta
+阚	han	kan
+队长	dui chang	dui zhang
+阽	yan	dian
+降将	jiang jiang	xiang jiang
+院长	yuan chang	yuan zhang
+陶	yao	tao
+隩	ao	yu
+霰	san	xian
+革	ji	ge
+靸	ta	sa
+鞘	shao	qiao
+顿	du	dun
+顿觉	dun jiao	dun jue
+颌	ge	he
+颜色	yan shai	yan se
+颤	zhan	chan
+食	yi	shi
+饧	tang	xing
+骀	dai	tai
+骠	biao	piao
+魄	bo	po
+魄	tuo	po
+鲅	bo	ba
+鲌	ba	bo
+鲑	xie	gui
+麽	me	mo
+黾	mian	min
+齐	ji	qi
+𬘭	lin	chen
+𬭚	dui	chun

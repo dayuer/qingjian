@@ -1,0 +1,25 @@
+# 多音字降权标记（规则 R5，见 docs/plan/dictionary-layering.md）：只改「旧读音怎么处理」，不改主读音。
+# 词	标记	理由
+# 标记 keep_both：两个读音都是规范读音、又都常用 → 不降权，两个读音同权。
+# 标记数字 N：旧读音不是错的，只是常有人打 → 除以 N（默认除以 8）。
+# 不在本表的按默认除以 8（旧读音本身是错的）。
+谁	keep_both	《现汉》主读 shei，shui 是又读；但绝大多数人打 shui，除以 8 等于打「谁」直接退步
+谁知道	keep_both	同上（「谁」字）
+重装	keep_both	「重新安装」chong zhuang 与「重装备／重装甲」zhong zhuang 都规范、都常用
+必得	keep_both	势在必得读 bi de，必须义读 bi dei，两读都常用
+上调	keep_both	上调 shang tiao（提高价格等）与 shang diao（把人员调到上级）都是规范词
+行商	keep_both	行商 hang shang（往来贩卖的商人）与 xing shang（行商坐贾）都规范
+重犯	keep_both	重犯 chong fan（再次犯罪）与 zhong fan（重罪犯）都常用
+见长	keep_both	见长 jian chang（在某方面显出特长）与 jian zhang（显得比原来长）都规范
+完了	keep_both	完了 wan liao（完结）与 wan le（语气词）都是规范读法
+露头	2	读 lou 是对的，但大量用户会打 lu；降权放轻，不除以 8
+露富	2	同上
+露底	2	同上
+露白	2	同上
+露肩	2	同上（露肩装也有读 lu 的）
+露背	2	同上
+露脸	2	同上
+露面	2	同上
+露馅儿	2	同上
+露马脚	2	同上
+泄露	2	泄露读 xie lou，但 lu 是常见打法

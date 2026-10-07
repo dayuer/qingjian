@@ -1,5 +1,8 @@
+# 多音字拼音修正：由 tools/lexicon/polyphone-apply.py 合成，不要手改。
+# 来源：polyphone-auto.tsv（自动采纳）+ polyphone-verdicts.tsv（人工判定）。
+# 每行 {"word":…,"pinyin":[…]}
 {"word": "一宿", "pinyin": ["yi", "xiu"]}
-{"word": "上调", "pinyin": ["shang", "tiao"]}
+{"word": "上调", "pinyin": ["shang", "tiao"], "keep_both": true}
 {"word": "下咽", "pinyin": ["xia", "yan"]}
 {"word": "不觉", "pinyin": ["bu", "jue"]}
 {"word": "且", "pinyin": ["qie"]}
@@ -103,7 +106,7 @@
 {"word": "婼", "pinyin": ["chuo"]}
 {"word": "嬷", "pinyin": ["mo"]}
 {"word": "孛", "pinyin": ["bei"]}
-{"word": "完了", "pinyin": ["wan", "le"]}
+{"word": "完了", "pinyin": ["wan", "le"], "keep_both": true}
 {"word": "审判长", "pinyin": ["shen", "pan", "zhang"]}
 {"word": "审度", "pinyin": ["shen", "duo"]}
 {"word": "审校", "pinyin": ["shen", "jiao"]}
@@ -132,7 +135,7 @@
 {"word": "徵", "pinyin": ["zhi"]}
 {"word": "徽调", "pinyin": ["hui", "diao"]}
 {"word": "心塞", "pinyin": ["xin", "sai"]}
-{"word": "必得", "pinyin": ["bi", "dei"]}
+{"word": "必得", "pinyin": ["bi", "dei"], "keep_both": true}
 {"word": "忒", "pinyin": ["te"]}
 {"word": "忘不了", "pinyin": ["wang", "bu", "liao"]}
 {"word": "怎么着", "pinyin": ["zen", "me", "zhao"]}
@@ -205,7 +208,7 @@
 {"word": "沌", "pinyin": ["dun"]}
 {"word": "沙参", "pinyin": ["sha", "shen"]}
 {"word": "没奈何", "pinyin": ["mo", "nai", "he"]}
-{"word": "泄露", "pinyin": ["xie", "lou"]}
+{"word": "泄露", "pinyin": ["xie", "lou"], "divisor": 2}
 {"word": "泺", "pinyin": ["luo"]}
 {"word": "洒", "pinyin": ["sa"]}
 {"word": "浍", "pinyin": ["kuai"]}
@@ -233,7 +236,6 @@
 {"word": "着床", "pinyin": ["zhuo", "chuang"]}
 {"word": "睡着", "pinyin": ["shui", "zhao"]}
 {"word": "瞿", "pinyin": ["qu"]}
-{"word": "矜", "pinyin": ["jin"]}
 {"word": "矜", "pinyin": ["jin"]}
 {"word": "硌", "pinyin": ["ge"]}
 {"word": "硐", "pinyin": ["dong"]}
@@ -284,15 +286,15 @@
 {"word": "蜡", "pinyin": ["la"]}
 {"word": "蝤", "pinyin": ["qiu"]}
 {"word": "螣", "pinyin": ["teng"]}
-{"word": "行商", "pinyin": ["hang", "shang"]}
+{"word": "行商", "pinyin": ["hang", "shang"], "keep_both": true}
 {"word": "装模作样", "pinyin": ["zhuang", "mo", "zuo", "yang"]}
 {"word": "褪色", "pinyin": ["tui", "se"]}
 {"word": "西藏", "pinyin": ["xi", "zang"]}
-{"word": "见长", "pinyin": ["jian", "chang"]}
+{"word": "见长", "pinyin": ["jian", "chang"], "keep_both": true}
 {"word": "诘", "pinyin": ["jie"]}
 {"word": "说客", "pinyin": ["shui", "ke"]}
-{"word": "谁", "pinyin": ["shei"]}
-{"word": "谁知道", "pinyin": ["shei", "zhi", "dao"]}
+{"word": "谁", "pinyin": ["shei"], "keep_both": true}
+{"word": "谁知道", "pinyin": ["shei", "zhi", "dao"], "keep_both": true}
 {"word": "调休", "pinyin": ["tiao", "xiu"]}
 {"word": "调色板", "pinyin": ["tiao", "se", "ban"]}
 {"word": "谷", "pinyin": ["gu"]}
@@ -310,8 +312,6 @@
 {"word": "送还", "pinyin": ["song", "huan"]}
 {"word": "遗", "pinyin": ["yi"]}
 {"word": "那", "pinyin": ["na"]}
-{"word": "那", "pinyin": ["na"]}
-{"word": "那", "pinyin": ["na"]}
 {"word": "邪", "pinyin": ["xie"]}
 {"word": "郇", "pinyin": ["xun"]}
 {"word": "部长", "pinyin": ["bu", "zhang"]}
@@ -323,10 +323,10 @@
 {"word": "重提", "pinyin": ["chong", "ti"]}
 {"word": "重整", "pinyin": ["chong", "zheng"]}
 {"word": "重温", "pinyin": ["chong", "wen"]}
-{"word": "重犯", "pinyin": ["zhong", "fan"]}
+{"word": "重犯", "pinyin": ["zhong", "fan"], "keep_both": true}
 {"word": "重现", "pinyin": ["chong", "xian"]}
 {"word": "重聚", "pinyin": ["chong", "ju"]}
-{"word": "重装", "pinyin": ["chong", "zhuang"]}
+{"word": "重装", "pinyin": ["chong", "zhuang"], "keep_both": true}
 {"word": "重返", "pinyin": ["chong", "fan"]}
 {"word": "钥", "pinyin": ["yue"]}
 {"word": "钭", "pinyin": ["tou"]}
@@ -354,16 +354,16 @@
 {"word": "陶", "pinyin": ["tao"]}
 {"word": "隩", "pinyin": ["yu"]}
 {"word": "霰", "pinyin": ["xian"]}
-{"word": "露头", "pinyin": ["lou", "tou"]}
-{"word": "露富", "pinyin": ["lou", "fu"]}
-{"word": "露底", "pinyin": ["lou", "di"]}
-{"word": "露白", "pinyin": ["lou", "bai"]}
-{"word": "露肩", "pinyin": ["lou", "jian"]}
-{"word": "露背", "pinyin": ["lou", "bei"]}
-{"word": "露脸", "pinyin": ["lou", "lian"]}
-{"word": "露面", "pinyin": ["lou", "mian"]}
-{"word": "露馅儿", "pinyin": ["lou", "xian", "r"]}
-{"word": "露马脚", "pinyin": ["lou", "ma", "jiao"]}
+{"word": "露头", "pinyin": ["lou", "tou"], "divisor": 2}
+{"word": "露富", "pinyin": ["lou", "fu"], "divisor": 2}
+{"word": "露底", "pinyin": ["lou", "di"], "divisor": 2}
+{"word": "露白", "pinyin": ["lou", "bai"], "divisor": 2}
+{"word": "露肩", "pinyin": ["lou", "jian"], "divisor": 2}
+{"word": "露背", "pinyin": ["lou", "bei"], "divisor": 2}
+{"word": "露脸", "pinyin": ["lou", "lian"], "divisor": 2}
+{"word": "露面", "pinyin": ["lou", "mian"], "divisor": 2}
+{"word": "露馅儿", "pinyin": ["lou", "xian", "r"], "divisor": 2}
+{"word": "露马脚", "pinyin": ["lou", "ma", "jiao"], "divisor": 2}
 {"word": "革", "pinyin": ["ge"]}
 {"word": "靸", "pinyin": ["sa"]}
 {"word": "鞘", "pinyin": ["qiao"]}
@@ -378,7 +378,6 @@
 {"word": "骀", "pinyin": ["tai"]}
 {"word": "骠", "pinyin": ["piao"]}
 {"word": "高丽参", "pinyin": ["gao", "li", "shen"]}
-{"word": "魄", "pinyin": ["po"]}
 {"word": "魄", "pinyin": ["po"]}
 {"word": "鲅", "pinyin": ["ba"]}
 {"word": "鲌", "pinyin": ["bo"]}

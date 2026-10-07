@@ -300,21 +300,23 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             |&c| c.max(1),
         );
         let frequency = frequency.min(u64::from(u32::MAX)) as u32;
-        let verified = annotations
-            .get(&row.text)
-            .filter(|a| readings.accepts_word(&row.text, a) && a.iter().all(|s| is_syllable(s)));
+        let verified = annotations.get(&row.text).filter(|a| {
+            readings.accepts_word(&row.text, &a.syllables)
+                && a.syllables.iter().all(|s| is_syllable(s))
+        });
         match verified {
-            Some(annotation) if *annotation != row.syllables => {
+            Some(annotation) if annotation.syllables != row.syllables => {
                 disputed += 1;
                 insert(LexiconEntry {
                     text: row.text.clone(),
-                    syllables: annotation.clone(),
+                    syllables: annotation.syllables.clone(),
                     frequency,
                 });
+                // 两个读音都是规范读音的（keep_both）不降权，同权保留；只有旧读音是错的才降权
                 insert(LexiconEntry {
                     text: row.text.clone(),
                     syllables: row.syllables.clone(),
-                    frequency: (frequency / DISPUTED_READING_DIVISOR).max(1),
+                    frequency: (frequency / annotation.divisor(DISPUTED_READING_DIVISOR)).max(1),
                 });
             }
             Some(_) => insert(LexiconEntry {
@@ -361,11 +363,11 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                 candidate.clone()
             }
             (None, Some(candidate))
-                if readings.accepts_word(text, candidate)
-                    && candidate.iter().all(|s| is_syllable(s)) =>
+                if readings.accepts_word(text, &candidate.syllables)
+                    && candidate.syllables.iter().all(|s| is_syllable(s)) =>
             {
                 annotated += 1;
-                candidate.clone()
+                candidate.syllables.clone()
             }
             (None, other) => {
                 if other.is_some() {

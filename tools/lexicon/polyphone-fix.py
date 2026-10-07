@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """把多音字待审清单（`assets/lexicon/00_meta/polyphone-review.tsv`）分成「自动改」和「人工看」。
 
-只出**结论文件**，不改词库：自动改的那批写成 `pinyin-corrections.jsonl`（与 `gloss-gen pinyin` 同格式，
-交给 `lexicon --pinyin`），lexicon 会把建议读音当主读音、原读音降权保留（`DISPUTED_READING_DIVISOR`）；
-拿不定主意的写进 `polyphone-manual.tsv`，带理由。
+只出**中间文件**，不改词库：自动改的那批写成 `polyphone-auto.tsv`，拿不定主意的写进
+`polyphone-manual.tsv`（带理由），人工判定在 `polyphone-verdicts.tsv`。三者由
+`polyphone-apply.py` 合成最终的 `pinyin-corrections.jsonl`（交给 `lexicon --pinyin`）——
+**不要手改那个 jsonl**，它是产物，重跑就会覆盖。
 
 三类**不自动采纳**（审计定的）：
 1. CC-CEDICT 标的是台湾读音或旧读 —— 对照 `taiwan-readings.tsv` 排除；
@@ -14,7 +15,6 @@
 """
 import argparse
 import collections
-import json
 import re
 import unicodedata
 from pathlib import Path
@@ -115,7 +115,7 @@ def main() -> int:
     parser.add_argument("--cedict", type=Path, default=Path("/tmp/cedict.txt"))
     parser.add_argument("--taiwan", type=Path, default=ROOT / "assets/lexicon/00_meta/taiwan-readings.tsv")
     parser.add_argument("--places", type=Path, default=ROOT / "assets/lexicon/03_domains/places.tsv")
-    parser.add_argument("--corrections", type=Path, default=ROOT / "assets/lexicon/00_meta/pinyin-corrections.jsonl")
+    parser.add_argument("--auto", type=Path, default=ROOT / "assets/lexicon/00_meta/polyphone-auto.tsv")
     parser.add_argument("--manual", type=Path, default=ROOT / "assets/lexicon/00_meta/polyphone-manual.tsv")
     parser.add_argument("--samples", type=int, default=20)
     args = parser.parse_args()
@@ -161,10 +161,12 @@ def main() -> int:
             continue
         auto.append((word, current, suggestion))
 
-    with args.corrections.open("w", encoding="utf-8") as fh:
-        # 与 gloss-gen pinyin 同格式：lexicon 会把建议当主读音、原读音降权保留
-        for word, _current, suggestion in sorted(auto):
-            fh.write(json.dumps({"word": word, "pinyin": suggestion.split()}, ensure_ascii=False) + "\n")
+    with args.auto.open("w", encoding="utf-8") as fh:
+        fh.write("# 多音字：自动采纳的那批（规则见 polyphone-fix.py 文件头）。人工判定与标记见 polyphone-verdicts.tsv；\n")
+        fh.write("# 两者由 polyphone-apply.py 合成 pinyin-corrections.jsonl。\n")
+        fh.write("# 词\t词库读音\t建议读音\n")
+        for word, current, suggestion in sorted(auto):
+            fh.write(f"{word}\t{current}\t{suggestion}\n")
     with args.manual.open("w", encoding="utf-8") as fh:
         fh.write("# 多音字：人工待定（不自动改）。理由见第三列。\n")
         fh.write("# 词\t词库读音\t为什么人工看\tCC-CEDICT 的建议\n")
@@ -172,8 +174,9 @@ def main() -> int:
             fh.write(f"{word}\t{current}\t{reason}\t{suggestion}\n")
 
     print(f"待审 {len(auto) + len(manual)} 条 → 自动改 {len(auto)} 条、人工 {len(manual)} 条")
-    print(f"  自动的写进 {args.corrections}（lexicon --pinyin 用）")
-    print(f"  人工的写进 {args.manual}")
+    print(f"  自动的写进 {args.auto}")
+    print(f"  人工的写进 {args.manual}（判定写 polyphone-verdicts.tsv）")
+    print("  改完跑 tools/lexicon/polyphone-apply.py 合成 pinyin-corrections.jsonl")
     by_reason = collections.Counter(reason.split("（")[0] for _, _, reason, _ in manual)
     for reason, count in by_reason.most_common():
         print(f"  人工 · {reason}：{count} 条")

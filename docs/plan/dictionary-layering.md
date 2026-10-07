@@ -187,6 +187,18 @@ word	pinyin	freq	year	source
 
 - **读音**：多音字可以让大模型先标（`qingjian-gloss-gen pinyin` 那条流水线），但**必须逐条对照 Unihan 核对**
   （`data/unihan/Unihan_Readings.txt`）；判定明细写进 `00_meta/polyphone-judgments.tsv`（沿用现有格式）。
+- **R5 标注只换主读音，旧读音按「错没错」分档**：`lexicon --pinyin` 拿到的每个词，标注读音按原词频当主读音入库，
+  原读音默认除以 `DISPUTED_READING_DIVISOR = 8` 保留 —— 只有原读音**本身是错的**才该这么降：
+  - 两个读音都是规范读音、又都常用（谁 shui/shei、重装 chong/zhong、必得 bi de/bi dei、上调、行商、重犯、见长、完了）
+    → 该词写 `"keep_both": true`：两个读音同权，不降权（把常用打法降成八分之一，等于打这个字直接退步）；
+  - 旧读音是错的（且 ju、一宿 su、乐感 le、藏文 cang、还给 hai）→ 不写标记，按 ÷8；
+  - 旧读音不是错的、只是常有人打（露 lou/lu 家词：露脸、露面、露馅儿、露马脚、露肩、露背……）→ 写 `"divisor": N`
+    （露家 N=2），降权放轻。
+  标记与判定分开存放、合成一个产物：`00_meta/polyphone-marks.tsv`（词 / 标记 / 理由）＋ `polyphone-verdicts.tsv` ＋
+  `polyphone-auto.tsv` → `tools/lexicon/polyphone-apply.py` → `pinyin-corrections.jsonl`（**产物，不手改**）。
+- **单字条目的标注目前不生效**（2026-10-07 复跑实测）：单字走规范字表那条路（`readings.weighted` 按读音频次分摊），
+  不查标注 —— 谁 的 shui 29 / shei 1 就是字表分摊出来的，所以「把 谁 的主读定成 shei」这类单字判定今天落不了地。
+  要落地得先让字表那条路认标注（或另开一份单字读音表），这一步没做之前，修正文件里的单字条目按空转看。
 - **词频**：**对着同音的竞争词人工定**，不许批量灌一个魔数。写法沿用 `domain_words.tsv` / `mixed_words.tsv` 的规矩：
   次数与 `dict.tsv` 词频同一尺度，参照同音高频词的次数定（例：`C盘 8000 > 裁判 5416` 这种对着定；见 `assets/lexicon/QINGJIAN.md` 4e 步）。
   给不出理由的词，就当它进不了基础库。
