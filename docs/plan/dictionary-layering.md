@@ -240,6 +240,14 @@ cargo run --release -p qingjian-cli -- --config tools/eval/offline.toml \
 | 整句 | 165 | 62.4% | 63.0% | 61 | 1.01 |
 | 英文 | 21 | 76.2% | 95.2% | 0 | 1.48 |
 
+### 5.2 装机门槛（2026-10-07 加）
+
+两条尺子过了才写 `data/generated/GATE_PASSED`（`tools/release/gate-pass.sh` 跑尺子并写标记，容差 −0.3 个点）。
+装机脚本（`apps/macos/scripts/bundle.sh`、`cloud/ios/scripts/build-bridge.sh`）**没有这个标记就回退**到上次发版那份
+`data/generated.shipped/`（那份从已装的 `Sujian.app/Contents/Resources/` 里另存：`dict.qj`、`lm.qj`、`dicts/*.qj`、
+`glossary-*.qj`、`english.tsv`），两份都没有就拒绝装机。这样词库/语言模型没门槛的期间，谁在本机装机都不会把
+不合格的数据带上去。已实测：缺标记时打出来的 app 里 `dict.qj` 与发版那份逐字节相同。
+
 **判据**：第 1 步与第 2 步合并后，两边都不能比上表差。容差：首选 / 前三 / 字准确率各允许 **−0.3 个点**以内
 （洗包只删不加，掉一点属正常；网络用语补进来的新词要能把这 0.3 个点挣回来，挣不回来就说明收的词不对）。
 单次运行的抖动远小于 0.3 个点（同一份输入两次跑的数字一致），所以不设「多跑几次取平均」。

@@ -53,6 +53,17 @@ MAP
 done
 
 data="${QINGJIAN_DATA:-$repo_dir/data/generated}"
+# 门槛：data/generated 只有过了评测门槛（GATE_PASSED 标记，`tools/release/gate-pass.sh` 写）才拿来装机，
+# 否则回退到上次发版的那份 data/generated.shipped。QINGJIAN_DATA 显式指定时不拦（那是调用者自己负责）。
+if [[ -z "${QINGJIAN_DATA:-}" && ! -f "$repo_dir/data/generated/GATE_PASSED" ]]; then
+  if [[ -d "$repo_dir/data/generated.shipped" ]]; then
+    echo "警告：data/generated 缺 GATE_PASSED（词库/语言模型没过评测门槛）—— 回退用 data/generated.shipped 那份" >&2
+    data="$repo_dir/data/generated.shipped"
+  else
+    echo "错误：data/generated 缺 GATE_PASSED，也没有 data/generated.shipped 可回退：先跑 tools/release/gate-pass.sh，或按 data.lock 下载发版数据" >&2
+    exit 1
+  fi
+fi
 mkdir -p "$ios_dir/Keyboard/Data"
 for file in dict.qj lm.qj; do
   if [[ ! -f "$data/$file" ]]; then

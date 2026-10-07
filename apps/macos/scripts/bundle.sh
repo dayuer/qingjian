@@ -9,6 +9,9 @@
 # 架构：缺省编译本机架构；QINGJIAN_TARGET=x86_64-apple-darwin（或 aarch64-apple-darwin）交叉编译另一种，
 # 先 `rustup target add` 一次。CI 在 Apple Silicon runner 上两个都打（.github/workflows/release.yml）。
 # 产品数据：data/generated/ 里有 dict.qj 就用自建词库（TSV 比 .qj 新会重打），没有就退回 assets/sample/ 样例。
+# **门槛**：data/generated 只有过了评测门槛（data/generated/GATE_PASSED 标记，`tools/release/gate-pass.sh` 写）
+# 才拿来装机，否则回退到上次发版的那份 data/generated.shipped —— 词库/语言模型的改动没过门槛时，
+# 谁在这台机器上装机都不会把不合格的数据带上去（见 docs/plan/dictionary-layering.md 第 5 节）。
 #
 # 签名与公证都由环境变量决定，没设就 ad-hoc 签名、pkg 不签（本机自用够了，分发给别人会被 Gatekeeper 拦，
 # 对方要在「系统设置 → 隐私与安全性」里点「仍要打开」）：
@@ -83,24 +86,37 @@ cp assets/levels/levels-*.tsv "$APP/Contents/Resources/"
 # 五笔码表（输入方案选五笔时用，见 assets/wubi/README.md；极点 86 码表，Apache-2.0）
 mkdir -p "$APP/Contents/Resources/wubi"
 cp assets/wubi/wubi86.tsv "$APP/Contents/Resources/wubi/"
-if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
+# 产品数据门槛：data/generated 过了门槛（GATE_PASSED）才用，否则回退到上次发版那份
+DATA_DIR=data/generated
+DATA_REPACK=1
+if [[ ! -f data/generated/GATE_PASSED ]]; then
+  if [[ -d data/generated.shipped ]]; then
+    echo "警告：data/generated 缺 GATE_PASSED（词库/语言模型没过评测门槛）—— 回退用 data/generated.shipped 那份" >&2
+    DATA_DIR=data/generated.shipped
+    DATA_REPACK=0
+  else
+    echo "错误：data/generated 缺 GATE_PASSED，也没有 data/generated.shipped 可回退：先跑 tools/release/gate-pass.sh，或按 data.lock 下载发版数据" >&2
+    exit 1
+  fi
+fi
+if [[ -f "$DATA_DIR/dict.tsv" || -f "$DATA_DIR/dict.qj" ]]; then
   # 词库与语言模型打成 .qj（mmap 直接用），TSV 比 .qj 新时重新打包；只有 .qj（CI 从数据包解出来的）就直接用
-  if [[ -f data/generated/dict.tsv && ( ! -f data/generated/dict.qj || data/generated/dict.tsv -nt data/generated/dict.qj ) ]]; then
+  if [[ $DATA_REPACK == 1 && -f "$DATA_DIR/dict.tsv" && ( ! -f "$DATA_DIR/dict.qj" || "$DATA_DIR/dict.tsv" -nt "$DATA_DIR/dict.qj" ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack dict --name "青简基础词库" \
       --license "MIT AND Unicode-3.0" --attribution "通用规范汉字表；现代汉语常用词表（liuxilu 校对版）；THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）" \
       --source https://github.com/qingjian-team/qingjian/tree/main/assets/lexicon
   fi
-  if [[ -f data/generated/lm-bigram.tsv && ( ! -f data/generated/lm.qj || data/generated/lm-bigram.tsv -nt data/generated/lm.qj ) ]]; then
+  if [[ $DATA_REPACK == 1 && -f "$DATA_DIR/lm-bigram.tsv" && ( ! -f "$DATA_DIR/lm.qj" || "$DATA_DIR/lm-bigram.tsv" -nt "$DATA_DIR/lm.qj" ) ]]; then
     cargo run --release -q -p qingjian-dict-convert -- pack lm --name "青简语言模型（中文维基 + LCCC，青简词库分词）" \
       --license "CC-BY-SA-4.0 AND MIT" --attribution "中文维基百科（CC BY-SA 4.0）；LCCC（清华大学 CoAI，MIT）"
   fi
-  cp data/generated/dict.qj "$APP/Contents/Resources/"
+  cp "$DATA_DIR/dict.qj" "$APP/Contents/Resources/"
   # 领域词库（lexicon 拆出的 dicts/*.qj）随包放 Resources/dicts/，缺省只开成语，偏好设置「词库」页可勾选
-  if ls data/generated/dicts/*.qj >/dev/null 2>&1; then
+  if ls "$DATA_DIR"/dicts/*.qj >/dev/null 2>&1; then
     mkdir -p "$APP/Contents/Resources/dicts"
-    cp data/generated/dicts/*.qj "$APP/Contents/Resources/dicts/"
+    cp "$DATA_DIR"/dicts/*.qj "$APP/Contents/Resources/dicts/"
   fi
-  [[ -f data/generated/lm.qj ]] && cp data/generated/lm.qj "$APP/Contents/Resources/"
+  [[ -f "$DATA_DIR/lm.qj" ]] && cp "$DATA_DIR/lm.qj" "$APP/Contents/Resources/"
   # 含章·知微（字级 Transformer）：三件套与单文件放 data/models/hanzhang-zhiwei/。
   model_dir="${QINGJIAN_MODEL_DIR:-data/models/hanzhang-zhiwei}"
   if [[ -f "$model_dir/model.safetensors" ]]; then
@@ -126,7 +142,7 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
   # 释义表打成 .qj（TSV 比 .qj 新时重打），英文词表仍是 TSV。各表来源不同，元数据按表写（见 assets/glossary/README.md）
   for lang in en ja zh es; do
     src="assets/glossary/glossary-$lang.tsv"
-    out="data/generated/glossary-$lang.qj"
+    out="$DATA_DIR/glossary-$lang.qj"
     [[ -f "$src" ]] || continue
     if [[ "$lang" == es ]]; then
       license="GPL-3.0-or-later"
@@ -135,16 +151,16 @@ if [[ -f data/generated/dict.tsv || -f data/generated/dict.qj ]]; then
       license="MIT"
       attribution="LLM 生成（DeepSeek），qingjian-gloss-gen"
     fi
-    if [[ ! -f "$out" || "$src" -nt "$out" ]]; then
+    if [[ $DATA_REPACK == 1 && ( ! -f "$out" || "$src" -nt "$out" ) ]]; then
       cargo run --release -q -p qingjian-dict-convert -- pack glossary --language "$lang" --input "$src" \
         --name "青简释义表（${lang}）" --license "$license" --attribution "$attribution"
     fi
     cp "$out" "$APP/Contents/Resources/"
   done
-  for f in assets/lexicon/english.tsv data/generated/english.tsv; do
+  for f in assets/lexicon/english.tsv "$DATA_DIR/english.tsv"; do
     [[ -f "$f" ]] && cp "$f" "$APP/Contents/Resources/"
   done
-  echo "使用 data/generated/ 的产品数据（自建词库）"
+  echo "使用 $DATA_DIR/ 的产品数据（自建词库）"
 fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
