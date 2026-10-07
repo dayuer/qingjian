@@ -539,8 +539,8 @@ fn scrolling(mtm: MainThreadMarker, page: &NSView, page_height: f64) -> Retained
 }
 
 /// 窗口跟着当前这一页排出来的高度伸缩：切页签由 [`TabChange`] 调，页面自己变高
-/// （云服务页重建）时窗口这边调。顶边不动、带动画；到屏幕可视高度的上限就封顶，
-/// 超出的部分这一页自己滚。
+/// （云服务页重建）时窗口这边调。**只动下边** —— 顶边、标题栏与导航栏（标签栏）原地不动，
+/// 导航栏下面的页面往上收或往下长。到屏幕可视高度的上限就封顶，超出的部分这一页自己滚。
 fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
     let Some(mtm) = MainThreadMarker::new() else {
         return;
@@ -563,6 +563,7 @@ fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
         PAGE_WIDTH + (frame.size.width - content.size.width),
         height + (frame.size.height - content.size.height),
     );
+    // 标签栏按「离窗口顶边多远」定位置：页面高矮由下面的内容区吸收，导航栏不动
     // 窗口的高度要把标题栏算进去：`setFrame` 收的是含标题栏的 frame
     let content_size = NSSize::new(
         tabs_size.width + 2.0 * TAB_MARGIN,
@@ -577,7 +578,9 @@ fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
         current.origin.x,
         current.origin.y + current.size.height - window_size.height,
     );
-    window.setFrame_display_animate(NSRect::new(origin, window_size), true, animate);
+    // 一步摆好，不走动画：窗口只有下边在动，动画期间下边滑来滑去，看着像导航栏在动
+    let _ = animate;
+    window.setFrame_display(NSRect::new(origin, window_size), true);
     let tabs_rect = NSRect::new(
         NSPoint::new(TAB_MARGIN, STATUS_GAP + STATUS_HEIGHT),
         tabs_size,
