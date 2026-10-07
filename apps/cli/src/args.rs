@@ -224,3 +224,38 @@ pub struct Args {
     /// 直接查询这些拼音后退出；不给则进入交互模式
     pub inputs: Vec<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 裸拼音是位置参数、落在 `inputs` 上。52ffa83 那次给 `--homophone-snapshot` 插参数时，
+    /// 把 `replay` 的 `#[arg(long)]` 抢了过去，`replay` 变成位置参数，`qingjian-cli -- nihao`
+    /// （CLAUDE.md 里的主力验证用法）被当成输入日志路径去读 —— 这条守住它。
+    #[test]
+    fn a_bare_argument_is_an_input_not_a_log_path() {
+        let args = Args::parse_from(["qingjian", "nihao", "zaijian"]);
+        assert_eq!(args.inputs, ["nihao", "zaijian"]);
+        assert!(args.replay.is_none(), "裸拼音不该落进 replay：{args:?}");
+    }
+
+    /// 三个 flag 各归各的字段，谁也别抢谁的。
+    #[test]
+    fn long_flags_land_on_their_own_fields() {
+        let args = Args::parse_from([
+            "qingjian",
+            "--replay",
+            "log.jsonl",
+            "--misses",
+            "5",
+            "--homophone-snapshot",
+            "snap.tsv",
+            "--check",
+        ]);
+        assert_eq!(args.replay, Some(PathBuf::from("log.jsonl")));
+        assert_eq!(args.misses, 5);
+        assert_eq!(args.homophone_snapshot, Some(PathBuf::from("snap.tsv")));
+        assert!(args.check);
+        assert!(args.inputs.is_empty());
+    }
+}
