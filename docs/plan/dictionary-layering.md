@@ -1,5 +1,8 @@
 # 词库分层：洗领域包、填网络用语（规格，待审）
 
+**上位**：[design/lexicon-architecture.md](../design/lexicon-architecture.md)（2026-10 词库体系规划：sources.toml / cost / 分包 / 门槛 / 阶段划分）。
+本页是其中「第 1、2 步」的落地规格：这里定的规则若与上位冲突，以上位为准并改这一页。
+
 **状态**：2026-10-07 写就，同日审过。**第 1 步已实现**（`tools/dict-convert`，报告见 `data/generated/domain-report.tsv`）；
 第 2 步的材料与读取已就绪（候选表、三类判定、三个 TSV、`lexicon` 的读取与两本包都做了，见下），
 词频、年份与标音要等 `data/corpus/` 与 LLM 密钥。审定的两处：`--places-min-df` 缺省 500（被筛掉的地名进 places-extended，不丢）；`law` 被长度门槛删掉一半以上，接受
