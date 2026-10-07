@@ -66,6 +66,8 @@ fn run() -> Result<(), ConvertError> {
             domain_keep_min,
             places_min_df,
             domain_keep_file,
+            internet_dir,
+            internet_base,
         } => lexicon::convert(&lexicon::Options {
             pack: &pack,
             unihan: &unihan,
@@ -76,6 +78,8 @@ fn run() -> Result<(), ConvertError> {
             domain_keep_min,
             places_min_df,
             keep_file: &domain_keep_file,
+            internet_dir: &internet_dir,
+            internet_base: internet_base.as_deref(),
             out_dir: &args.out_dir,
         }),
         Command::Wubi {

@@ -60,6 +60,15 @@ pub enum Command {
         /// 长度门槛的白名单：固定书名这类必须留的长专名，一行一个词（`#` 开头是注释）
         #[arg(long, default_value = "assets/lexicon/00_meta/domain-keep.tsv")]
         domain_keep_file: PathBuf,
+
+        /// 网络用语包目录：一本包一个 TSV（文件名主干当包名，粗口在 internet_slang_coarse.tsv）
+        #[arg(long, default_value = "assets/lexicon/04_internet_slang")]
+        internet_dir: PathBuf,
+
+        /// 网络用语里够「天天会打」的那份（internet_base.tsv）：给了才并进基础词库。
+        /// 同音不危险要等语料实测，缺省不并
+        #[arg(long)]
+        internet_base: Option<PathBuf>,
     },
 
     /// 形码码表（五笔）：Rime `.dict.yaml` → `词\t编码\t词频`。词频由青简词库按词面回填，不用码表自带的权重

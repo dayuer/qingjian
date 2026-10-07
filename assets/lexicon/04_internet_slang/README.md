@@ -31,13 +31,17 @@ CC BY-SA 的 ShareAlike 与仓库的 GPL-3.0-or-later 相容（Creative Commons 
 
 ## 已写出的文件
 
+**这个目录顶上只放「包」**（一个 TSV 一本包，文件名主干就是包名）：`internet_slang.tsv` 与
+`internet_slang_coarse.tsv` 会被 `lexicon` 读走打成 `.qj`；工作稿（候选表、判定稿）放 `wip/` 子目录，
+不会被打包（目录只读顶层的 `*.tsv`）。
+
 | 文件 | 内容 | 还缺什么 |
 |---|---|---|
 | `internet_slang.tsv` | 干净的网络用语（179 条，缺省关） | 词频（要语料）、年份（人工过一遍时标） |
 | `internet_slang_coarse.tsv` | 粗口单独一包（14 条，缺省关） | 同上 |
 | `assets/lexicon/internet_base.tsv` | 够「天天会打」、准备并进基础库的（27 条） | 次数（对着同音竞争词人工定）、部分读音 |
-| `candidates.tsv` | 从维基与维基词典拉的原始候选（270 条，未过目） | —— |
-| `triage.tsv` | 270 条的三类判定（人工过目稿，含理由） | 审计已审 |
+| `wip/candidates.tsv` | 从维基与维基词典拉的原始候选（270 条，未过目） | —— |
+| `wip/triage.tsv` | 270 条的三类判定（人工过目稿，含理由） | 审计已审 |
 
 词频与年份到位之前，这三个 TSV 先不接进 `lexicon`（读取格式与规则还没写）。
 

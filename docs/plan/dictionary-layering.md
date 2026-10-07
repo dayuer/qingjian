@@ -1,7 +1,8 @@
 # 词库分层：洗领域包、填网络用语（规格，待审）
 
 **状态**：2026-10-07 写就，同日审过。**第 1 步已实现**（`tools/dict-convert`，报告见 `data/generated/domain-report.tsv`）；
-第 2 步待做。审定的两处：`--places-min-df` 缺省 500（被筛掉的地名进 places-extended，不丢）；`law` 被长度门槛删掉一半以上，接受
+第 2 步的材料与读取已就绪（候选表、三类判定、三个 TSV、`lexicon` 的读取与两本包都做了，见下），
+词频、年份与标音要等 `data/corpus/` 与 LLM 密钥。审定的两处：`--places-min-df` 缺省 500（被筛掉的地名进 places-extended，不丢）；`law` 被长度门槛删掉一半以上，接受
 （机构与法条全名不是一口气打出来的，这本包又缺省关）。逐步验收：第 1 步、第 2 步各量一次，不许用第 2 步挣回来的分掩盖第 1 步掉的分（实测第 1 步没掉分，见下）。
 **范围**：只做第 1 步（洗现有 11 本领域包，**只删不改引擎**）与第 2 步（把 `04_internet_slang` 填起来）。引擎、排序、语言模型的代码这两步都不动。
 
@@ -258,6 +259,25 @@ cargo run --release -p qingjian-cli -- --config tools/eval/offline.toml \
   并且**先只进网络用语包（缺省关）**，等覆盖率与两条尺子的数字都好了，再挑「天天会打、同音不危险」的进基础库。
 - **回滚**：两步都只改 `tools/dict-convert` 的参数与 `assets/lexicon/` 的数据文件；
   回滚 = 恢复这两个位置 + 重跑第 4 步。引擎与排序代码不动，所以不存在「回滚一半」的状态。
+
+## 六点五、第 2 步的实施进度（2026-10-07）
+
+材料（都不依赖语料，已入库）：
+
+- `assets/lexicon/04_internet_slang/wip/candidates.tsv`：从维基 `Category:互联网用语`（含子分类）、
+  维基词典 `Category:漢語網路用語`、条目「中国大陆网络用语列表」拉的 270 条候选（转简体、去掉词库已有的）；
+- `assets/lexicon/04_internet_slang/wip/triage.tsv`：三类判定（基础库 20 / 网络用语包 176 / 粗口 14 / 台港待办 26 / 不收 9 / 争议词 25 —— 争议词按审定不收）；
+- `assets/lexicon/04_internet_slang/internet_slang.tsv`（179 条，含近年补充）、
+  `internet_slang_coarse.tsv`（14 条）、`assets/lexicon/internet_base.tsv`（27 条，等实测后并入基础库）。
+
+读取（`lexicon/internet.rs`，已带单测：年份列解析、粗口与干净靠分文件分流、没填词频的兜底）：
+
+- `lexicon --internet-dir <目录>`（缺省 `assets/lexicon/04_internet_slang`）读那些 TSV，一本打一本 `.qj`，两本都缺省关；
+- `--internet-base <文件>` 才把「天天会打」那批并进基础词库（同音不危险没实测前不并）；
+- 网络用语包的 META 用 `CC-BY-SA-4.0` 与维基 / 维基词典 / CC-CEDICT 的署名，不套 THUOCL 那套。
+
+还缺：词频（等语料后对着同音竞争词人工定）、`year`（人工过一遍时标，查不到写 `unknown`）、
+多音字读音（`gloss-gen pinyin` 标完对 Unihan 核，等 LLM 密钥）。
 
 ## 七、做完这两步之后再说什么
 

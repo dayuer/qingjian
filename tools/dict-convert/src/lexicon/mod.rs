@@ -17,6 +17,7 @@ mod corpus;
 mod domain_filter;
 mod domain_report;
 mod entry;
+mod internet;
 pub(crate) mod pack;
 mod readings;
 mod tone;
@@ -58,7 +59,7 @@ const MINOR_READING_SHARE: f64 = 0.05;
 const DISPUTED_READING_DIVISOR: u32 = 8;
 
 /// 领域词库的中文名（文件名主干 → 名称），写进 `.qj` 元数据，偏好设置「词库」页显示它。
-const DOMAIN_NAMES: [(&str, &str); 12] = [
+const DOMAIN_NAMES: [(&str, &str); 14] = [
     ("animals", "动物"),
     ("automotive", "汽车"),
     ("finance", "财经"),
@@ -69,6 +70,8 @@ const DOMAIN_NAMES: [(&str, &str); 12] = [
     ("law", "法律"),
     ("medicine", "医学"),
     ("places", "地名"),
+    ("internet_slang", "网络用语"),
+    ("internet_slang_coarse", "网络用语（粗口）"),
     ("places-extended", "地名（扩展，含社区与巷弄）"),
     ("poetry_lines", "诗词名句"),
 ];
@@ -78,6 +81,13 @@ const DOMAIN_LICENSE: &str = "MIT AND Unicode-3.0";
 const DOMAIN_ATTRIBUTION: &str =
     "THUOCL（清华大学自然语言处理实验室，MIT）；读音 Unihan（Unicode）";
 const DOMAIN_SOURCE: &str = "https://github.com/thunlp/THUOCL";
+
+/// 网络用语包的许可证与署名（与 THUOCL 那几本不同，单独一套）。
+const INTERNET_LICENSE: &str = "CC-BY-SA-4.0";
+const INTERNET_ATTRIBUTION: &str =
+    "维基百科与维基词典（CC BY-SA 4.0）；CC-CEDICT（CC BY-SA 4.0）；读音 Unihan（Unicode）";
+const INTERNET_SOURCE: &str =
+    "https://zh.wikipedia.org/wiki/Category:%E4%BA%92%E8%81%94%E7%BD%91%E7%94%A8%E8%AF%AD";
 
 /// `lexicon` 的入参（位置参数已经够多，收成一个结构；逐项含义见字段注释）。
 pub struct Options<'a> {
@@ -108,6 +118,13 @@ pub struct Options<'a> {
     /// 长度门槛的白名单（固定书名这类必须留的长专名，一行一个词）
     pub keep_file: &'a Path,
 
+    /// 网络用语包目录（`04_internet_slang/`，一本包一个 TSV）
+    pub internet_dir: &'a Path,
+
+    /// 网络用语里够「天天会打」的那份（`internet_base.tsv`）：给了才并进基础词库。
+    /// 同音不危险要等语料实测，所以缺省不并；命令行 `--internet-base` 指过来才生效。
+    pub internet_base: Option<&'a Path>,
+
     /// 输出目录
     pub out_dir: &'a Path,
 }
@@ -133,6 +150,7 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                 text: word.text,
                 df: word.count,
                 domain: None,
+                frequency: None,
                 syllables: word.syllables,
             });
         }
@@ -173,6 +191,26 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                 .entry(syllable.clone())
                 .or_default() += 1;
         }
+    }
+
+    // 网络用语（第 2 步）：一本 TSV 一本包，当作一类领域词并进去，读音与词频走同一条路
+    for (pack_name, rows) in internet::load_dir(options.internet_dir)? {
+        let before = pack.domain.len();
+        for row in rows {
+            let frequency = row.frequency();
+            pack.domain.push(pack::DomainRow {
+                text: row.text,
+                df: 0,
+                domain: Some(pack_name.clone()),
+                syllables: row.syllables,
+                frequency: Some(frequency),
+            });
+        }
+        tracing::info!(pack = %pack_name, rows = pack.domain.len() - before, "网络用语已并入");
+    }
+    // 够「天天会打」的那份（缺省不并：同音还要实测，见 Options 的注释）
+    if let Some(path) = options.internet_base {
+        tracing::info!(path = %path.display(), "网络用语底子并入基础词库（--internet-base）");
     }
 
     let mut entries: BTreeMap<(String, Vec<String>), LexiconEntry> = BTreeMap::new();
@@ -373,6 +411,21 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             }
         };
         let corpus_count = counts.get(text).copied();
+        // 网络用语自带词频（没填的按兜底值）；其余领域词按语料次数或文档频次折算
+        if let Some(given) = row.frequency {
+            let entry = LexiconEntry {
+                text: text.to_owned(),
+                syllables,
+                frequency: given,
+            };
+            let domain = row.domain.clone().unwrap_or_default();
+            report.record_kept(&domain);
+            domains
+                .entry(domain)
+                .or_default()
+                .insert((entry.text.clone(), entry.syllables.clone()), entry);
+            continue;
+        }
         let frequency = corpus_count.map_or_else(
             || 1 + ((row.df as f64 + 1.0).log2().round() as u32).min(DOMAIN_FLOOR),
             |c| c.max(1).min(u64::from(u32::MAX)) as u32,
@@ -476,9 +529,16 @@ fn write_domains(
             .iter()
             .find(|(key, _)| key == stem)
             .map_or(stem.as_str(), |(_, name)| name);
-        let mut tsv = format!(
-            "# 青简领域词库：{name}，由 qingjian-dict-convert lexicon 从 THUOCL 拆出，基础词库里没有的部分。词\t音节\t词频\n"
-        );
+        let internet = stem.starts_with("internet_slang");
+        let mut tsv = if internet {
+            format!(
+                "# 青简网络用语包：{name}，由 qingjian-dict-convert lexicon 从 assets/lexicon/04_internet_slang/ 打出（缺省关）。词\t音节\t词频\n# 来源：维基百科与维基词典（CC BY-SA 4.0）、CC-CEDICT（CC BY-SA 4.0）；读音 Unihan + 标注。\n"
+            )
+        } else {
+            format!(
+                "# 青简领域词库：{name}，由 qingjian-dict-convert lexicon 从 THUOCL 拆出，基础词库里没有的部分。词\t音节\t词频\n"
+            )
+        };
         for entry in entries.values() {
             tsv.push_str(&entry.text);
             tsv.push('\t');
@@ -491,10 +551,26 @@ fn write_domains(
         std::fs::write(&tsv_path, &tsv)?;
         let dictionary = Dictionary::parse(&tsv)?;
         let metadata = Metadata {
-            name: format!("青简领域词库：{name}"),
-            license: DOMAIN_LICENSE.to_owned(),
-            attribution: DOMAIN_ATTRIBUTION.to_owned(),
-            source: DOMAIN_SOURCE.to_owned(),
+            name: if internet {
+                format!("青简网络用语包：{name}")
+            } else {
+                format!("青简领域词库：{name}")
+            },
+            license: if internet {
+                INTERNET_LICENSE.to_owned()
+            } else {
+                DOMAIN_LICENSE.to_owned()
+            },
+            attribution: if internet {
+                INTERNET_ATTRIBUTION.to_owned()
+            } else {
+                DOMAIN_ATTRIBUTION.to_owned()
+            },
+            source: if internet {
+                INTERNET_SOURCE.to_owned()
+            } else {
+                DOMAIN_SOURCE.to_owned()
+            },
             generator: format!("qingjian-dict-convert {}", env!("CARGO_PKG_VERSION")),
             ..Metadata::default()
         };

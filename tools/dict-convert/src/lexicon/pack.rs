@@ -43,6 +43,9 @@ pub struct DomainRow {
 
     /// 给定的读音（短语层由成分词拼出）；`None` 按字推。
     pub syllables: Option<Vec<String>>,
+
+    /// 给定的词频（网络用语自带这一列，没填的已经在读的时候兜底）；`None` 按语料次数 / 文档频次折算。
+    pub frequency: Option<u32>,
 }
 
 /// 整个数据包。
@@ -124,6 +127,7 @@ impl Pack {
                     df,
                     domain: Some(stem.clone()),
                     syllables: None,
+                    frequency: None,
                 });
             }
             tracing::info!(file = %file.display(), rows = pack.domain.len() - before, "领域词已读取");
