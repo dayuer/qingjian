@@ -37,6 +37,20 @@ enum Theme {
         traits.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : UIColor(white: 0xF3 / 255.0, alpha: 1)
     })
 
+    /// 页面底（设计稿 --paper oklch(0.99 0 0)），深色对调成 oklch(0.2)。
+    static let paperTone = ThemeColor(
+        light: ThemeSwatch(hex: 0xFCFCFC, l: 0.99, c: 0, h: 0),
+        dark: ThemeSwatch(hex: 0x161616, l: 0.2, c: 0, h: 0))
+
+    static let paper = paperTone.color
+
+    /// 分组卡片的底（设计稿 .group 白底），深色 oklch(0.24)。
+    static let paperCardTone = ThemeColor(
+        light: ThemeSwatch(hex: 0xFFFFFF, l: 1, c: 0, h: 0),
+        dark: ThemeSwatch(hex: 0x1F1F1F, l: 0.24, c: 0, h: 0))
+
+    static let paperCard = paperCardTone.color
+
     static let ink2Tone = ThemeColor(
         light: ThemeSwatch(hex: 0x4D4D4D, l: 0.42, c: 0, h: 0),
         dark: ThemeSwatch(hex: 0xC4C4C4, l: 0.82, c: 0, h: 0))
