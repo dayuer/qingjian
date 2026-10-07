@@ -73,12 +73,16 @@ def main() -> int:
     parser.add_argument("--trim", nargs="*", default=[], help="要剔掉的句子文件（留出集 / 开发集）")
     args = parser.parse_args()
 
+    # 对话语料里的一行是分词后的「哈 哈」，留出集里是「哈哈」：两种形式都算，按精确匹配剔
     trim: set[int] = set()
+    trim_stripped: set[int] = set()
     for path in args.trim:
         for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
-            text = line.replace(" ", "").strip() if args.register == "dialog" else line.strip()
-            if text:
-                trim.add(digest(text))
+            text = line.strip()
+            if not text:
+                continue
+            trim.add(digest(text))
+            trim_stripped.add(digest(text.replace(" ", "")))
 
     args.db.unlink(missing_ok=True)
     db = sqlite3.connect(args.db)
@@ -159,7 +163,7 @@ def main() -> int:
             if not turn:
                 continue
             key = digest(turn)
-            if key in trim:
+            if key in trim or (args.register == "dialog" and digest(turn.replace(" ", "")) in trim_stripped):
                 trimmed += 1
                 continue
             count = db.execute("SELECT count FROM counts WHERE key = ?", (key,)).fetchone()
