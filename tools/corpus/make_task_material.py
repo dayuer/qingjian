@@ -31,15 +31,17 @@ SENTENCES = pathlib.Path("data/eval/sentences.tsv")
 REPLAY = pathlib.Path("data/eval/input-log-2026-10-04.jsonl")
 
 
-def is_candidate(line: str) -> bool:
-    """够不够当评测 / 造题的一句：10–40 字、至少 6 个汉字、汉字占非空白字符六成以上、无杂字符。"""
-    if "\t" in line or not (10 <= len(line) <= 40):
+def is_candidate(line: str, limits) -> bool:
+    """够不够当评测 / 造题的一句。门槛按语域给：对话短、口语、允许个别字母数字；书面的长一些、要干净。"""
+    if "\t" in line or not (limits.min_len <= len(line) <= limits.max_len):
         return False
     han = len(HAN.findall(line))
-    if han < 6:
+    if han < limits.min_han:
         return False
     non_space = len(line.replace(" ", ""))
-    return non_space > 0 and han / non_space >= 0.6 and not NOT_HAN_OR_PUNCT.search(line)
+    if non_space == 0 or han / non_space < limits.han_ratio:
+        return False
+    return len(NOT_HAN_OR_PUNCT.findall(line)) <= limits.max_foreign
 
 
 def existing_sentences() -> set[str]:
@@ -74,6 +76,11 @@ def main() -> int:
     parser.add_argument("--train-limit", type=int, default=100_000, help="小实验用的造题条数（全量另写一份）")
     parser.add_argument("--seed", type=int, default=20261007)
     parser.add_argument("--exclude-words", type=pathlib.Path, help="一行一个词，含这些词的句子不进三份")
+    parser.add_argument("--min-len", type=int, default=10)
+    parser.add_argument("--max-len", type=int, default=40)
+    parser.add_argument("--min-han", type=int, default=6)
+    parser.add_argument("--han-ratio", type=float, default=0.6, help="汉字占非空白字符的最低比例")
+    parser.add_argument("--max-foreign", type=int, default=0, help="允许出现的非汉字非标点字符数（对话里会有个别字母数字）")
     args = parser.parse_args()
 
     excluded_words = []
@@ -104,7 +111,7 @@ def main() -> int:
             line = raw.rstrip("\n")
             if args.register == "dialog":
                 line = line.replace(" ", "")      # LCCC 一行是分词后的串，去掉空格才是句子
-            if not is_candidate(line):
+            if not is_candidate(line, args):
                 continue
             if excluded_words and any(word in line for word in excluded_words):
                 skipped_words += 1
@@ -145,12 +152,12 @@ def main() -> int:
             trimmed.write(line)
             trimmed.write("\n")
             kept += 1
-            if not is_candidate(normalized):
+            if not is_candidate(normalized, args):
                 continue
             if excluded_words and any(word in normalized for word in excluded_words):
                 continue
-            if normalized in existing:
-                continue
+            if normalized in existing or normalized == previous:
+                continue      # 语料的重复行（封顶时留了 3 份）不重复进造题原料
             record = json.dumps(
                 {"id": f"{args.register}-{index}", "register": args.register,
                  "prev": previous, "text": normalized},
