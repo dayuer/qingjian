@@ -488,7 +488,11 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         // 第 1 步的规则：判死的丢掉，判走的换一本包
         let verdict =
             domain_filter::judge(&domain, &entry.text, row.df, options.places_min_df, &keep);
-        let from_base = corpus_count.unwrap_or(0) >= domain_keep_min;
+        // 著名地点（R3 判过 df ≥ 门槛的）不受语料次数门槛影响：R3 认定它该留在基础词库，
+        // 再被「语料里出现够多」挡一道就等于白判 —— 商务中心（THUOCL df 3383）就因此被推到缺省关着的包里
+        let famous_place = domain == "places"
+            && domain_filter::is_major_place(&entry.text, row.df, options.places_min_df);
+        let from_base = famous_place || corpus_count.unwrap_or(0) >= domain_keep_min;
         match verdict {
             Some((Sink::Drop, reason)) => {
                 report.record_drop(&domain, &entry.text, row.df, reason);
