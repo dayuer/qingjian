@@ -196,6 +196,14 @@ pub struct Args {
     #[arg(long, requires = "eval_text")]
     pub eval_details: Option<PathBuf>,
 
+    /// 将回放逐条结果写成 JSONL（日志行号、来源、作用域、当时选的词、现在的名次与前五），按行号切前后两半或比两份词库用
+    #[arg(long, requires = "replay")]
+    pub replay_details: Option<PathBuf>,
+
+    /// 回放另报干净口径：剔除撤销（R1）、上屏后删掉重打（R2）、汉字夹短字母残段（R3）的上屏再算，并按前后两半各报一次。规则见 `replay/clean`
+    #[arg(long, requires = "replay")]
+    pub clean: bool,
+
     /// 同拼音不同上文评测：读 `拼音\t前文\t期望` 三列（cloud/data/eval/context-pairs.tsv），
     /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率与按键同步部分的 p50 / p99
     #[arg(long)]

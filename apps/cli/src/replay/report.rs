@@ -56,6 +56,12 @@ pub struct Report {
 
     /// 没命中首选的例子。
     pub misses: Vec<String>,
+
+    /// 逐条结果（`--replay-details` 时才收），一条一个 JSON 对象。
+    pub details: Option<Vec<serde_json::Value>>,
+
+    /// 干净口径（`--clean` 时才有）。
+    pub clean: Option<super::clean::Summary>,
 }
 
 impl Report {
@@ -153,6 +159,9 @@ impl fmt::Display for Report {
         write_tally(f, "整句", &self.sentence)?;
         write_tally(f, "英文", &self.english)?;
         write_tally(f, "其他", &self.other)?;
+        if let Some(clean) = &self.clean {
+            write!(f, "{clean}")?;
+        }
         if !self.sync.is_empty() {
             writeln!(f, "按键同步部分 {}", self.sync.summary())?;
         }

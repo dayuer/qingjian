@@ -93,7 +93,18 @@ fn run() -> Result<(), CliError> {
         // 日志里形码那些行也要能重放：回放按每条的方案切引擎，所以它自己得留一份码表
         // （`build_engine` 那份的所有权已经交给引擎了）
         let code_table = args.wubi.as_ref().map(CodeTable::from_path).transpose()?;
-        let report = replay::run(&mut engine, path, args.misses, code_table)?;
+        let details = args.replay_details.is_some();
+        let report = replay::run(
+            &mut engine,
+            path,
+            args.misses,
+            code_table,
+            details,
+            args.clean,
+        )?;
+        if let Some(details) = &args.replay_details {
+            replay::write_details(&report, details)?;
+        }
         print!("{report}");
         return Ok(());
     }

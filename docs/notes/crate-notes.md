@@ -252,6 +252,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
   那部分只计数——拿拼音的读法喂形码的键会算出看着像真的、实则无意义的命中率。
   含触发键的日志行按壳那样逐键重喂（进辅码态、码段进码段），
   并多打一行「辅码选词 N 条，其中同拼音纯输入首选命中 M 条」（学习闭环的尺子）。
+  `--replay-details <jsonl>` 逐条写行号、来源、作用域、当时选的、现在的名次与前五（比两份词库、按行号切半用）；
+  `--clean` 另报干净口径（剔撤销 / 删掉重打 / 拼音残段上屏，前后两半各报），规则冻结，见 `docs/notes/replay-clean.md`。
 - `--aux-table <路径>`（可多次）装辅码码表（`.qj` 或 `词<Tab>码` TSV）；交互模式与查询模式都按壳的方式逐键喂入，
   配的触发键进辅码态、之后的字母进码段，候选行会带上命中的码。
 - `--tune 名=值`（逗号分隔）覆盖个人 n-gram 插值与敲错代价的常数扫网格（名字见 `apps/cli/src/tuning.rs`，Core 侧是 `Engine::set_interpolation` / `set_typo_costs`，壳只用缺省值）。

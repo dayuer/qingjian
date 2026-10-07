@@ -5,6 +5,7 @@
 //! 云端词、云端整句、原样上屏、译词不评：它们不是本地排序的结果，只计数。
 //! 其他事件（重打、直通、云端联想、上文断开、会话）按 `docs/plan/model-eval.md` 里的尺子计数。
 
+mod clean;
 mod line;
 mod report;
 mod scheme;
@@ -27,26 +28,40 @@ pub fn run(
     path: &Path,
     show_misses: usize,
     code_table: Option<CodeTable>,
+    details: bool,
+    clean: bool,
 ) -> Result<Report, ReplayError> {
     let text = std::fs::read_to_string(path).map_err(|source| ReplayError::Read {
         path: path.to_owned(),
         source,
     })?;
-    let mut report = Report::default();
+    let mut report = Report {
+        details: details.then(Vec::new),
+        ..Report::default()
+    };
     let mut switcher = SchemeSwitcher::new(code_table);
+    let mut lines = Vec::new();
     for (number, raw) in text.lines().enumerate() {
         if raw.trim().is_empty() {
             continue;
         }
-        let line: Line = match serde_json::from_str(raw) {
-            Ok(line) => line,
+        match serde_json::from_str::<Line>(raw) {
+            Ok(line) => lines.push((number, line.entry)),
             Err(error) => {
                 report.unparsable += 1;
                 tracing::warn!(line = number + 1, %error, "日志行解析失败，跳过");
-                continue;
             }
-        };
-        match line.entry {
+        }
+    }
+    if clean {
+        let dictionary = engine.dictionary();
+        let excluded = clean::scan(lines.iter().map(|(n, e)| (n + 1, e)), |text| {
+            dictionary.text_frequency(text) > 0
+        });
+        report.clean = Some(clean::Summary::new(excluded));
+    }
+    for (number, entry) in lines {
+        match entry {
             InputLogEntry::Retract { .. } => report.retracts += 1,
             InputLogEntry::Retype { .. } => report.retypes += 1,
             InputLogEntry::Session { .. } => report.sessions += 1,
@@ -82,7 +97,14 @@ pub fn run(
                 {
                     report.predictions_accepted += 1;
                 }
-                replay_commit(engine, &mut switcher, &commit, &mut report, show_misses)
+                replay_commit(
+                    engine,
+                    &mut switcher,
+                    &commit,
+                    &mut report,
+                    show_misses,
+                    number + 1,
+                )
             }
         }
     }
@@ -95,6 +117,7 @@ fn replay_commit(
     commit: &qingjian_core::CommitEntry,
     report: &mut Report,
     show_misses: usize,
+    line: usize,
 ) {
     // 这条日志所属方案回放不了（形码但没给 `--wubi`）：只计数。拿拼音的读法去喂形码的键会算出
     // 看着像真的、实则无意义的命中率。
@@ -175,6 +198,26 @@ fn replay_commit(
             tally.corrected_now += 1;
         }
     }
+    if let Some(clean) = report.clean.as_mut() {
+        clean.push(line, commit.source, position.map(|i| i + 1));
+    }
+    if let Some(details) = report.details.as_mut() {
+        let top: Vec<&str> = query
+            .candidates
+            .items
+            .iter()
+            .take(5)
+            .map(|c| c.text.as_str())
+            .collect();
+        details.push(serde_json::json!({
+            "line": line,
+            "source": source_label(commit.source),
+            "scope": scope,
+            "text": commit.text,
+            "rank": position.map(|i| i + 1),
+            "top": top,
+        }));
+    }
     if position != Some(0) && report.misses.len() < show_misses {
         let top: Vec<String> = query
             .candidates
@@ -250,6 +293,31 @@ pub enum ReplayError {
         #[source]
         source: std::io::Error,
     },
+    #[error("cannot write replay details {path}: {source}")]
+    Write {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// 把 `--replay-details` 收的逐条结果写成 JSONL；已有同名文件时拒绝覆盖。
+pub fn write_details(report: &Report, path: &Path) -> Result<(), ReplayError> {
+    use std::io::Write;
+    let error = |source| ReplayError::Write {
+        path: path.to_owned(),
+        source,
+    };
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(error)?;
+    let mut writer = std::io::BufWriter::new(file);
+    for row in report.details.iter().flatten() {
+        writeln!(writer, "{row}").map_err(error)?;
+    }
+    writer.flush().map_err(error)
 }
 
 /// 没命中例子里标来源用的短名，与报告各计数板同名。
