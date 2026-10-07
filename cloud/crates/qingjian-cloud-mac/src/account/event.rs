@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use qingjian_cloud_proto::{Consents, Feature};
+use qingjian_cloud_proto::{Consents, Feature, SessionInfo};
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum AccountEvent {
@@ -19,8 +19,16 @@ pub enum AccountEvent {
         consents: Consents,
     },
 
-    /// 服务器上的开关（切换成功或刷新得到）。
-    Consents(Consents),
+    /// 服务器上的开关（切换成功或刷新账号时一起带回来）；刷新账号时还带上同一空间里的设备。
+    Account {
+        consents: Consents,
+
+        /// 同一空间里的设备；只切开关时不带（`None` 表示设备列表照旧）。
+        sessions: Option<Vec<SessionInfo>>,
+    },
+
+    /// 解绑了同一空间里的另一台设备（带给用户看的设备名）。
+    Revoked(String),
 
     /// 切换开关时服务器说这项不能开（403）：显示为关。
     Forbidden(Feature),
@@ -48,7 +56,12 @@ impl fmt::Debug for AccountEvent {
                 .field("user_id", user_id)
                 .field("consents", consents)
                 .finish(),
-            Self::Consents(consents) => f.debug_tuple("Consents").field(consents).finish(),
+            Self::Account { consents, sessions } => f
+                .debug_struct("Account")
+                .field("consents", consents)
+                .field("sessions", &sessions.as_ref().map(Vec::len))
+                .finish(),
+            Self::Revoked(name) => f.debug_tuple("Revoked").field(name).finish(),
             Self::Forbidden(feature) => f.debug_tuple("Forbidden").field(feature).finish(),
             Self::SignedOut => f.write_str("SignedOut"),
             Self::Failed(reason) => f.debug_tuple("Failed").field(reason).finish(),

@@ -40,6 +40,12 @@ struct SpaceEntryView: View {
                         Text("都默认关闭。关掉某项会同时删除服务器上这部分数据，本机数据不受影响。")
                     }
                     Section {
+                        // 同一空间里的设备都列出来：本机标一下，别的设备可以在这里解绑
+                        ForEach(account.state?.sessions ?? []) { device in
+                            DeviceRow(device: device) {
+                                Task { await account.revoke(device) }
+                            }
+                        }
                         if let code = store.pairCode {
                             LabeledContent("匹配码", value: code.pairCode)
                             Text(SpaceWording.addDeviceIntro)
@@ -56,7 +62,11 @@ struct SpaceEntryView: View {
                                 Text(String(format: SpaceWording.requestTitle, request.name))
                                 HStack {
                                     Button(SpaceWording.allow) {
-                                        Task { await store.decide(request, allow: true) }
+                                        // 允许之后那台设备就在列表里了，重新取一遍
+                                        Task {
+                                            await store.decide(request, allow: true)
+                                            await account.refresh()
+                                        }
                                     }
                                     .buttonStyle(.borderedProminent)
                                     Button(SpaceWording.deny, role: .destructive) {
@@ -67,6 +77,13 @@ struct SpaceEntryView: View {
                         }
                     } header: {
                         Text("设备")
+                    } footer: {
+                        // 解绑的结果（成功或失败的原因）在这里说一句
+                        if let message = account.message {
+                            Text(message).font(AppFont.footnote)
+                        } else {
+                            Text(SpaceWording.devicesMore).font(AppFont.footnote)
+                        }
                     }
                     Section {
                         Button("清空云端输入记录", role: .destructive) {

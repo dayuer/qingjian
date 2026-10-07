@@ -72,12 +72,15 @@ enum SpaceWording {
 
     static let openedMore = "换设备时在「添加一台设备」出匹配码，新设备输码加入。"
 
+    /// 设备列表下面那句（解绑的结果另有说法时用它）。
+    static let devicesMore = "换设备时用「添加一台设备」出匹配码，新设备输码加入；别的设备可以在这里解绑。"
+
     /// 开通页与输码页上会出现的全部文字，测试用来查有没有不该出现的词。
     static let allTexts: [String] = [
         consent, createTitle, createIntro, createButton, created, alreadyHave,
         joinTitle, joinIntro, joinField, joinButton, joinHint,
         waiting, waitingHint, denied, joined, cancel, retry, missingCode, expired,
-        entryTitle, entryOpened, entryClosed, openedNote, openedMore,
+        entryTitle, entryOpened, entryClosed, openedNote, openedMore, devicesMore,
         addDevice, addDeviceIntro, addDeviceHint, addDeviceStop, allow, deny,
         deniedRequest, allowed("某人"), String(format: requestTitle, "某人"),
     ]

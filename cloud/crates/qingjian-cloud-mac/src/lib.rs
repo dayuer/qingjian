@@ -35,7 +35,7 @@ pub use menu::{
 };
 #[cfg(target_os = "macos")]
 pub use service::{
-    CloudStatus, clear_input_log, consent_enabled, create_space, join_with_code, llm_endpoint,
-    menu_lines, menu_revision, pause_toggle, perform, start, status, sync_now, toggle_feature,
-    unbind,
+    CloudDevice, CloudStatus, clear_input_log, consent_enabled, create_space, join_with_code,
+    llm_endpoint, menu_lines, menu_revision, pause_toggle, perform, refresh_account, revoke_device,
+    start, status, sync_now, toggle_feature, unbind,
 };

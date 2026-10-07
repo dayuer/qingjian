@@ -180,7 +180,10 @@ impl Service {
         self.note = None;
         spawn("cloud-consent", move || {
             let event = match client.put_consent(feature, enabled) {
-                Ok(consents) => AccountEvent::Consents(consents),
+                Ok(consents) => AccountEvent::Account {
+                    consents,
+                    sessions: None,
+                },
                 Err(ClientError::Forbidden(_)) => AccountEvent::Forbidden(feature),
                 Err(ClientError::Unauthorized) => AccountEvent::SignedOut,
                 Err(error) => {
@@ -191,8 +194,9 @@ impl Service {
         });
     }
 
-    /// 启动与「重新加载配置」时问一次服务器上的开关：别的设备改过的跟过来。
-    pub(super) fn refresh_consents(&self) {
+    /// 启动、打开云服务设置页与「重新加载配置」时问一次服务器：别的设备改过的开关跟过来，
+    /// 顺便拿到同一空间里的设备列表。
+    pub(super) fn refresh_account(&self) {
         let Some(config) = self.config.as_ref().filter(|config| config.signed_in()) else {
             return;
         };
@@ -201,11 +205,34 @@ impl Service {
         let generation = self.flow.current();
         spawn("cloud-account", move || {
             let event = match client.account() {
-                Ok(account) => AccountEvent::Consents(account.consents),
+                Ok(account) => AccountEvent::Account {
+                    consents: account.consents,
+                    sessions: Some(account.sessions),
+                },
                 Err(ClientError::Unauthorized) => AccountEvent::SignedOut,
                 Err(error) => {
                     tracing::info!(%error, "取账号失败，开关照本机配置");
                     return;
+                }
+            };
+            let _ = sender.send((generation, event));
+        });
+    }
+
+    /// 解绑同一空间里的另一台设备（设置页设备列表里点的那一颗；壳已经弹过确认）。
+    pub(super) fn revoke_device(&mut self, id: i64, name: String) {
+        let Some(config) = self.config.as_ref().filter(|config| config.signed_in()) else {
+            return;
+        };
+        let client = Client::new(&config.server(), &config.token);
+        let sender = self.sender.clone();
+        let generation = self.flow.current();
+        spawn("cloud-account", move || {
+            let event = match client.revoke_session(id) {
+                Ok(()) => AccountEvent::Revoked(name),
+                Err(ClientError::Unauthorized) => AccountEvent::SignedOut,
+                Err(error) => {
+                    AccountEvent::Failed(format!("解绑没成功：{}", account::reason(&error)))
                 }
             };
             let _ = sender.send((generation, event));
@@ -269,11 +296,23 @@ impl Service {
                 self.signed_in_as(&token, user_id, consents);
             }
             // 退出登录后才到的结果不能再写进配置
-            AccountEvent::Consents(_) | AccountEvent::Forbidden(_) if !self.signed_in() => {}
-            AccountEvent::Consents(consents) => {
+            AccountEvent::Account { .. } | AccountEvent::Forbidden(_) if !self.signed_in() => {}
+            AccountEvent::Account { consents, sessions } => {
+                if let Some(sessions) = sessions
+                    && self.sessions != sessions
+                {
+                    self.sessions = sessions;
+                    // 设备列表变了：版本号一动，输入法的每拍会顺手刷开着的设置窗口
+                    self.revision += 1;
+                }
                 if self.config.as_ref().map(AgentConfig::consents) != Some(consents) {
                     self.set_consents(consents);
                 }
+            }
+            // 解绑成功：菜单给一句确认，顺手把设备列表取新的（那台已经不在里面了）
+            AccountEvent::Revoked(name) => {
+                self.note = Some(format!("已解绑「{name}」"));
+                self.refresh_account();
             }
             AccountEvent::Forbidden(feature) => {
                 self.note = Some("这项功能现在不能打开".to_owned());
@@ -281,6 +320,7 @@ impl Service {
             }
             AccountEvent::SignedOut => {
                 self.flow.cancel();
+                self.sessions.clear();
                 self.note = Some("登录已失效，请重新登录".to_owned());
                 self.store(AgentConfig::clear_session);
             }

@@ -93,7 +93,7 @@ pub fn data_line_text(data: &DataStatus, consents: Consents) -> Option<String> {
 }
 
 /// 「刚刚」/「N 分钟前」/「N 小时前」。
-fn ago(ms: i64) -> String {
+pub(crate) fn ago(ms: i64) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)

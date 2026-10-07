@@ -192,7 +192,7 @@ final class AccountStore {
     func revoke(_ device: AccountDevice) async {
         let id = device.id
         if await perform({ AccountBridge.revokeSession($0, id: id) }) {
-            message = "已注销「\(device.name)」"
+            message = "已解绑「\(device.name)」"
         }
     }
 

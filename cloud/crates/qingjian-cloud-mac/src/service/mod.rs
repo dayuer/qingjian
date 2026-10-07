@@ -16,7 +16,7 @@ use objc2::rc::Retained;
 use objc2::{MainThreadMarker, sel};
 use objc2_foundation::NSTimer;
 use qingjian_cloud_client::{ClipboardSync, DataSync, DataSyncConfig, SyncConfig};
-use qingjian_cloud_proto::{EventKind, Feature};
+use qingjian_cloud_proto::{EventKind, Feature, Platform, SessionInfo};
 
 use crate::account::{AccountEvent, AccountFlow};
 use crate::config::AgentConfig;
@@ -131,6 +131,9 @@ pub struct CloudStatus {
     /// 本机设备名（已开通时显示在设备行）。
     pub device: String,
 
+    /// 同一空间里的设备（含本机）；没开通或还没取到时为空。
+    pub devices: Vec<CloudDevice>,
+
     /// 学习数据那一行（最近同步多久前 / 失败原因 / 等输入法合并）；没话说时是空串。
     pub sync_line: String,
 
@@ -145,6 +148,22 @@ pub struct CloudStatus {
 
     /// 五项开关：(功能名, 开着没有)。
     pub consents: [(&'static str, bool); 5],
+}
+
+/// 云服务页设备列表里的一台设备和它那一行小字。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CloudDevice {
+    /// 服务端给的会话 id，解绑时用。
+    pub id: i64,
+
+    /// 设备名（iPhone 的名字、Mac 的电脑名）。
+    pub name: String,
+
+    /// 「iOS · 3 分钟前活跃」这种一行小字；与 iOS 端同一份说法。
+    pub detail: String,
+
+    /// 是不是这台 Mac。
+    pub current: bool,
 }
 
 impl CloudStatus {
@@ -186,6 +205,16 @@ pub fn sync_now() {
 /// 解绑这台 Mac（退出登录）。
 pub fn unbind() {
     with(|service| service.perform(TAG_SIGN_OUT));
+}
+
+/// 解绑同一空间里的另一台设备（设置页设备列表里点的那一颗；壳已经弹过确认）。
+pub fn revoke_device(id: i64, name: &str) {
+    with(|service| service.revoke_device(id, name.to_owned()));
+}
+
+/// 打开云服务设置页时问一次服务器：设备列表与别处改过的开关。
+pub fn refresh_account() {
+    with(|service| service.refresh_account());
 }
 
 /// 某项云功能现在开着没有（壳在弹同意说明前问）。
@@ -303,6 +332,9 @@ struct Service {
     /// 本机设备名（给设置页显示，算一次留着）。
     device: Option<String>,
 
+    /// 同一空间里的设备（服务器给的会话列表）；退出登录时清空。
+    sessions: Vec<SessionInfo>,
+
     /// 账号操作的后台线程与登录窗口回调把（发出时的代数，结果）发到这里，主线程每拍取。
     events: Receiver<(u64, AccountEvent)>,
 
@@ -333,12 +365,13 @@ impl Service {
             flow: AccountFlow::default(),
             join_stop: Arc::new(AtomicBool::new(false)),
             device: None,
+            sessions: Vec::new(),
             events,
             sender,
             note: None,
         };
         service.load_config();
-        service.refresh_consents();
+        service.refresh_account();
         service
     }
 
@@ -510,8 +543,14 @@ impl Service {
             joining: self.flow.signing_in(),
             paused: self.paused,
             note: self.note.clone(),
+            devices: self.devices(),
             consents,
         }
+    }
+
+    /// 设备列表：服务端的会话列表按「最近活跃」排，本机永远排第一。
+    fn devices(&self) -> Vec<CloudDevice> {
+        sorted_devices(&self.sessions)
     }
 
     /// 按功能名切换开关（设置页的勾选框）。
@@ -546,7 +585,7 @@ impl Service {
             }
             TAG_RELOAD => {
                 self.load_config();
-                self.refresh_consents();
+                self.refresh_account();
                 self.refresh_menu(true);
             }
             TAG_OPEN_CONFIG => {
@@ -621,6 +660,34 @@ impl Service {
     }
 }
 
+/// 设备列表：本机排第一，其余照服务端给的顺序（最近活跃的在前）。
+fn sorted_devices(sessions: &[SessionInfo]) -> Vec<CloudDevice> {
+    let mut devices: Vec<CloudDevice> = sessions
+        .iter()
+        .map(|session| CloudDevice {
+            id: session.id,
+            name: session.name.clone(),
+            detail: device_detail(session),
+            current: session.current,
+        })
+        .collect();
+    devices.sort_by_key(|device| !device.current);
+    devices
+}
+
+/// 设备那一行的小字：「iOS · 3 分钟前活跃」，与 iOS 的 `AccountDevice.detail` 同一份说法。
+fn device_detail(session: &SessionInfo) -> String {
+    let platform = match session.platform {
+        Platform::Ios => "iOS",
+        Platform::Macos => "Mac",
+        Platform::Web => "网页",
+    };
+    match session.last_seen {
+        Some(at) => format!("{platform} · {}活跃", crate::menu::ago(at)),
+        None => format!("{platform} · {}登录", crate::menu::ago(session.created_at)),
+    }
+}
+
 fn text_hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -639,4 +706,46 @@ fn now_ms() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qingjian_cloud_proto::SessionInfo;
+
+    fn session(id: i64, name: &str, current: bool, last_seen: Option<i64>) -> SessionInfo {
+        SessionInfo {
+            id,
+            name: name.to_owned(),
+            platform: Platform::Macos,
+            created_at: 0,
+            last_seen,
+            current,
+            joined_via: None,
+        }
+    }
+
+    #[test]
+    fn current_device_comes_first() {
+        let devices = sorted_devices(&[
+            session(1, "iPhone", false, None),
+            session(2, "这台 Mac", true, None),
+            session(3, "iPad", false, None),
+        ]);
+        let names: Vec<&str> = devices.iter().map(|device| device.name.as_str()).collect();
+        assert_eq!(names, ["这台 Mac", "iPhone", "iPad"]);
+        assert_eq!(devices.first().map(|device| device.id), Some(2));
+    }
+
+    #[test]
+    fn detail_says_platform_and_when() {
+        let mut ios = session(1, "iPhone", false, Some(now_ms() - 3 * 60_000));
+        ios.platform = Platform::Ios;
+        assert_eq!(device_detail(&ios), "iOS · 3 分钟前活跃");
+        // 还没请求过的用登录时间
+        let mut web = session(2, "网页", false, None);
+        web.platform = Platform::Web;
+        web.created_at = now_ms() - 2 * 3_600_000;
+        assert_eq!(device_detail(&web), "网页 · 2 小时前登录");
+    }
 }

@@ -1,4 +1,5 @@
-// 设备列表的一行：名字、平台、最近活跃；本机标「本机」，别的设备可以注销（二次确认）。
+// 设备列表的一行：名字、平台、最近活跃；本机标「本机」，别的设备可以解绑（二次确认）。
+// 素笺云服务页与账号页共用它：文案里不出现「登录 / 账号」（约束 5）。
 
 import SwiftUI
 
@@ -27,14 +28,14 @@ struct DeviceRow: View {
             }
             Spacer()
             if !device.current {
-                Button("注销", role: .destructive) { confirming = true }
+                Button("解绑", role: .destructive) { confirming = true }
                     .buttonStyle(.borderless)
             }
         }
-        .confirmationDialog("注销「\(device.name)」？", isPresented: $confirming, titleVisibility: .visible) {
-            Button("注销", role: .destructive, action: revoke)
+        .confirmationDialog("解绑「\(device.name)」？", isPresented: $confirming, titleVisibility: .visible) {
+            Button("解绑", role: .destructive, action: revoke)
         } message: {
-            Text("那台设备会退出登录，要用时重新登录。")
+            Text("那台设备会退出素笺云服务，云功能随之停掉，要用时重新加入。")
         }
     }
 }
