@@ -152,6 +152,7 @@ def main() -> int:
     for sample, count in db.execute("SELECT sample, count FROM counts ORDER BY count DESC, key LIMIT 20"):
         lines.append(f"      {count} 次  {sample[:60]}")
 
+    trimmed = 0
     with args.raw_out.open(encoding="utf-8") as fh, args.out.open("w", encoding="utf-8") as out:
         for raw in fh:
             turn = raw.rstrip("\n")
@@ -159,6 +160,7 @@ def main() -> int:
                 continue
             key = digest(turn)
             if key in trim:
+                trimmed += 1
                 continue
             count = db.execute("SELECT count FROM counts WHERE key = ?", (key,)).fetchone()
             if count is None:
@@ -172,7 +174,10 @@ def main() -> int:
             out.write(turn + "\n")
             written += 1
 
-    lines.append(f"  写出 {written} 行 → {args.out}（上限 {args.max_repeat} 次）")
+    lines.append(
+        f"  写出 {written} 行 → {args.out}（上限 {args.max_repeat} 次；"
+        f"按精确匹配剔掉留出集/开发集 {trimmed} 行，字典里共 {len(trim)} 句）"
+    )
     text = "\n".join(lines)
     print(text, file=sys.stderr)
     if args.report:
