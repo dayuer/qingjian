@@ -7,7 +7,7 @@
 |---|---|---|
 | 留出评测 | 只在验收时跑，冻结、不许拿来调参 | 1000 |
 | 开发集 | 调参、选权重用 | 1000 |
-| 造题用 | 「解码器在环的代价训练」造题（见 docs/design/decoder-in-the-loop.md） | 5000 |
+| 造题用 | 「解码器在环的代价训练」造题（见 docs/design/decoder-in-the-loop.md，另有 10 万一句的原料） | 100,000 |
 
 三份互不重叠，且都会从 `--corpus` 那个训练文件里删掉（剔完剩下的才是训练语料）。
 另外做去重校验：与现有评测集 `data/eval/sentences.tsv`、回放日志里上屏过的句子撞了就不收。
@@ -72,7 +72,8 @@ def main() -> int:
     parser.add_argument("--out-dir", type=pathlib.Path, default=pathlib.Path("data/eval"))
     parser.add_argument("--holdout", type=int, default=1000)
     parser.add_argument("--dev", type=int, default=1000)
-    parser.add_argument("--train", type=int, default=5000)
+    parser.add_argument("--train", type=int, default=100_000, help="造题用的句子数（「解码器在环」那侧要 10 万）")
+    parser.add_argument("--train-dir", type=pathlib.Path, default=pathlib.Path("data/train"), help="造题原料放哪")
     parser.add_argument("--seed", type=int, default=20261007)
     parser.add_argument("--exclude-words", type=pathlib.Path, help="一行一个词，含这些词的句子不收")
     args = parser.parse_args()
@@ -122,10 +123,12 @@ def main() -> int:
     train = fresh[args.holdout + args.dev : want]
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    args.train_dir.mkdir(parents=True, exist_ok=True)
     picked = set(fresh)
     files = {}
     for name, rows in (("holdout", holdout), ("dev", dev), ("train", train)):
-        target = args.out_dir / f"{args.register}-{name}.txt"
+        directory = args.train_dir if name == "train" else args.out_dir
+        target = directory / f"{args.register}-{name}.txt"
         target.write_text("\n".join(rows) + "\n", encoding="utf-8")
         files[name] = (target, rows)
 
