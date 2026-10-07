@@ -34,7 +34,8 @@ struct CardEditor: View {
                 topRow
                 PaperLabel(text: "记忆")
                 TextField("比如：不吃香菜，喜欢冰美式", text: $text, axis: .vertical)
-                    .lineLimit(2...5)
+                    // 起手一行：设计稿的 .field 空着就是一行高（10 + 24 + 10）；写长了照样往上长
+                    .lineLimit(1...5)
                     .modifier(PaperFieldStyle(vertical: 10))
                     .onChange(of: text) { _, value in
                         let clamped = MemoryLimits.clampText(value)
