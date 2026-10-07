@@ -145,6 +145,22 @@ pub fn confirm_clear_input_log(mtm: MainThreadMarker) -> bool {
     })
 }
 
+/// 解绑同一空间里的另一台设备（设置页设备列表里点的那一颗）。
+pub fn confirm_revoke_device(mtm: MainThreadMarker, name: &str) -> bool {
+    with_alert(mtm, |_| {
+        message(
+            mtm,
+            &format!("解绑「{name}」？"),
+            "那台设备会退出登录，云功能随之停掉，要用时重新加入。这台 Mac 不受影响。",
+            "解绑",
+            "取消",
+            true,
+        )
+        .runModal()
+            == NSAlertFirstButtonReturn
+    })
+}
+
 /// 弹窗前后统一处理激活策略：输入法是 LSBackgroundOnly，临时切 Accessory 并激活，弹窗才拿得到焦点。
 fn with_alert<T>(mtm: MainThreadMarker, body: impl FnOnce(MainThreadMarker) -> T) -> T {
     let app = NSApplication::sharedApplication(mtm);

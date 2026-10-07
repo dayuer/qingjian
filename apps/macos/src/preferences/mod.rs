@@ -10,6 +10,7 @@
 
 mod card;
 mod controls;
+mod device_list;
 mod edit_menu;
 mod file_dialog;
 mod font_picker;

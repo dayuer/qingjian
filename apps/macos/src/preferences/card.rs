@@ -80,6 +80,11 @@ impl Card {
         self.width - 2.0 * PAD_H
     }
 
+    /// 卡片里行区域的宽（去掉左右内边距）：往行里塞自己管内容的视图时要按它摆。
+    pub fn inner_width(&self) -> f64 {
+        self.control_width()
+    }
+
     /// 加一行：左边名称（+可选说明），右边一个控件（右对齐）。交出两个标签，按状态改文字时用。
     /// `control_width` 是控件的宽（开关固定、按钮按标题算）。
     pub fn row(
@@ -193,6 +198,18 @@ impl Card {
             .push((as_view_any(view), PAD_H, slot.top, width, CONTROL_H));
     }
 
+    /// 加一行整行宽的控件（自己管内容的列表、滚动视图那类），左对齐。
+    pub fn row_full(&mut self, view: &NSView, height: f64) {
+        self.rows.push((
+            as_view_any(view),
+            PAD_H,
+            self.top,
+            self.control_width(),
+            height,
+        ));
+        self.top += height + ROW_GAP;
+    }
+
     /// 加一行整行宽的说明小字（按钮下面那种），左对齐、放不下折行。
     pub fn row_note(&mut self, mtm: MainThreadMarker, text: &str) {
         let text_width = self.control_width();
@@ -260,6 +277,12 @@ fn note_height(text: &str, width: f64) -> f64 {
     let estimated = text.chars().count() as f64 * NOTE_CHAR_WIDTH;
     let lines = (estimated / width).ceil().max(1.0);
     NOTE_H * lines
+}
+
+/// 把控件按 `Retained<NSView>` 收着（自己管的列表重建时要把行控件攒起来）。
+pub fn retained_view<T: objc2::Message + 'static>(value: Retained<T>) -> Retained<NSView> {
+    // SAFETY: 调用点传的都是 NSTextField / NSButton 这类 AppKit 控件，全是 NSView 的子类
+    unsafe { Retained::cast_unchecked(value) }
 }
 
 /// 把控件当 `&NSView` 用（[`RowSlot::align_right`] 要拿它重排位置）。

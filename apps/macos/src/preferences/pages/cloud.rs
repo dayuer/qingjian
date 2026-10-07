@@ -19,6 +19,7 @@ use crate::preferences::controls::{
     button, button_width, danger_button, disclosure, note_full, popup, secure_field, select,
     set_switch, switch, text_field,
 };
+use crate::preferences::device_list::{self, DeviceList};
 use crate::preferences::layout::{Layout, PAGE_PADDING};
 use crate::preferences::setting::Setting;
 use crate::preferences::target::PreferencesTarget;
@@ -85,6 +86,9 @@ pub struct CloudPage {
     /// 状态卡的高度（换算行的位置时要用）。
     status_height: f64,
 
+    /// 同一空间里的设备列表。
+    devices: DeviceList,
+
     /// 五项云功能开关。
     memory: Retained<NSSwitch>,
 
@@ -145,7 +149,11 @@ struct CustomRows {
 }
 
 impl CloudPage {
-    pub fn build(layout: &mut Layout, mtm: MainThreadMarker, target: &PreferencesTarget) -> Self {
+    pub fn build(
+        layout: &mut Layout,
+        mtm: MainThreadMarker,
+        target: &Retained<PreferencesTarget>,
+    ) -> Self {
         // 状态：左边状态与设备名，右边按有没有开通换一组按钮
         let mut status_card = card(layout, mtm, "状态");
         let create = button(mtm, "开通素笺云", Setting::CloudCreateSpace, target);
@@ -166,6 +174,12 @@ impl CloudPage {
         let device = device.expect("状态行的说明那一行");
         let status_height = status_card.finish(layout);
         let hint = note_full(layout, mtm, JOIN_HINT);
+
+        // 设备：同一空间里的都列出来，别的设备可以在这里解绑（本机的解绑在状态行）
+        let mut devices_card = card(layout, mtm, "设备");
+        let devices = DeviceList::new(mtm, devices_card.inner_width(), target);
+        devices_card.row_full(devices.view(), device_list::HEIGHT);
+        devices_card.finish(layout);
 
         // 功能（名字与 iOS 的功能清单一字一致）
         let mut feature_card = card(layout, mtm, "功能");
@@ -337,6 +351,7 @@ impl CloudPage {
             unbind_w,
             status_slot,
             status_height,
+            devices,
             memory,
             input_log,
             sync_switch,
@@ -414,6 +429,7 @@ impl CloudPage {
             buttons.push((view(&self.join), self.join_w));
         }
         self.status_slot.align_right(self.status_height, &buttons);
+        self.devices.rebuild(&status.devices, status.signed_in);
         // 五项开关：没开通时整组灰掉
         for (control, name) in [
             (&self.memory, "memory"),

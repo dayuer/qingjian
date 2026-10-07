@@ -101,10 +101,13 @@ impl InputMenu {
     }
 
     /// 每秒一次：素笺云的行变了就整份重排。
-    pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) {
-        if let Some((actions, notes)) = self.cloud_agent.rows(mtm, &self._target) {
-            self.rebuild(mtm, &actions, &notes);
-        }
+    /// 素笺云的行变了才重画；交回「重画了没有」（云状态变了，设置窗口开着的话也要跟着刷）。
+    pub fn sync_cloud_agent(&self, mtm: MainThreadMarker) -> bool {
+        let Some((actions, notes)) = self.cloud_agent.rows(mtm, &self._target) else {
+            return false;
+        };
+        self.rebuild(mtm, &actions, &notes);
+        true
     }
 
     /// 查到新版本就露出「有新版本」那一行，没有就藏起来。

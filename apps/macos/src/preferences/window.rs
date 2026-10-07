@@ -234,13 +234,15 @@ impl PreferencesWindow {
 
     /// 打开（或带到最前）。
     pub fn show(&self) {
-        // 云功能是后台线程在跑，打开时先照它的现状刷一遍
+        // 云功能是后台线程在跑，打开时先照它的现状刷一遍；设备列表与别处改过的开关问一次服务器
+        qingjian_cloud_mac::refresh_account();
         self.sync_cloud_status();
         self.panel.present();
     }
 
     /// 打开窗口并切到「云服务」页（菜单里的「云服务设置…」）。
     pub fn show_cloud(&self) {
+        qingjian_cloud_mac::refresh_account();
         self.sync_cloud_status();
         self.panel.present();
         self.tabs.selectTabViewItemAtIndex(self.cloud_tab as _);

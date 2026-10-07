@@ -100,6 +100,21 @@ impl Host {
         self.preferences.sync_cloud_status();
     }
 
+    /// 「云服务」页设备列表里点了一台设备的「解绑…」：先弹确认，确认后交给素笺云。
+    pub fn revoke_cloud_device(&mut self, id: i64) {
+        let status = qingjian_cloud_mac::status();
+        let Some(device) = status.devices.iter().find(|device| device.id == id) else {
+            return;
+        };
+        let name = device.name.clone();
+        if let Some(mtm) = MainThreadMarker::new()
+            && !crate::menubar::cloud_prompt::confirm_revoke_device(mtm, &name)
+        {
+            return;
+        }
+        qingjian_cloud_mac::revoke_device(id, &name);
+    }
+
     /// 「云服务」页「高级」的展开三角：只改界面，不动配置。
     pub fn toggle_cloud_advanced(&mut self) {
         self.preferences.toggle_cloud_advanced();

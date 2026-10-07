@@ -214,9 +214,11 @@ impl Host {
         if qingjian_cloud_mac::take_input_log_reset() {
             self.reset_input_log_after_account_switch();
         }
-        // 分叉补丁：「素笺云」子菜单
-        if let Some(mtm) = objc2::MainThreadMarker::new() {
-            self.menu.sync_cloud_agent(mtm);
+        // 分叉补丁：「素笺云」子菜单；云状态变了（另一台设备加入或被解绑等）设置窗口也一起刷
+        if let Some(mtm) = objc2::MainThreadMarker::new()
+            && self.menu.sync_cloud_agent(mtm)
+        {
+            self.preferences.sync_cloud_status();
         }
     }
 

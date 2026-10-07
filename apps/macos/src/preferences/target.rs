@@ -19,6 +19,17 @@ define_class!(
             host::with(|h| h.change_setting(super::Setting::EditPhrase, super::SettingValue::Bool(false)));
         }
 
+        /// 「云服务」页设备列表里点了一台设备的「解绑…」：tag 是会话 id，先弹确认再解绑。
+        #[unsafe(method(revokeDevice:))]
+        fn revoke_device(&self, sender: Option<&AnyObject>) {
+            let Some(sender) = sender else {
+                return;
+            };
+            // SAFETY: 调用点都是 NSButton（NSControl），tag 是它在设备列表里的会话 id
+            let id: isize = unsafe { msg_send![sender, tag] };
+            host::with(|h| h.revoke_cloud_device(id as i64));
+        }
+
         /// 「云服务」页「高级」的展开三角：只改界面，不动配置。
         #[unsafe(method(toggleCloudAdvanced:))]
         fn toggle_cloud_advanced(&self, _sender: Option<&AnyObject>) {

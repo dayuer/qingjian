@@ -269,6 +269,41 @@ pub(super) fn button(
     button
 }
 
+/// 一颗自带头标签的按钮（不是写配置的那套）：走 target 上的专用选择器，
+/// tag 里放它自己的数据（比如要解绑的会话 id）。
+pub(super) fn action_button(
+    mtm: MainThreadMarker,
+    title: &str,
+    selector: Sel,
+    tag: isize,
+    target: &PreferencesTarget,
+) -> Retained<NSButton> {
+    // SAFETY: 选择器是 PreferencesTarget 上定义的方法，签名 (id) -> void
+    let button = unsafe {
+        NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(title),
+            Some(target),
+            Some(selector),
+            mtm,
+        )
+    };
+    button.setTag(tag);
+    button
+}
+
+/// 红字的 [`action_button`]（解绑这类）。
+pub(super) fn action_danger_button(
+    mtm: MainThreadMarker,
+    title: &str,
+    selector: Sel,
+    tag: isize,
+    target: &PreferencesTarget,
+) -> Retained<NSButton> {
+    let button = action_button(mtm, title, selector, tag, target);
+    button.setContentTintColor(Some(&NSColor::systemRedColor()));
+    button
+}
+
 /// 可编辑单行文本框：回车或失焦时发 action。
 pub(super) fn text_field(
     mtm: MainThreadMarker,
