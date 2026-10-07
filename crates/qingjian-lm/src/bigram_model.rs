@@ -50,6 +50,27 @@ pub struct BigramModel {
 
     /// `.qj` 里的来历。
     metadata: Option<Metadata>,
+
+    /// 实验：平滑方式与加载时算好的统计量。
+    smoothing: Smoothing,
+}
+
+/// 实验：平滑方式（环境变量 QJ_LM：jm:<λ> / wb / kn:<D>:<β>）。
+#[derive(Debug, Default, Clone)]
+struct Smoothing {
+    kind: u8,
+    lambda: f64,
+    discount: f64,
+    beta: f64,
+    /// 每个词作为后词出现过的不同前词数。
+    cont: Vec<u32>,
+    cont_total: f64,
+    /// 每个前词已存二元计数之和。
+    stored: Vec<u64>,
+    /// 实验：每个词的 log 概率修正（QJ_DELTA 指的 `词\tδ` TSV）。
+    bias: Vec<f32>,
+    /// 实验：词对的 log 概率修正（QJ_PAIR 指的 `前词\t后词\tδ` TSV）。
+    pair: std::collections::HashMap<(u32, u32), f32>,
 }
 
 impl BigramModel {
@@ -102,8 +123,10 @@ impl BigramModel {
             total: 0.0,
             start: None,
             metadata: Some(container.metadata().clone()),
+            smoothing: Smoothing::default(),
         };
         model.finish();
+        let model = model.prepare();
         tracing::debug!(
             words = model.word_count(),
             bigrams = model.bigram_count(),
@@ -192,8 +215,10 @@ impl BigramModel {
             total: 0.0,
             start: None,
             metadata: None,
+            smoothing: Smoothing::default(),
         };
         model.finish();
+        let model = model.prepare();
         tracing::debug!(
             words = model.word_count(),
             bigrams = model.bigram_count(),
@@ -242,6 +267,71 @@ impl BigramModel {
     /// `.qj` 里的来历；TSV 解析的返回 `None`。
     pub fn metadata(&self) -> Option<&Metadata> {
         self.metadata.as_ref()
+    }
+
+    /// 实验：按 QJ_LM 准备平滑统计量。
+    fn prepare(mut self) -> Self {
+        let spec = std::env::var("QJ_LM").unwrap_or_default();
+        let parts: Vec<&str> = spec.split(':').collect();
+        let mut sm = Smoothing {
+            lambda: LAMBDA,
+            ..Smoothing::default()
+        };
+        match parts.first().copied() {
+            Some("jm") => {
+                sm.kind = 0;
+                sm.lambda = parts.get(1).and_then(|v| v.parse().ok()).unwrap_or(LAMBDA);
+            }
+            Some("wb") => sm.kind = 1,
+            Some("kn") => {
+                sm.kind = 2;
+                sm.discount = parts.get(1).and_then(|v| v.parse().ok()).unwrap_or(0.75);
+                sm.beta = parts.get(2).and_then(|v| v.parse().ok()).unwrap_or(0.5);
+            }
+            _ => {}
+        }
+        if sm.kind != 0 {
+            let n = self.entries.len();
+            sm.cont = vec![0; n];
+            sm.stored = vec![0; n];
+            for v in 0..n {
+                let start = self.offsets[v] as usize;
+                let end = self.offsets[v + 1] as usize;
+                for s in &self.successors[start..end] {
+                    sm.cont[s.word as usize] += 1;
+                    sm.stored[v] += u64::from(s.count);
+                }
+            }
+            sm.cont_total = self.successors.len().max(1) as f64;
+        }
+        if let Ok(path) = std::env::var("QJ_DELTA") {
+            sm.bias = vec![0.0; self.entries.len()];
+            if let Ok(text) = std::fs::read_to_string(&path) {
+                for line in text.lines() {
+                    let mut it = line.split('\t');
+                    if let (Some(word), Some(value)) = (it.next(), it.next())
+                        && let (Some(id), Ok(value)) = (self.word_id(word), value.parse::<f32>())
+                    {
+                        sm.bias[id as usize] = value;
+                    }
+                }
+            }
+        }
+        if let Ok(path) = std::env::var("QJ_PAIR")
+            && let Ok(text) = std::fs::read_to_string(&path)
+        {
+            for line in text.lines() {
+                let mut it = line.split('\t');
+                if let (Some(a), Some(b), Some(value)) = (it.next(), it.next(), it.next())
+                    && let (Some(a), Some(b), Ok(value)) =
+                        (self.word_id(a), self.word_id(b), value.parse::<f32>())
+                {
+                    sm.pair.insert((a, b), value);
+                }
+            }
+        }
+        self.smoothing = sm;
+        self
     }
 
     fn word_id(&self, word: &str) -> Option<u32> {
@@ -293,16 +383,40 @@ impl LanguageModel for BigramModel {
             None => self.start,
             Some(text) => self.word_id(text),
         };
+        let sm = &self.smoothing;
         let probability = match previous {
             Some(prev_id) if self.entries[prev_id as usize].count > 0 => {
                 let pair = self.bigram(prev_id, id).map_or(0.0, f64::from);
-                LAMBDA * pair / f64::from(self.entries[prev_id as usize].count)
-                    + (1.0 - LAMBDA) * unigram
+                let c = f64::from(self.entries[prev_id as usize].count);
+                match sm.kind {
+                    1 => {
+                        let start = self.offsets[prev_id as usize];
+                        let types = f64::from(self.offsets[prev_id as usize + 1] - start);
+                        let lambda = c / (c + types);
+                        lambda * pair / c + (1.0 - lambda) * unigram
+                    }
+                    2 => {
+                        let start = self.offsets[prev_id as usize];
+                        let types = f64::from(self.offsets[prev_id as usize + 1] - start);
+                        let stored = sm.stored[prev_id as usize] as f64;
+                        let gamma = ((c - stored).max(0.0) + sm.discount * types) / c;
+                        let cont = f64::from(sm.cont[id as usize]) / sm.cont_total;
+                        let lower = sm.beta * cont + (1.0 - sm.beta) * unigram;
+                        (pair - sm.discount).max(0.0) / c + gamma * lower
+                    }
+                    _ => sm.lambda * pair / c + (1.0 - sm.lambda) * unigram,
+                }
             }
             // 前词不在模型里：只剩一元概率
             _ => unigram,
         };
-        Some(probability.max(f64::MIN_POSITIVE).ln())
+        let mut bias = sm.bias.get(id as usize).copied().unwrap_or(0.0);
+        if !sm.pair.is_empty()
+            && let Some(prev_id) = previous
+        {
+            bias += sm.pair.get(&(prev_id, id)).copied().unwrap_or(0.0);
+        }
+        Some(probability.max(f64::MIN_POSITIVE).ln() + f64::from(bias))
     }
 
     fn unigram_log_prob(&self, word: &str) -> Option<f64> {
