@@ -87,6 +87,8 @@ def main() -> None:
     parser.add_argument("--min-chars", type=int, default=2, help="短于此的段落丢掉")
     parser.add_argument("--min-han", type=int, default=1, help="汉字少于这个数的段落丢掉（维基的表格碎片靠它挡）")
     parser.add_argument("--report", help="清洗统计写到这个文件（缺省只打 stderr）")
+    parser.add_argument("--raw", action="store_true",
+                        help="不做正文档判别（只有为了复现旧口径才用：旧语料是带 91 万行章节标题的）")
     parser.add_argument("--dialog-hash", action="store_true",
                         help="每行前面加「整段对话的哈希+轮次」（对话语料去重用：整段重复的对话只留一份）")
     args = parser.parse_args()
@@ -107,7 +109,7 @@ def main() -> None:
                             dropped[f"太短或汉字少于 {args.min_han}"] += 1
                             continue
                         line = converter.convert(line)
-                        reason = drop_reason(line)
+                        reason = None if args.raw else drop_reason(line)
                         if reason is not None:
                             dropped[reason] += 1
                             bucket = samples.setdefault(reason, [])
