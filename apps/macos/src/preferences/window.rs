@@ -14,6 +14,7 @@ use qingjian_platform::Config;
 use qingjian_predict::PredictProvider;
 
 use super::controls::{language_label, small_label};
+use super::flipped::{self, FlippedView};
 use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
 use super::pages::{
     AboutPage, AdvancedPage, CandidatesPage, CloudPage, CloudShape, DictionariesPage, FuzzyPage,
@@ -23,13 +24,13 @@ use super::panel::PreferencesPanel;
 use super::target::PreferencesTarget;
 use crate::host::DictionaryInfo;
 
-/// 每页顶部留白、页面最低高度（矮页也撑到这个高度，切页时窗口不跳）。
+/// 每页的顶部与底部留白。
 const PAGE_TOP: f64 = 16.0;
-const MIN_PAGE_HEIGHT: f64 = 200.0;
 
-/// 标签视图四周留白、底部状态行高度。
+/// 标签视图四周留白、底部状态行（配置文件出错时显示原因）的高度与它下面的留白。
 const TAB_MARGIN: f64 = 14.0;
-const STATUS_HEIGHT: f64 = 18.0;
+const STATUS_HEIGHT: f64 = 16.0;
+const STATUS_GAP: f64 = 6.0;
 
 /// 窗口比屏幕可用高度至少矮这么多（标题栏 + 上下留一点边）；页面比窗口高时自己滚。
 const SCREEN_MARGIN: f64 = 80.0;
@@ -117,6 +118,7 @@ fn shoot(number: isize, path: &str) {
 fn dev_shape() -> CloudShape {
     #[cfg(debug_assertions)]
     match std::env::var("QJ_SETTINGS_FAKE").as_deref() {
+        Ok("0") => return CloudShape::closed(),
         Ok("1") => return shape_of(&fake_cloud_status(), false, false),
         Ok("2") => return shape_of(&fake_cloud_status(), true, true),
         _ => {}
@@ -143,6 +145,9 @@ fn shape_of(status: &qingjian_cloud_mac::CloudStatus, custom: bool, advanced: bo
 /// 好把界面（设备行、危险按钮、红字）看全。
 #[cfg(debug_assertions)]
 fn fake_cloud_status() -> qingjian_cloud_mac::CloudStatus {
+    if std::env::var("QJ_SETTINGS_FAKE").as_deref() == Ok("0") {
+        return qingjian_cloud_mac::CloudStatus::empty();
+    }
     qingjian_cloud_mac::CloudStatus {
         signed_in: true,
         line: "已开通".to_owned(),
@@ -199,11 +204,7 @@ impl PreferencesWindow {
         let target = PreferencesTarget::new(mtm);
         let new_layout = || Layout::new(PAGE_WIDTH, PAGE_TOP);
         let page = |title: &'static str, layout: Layout| -> Page {
-            (
-                title,
-                layout,
-                NSView::initWithFrame(mtm.alloc(), NSRect::ZERO),
-            )
+            (title, layout, flipped::view_of(&FlippedView::new(mtm)))
         };
         let mut pages: Vec<Page> = Vec::new();
 
@@ -253,8 +254,8 @@ impl PreferencesWindow {
         let tallest = pages
             .iter()
             .map(|(_, layout, _)| layout.height() + PAGE_TOP)
-            .fold(MIN_PAGE_HEIGHT, f64::max);
-        let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
+            .fold(PAGE_TOP, f64::max);
+        let page_height = tallest.min(max_page_height(mtm));
         let probe = NSRect::new(NSPoint::ZERO, NSSize::new(PAGE_WIDTH, page_height));
         let tabs = NSTabView::initWithFrame(mtm.alloc(), probe);
         let inner = tabs.contentRect();
@@ -264,7 +265,7 @@ impl PreferencesWindow {
             page_height + chrome_height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
         );
         tabs.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
+            NSPoint::new(TAB_MARGIN, STATUS_GAP + STATUS_HEIGHT),
             NSSize::new(
                 content_size.width - 2.0 * TAB_MARGIN,
                 page_height + chrome_height,
@@ -272,8 +273,8 @@ impl PreferencesWindow {
         ));
         for (title, layout, view) in pages.into_iter() {
             // 每一页按自己排出来的高度：窗口跟着当前这一页伸缩（`fit_window_to_page`）
-            let own_height =
-                (layout.height() + PAGE_TOP).clamp(MIN_PAGE_HEIGHT, max_page_height(mtm));
+            // 页高 = 内容高度 + 页底留白；窗口就按它伸缩，矮页不撑高
+            let own_height = (layout.height() + PAGE_TOP).min(max_page_height(mtm));
             view.setFrame(NSRect::new(
                 NSPoint::ZERO,
                 NSSize::new(PAGE_WIDTH, own_height),
@@ -291,7 +292,7 @@ impl PreferencesWindow {
         let status = small_label(mtm, "");
         status.setTextColor(Some(&NSColor::systemRedColor()));
         status.setFrame(NSRect::new(
-            NSPoint::new(TAB_MARGIN + PAGE_PADDING, TAB_MARGIN / 2.0),
+            NSPoint::new(TAB_MARGIN + PAGE_PADDING, STATUS_GAP / 2.0),
             NSSize::new(
                 content_size.width - 2.0 * (TAB_MARGIN + PAGE_PADDING),
                 STATUS_HEIGHT,
@@ -450,7 +451,7 @@ impl PreferencesWindow {
         self.cloud_shape.set(shape);
         let mut layout = Layout::new(PAGE_WIDTH, PAGE_TOP);
         let cloud = CloudPage::build(&mut layout, mtm, &self._target, shape);
-        let view = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
+        let view = flipped::view_of(&FlippedView::new(mtm));
         let own_height = (layout.height() + PAGE_TOP).max(self.page_height);
         view.setFrame(NSRect::new(
             NSPoint::ZERO,
@@ -565,7 +566,7 @@ fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
     // 窗口的高度要把标题栏算进去：`setFrame` 收的是含标题栏的 frame
     let content_size = NSSize::new(
         tabs_size.width + 2.0 * TAB_MARGIN,
-        tabs_size.height + 2.0 * TAB_MARGIN + STATUS_HEIGHT,
+        tabs_size.height + TAB_MARGIN + STATUS_GAP + STATUS_HEIGHT,
     );
     let window_size = window
         .frameRectForContentRect(NSRect::new(NSPoint::ZERO, content_size))
@@ -578,7 +579,7 @@ fn fit_window_to_page(tab_view: &NSTabView, animate: bool) {
     );
     window.setFrame_display_animate(NSRect::new(origin, window_size), true, animate);
     let tabs_rect = NSRect::new(
-        NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
+        NSPoint::new(TAB_MARGIN, STATUS_GAP + STATUS_HEIGHT),
         tabs_size,
     );
     // 视图侧没有动画版的 setFrame：一步摆好，窗口那边带动画长（或收）过去

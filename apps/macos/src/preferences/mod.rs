@@ -12,6 +12,7 @@ mod card;
 mod controls;
 mod edit_menu;
 mod file_dialog;
+mod flipped;
 mod font_picker;
 mod key_recorder;
 mod layout;

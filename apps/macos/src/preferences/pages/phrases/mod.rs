@@ -10,8 +10,7 @@ use crate::preferences::{
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
     NSBackingStoreType, NSBorderType, NSButton, NSColor, NSControlStateValueOn, NSPopUpButton,
-    NSScrollView, NSTableColumn, NSTableView, NSTextField, NSTextView, NSView, NSWindow,
-    NSWindowStyleMask,
+    NSScrollView, NSTableColumn, NSTableView, NSTextField, NSTextView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{NSIndexSet, NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::CustomPhrase;
@@ -173,10 +172,10 @@ impl PhrasesPage {
         layout.place(&error, PAGE_PADDING, layout.inner_width(), 32.0);
         layout.next_row(32.0);
         let height = form.height() + 18.0;
-        let content = NSView::initWithFrame(
-            mtm.alloc(),
-            NSRect::new(NSPoint::ZERO, NSSize::new(520.0, height)),
+        let content = crate::preferences::flipped::view_of(
+            &crate::preferences::flipped::FlippedView::new(mtm),
         );
+        content.setFrame(NSRect::new(NSPoint::ZERO, NSSize::new(520.0, height)));
         form.finish(&content, height);
         let editor = unsafe {
             NSWindow::initWithContentRect_styleMask_backing_defer(

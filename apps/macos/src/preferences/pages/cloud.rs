@@ -19,7 +19,7 @@ use qingjian_predict::PredictProvider;
 use crate::preferences::card::{Card, SWITCH_WIDTH, view};
 use crate::preferences::controls::{
     action_danger_button, button, button_width, danger_button, disclosure, popup, secure_field,
-    select, set_switch, small_label, switch, text_field,
+    select, set_switch, switch, text_field,
 };
 use crate::preferences::layout::{Layout, PAGE_PADDING, ROW_GAP};
 use crate::preferences::setting::Setting;
@@ -39,9 +39,6 @@ const CARD_GAP: f64 = 18.0;
 
 /// 名称那一行留两行高：状态行会长到两三行。
 const NAME_TALL: f64 = 34.0;
-
-/// 有话说时那一行红字的高。
-const HINT_H: f64 = 16.0;
 
 /// 弹出菜单（服务、云端词位置）的宽。
 const POPUP_W: f64 = 150.0;
@@ -214,16 +211,11 @@ impl CloudPage {
                 others.push((label, control));
             }
         }
+        // 有话说时在状态卡最后一行说（加入失败、已清空等）
+        let hint = shape
+            .note
+            .then(|| status_card.row_text(mtm, "", Some(&NSColor::systemRedColor())));
         finish_card(layout, status_card);
-
-        // 有话说时那一行红字
-        let hint = shape.note.then(|| {
-            let hint = small_label(mtm, "");
-            hint.setTextColor(Some(&NSColor::systemRedColor()));
-            layout.place(&hint, PAGE_PADDING, layout.inner_width(), HINT_H);
-            layout.next_row(HINT_H);
-            hint
-        });
 
         // ── 功能（名字与 iOS 的功能清单一字一致）──
         let mut feature_card = card(layout, mtm, "功能");
@@ -267,6 +259,9 @@ impl CloudPage {
             view(&llm),
             SWITCH_WIDTH,
         );
+        if !shape.signed_in {
+            feature_card.row_text(mtm, "开通后可用。", Some(&NSColor::secondaryLabelColor()));
+        }
         finish_card(layout, feature_card);
 
         // ── 同步与数据：没开通时这几颗按钮都是灰的，整块不建 ──
@@ -292,7 +287,7 @@ impl CloudPage {
             );
             sync_card.row_with_buttons(
                 mtm,
-                "清空云端输入记录",
+                "云端输入记录",
                 Some("服务器上已上传的输入记录全删，本机日志也清；学到的词与设置不受影响。"),
                 &[(view(&clear), button_width("清空云端输入记录…"))],
             );

@@ -28,6 +28,9 @@ const PAD_V: f64 = 14.0;
 /// 行的名称行高。
 const NAME_H: f64 = 28.0;
 
+/// 名称那一行文字自己的高（13 号字一行）；按它居中，文字才不会贴着行顶。
+const TEXT_H: f64 = 18.0;
+
 /// 卡片圆角。
 const CORNER: f64 = 8.0;
 
@@ -126,12 +129,13 @@ impl Card {
         let total: f64 = controls.iter().map(|(_, w)| w + GAP).sum::<f64>() - GAP;
         let text_width = (self.control_width() - total - 12.0).max(80.0);
         let name_label = label(mtm, name, 13.0, None);
+        // 文字与右边的控件（高 CONTROL_H）都对着行中线摆
         self.rows.push((
             as_view(name_label.clone()),
             PAD_H,
-            self.top,
+            self.top + (name_h - TEXT_H).max(0.0) / 2.0,
             text_width,
-            name_h,
+            TEXT_H,
         ));
 
         // 说明不占行，挂在名称上：页面要短，鼠标停上去才看得到
@@ -150,6 +154,25 @@ impl Card {
 
         self.top += height + ROW_GAP_IN_CARD;
         name_label
+    }
+
+    /// 加一行整行宽的小字（提示、说明这类，右边不配控件）；交出标签，要按状态改文字时用。
+    pub fn row_text(
+        &mut self,
+        mtm: MainThreadMarker,
+        text: &str,
+        color: Option<&NSColor>,
+    ) -> Retained<NSTextField> {
+        let label = label(mtm, text, 11.0, color);
+        self.rows.push((
+            as_view(label.clone()),
+            PAD_H,
+            self.top,
+            self.control_width(),
+            TEXT_H,
+        ));
+        self.top += TEXT_H + ROW_GAP_IN_CARD;
+        label
     }
 
     /// 给刚加的那一行挂一句说明（悬停提示）：不占高度，鼠标停上去才看得到。

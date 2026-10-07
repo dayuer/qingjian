@@ -21,8 +21,9 @@ pub const CONTROL_X: f64 = PAGE_PADDING + LABEL_WIDTH + 10.0;
 /// 每个标签页的内容宽度。
 pub const PAGE_WIDTH: f64 = 600.0;
 
-/// 在一页里自上而下摆控件的简易布局：AppKit 坐标原点在左下，先按「离顶部多远」记下来，
-/// 最后知道页高了再一次性换算成 frame（页面高度还会变，所以记录留着，见 [`Layout::finish`]）。
+/// 在一页里自上而下摆控件的简易布局：承载视图是**翻转坐标**（原点在左上，见
+/// [`crate::preferences::flipped::FlippedView`]），所以「离顶部多远」就是 frame 的 y，
+/// 页高怎么变都不用重算已经摆好的控件。
 #[derive(Clone)]
 pub struct Layout {
     /// 这一页的宽度。
@@ -87,7 +88,7 @@ impl Layout {
     }
 
     /// 把所有控件加进容器并按容器高度设好 frame（顶部对齐）。
-    /// 页面高度变了（收起一块、换了服务）时拿同一份记录再摆一次，坐标原点在左下，全都要重算。
+    /// 容器是翻转坐标，摆的位置跟页高无关；页高变了只有撑到页底的那几个要重算。
     pub fn finish(&self, container: &NSView, total_height: f64) {
         for (view, x, top, width, height, fill) in &self.placed {
             let height = if *fill {
@@ -95,7 +96,7 @@ impl Layout {
             } else {
                 *height
             };
-            let y = total_height - top - height;
+            let y = *top;
             view.setFrame(NSRect::new(
                 NSPoint::new(*x, y),
                 NSSize::new(*width, height),
