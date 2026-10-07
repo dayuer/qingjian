@@ -12,6 +12,10 @@
 - `keep_both`：两个读音都是规范读音、又都常用（谁 shui/shei、重装 chong/zhong），同权保留；
 - 数字 N：旧读音不是错的、只是常有人打（露 lóu 家词），降权放轻，除以 N。
 
+**单字条目一律不进结果**：单字走规范字表那条路（按 Unihan 读音频次分摊，如 谁 shui 29 / shei 1），
+不查标注 —— 2026-10-07 复跑实测，修正文件里的单字条目全是空转（195/195），所以在这里挡掉，
+不让它们冒充「已生效的修正」。
+
 用法：python3 tools/lexicon/polyphone-apply.py
 """
 import argparse
@@ -54,10 +58,15 @@ def main() -> int:
     args = parser.parse_args()
 
     corrections: dict[str, dict] = {}
+    skipped_single = 0
     for fields in read_tsv(args.auto):
         if len(fields) < 3:
             continue
-        corrections[fields[0].strip()] = entry(fields[0].strip(), fields[2].strip())
+        word = fields[0].strip()
+        if len(word) == 1:
+            skipped_single += 1
+            continue
+        corrections[word] = entry(word, fields[2].strip())
 
     changed = 0
     for fields in read_tsv(args.verdicts):
@@ -66,6 +75,9 @@ def main() -> int:
         word, syllables = fields[0].strip(), fields[2].strip()
         if not syllables:
             raise SystemExit(f"判定为「改」的「{word}」没写建议读音：补上，或者把判定改成「不确定」")
+        if len(word) == 1:
+            skipped_single += 1
+            continue
         corrections[word] = entry(word, syllables)
         changed += 1
 
@@ -92,7 +104,8 @@ def main() -> int:
 
     print(
         f"修正 {len(corrections)} 条 → {args.out}（人工判定 {changed} 条；"
-        f"其中 keep_both {marked['keep_both']} 条、放轻降权 {marked['divisor']} 条）"
+        f"其中 keep_both {marked['keep_both']} 条、放轻降权 {marked['divisor']} 条；"
+        f"单字条目挡掉 {skipped_single} 条 —— 字表那条路不查标注）"
     )
     return 0
 

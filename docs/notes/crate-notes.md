@@ -364,8 +364,8 @@ DLL 不读文件、不查 mtime。`SessionOpened` 只回过协议版本对得上
   —— `polyphone-fix.py` 出的 `polyphone-auto.tsv`（自动采纳）＋ `polyphone-verdicts.tsv`（逐条人工判定）＋
   `polyphone-marks.tsv`（降权标记），**是产物，别手改**；`--pinyin` 指的就是它。行里 `"keep_both": true` 表示
   两个读音都是规范读音、同权保留（不降权），`"divisor": N` 表示旧读音的降权放轻（默认 `DISPUTED_READING_DIVISOR = 8`）。
-  **单字条目的标注不生效**：单字走规范字表那条路（`readings.weighted` 按读音频次分摊，如 谁 shui 29 / shei 1），
-  不查标注；单字读音要改得动那条路（规则见 `docs/plan/dictionary-layering.md` 的 R5）。
+  **单字条目不进修正文件**：单字走规范字表那条路（`readings.weighted` 按读音频次分摊，如 谁 shui 29 / shei 1），
+  不查标注，写进去也是空转 —— `polyphone-apply.py` 直接挡掉（规则见 `docs/plan/dictionary-layering.md` 的 R5）。
   这批词够「天天会打」的那部分（`assets/lexicon/internet_base.tsv`）**缺省不并进基础词库**：同音不危险要等语料实测，
   命令行给 `--internet-base` 才并。网络用语包的 META 与领域包不同：许可 `CC-BY-SA-4.0`，署名维基 / 维基词典 / CC-CEDICT；
   然后把剩下的按语料次数 < 50 拆成

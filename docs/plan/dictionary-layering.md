@@ -196,9 +196,10 @@ word	pinyin	freq	year	source
     （露家 N=2），降权放轻。
   标记与判定分开存放、合成一个产物：`00_meta/polyphone-marks.tsv`（词 / 标记 / 理由）＋ `polyphone-verdicts.tsv` ＋
   `polyphone-auto.tsv` → `tools/lexicon/polyphone-apply.py` → `pinyin-corrections.jsonl`（**产物，不手改**）。
-- **单字条目的标注目前不生效**（2026-10-07 复跑实测）：单字走规范字表那条路（`readings.weighted` 按读音频次分摊），
-  不查标注 —— 谁 的 shui 29 / shei 1 就是字表分摊出来的，所以「把 谁 的主读定成 shei」这类单字判定今天落不了地。
-  要落地得先让字表那条路认标注（或另开一份单字读音表），这一步没做之前，修正文件里的单字条目按空转看。
+- **单字条目一律不进修正文件**（2026-10-07 复跑实测后定的）：单字走规范字表那条路（`readings.weighted` 按 Unihan
+  读音频次分摊），不查标注 —— 谁 的 shui 29 / shei 1 就是字表分摊出来的，正合适；195 条单字修正全是空转。
+  所以 `polyphone-apply.py` 把单字挡在门外（不删源里的判定记录，只是不写进 `pinyin-corrections.jsonl`），
+  「把 谁 的主读定成 shei」这类单字判定要落地得先让字表那条路认标注，这一步没做之前不混进修正文件。
 - **词频**：**对着同音的竞争词人工定**，不许批量灌一个魔数。写法沿用 `domain_words.tsv` / `mixed_words.tsv` 的规矩：
   次数与 `dict.tsv` 词频同一尺度，参照同音高频词的次数定（例：`C盘 8000 > 裁判 5416` 这种对着定；见 `assets/lexicon/QINGJIAN.md` 4e 步）。
   给不出理由的词，就当它进不了基础库。
