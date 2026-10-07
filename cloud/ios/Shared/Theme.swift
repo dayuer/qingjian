@@ -51,6 +51,10 @@ enum Theme {
 
     static let paperCard = paperCardTone.color
 
+    /// 新稿里两处危险操作的颜色（设计稿写的 #ff3b30）：改一条里关键词那行的「删除」底、
+    /// 对象设置里「忘掉这个人」的字。别处不用红。跟系统红走，深色下自动换成浅一档。
+    static let danger = Color(.systemRed)
+
     static let ink2Tone = ThemeColor(
         light: ThemeSwatch(hex: 0x4D4D4D, l: 0.42, c: 0, h: 0),
         dark: ThemeSwatch(hex: 0xC4C4C4, l: 0.82, c: 0, h: 0))

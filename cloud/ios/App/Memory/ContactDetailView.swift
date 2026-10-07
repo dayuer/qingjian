@@ -68,8 +68,16 @@ struct ContactDetailView: View {
         ) {
             Button("好", role: .cancel) {}
         }
-        .sheet(item: $editing) { card in CardEditor(store: store, contactId: contactId, card: card) }
-        .sheet(isPresented: $adding) { CardEditor(store: store, contactId: contactId, card: nil) }
+        .sheet(item: $editing) { card in editor(card: card) }
+        .sheet(isPresented: $adding) { editor(card: nil) }
+    }
+
+    /// 改一条 / 记一条都是盖在详情页上的底部弹层（设计稿 1c）：大档、圆角 22、顶部一根拖动条。
+    private func editor(card: MemoryCard?) -> some View {
+        CardEditor(store: store, contactId: contactId, card: card)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(22)
     }
 
     /// 重读待整理与开没开素笺云（键盘随时可能再记一笔，开通在别的页面）；读到快满就看要不要提示。
