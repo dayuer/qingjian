@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use clap::Parser;
+use qingjian_core::sentence::RegisterMix;
 use qingjian_core::{EmojiTable, Engine, FuzzyRules, Language};
 use qingjian_dictionary::{AuxCodeLookup, AuxCodeTable, CodeTable, Dictionary, WordList};
 use qingjian_learning::FrequencyLearner;
@@ -278,6 +279,15 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             "语言模型已加载"
         );
         engine = engine.with_language_model(Box::new(model));
+    }
+    // 语域插值：对话 / 书面两份语言模型按上文语域插值，代替上面的缺省模型
+    if let (Some(dialog), Some(written)) = (&args.register_dialog, &args.register_written) {
+        let dialog = BigramModel::from_path(dialog)?;
+        let written = BigramModel::from_path(written)?;
+        engine = engine.with_language_model(Box::new(RegisterMix::new(
+            Box::new(dialog),
+            Box::new(written),
+        )));
     }
     if let Some(dir) = &args.neural {
         let started = Instant::now();

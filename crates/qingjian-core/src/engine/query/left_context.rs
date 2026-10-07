@@ -4,7 +4,7 @@
 //! 末尾不是汉字（标点、空格、字母）就当句首，与上屏时标点打断链的规则一致。私密输入时不看前文。
 //! 素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md。
 
-use crate::engine::Engine;
+use crate::engine::{Engine, take_last_chars};
 use crate::sentence::{self, Context, LanguageModel, is_han};
 
 /// 前文末尾最多看几个汉字。
@@ -68,5 +68,21 @@ impl Engine {
             return LeftContext::default();
         }
         left_context_of(&self.rescoring_context(), &*self.language_model)
+    }
+}
+
+/// 判语域看的上文最多几个字（[`LanguageModel::observe_context`]，`sentence::RegisterMix` 只用末尾一段汉字）。
+const REGISTER_CONTEXT_CHARS: usize = 64;
+
+impl Engine {
+    /// 给语言模型判语域的上文：壳给的光标前文，没有就是本会话最近上屏的字。私密输入时不看前文。
+    pub(in crate::engine) fn register_context(&self) -> String {
+        if self.is_private() {
+            return String::new();
+        }
+        match &self.rescoring_before {
+            Some(before) => take_last_chars(before, REGISTER_CONTEXT_CHARS),
+            None => self.history.recent(REGISTER_CONTEXT_CHARS).to_owned(),
+        }
     }
 }

@@ -208,6 +208,14 @@ pub struct Args {
     #[arg(long, requires = "replay")]
     pub clean2: bool,
 
+    /// 语域插值的对话侧语言模型（lm.qj）；与 --register-written 同给时按上文语域插值，代替缺省语言模型（见 `sentence::RegisterMix`）
+    #[arg(long, requires = "register_written")]
+    pub register_dialog: Option<PathBuf>,
+
+    /// 语域插值的书面侧语言模型（lm.qj）
+    #[arg(long, requires = "register_dialog")]
+    pub register_written: Option<PathBuf>,
+
     /// 同拼音不同上文评测：读 `拼音\t前文\t期望` 三列（cloud/data/eval/context-pairs.tsv），
     /// 每对先给前文、再不给前文各查一次，报告两种设置下的首选命中率与按键同步部分的 p50 / p99
     #[arg(long)]

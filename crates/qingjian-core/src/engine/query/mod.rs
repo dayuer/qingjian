@@ -26,6 +26,8 @@ impl Engine {
     /// 上屏之后接着组句；见 [`Composition::scope`]。
     pub fn query(&self) -> Result<Query, ParseError> {
         self.last_rescored.set(false);
+        self.language_model
+            .observe_context(&self.register_context());
         let mut query = match self.query_inner() {
             Ok(query) => query,
             Err(error) => {

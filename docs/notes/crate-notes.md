@@ -187,6 +187,13 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 `cargo run --release -p qingjian-dict-convert -- bigram --phrases assets/lexicon/phrases.tsv --phrases assets/lexicon/domain_words.tsv --brand assets/lexicon/brand.tsv --brand assets/lexicon/mixed_words.tsv data/corpus/*.txt` 生成；语料在 `data/corpus/`（gitignore）。
 短语层不当 token 统计（分词时摘掉、统计完按成分合成一元 / 二元，短语得分等于原来两个词的路径，见 `bigram.rs` 模块注释），品牌词按给定次数写进一元与句首二元。
 
+**语域插值**（`sentence::RegisterMix`，Core 内、平台无关）：对话 / 书面两份 `LanguageModel` 按 P = w·P对话 + (1 − w)·P书面 插值，
+w 跟着左侧上文走：引擎每次 `query` 先调 `LanguageModel::observe_context`（壳给的光标前文，没有就是本会话最近上屏 64 字，私密输入不看），
+上文末尾 20 个汉字两份模型的平均一元对数似然比 > −0.4 当对话（w 0.8）、否则当书面（w 0.2），没有上文 w 0.4。
+参数在 1c 的对话 / 书面开发集上定，留出集与外部集只验证（结果见 `docs/notes/old-lexicon-analysis.md`）。
+`unigram_log_prob` 与 `observe_context` 是 trait 的缺省方法，不接 `RegisterMix` 时什么都不变。CLI `--register-dialog <lm.qj> --register-written <lm.qj>`；
+壳与打包（两份模型共用一张词表的 .qj）还没接。
+
 ## crates/qingjian-platform
 
 输入方案是**两条独立的轴**：`Scheme`（拼音侧：全拼 / 双拼七套 / 大千注音 / 关，`[general] scheme`）
