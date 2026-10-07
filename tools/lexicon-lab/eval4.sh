@@ -7,9 +7,9 @@ rm -rf $R $O; mkdir -p $R/data $O
 ln -s $lib $R/data/generated; ln -s $E $R/data/eval; ln -s $W/assets $R/assets; ln -s $W/apps $R/apps
 cd $R
 for s in external-frozen sentences dialog-holdout-frozen prose-holdout-frozen; do
-  $B --config /tmp/eval-config.toml --eval-text data/eval/$s.tsv --misses 0 --eval-details $O/ed-$s.jsonl > $O/eval-$s.txt 2>/dev/null &
+  $B --config /tmp/eval-config.toml ${EXTRA:-} --eval-text data/eval/$s.tsv --misses 0 --eval-details $O/ed-$s.jsonl > $O/eval-$s.txt 2>/dev/null &
 done
-$B --config /tmp/eval-config.toml --replay data/eval/input-log-2026-10-04.jsonl --clean2 --misses 0 --replay-details $O/rd.jsonl > $O/replay.txt 2>/dev/null &
+$B --config /tmp/eval-config.toml ${EXTRA:-} --replay data/eval/input-log-2026-10-04.jsonl --clean2 --misses 0 --replay-details $O/rd.jsonl > $O/replay.txt 2>/dev/null &
 wait
 t1() { grep -m1 "^句子" $O/eval-$1.txt | sed -E 's/.*首选 +([0-9.]+)%.*/\1/'; }
 w=$(sed -n '/干净口径 2/,/整句 /p' $O/replay.txt | grep -m1 "^  词" | sed -E 's/.*全部 ([0-9]+)\/[0-9]+.*前半 ([0-9]+)\/[0-9]+.*后半 ([0-9]+)\/[0-9]+.*/\1|\2|\3/')
