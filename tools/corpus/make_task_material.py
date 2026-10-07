@@ -76,6 +76,8 @@ def main() -> int:
     parser.add_argument("--train-limit", type=int, default=100_000, help="小实验用的造题条数（全量另写一份）")
     parser.add_argument("--seed", type=int, default=20261007)
     parser.add_argument("--exclude-words", type=pathlib.Path, help="一行一个词，含这些词的句子不进三份")
+    parser.add_argument("--reuse-splits", action="store_true",
+                        help="留出集与开发集已经冻结：直接读现有那两份，只重出造题原料（不再抽样、不动那两份）")
     parser.add_argument("--min-len", type=int, default=10)
     parser.add_argument("--max-len", type=int, default=40)
     parser.add_argument("--min-han", type=int, default=6)
@@ -98,6 +100,50 @@ def main() -> int:
     dev_path = args.out_dir / f"{args.register}-dev.txt"
     full_path = args.train_dir / f"{args.register}-all.jsonl"
     small_path = args.train_dir / f"{args.register}-{args.train_limit // 1000}k.jsonl"
+
+    if args.reuse_splits:
+        holdout = [l.strip() for l in holdout_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        dev = [l.strip() for l in dev_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        picked = set(holdout) | set(dev)
+        print(f"[{args.register}] 沿用已冻结的留出 {len(holdout)} / 开发 {len(dev)} 句，只重出造题原料", file=sys.stderr)
+        previous = ""
+        written = 0
+        with args.corpus.open(encoding="utf-8") as fh, \
+                args.corpus.with_suffix(".trimmed").open("w", encoding="utf-8") as trimmed, \
+                full_path.open("w", encoding="utf-8") as full, \
+                small_path.open("w", encoding="utf-8") as small:
+            index = 0
+            kept = 0
+            for raw in fh:
+                line = raw.rstrip("\n")
+                normalized = line.replace(" ", "") if args.register == "dialog" else line
+                if normalized in picked:
+                    continue
+                trimmed.write(line + "\n")
+                kept += 1
+                if not is_candidate(normalized, args):
+                    continue
+                if excluded_words and any(word in normalized for word in excluded_words):
+                    continue
+                if normalized in existing or normalized == previous:
+                    continue
+                record = json.dumps(
+                    {"id": f"{args.register}-{index}", "register": args.register,
+                     "prev": previous, "text": normalized},
+                    ensure_ascii=False,
+                )
+                full.write(record + "\n")
+                if written < args.train_limit:
+                    small.write(record + "\n")
+                previous = normalized
+                index += 1
+                written += 1
+        args.corpus.with_suffix(".trimmed").replace(args.corpus)
+        for path, count in ((small_path, min(written, args.train_limit)), (full_path, written)):
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            print(f"  {path}  {count} 条  sha256={digest[:16]}", file=sys.stderr)
+        print(f"  训练语料剩 {kept} 行", file=sys.stderr)
+        return 0
 
     rng = random.Random(args.seed)
     want = args.holdout + args.dev
