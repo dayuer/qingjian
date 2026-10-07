@@ -53,7 +53,12 @@ struct ContactEditor: View {
                     .foregroundStyle(Theme.ink3)
                     .padding(.top, 8)
                 label("提示里怎么称呼").padding(.top, 20)
-                MemoryPronounPicker(selection: $pronoun).padding(.top, 8)
+                // 设计稿 05 的 2g / 02 的 3c：系统分段控件（四段等宽、缺省 TA），与对象设置那处一样
+                Picker("称呼", selection: $pronoun) {
+                    ForEach(MemoryPronoun.choices, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.top, 8)
                 label("先写几件你已经知道的事（可以跳过）").padding(.top, 22)
                 facts.padding(.top, 8)
             }
