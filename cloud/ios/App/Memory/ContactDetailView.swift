@@ -1,7 +1,6 @@
 // 对象详情（02 的 1b）：56pt 头像、名字、「认识 n 天 · n 条记忆」，卡片按「日子与约定」与其余种类分组。
 // 有日子的卡左列是下一次的 M.dd（设计稿 .when，下面一行相对日子见 MemoryDetailText.relativeDay）；
 // 没日子的卡照 .mem 写正文 + 「种类 · 你写的」。「记一条」是不在分组里的线框按钮，下面是「待整理」（MaterialsSection）。
-// 顶部导航条要当下一层的返回字（1d 显示「‹ 小美」），所以标题设成名字再用空的 principal 盖住不显示。
 
 import SwiftUI
 
@@ -48,11 +47,11 @@ struct ContactDetailView: View {
                 #endif
             }
         }
-        // 只给下一层当返回字用（1d 写「‹ 小美」），这一层自己不显示标题
-        .navigationTitle(store.contact(contactId)?.name ?? "")
+        // 标题留空：设计稿 1b 的导航条只有返回与「设置」（名字在下面的大头像旁边）。
+        // iOS 26 的返回键是胶囊里的箭头、本来就不显示上一页的名字，所以这里不再靠标题去喂它。
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) { EmptyView() }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink("设置", value: MemoryRoute.settings(contactId))
                     .foregroundStyle(ColorUsage.contactSettingsButton.role.color)
