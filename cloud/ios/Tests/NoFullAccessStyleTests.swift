@@ -106,11 +106,17 @@ final class NoFullAccessStyleTests: XCTestCase {
         }
     }
 
-    /// 「我」页的说明不分状态：不能写「开启后才能用」，开了的人会以为自己没开。
-    func testAppExplanationIsStateless() {
-        XCTAssertEqual(ScopeDisplay.fullAccessExplanation, "「完全访问」用于按键震动，以及让键盘读到你在「记得」里写下的人与事。开了也不联网，卡片只在这台手机上。")
-        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("登录"), "界面里不出现登录（约束 5）")
+    /// 「我」页「记忆」那一行（设计稿 05 的 2j 的版式）：标题、说明、去开完全访问的路径。
+    /// 文案有意偏离新稿那一句：不分状态，不能写「开启后才能用」，开了的人会以为自己没开（约束 3）。
+    func testFullAccessRowCopy() {
+        XCTAssertEqual(ScopeDisplay.fullAccessTitle, "用记忆要开完全访问")
+        XCTAssertFalse(ScopeDisplay.fullAccessTitle.contains("后才能"), "开了的人会以为自己没开（约束 3）")
+        XCTAssertEqual(ScopeDisplay.fullAccessNote, "开了也不联网，卡片只在这台手机上")
+        XCTAssertEqual(ScopeDisplay.fullAccessPath, "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问")
+        for text in [ScopeDisplay.fullAccessTitle, ScopeDisplay.fullAccessNote, ScopeDisplay.fullAccessPath] {
+            XCTAssertFalse(text.contains("账号"), "界面里不出现「账号」（约束 5）")
+            XCTAssertFalse(text.contains("登录"), "界面里不出现「登录」（约束 5）")
+        }
         XCTAssertEqual(ColorUsage.appLink.role, .accent, "App 链接色照设计稿 accent-ink")
-        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("后才能"))
     }
 }

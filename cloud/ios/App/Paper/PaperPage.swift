@@ -6,6 +6,9 @@ import SwiftUI
 struct PaperPage<Content: View>: View {
     var spacing: CGFloat = 18
 
+    /// 顶部留白；「我」那一页是 8（设计稿 2j 的 padding-top）。
+    var top: CGFloat = 12
+
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -13,7 +16,7 @@ struct PaperPage<Content: View>: View {
             VStack(alignment: .leading, spacing: spacing) {
                 content
             }
-            .padding(.top, 12)
+            .padding(.top, top)
             .padding(.bottom, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
