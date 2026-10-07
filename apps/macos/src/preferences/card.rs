@@ -8,7 +8,7 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSBox, NSBoxType, NSColor, NSFont, NSTextField, NSView};
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
-use super::layout::{Layout, ROW_GAP};
+use super::layout::Layout;
 
 /// 卡片内的左右内边距。
 const PAD_H: f64 = 14.0;
@@ -16,14 +16,17 @@ const PAD_H: f64 = 14.0;
 /// 一行里控件之间的间距。
 const GAP: f64 = 8.0;
 
+/// 卡片里行与行之间（行高 28 的呼吸感）。
+const ROW_GAP_IN_CARD: f64 = 8.0;
+
 /// 一行里控件的高（按钮、开关、弹出菜单都一样）。
 const CONTROL_H: f64 = 22.0;
 
 /// 卡片内的上下内边距。
-const PAD_V: f64 = 7.0;
+const PAD_V: f64 = 14.0;
 
 /// 行的名称行高。
-const NAME_H: f64 = 18.0;
+const NAME_H: f64 = 28.0;
 
 /// 卡片圆角。
 const CORNER: f64 = 8.0;
@@ -75,11 +78,6 @@ impl Card {
         self.width - 2.0 * PAD_H
     }
 
-    /// 卡片里行区域的宽（去掉左右内边距）：往行里塞自己管内容的视图时要按它摆。
-    pub fn inner_width(&self) -> f64 {
-        self.control_width()
-    }
-
     /// 加一行：左边名称（说明挂成悬停提示），右边一个控件（右对齐）。交出名称标签，按状态改文字时用。
     /// `control_width` 是控件的宽（开关固定、按钮按标题算）。
     pub fn row(
@@ -116,23 +114,6 @@ impl Card {
         self.add_row(mtm, name, note, controls, name_h)
     }
 
-    /// 同 [`Self::row_tall`]，再交出这一行的位置（[`RowSlot`]），
-    /// 供两套控件轮流上场的行（状态行的「开通 / 加入」与「解绑」）按状态重新右对齐。
-    pub fn row_group(
-        &mut self,
-        mtm: MainThreadMarker,
-        name: &str,
-        note: Option<&str>,
-        controls: &[(&NSView, f64)],
-        name_h: f64,
-    ) -> (Retained<NSTextField>, RowSlot) {
-        let slot = RowSlot {
-            top: self.top,
-            width: self.width,
-        };
-        (self.add_row(mtm, name, note, controls, name_h), slot)
-    }
-
     /// 一行：左边名称（可折行，留 `name_h` 高），右边一组控件右对齐排。
     fn add_row(
         &mut self,
@@ -167,27 +148,8 @@ impl Card {
             x += width + GAP;
         }
 
-        self.top += height + ROW_GAP;
+        self.top += height + ROW_GAP_IN_CARD;
         name_label
-    }
-
-    /// 往 [`Self::row_group`] 那一行再塞一个控件：它只在别的状态下出现，位置由
-    /// [`RowSlot::align_right`] 定，不参与文字列宽的计算（否则文字列会被挤没）。
-    pub fn row_extra(&mut self, slot: &RowSlot, view: &NSView, width: f64) {
-        self.rows
-            .push((as_view_any(view), PAD_H, slot.top, width, CONTROL_H));
-    }
-
-    /// 加一行整行宽的控件（自己管内容的列表、滚动视图那类），左对齐。
-    pub fn row_full(&mut self, view: &NSView, height: f64) {
-        self.rows.push((
-            as_view_any(view),
-            PAD_H,
-            self.top,
-            self.control_width(),
-            height,
-        ));
-        self.top += height + ROW_GAP;
     }
 
     /// 给刚加的那一行挂一句说明（悬停提示）：不占高度，鼠标停上去才看得到。
@@ -197,14 +159,9 @@ impl Card {
         }
     }
 
-    /// 卡片本体（要整张藏起来时先留一份）。
-    pub fn box_view(&self) -> Retained<NSView> {
-        as_view(self.view.clone())
-    }
-
     /// 卡片高度（含内边距）。
     pub fn height(&self) -> f64 {
-        (self.top - ROW_GAP + PAD_V).max(PAD_V * 2.0 + NAME_H)
+        (self.top - ROW_GAP_IN_CARD + PAD_V).max(PAD_V * 2.0 + NAME_H)
     }
 
     /// 把卡片摆进页面（交给布局器加进容器），行在卡片里定位；交回卡片高度，
@@ -222,37 +179,6 @@ impl Card {
         }
         height
     }
-}
-
-/// 卡片里某一行的位置，卡片摆好后用来重排这一行右边的控件。
-pub struct RowSlot {
-    /// 距卡片顶部。
-    top: f64,
-
-    /// 卡片宽度。
-    width: f64,
-}
-
-impl RowSlot {
-    /// 把可见的控件在这一行里右对齐排好；`card_height` 是 [`Card::finish`] 交回的卡片高度。
-    pub fn align_right(&self, card_height: f64, items: &[(&NSView, f64)]) {
-        let total: f64 = items.iter().map(|(_, w)| w + GAP).sum::<f64>() - GAP;
-        let y = card_height - self.top - CONTROL_H;
-        let mut x = (self.width - PAD_H - total).max(PAD_H);
-        for (view, width) in items {
-            view.setFrame(NSRect::new(
-                NSPoint::new(x, y),
-                NSSize::new(*width, CONTROL_H),
-            ));
-            x += width + GAP;
-        }
-    }
-}
-
-/// 把控件按 `Retained<NSView>` 收着（自己管的列表重建时要把行控件攒起来）。
-pub fn retained_view<T: objc2::Message + 'static>(value: Retained<T>) -> Retained<NSView> {
-    // SAFETY: 调用点传的都是 NSTextField / NSButton 这类 AppKit 控件，全是 NSView 的子类
-    unsafe { Retained::cast_unchecked(value) }
 }
 
 /// 把控件当 `&NSView` 用（[`RowSlot::align_right`] 要拿它重排位置）。

@@ -170,6 +170,7 @@ impl CloudStatus {
     /// 空快照：服务没起来时用（全关、未开通）。
     pub fn empty() -> Self {
         Self {
+            line: "未开通素笺云".to_owned(),
             consents: [
                 ("memory", false),
                 ("input_log", false),

@@ -1,5 +1,7 @@
 //! 偏好设置窗口本体：把各页（`pages/`）装进标签视图，底部一行状态；刷新时逐页同步。
 
+use std::cell::{Cell, RefCell};
+
 use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::{
@@ -8,19 +10,20 @@ use objc2_app_kit::{
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use qingjian_core::{Language, UsageSummary, VocabularySummary};
 use qingjian_platform::Config;
+use qingjian_predict::PredictProvider;
 
 use super::controls::{language_label, small_label};
 use super::layout::{Layout, PAGE_PADDING, PAGE_WIDTH};
 use super::pages::{
-    AboutPage, AdvancedPage, CandidatesPage, CloudPage, DictionariesPage, FuzzyPage, GeneralPage,
-    PhrasesPage, ShortcutsPage, UpdateStatus, UsagePage, build_about,
+    AboutPage, AdvancedPage, CandidatesPage, CloudPage, CloudShape, DictionariesPage, FuzzyPage,
+    GeneralPage, PhrasesPage, ShortcutsPage, UpdateStatus, UsagePage, build_about,
 };
 use super::panel::PreferencesPanel;
 use super::target::PreferencesTarget;
 use crate::host::DictionaryInfo;
 
 /// 每页顶部留白、页面最低高度（矮页也撑到这个高度，切页时窗口不跳）。
-const PAGE_TOP: f64 = 10.0;
+const PAGE_TOP: f64 = 16.0;
 const MIN_PAGE_HEIGHT: f64 = 200.0;
 
 /// 标签视图四周留白、底部状态行高度。
@@ -53,8 +56,8 @@ pub struct PreferencesWindow {
     /// 「词库」页。
     dictionaries: DictionariesPage,
 
-    /// 「云服务」页。
-    cloud: CloudPage,
+    /// 「云服务」页（形状变了整页换掉，所以装在 `RefCell` 里）。
+    cloud: RefCell<CloudPage>,
 
     /// 标签视图；「云服务设置…」要切到云服务页。
     tabs: Retained<NSTabView>,
@@ -62,10 +65,13 @@ pub struct PreferencesWindow {
     /// 「云服务」页在标签里的下标。
     cloud_tab: usize,
 
-    /// 「云服务」页的承载视图与布局记录；高度随状态变，要按内容重摆（见 [`Self::fit_cloud_page`]）。
-    cloud_pane: Option<CloudPane>,
+    /// 云服务页现在排成什么样；内容变了（开通 / 设备台数 / 展开高级）就整页重建。
+    cloud_shape: Cell<CloudShape>,
 
-    /// 标签页区的高度（各页都按它封顶，云服务页收起后也不矮过它）。
+    /// 最近一次按配置刷云服务页用的参数：重建之后新控件要按它填一遍。
+    cloud_config: RefCell<Option<CloudConfig>>,
+
+    /// 标签页区的高度（各页都按它封顶，云服务页也不矮过它）。
     page_height: f64,
 
     /// 「高级」页。
@@ -84,20 +90,97 @@ pub struct PreferencesWindow {
     _target: Retained<PreferencesTarget>,
 }
 
+/// 现下的云状态：自检（`QJ_SETTINGS_FAKE`）时换成假的那一份。
+fn cloud_status() -> qingjian_cloud_mac::CloudStatus {
+    if std::env::var_os("QJ_SETTINGS_FAKE").is_some() {
+        fake_cloud_status()
+    } else {
+        qingjian_cloud_mac::status()
+    }
+}
+
+/// 截一张窗口（自检用）。
+fn shoot(number: isize, path: &str) {
+    let _ = std::process::Command::new("screencapture")
+        .args(["-x", "-o", "-l", &number.to_string()])
+        .arg(path)
+        .status();
+}
+
+/// 起手那张云服务页的形状：自检时按假状态算（窗口才装得下整页），平时是没开通的起手样子。
+fn dev_shape() -> CloudShape {
+    match std::env::var("QJ_SETTINGS_FAKE").as_deref() {
+        Ok("1") => shape_of(&fake_cloud_status(), false, false),
+        Ok("2") => shape_of(&fake_cloud_status(), true, true),
+        _ => CloudShape::closed(),
+    }
+}
+
+/// 状态 + 换没换服务 + 展开与否 → 页面形状。
+fn shape_of(status: &qingjian_cloud_mac::CloudStatus, custom: bool, advanced: bool) -> CloudShape {
+    CloudShape {
+        signed_in: status.signed_in,
+        others: status
+            .devices
+            .iter()
+            .filter(|device| !device.current)
+            .count(),
+        custom,
+        advanced,
+        note: status.note.as_deref().is_some_and(|note| !note.is_empty()),
+    }
+}
+
+/// 开发自检：`QJ_SETTINGS_FAKE=1` 时装的已开通状态，好把界面（设备行、危险按钮、红字）看全。
+fn fake_cloud_status() -> qingjian_cloud_mac::CloudStatus {
+    qingjian_cloud_mac::CloudStatus {
+        signed_in: true,
+        line: "已开通".to_owned(),
+        device: "你的 MacBook Pro".to_owned(),
+        sync_line: "学习数据：3 分钟前同步".to_owned(),
+        joining: false,
+        paused: false,
+        note: Some("解绑没成功：网络不通".to_owned()),
+        devices: vec![
+            qingjian_cloud_mac::CloudDevice {
+                id: 7,
+                name: "你的 iPhone 17 Pro Max 特别版".to_owned(),
+                detail: "iOS · 3 分钟前活跃".to_owned(),
+                current: false,
+            },
+            qingjian_cloud_mac::CloudDevice {
+                id: 9,
+                name: "iPad".to_owned(),
+                detail: "iOS · 2 小时前活跃".to_owned(),
+                current: false,
+            },
+            qingjian_cloud_mac::CloudDevice {
+                id: 3,
+                name: "这台 Mac".to_owned(),
+                detail: "Mac · 刚刚活跃".to_owned(),
+                current: true,
+            },
+        ],
+        consents: [
+            ("memory", true),
+            ("input_log", false),
+            ("sync", true),
+            ("clipboard", false),
+            ("llm", true),
+        ],
+    }
+}
+
 /// 一页：标题、布局器、承载视图。
 type Page = (&'static str, Layout, Retained<NSView>);
 
-/// 「云服务」页的承载视图、布局记录与滚动视图；内容高度会变，重摆时三样都要。
-struct CloudPane {
-    view: Retained<NSView>,
+/// 上一次按配置刷云服务页用的参数：那一页重建之后，新控件要按它填一遍。
+struct CloudConfig {
+    config: Config,
 
-    /// 布局记录；重摆要按新的总高度再算一遍 frame。
-    layout: Layout,
+    key_present: bool,
 
-    scroll: Retained<NSScrollView>,
-
-    /// 一块都不藏时的高度（云服务页刚建出来时的内容高度）。
-    full_height: f64,
+    model_present: bool,
 }
 
 impl PreferencesWindow {
@@ -139,7 +222,8 @@ impl PreferencesWindow {
         pages.push(page("词库", layout));
 
         let mut layout = new_layout();
-        let cloud = CloudPage::build(&mut layout, mtm, &target);
+        let cloud_shape = dev_shape();
+        let cloud = CloudPage::build(&mut layout, mtm, &target, cloud_shape);
         let cloud_tab = pages.len();
         pages.push(page("云服务", layout));
 
@@ -158,16 +242,7 @@ impl PreferencesWindow {
         // 标签视图：先用临时尺寸量出边框与标签栏占多少，再按最高的一页定最终尺寸
         let tallest = pages
             .iter()
-            .enumerate()
-            .map(|(index, (_, layout, _))| {
-                // 云服务页起手收着「高级」，按露在外面的高度算，不然窗口被它撑高一大截
-                let hidden = if index == cloud_tab {
-                    cloud.hidden_height()
-                } else {
-                    0.0
-                };
-                layout.height() + PAGE_TOP - hidden
-            })
+            .map(|(_, layout, _)| layout.height() + PAGE_TOP)
             .fold(MIN_PAGE_HEIGHT, f64::max);
         // 设置项多了以后最高的一页会超出小屏幕，窗口底部（状态行）掉到程序坞后面：窗口封顶，超高的页放进滚动视图
         let page_height = tallest.min(max_page_height(mtm)).max(MIN_PAGE_HEIGHT);
@@ -185,7 +260,6 @@ impl PreferencesWindow {
             NSPoint::new(TAB_MARGIN, TAB_MARGIN + STATUS_HEIGHT),
             tabs_size,
         ));
-        let mut cloud_pane = None;
         for (index, (title, layout, view)) in pages.into_iter().enumerate() {
             let own_height = (layout.height() + PAGE_TOP).max(page_height);
             view.setFrame(NSRect::new(
@@ -205,16 +279,6 @@ impl PreferencesWindow {
             match &scroll {
                 Some(scroll) => item.setView(Some(scroll)),
                 None => item.setView(Some(&view)),
-            }
-            if let Some(scroll) = scroll
-                && index == cloud_tab
-            {
-                cloud_pane = Some(CloudPane {
-                    view: view.clone(),
-                    layout,
-                    scroll,
-                    full_height: own_height,
-                });
             }
             tabs.addTabViewItem(&item);
         }
@@ -243,10 +307,11 @@ impl PreferencesWindow {
             phrases,
             fuzzy,
             dictionaries,
-            cloud,
+            cloud: RefCell::new(cloud),
             tabs: tabs.clone(),
             cloud_tab,
-            cloud_pane,
+            cloud_shape: Cell::new(cloud_shape),
+            cloud_config: RefCell::new(None),
             page_height,
             advanced,
             usage,
@@ -312,13 +377,24 @@ impl PreferencesWindow {
         self.phrases.sync(config);
         self.fuzzy.sync(config);
         self.sync_cloud_status();
-        self.cloud.sync(
-            config,
+        let model_present = crate::app::paths::p2c_model_path().is_some()
+            || crate::app::paths::model_path().is_some();
+        *self.cloud_config.borrow_mut() = Some(CloudConfig {
+            config: config.clone(),
             key_present,
-            crate::app::paths::p2c_model_path().is_some()
-                || crate::app::paths::model_path().is_some(),
-        );
-        self.fit_cloud_page();
+            model_present,
+        });
+        // 换了服务（素笺云 ↔ 自定义接口）要增减「自定义接口」那张卡
+        let current = self.cloud_shape.get();
+        let shape = CloudShape {
+            custom: config.predict.provider == PredictProvider::Custom,
+            ..current
+        };
+        if shape != self.cloud_shape.get() {
+            self.rebuild_cloud_page(shape);
+        } else {
+            self.cloud.borrow().sync(config, key_present, model_present);
+        }
         self.advanced.sync(config);
         // `notice` 里已经写好了「沿用上一份」/「已忽略」的措辞，这里原样显示
         let status = notice.unwrap_or_default();
@@ -326,35 +402,67 @@ impl PreferencesWindow {
         self.status.setStringValue(&NSString::from_str(status));
     }
 
-    /// 「云服务」页「高级」的展开三角：展开 / 收起那一组，页面高度跟着变。
-    pub fn toggle_cloud_advanced(&self) {
-        self.cloud.toggle_advanced();
-        self.fit_cloud_page();
+    /// 开发自检：把设置窗口（停在「云服务」页）截成 PNG 再退出。
+    /// 输入法进程不方便手动点菜单，`QJ_SETTINGS_SHOT` 指了路径就启动后自动跑一遍（见 `host::init`）。
+    pub fn dump_cloud_page(&self, path: &str) {
+        self.show_cloud();
+        let number = self.panel.windowNumber();
+        let path = path.to_owned();
+        // 起手的形状按假状态算（见 `dev_shape`），窗口装得下整页，只截一张就够
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(1200));
+            shoot(number, &path);
+            std::process::exit(0);
+        });
     }
 
-    /// 云服务页按现在露在外面的内容重定高度：收起高级、换成素笺云时页面要跟着变短，
-    /// 不然下面空一截，滚动条却在（内容比窗口矮就不该能滚）。
-    fn fit_cloud_page(&self) {
-        let Some(pane) = &self.cloud_pane else {
+    /// 「云服务」页「高级」的展开三角：形状里翻一下，整页按新形状重建。
+    pub fn toggle_cloud_advanced(&self) {
+        let shape = CloudShape {
+            advanced: !self.cloud_shape.get().advanced,
+            ..self.cloud_shape.get()
+        };
+        self.rebuild_cloud_page(shape);
+    }
+
+    /// 云服务页的形状变了（开通与否、设备台数、展开高级、换服务、有没有话说）：
+    /// 整个重建这一页，页面高度永远等于内容高度，不留写死高度的空位。
+    fn rebuild_cloud_page(&self, shape: CloudShape) {
+        let Some(mtm) = MainThreadMarker::new() else {
             return;
         };
-        let height = (pane.full_height - self.cloud.hidden_height()).max(self.page_height);
-        pane.view
-            .setFrameSize(NSSize::new(pane.view.frame().size.width, height));
-        // 坐标原点在左下，总高度一变每个控件的 y 都要重算
-        pane.layout.finish(&pane.view, height);
-        let clip: Retained<NSClipView> = pane.scroll.contentView();
-        let top = (height - clip.bounds().size.height).max(0.0);
-        if clip.bounds().origin.y > top {
-            clip.scrollToPoint(NSPoint::new(clip.bounds().origin.x, top));
+        self.cloud_shape.set(shape);
+        let mut layout = Layout::new(PAGE_WIDTH, PAGE_TOP);
+        let cloud = CloudPage::build(&mut layout, mtm, &self._target, shape);
+        let view = NSView::initWithFrame(mtm.alloc(), NSRect::ZERO);
+        let own_height = (layout.height() + PAGE_TOP).max(self.page_height);
+        view.setFrame(NSRect::new(
+            NSPoint::ZERO,
+            NSSize::new(PAGE_WIDTH, own_height),
+        ));
+        layout.finish(&view, own_height);
+        // 高度会随形状变，一律放进滚动视图；比可视区矮时不会出滚动条
+        let item = self.tabs.tabViewItemAtIndex(self.cloud_tab as isize);
+        item.setView(Some(&scrolling(mtm, &view, self.page_height, own_height)));
+        // 新控件按当前状态与配置填一遍
+        if let Some(config) = self.cloud_config.borrow().as_ref() {
+            cloud.sync(&config.config, config.key_present, config.model_present);
         }
-        pane.scroll.reflectScrolledClipView(&clip);
+        cloud.sync_status(&cloud_status());
+        *self.cloud.borrow_mut() = cloud;
     }
 
-    /// 只刷「云服务」页的状态块与开关（云功能是独立的线程在跑，不等 config 变化）。
+    /// 只刷「云服务」页的状态（云功能是独立的线程在跑，不等 config 变化）：
+    /// 设备台数或开通状态变了就整页重建，其余情况只改文字与勾选。
     pub fn sync_cloud_status(&self) {
-        self.cloud.sync_status(&qingjian_cloud_mac::status());
-        self.fit_cloud_page();
+        let status = cloud_status();
+        let current = self.cloud_shape.get();
+        let shape = shape_of(&status, current.custom, current.advanced);
+        if shape != self.cloud_shape.get() {
+            self.rebuild_cloud_page(shape);
+        } else {
+            self.cloud.borrow().sync_status(&status);
+        }
     }
 
     /// 检查更新的状态变了（查完了、查到新版），只刷「关于」页。

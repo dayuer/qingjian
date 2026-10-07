@@ -3,13 +3,13 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::Sel;
-use objc2::{MainThreadMarker, sel};
+use objc2::{AnyThread, MainThreadMarker, sel};
 use objc2_app_kit::{
-    NSBezelStyle, NSButton, NSButtonType, NSColor, NSControl, NSControlStateValueOff,
-    NSControlStateValueOn, NSFont, NSPopUpButton, NSSecureTextField, NSSwitch, NSTextAlignment,
-    NSTextField,
+    NSButton, NSButtonType, NSColor, NSControl, NSControlSize, NSControlStateValueOff,
+    NSControlStateValueOn, NSFont, NSForegroundColorAttributeName, NSPopUpButton,
+    NSSecureTextField, NSSwitch, NSTextAlignment, NSTextField,
 };
-use objc2_foundation::{NSArray, NSRect, NSString};
+use objc2_foundation::{NSArray, NSMutableAttributedString, NSRange, NSRect, NSString};
 use qingjian_core::Language;
 
 use super::key_recorder::KeyRecorder;
@@ -75,21 +75,26 @@ pub(super) fn small_label(mtm: MainThreadMarker, text: &str) -> Retained<NSTextF
     label
 }
 
-/// 收起 / 展开这类只管界面、不写配置的三角按钮：接到 target 上的专用选择器（不是 `changed:`）。
+/// 收起 / 展开这类只管界面、不写配置的按钮：标题（带箭头）就写在按钮上，点哪儿都算，
+/// 接到 target 上的专用选择器（不是 `changed:`）。
 pub(super) fn disclosure(
     mtm: MainThreadMarker,
+    title: &str,
     selector: Sel,
     target: &PreferencesTarget,
 ) -> Retained<NSButton> {
-    let control = NSButton::new(mtm);
-    control.setButtonType(NSButtonType::PushOnPushOff);
-    control.setBezelStyle(NSBezelStyle::Disclosure);
-    control.setTitle(&NSString::from_str(""));
     // SAFETY: 选择器是 PreferencesTarget 上定义的方法，签名 (id) -> void
-    unsafe {
-        control.setTarget(Some(target));
-        control.setAction(Some(selector));
-    }
+    let control = unsafe {
+        NSButton::buttonWithTitle_target_action(
+            &NSString::from_str(title),
+            Some(target),
+            Some(selector),
+            mtm,
+        )
+    };
+    control.setBordered(false);
+    control.setButtonType(NSButtonType::PushOnPushOff);
+    control.setAlignment(NSTextAlignment::Left);
     control
 }
 
@@ -100,6 +105,8 @@ pub(super) fn switch(
     target: &PreferencesTarget,
 ) -> Retained<NSSwitch> {
     let control = NSSwitch::new(mtm);
+    // 设置页要短：开关用小的，行高才好压在 28 上下
+    control.setControlSize(NSControlSize::Small);
     wire(&control, setting, target);
     control
 }
@@ -121,7 +128,7 @@ pub(super) fn danger_button(
     target: &PreferencesTarget,
 ) -> Retained<NSButton> {
     let control = button(mtm, title, setting, target);
-    control.setContentTintColor(Some(&NSColor::systemRedColor()));
+    tint_red(&control, title);
     control
 }
 
@@ -298,8 +305,25 @@ pub(super) fn action_danger_button(
     target: &PreferencesTarget,
 ) -> Retained<NSButton> {
     let button = action_button(mtm, title, selector, tag, target);
-    button.setContentTintColor(Some(&NSColor::systemRedColor()));
+    tint_red(&button, title);
     button
+}
+
+/// 按钮标题改成红字：`contentTintColor` 在新版系统的按钮上不染标题，用带颜色的富文本标题才稳。
+fn tint_red(control: &NSButton, title: &str) {
+    let attributed = NSMutableAttributedString::initWithString(
+        NSMutableAttributedString::alloc(),
+        &NSString::from_str(title),
+    );
+    // SAFETY: 属性名与值的类型按 AppKit 的约定（颜色对象对应文字颜色属性）
+    unsafe {
+        attributed.addAttribute_value_range(
+            NSForegroundColorAttributeName,
+            NSColor::systemRedColor().as_ref(),
+            NSRange::new(0, attributed.length()),
+        );
+    }
+    control.setAttributedTitle(&attributed);
 }
 
 /// 可编辑单行文本框：回车或失焦时发 action。

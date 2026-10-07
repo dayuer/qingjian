@@ -17,7 +17,7 @@ pub(super) use about::build as build_about;
 pub use about::{REPOSITORY_URL, UpdateStatus};
 pub(super) use advanced::AdvancedPage;
 pub(super) use candidates::CandidatesPage;
-pub(super) use cloud::CloudPage;
+pub(super) use cloud::{CloudPage, CloudShape};
 pub(super) use dictionaries::DictionariesPage;
 pub(super) use fuzzy::FuzzyPage;
 pub(super) use general::GeneralPage;

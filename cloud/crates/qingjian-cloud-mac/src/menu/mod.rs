@@ -48,7 +48,7 @@ pub fn status_line(display: &Display) -> String {
         Display::Sync { status, pending } => {
             let base = match status {
                 Status::Connecting => "正在连接…".to_owned(),
-                Status::Online => "已连接".to_owned(),
+                Status::Online => "已开通".to_owned(),
                 Status::Offline(error) => format!("离线，稍后自动重试（{}）", short(error)),
                 Status::Unauthorized => "授权已失效，请重新加入".to_owned(),
                 Status::Disabled => "跨设备剪贴板在服务器上没开".to_owned(),

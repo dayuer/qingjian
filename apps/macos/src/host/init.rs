@@ -119,6 +119,10 @@ pub fn init(mtm: MainThreadMarker, info: &BundleInfo) -> Result<(), HostError> {
     let menu = InputMenu::new(mtm, version);
     indicator.set_menu(&menu.ns_menu());
     let preferences = PreferencesWindow::new(mtm, &languages, version, &info.build);
+    // 开发自检：QJ_SETTINGS_SHOT=<png 路径> 时打开云服务页截一张就退出
+    if let Ok(path) = std::env::var("QJ_SETTINGS_SHOT") {
+        preferences.dump_cloud_page(&path);
+    }
     let monitor = PredictMonitor::new(mtm);
     let watch = ConfigWatch::new(mtm);
     HOST.with(|host| {
