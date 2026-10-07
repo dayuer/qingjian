@@ -148,6 +148,16 @@ pub enum Command {
         #[arg(long, default_value_t = 3)]
         min_count: u32,
 
+        /// 短语合成行占上限的份额（0–1）：真实行截到「上限 ×(1−份额)」，给短语层（我的 / 后端）
+        /// 留出固定空间 —— 不留的话真实行占满之后短语会拿不到任何 LM 支撑
+        #[arg(long, default_value_t = 0.08)]
+        phrase_bigram_share: f64,
+
+        /// 每条短语最多合成多少个邻居（按邻居计数取前 K）：常用成分（的 / 了 / 是）的邻居上百万，
+        /// 全合成会把预算吃光，而真正有用的只是最高频的那批
+        #[arg(long, default_value_t = 200)]
+        phrase_neighbors: usize,
+
         /// 最多输出多少条二元组（按计数取前 N）。缺省 500 万：随包那份 lm.qj 一直是 486 万条，
         /// 按 300 万截会让整句评测的首选掉一个点（2026-10-07 量过：33.2% → 34.1%，基线 34.2%）
         #[arg(long, default_value_t = 5_000_000)]

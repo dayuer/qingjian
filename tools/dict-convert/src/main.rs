@@ -116,6 +116,8 @@ fn run() -> Result<(), ConvertError> {
             brand,
             min_count,
             max_bigrams,
+            phrase_bigram_share,
+            phrase_neighbors,
         } => bigram::convert(
             &corpus,
             &dict,
@@ -123,6 +125,8 @@ fn run() -> Result<(), ConvertError> {
             &brand,
             min_count,
             max_bigrams,
+            phrase_bigram_share,
+            phrase_neighbors,
             &args.out_dir,
         ),
         Command::Mine {

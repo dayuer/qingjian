@@ -416,6 +416,8 @@ fn char_offset(chars: &[char], index: usize) -> usize {
     chars[..index].iter().map(|c| c.len_utf8()).sum()
 }
 
+// 参数多是因为统计选项本来就是一堆旋钮；这里不为它单独造一个结构体
+#[allow(clippy::too_many_arguments)]
 pub fn convert(
     corpus: &[PathBuf],
     dict: &Path,
@@ -423,6 +425,8 @@ pub fn convert(
     brand: &[PathBuf],
     min_count: u32,
     max_bigrams: usize,
+    phrase_bigram_share: f64,
+    phrase_neighbors: usize,
     out_dir: &Path,
 ) -> Result<(), ConvertError> {
     let mut vocabulary = Vocabulary::load(dict)?;
@@ -503,10 +507,12 @@ pub fn convert(
         .filter(|(_, count)| *count >= min_count)
         .collect();
     pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    pairs.truncate(max_bigrams);
-    // 真实行 + 合成行的**总预算就是 max_bigrams**：产品侧（iOS 键盘内存预算、与旧库同规模对比）
-    // 要的是「这份 lm.qj 到底多大」，真实行与合成行分头设限会让总量失控（见 synthesize_phrases）
-    let synth_budget = max_bigrams.saturating_sub(pairs.len());
+    // 短语的合成行**预留固定份额**（`--phrase-bigram-share`，缺省 8%）：真实行占满上限时，
+    // 短语层（我的 / 后端）一条合成行都拿不到的话整句会退步。真实行先截到「上限 − 预留」。
+    let synth_budget =
+        ((max_bigrams as f64) * phrase_bigram_share.clamp(0.0, 0.5)).round() as usize;
+    pairs.truncate(max_bigrams.saturating_sub(synth_budget));
+    let real_rows = pairs.len();
     if !phrase_parts.is_empty() {
         let synthesized = synthesize_phrases(
             &phrase_parts,
@@ -514,10 +520,19 @@ pub fn convert(
             &bigram,
             min_count,
             synth_budget,
+            phrase_neighbors,
         );
         pairs.extend(synthesized);
     }
     debug_assert!(pairs.len() <= max_bigrams.max(1));
+    tracing::info!(
+        real = real_rows,
+        synth = pairs.len() - real_rows,
+        budget = synth_budget,
+        total = pairs.len(),
+        limit = max_bigrams,
+        "二元写出前（真实行 + 合成行 ≤ 上限）"
+    );
     let bigram_path = out_dir.join("lm-bigram.tsv");
     let mut writer = BufWriter::new(File::create(&bigram_path)?);
     writeln!(
@@ -600,6 +615,7 @@ fn synthesize_phrases(
     bigram: &HashMap<u64, u32>,
     min_count: u32,
     max_synth_bigrams: usize,
+    max_neighbors: usize,
 ) -> Vec<(u64, u32)> {
     let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
     // 按后词 / 前词索引一遍二元表，合成时按成分查前接与后接
@@ -613,6 +629,16 @@ fn synthesize_phrases(
     let pair = |bigram: &HashMap<u64, u32>, a: u32, b: u32| {
         f64::from(bigram.get(&key(a, b)).copied().unwrap_or(0))
     };
+    // 邻居表按计数降序，之后每条短语只取前 K 个 —— 常用成分（的 / 了 / 是）的邻居上百万，
+    // 全合成会把预留份额吃光，而真正有用的只是最高频的那批
+    for list in by_second.values_mut() {
+        list.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        list.truncate(max_neighbors);
+    }
+    for list in by_first.values_mut() {
+        list.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        list.truncate(max_neighbors);
+    }
     let mut added = 0usize;
     let mut rows: Vec<(u64, u32)> = Vec::new();
     for (id, parts) in phrases {
@@ -678,13 +704,34 @@ mod tests {
         unigram[1] = 100; // 首词总次数：合成计数 = 邻居次数 × 短语次数 / 总次数 = 10 × 50 / 100 = 5
         unigram[2] = 100;
         let phrases = vec![(9u32, vec![1u32, 2u32])];
-        let rows = synthesize_phrases(&phrases, &mut unigram, &bigram, 3, 100);
+        let rows = synthesize_phrases(&phrases, &mut unigram, &bigram, 3, 100, 1_000);
         assert!(!rows.is_empty(), "预算内应该还有合成行");
         assert!(
             rows.len() <= 100,
             "合成行超过预算：{} 行（上限 100）",
             rows.len()
         );
+    }
+
+    /// 每条短语只合成前 K 个邻居：不设 K 时，常用成分（的 / 了 / 是）的上百万邻居会把
+    /// 预留份额吃光，真正高频的那批反而进不来。
+    #[test]
+    fn synthesized_phrases_keep_only_top_k_neighbors() {
+        let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
+        let mut bigram: HashMap<u64, u32> = HashMap::new();
+        for prev in 100u32..1_100 {
+            bigram.insert(key(prev, 1), 10 + prev);
+        }
+        bigram.insert(key(1, 2), 50);
+        let mut unigram = vec![0u64; 2_000];
+        unigram[1] = 100;
+        let phrases = vec![(9u32, vec![1u32, 2u32])];
+        let rows = synthesize_phrases(&phrases, &mut unigram, &bigram, 3, 10_000, 5);
+        assert_eq!(rows.len(), 5, "只该合成前 5 个邻居：{}", rows.len());
+        // 前 5 个应该是计数最高的那几个（1099…1095），对应前词 1099…1095
+        let mut seconds: Vec<u32> = rows.iter().map(|(k, _)| (*k >> 32) as u32).collect();
+        seconds.sort_unstable_by(|a, b| b.cmp(a));
+        assert_eq!(seconds, vec![1099, 1098, 1097, 1096, 1095]);
     }
 
     /// 贴着数字的汉字串是日期/范围的碎片（「3月1日至10日」里的「日至」），统计时不计数；
