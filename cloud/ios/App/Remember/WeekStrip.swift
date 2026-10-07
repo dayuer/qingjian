@@ -28,7 +28,8 @@ struct WeekStrip: View {
                                 day.hasEvents ? ColorUsage.calendarEventDot.role.color : .clear)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
+                    .padding(.top, 7)
+                    .padding(.bottom, 8)
                     .background(
                         index == selected ? ColorUsage.calendarSelectedDay.role.color : .clear)
                     .clipShape(RoundedRectangle(cornerRadius: 12))

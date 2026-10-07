@@ -36,14 +36,14 @@ struct ScopeChip: View {
         HStack(spacing: 6) {
             Circle()
                 .fill(love ? Theme.accent.color : Color(.tertiaryLabel))
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
             Text(ScopeDisplay.chipPerson(model.currentContact?.chipName))
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(ColorUsage.chipPerson.role.color)
                 .lineLimit(1)
         }
-        .padding(.leading, 11)
-        .padding(.trailing, 12)
+        .padding(.leading, 9)
+        .padding(.trailing, 11)
         .frame(height: 30)
         .background(love ? Theme.accentSoft.color : KeyStyle.keyFill)
         .clipShape(Capsule())

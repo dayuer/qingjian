@@ -91,6 +91,16 @@ final class ClipMessagesTests: XCTestCase {
         XCTAssertEqual(NoteToast.problem("x").duration, .seconds(4), "没记上的原因停久一点")
     }
 
+    /// 草稿卡、冲突屏上各个出口的 toast 照设计稿 1e-2 / 1e-3。
+    func testDraftAndConflictToasts() {
+        XCTAssertEqual(NoteBarText.skipped(fromDraft: true), "没记，剪贴板里的这段不会再提示")
+        XCTAssertEqual(NoteBarText.skipped(fromDraft: false), "没记")
+        XCTAssertEqual(NoteBarText.nothingToSave, "没有可记的")
+        XCTAssertEqual(NoteBarText.conflictResolved(.useNew, newText: "最近爱吃香菜"), "已更新：最近爱吃香菜")
+        XCTAssertEqual(NoteBarText.conflictResolved(.keepBoth, newText: "最近爱吃香菜"), "两条都留了，按时间排")
+        XCTAssertFalse(NoteToast.info("没记").warning)
+    }
+
     /// 到上限：没空位、剩 1 个、剩好几个。
     func testMaterialLimitTexts() {
         XCTAssertEqual(NoteBarText.materialLimit(remaining: 0, needed: 1), "这个人还有 200 条没整理，先去 App 里看看")

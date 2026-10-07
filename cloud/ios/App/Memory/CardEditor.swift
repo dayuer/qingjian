@@ -61,7 +61,7 @@ struct CardEditor: View {
                                     .frame(height: 32)
                                     .background(Capsule().fill(pill.background))
                                     .overlay {
-                                        if pill.outlined { Capsule().strokeBorder(Color(UIColor.separator)) }
+                                        if pill.outlined { Capsule().strokeBorder(Hairline.line) }
                                     }
                             }
                             .buttonStyle(.plain)
@@ -113,9 +113,11 @@ struct CardEditor: View {
                 }
                 if let card {
                     Section {
-                        Button("删掉这条", role: .destructive) {
+                        // 设计稿 .btn.danger 是 ink 字，不是系统红
+                        Button("删掉这条") {
                             Task { if await store.deleteCard(card.id, for: contactId) { close() } }
                         }
+                        .foregroundStyle(Theme.ink)
                         .frame(maxWidth: .infinity)
                     }
                 }
@@ -124,14 +126,14 @@ struct CardEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }.foregroundStyle(ColorUsage.editorSave.role.color)
+                    Button("取消") { dismiss() }.foregroundStyle(ColorUsage.editorCancel.role.color)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if store.saving {
                         MemorySavingLabel().foregroundStyle(ColorUsage.cardNotice.role.color)
                     } else {
                         Button("存好") { save() }
-                            .foregroundStyle(ColorUsage.editorSave.role.color)
+                            .foregroundStyle(ColorUsage.editorConfirm.role.color)
                             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }

@@ -15,6 +15,22 @@ enum NoteBarText {
         return head + (cloud ? "，明早整理" : "，开通素笺云后整理")
     }
 
+    /// 草稿卡、冲突屏上点「不记」后的 toast（设计稿 1e-2 / 1e-3）：草稿卡那里剪贴板这段已经标成处理过，写明不会再提示。
+    static func skipped(fromDraft: Bool) -> String {
+        fromDraft ? "没记，剪贴板里的这段不会再提示" : "没记"
+    }
+
+    /// 草稿卡里一项都删光了还点「记下」。
+    static let nothingToSave = "没有可记的"
+
+    /// 冲突屏选完存好后的 toast（设计稿 1e-3）。
+    static func conflictResolved(_ decision: ConflictDecision, newText: String) -> String {
+        switch decision {
+        case .useNew: "已更新：\(newText)"
+        case .keepBoth: "两条都留了，按时间排"
+        }
+    }
+
     /// 一个人最多留几条没整理的素材，与桥的 MAX_UNPROCESSED_MATERIALS 一致。
     static let materialCap = 200
 

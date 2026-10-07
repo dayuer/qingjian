@@ -624,23 +624,33 @@ final class KeyboardModel {
 
     /// 「不记」：草稿卡或冲突屏收起，什么都不写。
     func discardDraft() {
+        let fromDraft = panel == .draft
         noteFlow.discard()
         panel = .keys
+        showNoteToast(.info(NoteBarText.skipped(fromDraft: fromDraft)))
     }
 
     /// 「记下 n 条」：样例里有冲突，先进冲突屏（1e-3），原话留着给冲突屏显示，选完才存——**这条链现在也是壳**，
     /// 等 2C 换成真的冲突比对。冲突落在当前对象身上，称呼用 chipName。
     func saveDraft() {
+        // 设计稿 1e-2：一项都不剩时按钮照样能点，收起草稿卡、提示一句
+        guard !noteFlow.fields.isEmpty else {
+            noteFlow.discard()
+            panel = .keys
+            showNoteToast(.info(NoteBarText.nothingToSave))
+            return
+        }
         noteFlow.save(contactName: currentContact?.chipName ?? "")
         panel = .conflict
     }
 
     /// 冲突屏上选完之后：都按「存一条素材」存原话，两条怎么合留给 2C 的整理去判。
     func resolveConflict(_ decision: ConflictDecision) {
+        let newText = noteFlow.conflict?.newText ?? ""
         let text = noteFlow.resolve(decision)
         panel = .keys
         guard !text.isEmpty else { return }
-        saveNote([text], source: "clipboard")
+        saveNote([text], source: "clipboard", doneText: NoteBarText.conflictResolved(decision, newText: newText))
     }
 
     /// 「忽略」也算处理过：不然剪贴板不变时再点「记一笔」永远是这条，进不了手写。
@@ -722,7 +732,7 @@ final class KeyboardModel {
     /// 整次交给桥存成素材：确认条里的几条用空行拼回一段，桥按同样的规则再切开（ClipMessages 与桥的 split_note 同一套），
     /// 这样「这次的条数加上没整理的超过 200 就整次不记」对整张确认条成立，不会记一半。拿不到锁时桥进待办、当成功。
     /// 记下了在条上写「记下了 n 条，明早整理」；这个人的待整理装不下就写清原因，不静默；别的失败（App Group 不可写、对象刚被删）不打断打字。
-    private func saveNote(_ cards: [String], source: String) {
+    private func saveNote(_ cards: [String], source: String, doneText: String? = nil) {
         guard let id = scope.contactId, !cards.isEmpty else { return }
         let failure = engine?.memoryNote(id, text: cards.joined(separator: "\n\n"), source: source)
         // 只记成败与错误码，不记原话
@@ -731,7 +741,7 @@ final class KeyboardModel {
         if let failure {
             if failure.code == .materialLimit { showNoteToast(.problem(failure.userMessage)) }
         } else {
-            showNoteToast(.done(count: cards.count, cloud: CloudStatus.memoryReady()))
+            showNoteToast(doneText.map(NoteToast.info) ?? .done(count: cards.count, cloud: CloudStatus.memoryReady()))
         }
         reloadContacts()
         refreshHint()

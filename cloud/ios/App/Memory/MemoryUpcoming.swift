@@ -12,8 +12,8 @@ struct MemoryUpcoming: Identifiable, Equatable {
     /// 「明天是她的生日」「明天：看电影」。
     var text: String { card.reminderText(days: days, contact: contact) }
 
-    /// 首页提醒卡的标题：日子「小美生日」，约定「小美 · 看电影」。
-    var title: String { card.kind == .date ? "\(contact.name)\(card.text)" : "\(contact.name) · \(card.text)" }
+    /// 首页事件与本周的标题：日子「小美生日」，约定等只写内容「看电影」（设计稿 2a「答应陪她去看海」：是谁看头像与副标题）。
+    var title: String { card.kind == .date ? "\(contact.name)\(card.text)" : card.text }
 
     /// 首页提醒卡左列：「今天」「明天」「3 天后」。
     var shortDay: String {
@@ -29,12 +29,12 @@ struct MemoryUpcoming: Identifiable, Equatable {
         card.kind == .date ? "\(shortDay)\(card.text)" : "\(shortDay) · \(card.text)"
     }
 
-    /// 「今天」「明天」「3 天后 · 10-07」。
+    /// 「今天」「明天」「3 天后 · 10.07」（设计稿日期写 M.dd）。
     var dayLabel: String {
         switch days {
         case 0: "今天"
         case 1: "明天"
-        default: "\(days) 天后 · \(card.when?.suffix(5) ?? "")"
+        default: "\(days) 天后 · \((card.when?.suffix(5) ?? "").replacingOccurrences(of: "-", with: "."))"
         }
     }
 }
