@@ -222,6 +222,15 @@ char *qj_memory_contact_skill_set(const char *user_dir, const char *contact_id,
 // 提示词不下发到壳里；目录里一个都没有或参数无效时为 NULL。App 只用来列出技能名（改写本身在键盘里）。
 char *qj_skills(const char *skills_dir);
 
+// 键盘工具栏「记录中」（05 的 2a / 2b）。0 不显示（没登录、没开上传输入日志）、1 记录中、
+// 2 暂停（1 小时后自动恢复）、3 一直暂停。问它时顺带处理到期。
+// 暂停只停记输入日志，学习、提示、记一笔照常；已经记下的照常上传。
+uint8_t qj_recording_state(QjSession *session);
+// seconds > 0 暂停这么多秒；<= 0 一直暂停（到 qj_recording_resume）。
+void qj_recording_pause(QjSession *session, int64_t seconds);
+// 恢复记录（点「已暂停」）。
+void qj_recording_resume(QjSession *session);
+
 void qj_string_free(char *text);
 
 #endif

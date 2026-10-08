@@ -6,6 +6,7 @@ mod cloud;
 mod config;
 mod memory;
 mod model;
+mod recording;
 
 use std::path::{Path, PathBuf};
 
@@ -25,6 +26,7 @@ use crate::clipboard::Clipboard;
 use crate::cloud_config::CloudConfig;
 use crate::entry::Entry;
 use crate::error::BridgeError;
+use crate::recording::RecordingPause;
 use crate::rewrite::{Rewriter, Skill};
 
 /// 候选栏是横向滚动的一行，再多也翻不到，截断省得每键复制几百个候选。
@@ -79,6 +81,12 @@ pub struct Session {
 
     /// 英文词表已挂上引擎（内存吃紧先卸它：比模型小，触发器还会再加载）。
     english_loaded: bool,
+
+    /// 云端配了「上传输入日志」（`cloud.logs`）；没有它就没有可暂停的东西（见 `recording`）。
+    logs_on: bool,
+
+    /// 输入日志现在被换成了什么都不写的（暂停中）；恢复时用它决定要不要装回 `InputLog`。
+    logger_paused: bool,
 }
 
 impl Session {
@@ -113,12 +121,20 @@ impl Session {
                 Err(error) => tracing::warn!(%error, "语言模型加载失败，使用词频整句"),
             }
         }
-        // 只在登录了且开了「上传输入日志」时记日志：离线或没开的用户，输入不落任何日志
-        if let (Some(dir), Some(cloud)) = (user_dir, &cloud)
-            && cloud.logs
-        {
-            engine =
-                engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
+        // 只在登录了且开了「上传输入日志」时记日志：离线或没开的用户，输入不落任何日志。
+        // 上次暂停着（键盘进程被杀过）就不装，重开还记得在暂停。
+        let logs_on = cloud.as_ref().is_some_and(|cloud| cloud.logs);
+        let mut logger_paused = false;
+        if let Some(dir) = user_dir.filter(|_| logs_on) {
+            if RecordingPause::load(dir)
+                .until(crate::memory::now_unix())
+                .is_none()
+            {
+                engine =
+                    engine.with_input_logger(Box::new(InputLog::open(dir.join("input-log.jsonl"))));
+            } else {
+                logger_paused = true;
+            }
         }
         // 英文词表随包走（`Data/english.qj`），但懒加载：首次见到像英文的输入（见 `looks_english`）才读，纯拼音用户整场不付这笔账
         let english_pending = [data_dir.join("english.qj"), data_dir.join("english.tsv")]
@@ -152,6 +168,8 @@ impl Session {
             uploader: user_dir.map(|dir| {
                 crate::upload::Uploader::start(dir.join("cloud.toml"), dir.to_path_buf())
             }),
+            logs_on,
+            logger_paused,
         };
         session.reload_config();
         if let Some(cloud) = cloud {
