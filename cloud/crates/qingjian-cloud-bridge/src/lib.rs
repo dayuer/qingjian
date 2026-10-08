@@ -9,6 +9,7 @@ mod cloud_config;
 mod entry;
 mod error;
 mod memory;
+mod recording;
 mod rewrite;
 mod scope;
 mod session;
@@ -33,6 +34,7 @@ pub use self::memory::{
     has_date, mask_contact_names, new_id, now_unix, panel_cards, reminder_text, should_upload,
     split_note, unprocessed,
 };
+pub use self::recording::RecordingState;
 pub use self::rewrite::{RewriteState, Rewriter};
 pub use self::scope::{
     ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
@@ -589,6 +591,41 @@ pub unsafe extern "C" fn qj_rewrite_default_set(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_set_private(session: *mut Session, private: bool) {
     with(session, (), |s| s.set_private(private));
+}
+
+/// 键盘工具栏「记录中」（05 的 2a / 2b）。0 不显示（没登录、没开上传输入日志）、1 记录中、
+/// 2 暂停（1 小时后自动恢复）、3 一直暂停。问它时顺带处理到期。暂停只停记输入日志，学习、提示、记一笔照常。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_recording_state(session: *mut Session) -> u8 {
+    with(session, 0, |s| {
+        s.recording_state(crate::memory::now_unix()) as u8
+    })
+}
+
+/// 暂停记录：`seconds` > 0 暂停这么多秒；<= 0 一直暂停（到 [`qj_recording_resume`]）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_recording_pause(session: *mut Session, seconds: i64) {
+    let seconds = (seconds > 0).then_some(seconds);
+    with(session, (), |s| {
+        s.pause_recording(seconds, crate::memory::now_unix());
+    });
+}
+
+/// 恢复记录（点「已暂停」）。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_recording_resume(session: *mut Session) {
+    with(session, (), |s| {
+        s.resume_recording(crate::memory::now_unix());
+    });
 }
 
 /// 配了跨设备剪贴板。

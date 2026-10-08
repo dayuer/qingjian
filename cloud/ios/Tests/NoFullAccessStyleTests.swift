@@ -50,7 +50,10 @@ final class NoFullAccessStyleTests: XCTestCase {
              // 记一笔的草稿卡与冲突屏（01 的 1e-2 / 1e-3）：冲突屏新卡那圈描边与「新的」标签
              .conflictNewRing, .conflictNewLabel,
              // 通讯录行尾的事件提示（02 的 2b：关于某个人的事，用浅绿字）
-             .contactEventNote])
+             .contactEventNote,
+             // 工具栏「记录中」的标记（05 的 2a）：它在记「你和这个人」的对话，按约束 1 归人；
+             // 「已暂停」是 ink-3，不在这一组
+             .recordingBadge])
     }
 
     func testButtonsAndPanelControlsAreNeutral() {

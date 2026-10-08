@@ -113,12 +113,19 @@ enum ColorUsage: CaseIterable {
     /// 冲突屏里「两条都留」这个线框按钮的字（`.btn.line`）。
     case conflictBoth
 
+    /// 工具栏「记录中」的标记（05 的 2a）：实心圆点与字。它在记「你和这个人」的对话，按约束 1 归人。
+    case recordingBadge
+
+    /// 「已暂停」的标记（05 的 2b）：空心圆与灰字——停下了，就不再是代表人的元素。
+    case pausedBadge
+
     var role: ColorRole {
         switch self {
         case .chipPerson, .hintBackground, .hintDot, .selectedContactCell, .avatar, .reminderDay, .firstCandidate,
              .allMemoryButton, .onboardingCurrentPlan: .accent
         case .appLink: .accent
-        case .milestoneNext, .eventActionTagInk, .contactEventNote, .editorConfirm, .contactSettingsButton: .accent
+        case .milestoneNext, .eventActionTagInk, .contactEventNote, .editorConfirm, .contactSettingsButton,
+             .recordingBadge: .accent
         case .milestoneNextDot: .accentFill
         case .onboardingStepNumber: .ink
         case .milestoneEarned, .calendarEventDot: .ink
@@ -131,7 +138,7 @@ enum ColorUsage: CaseIterable {
              .editorSave, .exportLink, .cloudIntroLink, .failureBanner, .materialsCloudLink, .materialsNudge: .ink
         case .cardNotice, .hintButton, .panelDone, .cardClose, .noteIgnore, .noteCancel, .materialDelete,
              .eventKindTag, .editorCancel: .ink2
-        case .draftUnsure: .ink3
+        case .draftUnsure, .pausedBadge: .ink3
         case .conflictBoth: .ink
         }
     }

@@ -118,6 +118,14 @@ final class Engine {
     /// 验证码、密码、信用卡号这类输入框：不学习、不记日志、不发云端，剪贴板与润色也停。
     func setPrivate(_ value: Bool) { qj_set_private(session, value) }
 
+    /// 工具栏「记录中」的标记（05 的 2a / 2b）：0 不显示、1 记录中、2 定时暂停、3 一直暂停；问它时桥顺带处理到期。
+    var recordingState: UInt8 { qj_recording_state(session) }
+
+    /// `seconds` > 0 暂停这么多秒；<= 0 一直暂停。
+    func pauseRecording(_ seconds: Int64) { qj_recording_pause(session, seconds) }
+
+    func resumeRecording() { qj_recording_resume(session) }
+
     var clipboardEnabled: Bool { qj_clipboard_enabled(session) }
 
     /// 后台拉一次别的设备的剪贴板（键盘弹出时调）。

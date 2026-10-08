@@ -6,7 +6,8 @@
     UITests/seed/seed.py --device Sujian-PR4              # 现在的格式：14 个人、卡片、键盘当前选着小美
     UITests/seed/seed.py --device Sujian-PR4 --legacy     # 老格式：卡片文件是光秃秃的数组（没有 {"rev","cards"}）
     UITests/seed/seed.py --device Sujian-PR4 --bad-card   # 另给阿林塞一张关键词只有 1 个字的坏卡
-    UITests/seed/seed.py --device Sujian-PR4 --clean      # 只清掉 memory/
+    UITests/seed/seed.py --device Sujian-PR4 --recording  # 另写一份 logs = true 的 cloud.toml（键盘「记录中」标记用）
+    UITests/seed/seed.py --device Sujian-PR4 --clean      # 清掉 memory/、cloud.toml 与暂停文件
 
 每次都先清掉整个 memory/ 再写。容器路径用 `xcrun simctl get_app_container <设备> sujian.synon.ai group.sujian.synon.ai` 找。
 """
@@ -111,6 +112,27 @@ def write(path: Path, value) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def seed_recording(root: Path) -> None:
+    """给键盘走查造「登录了、开了上传输入日志」的样子：标记只看配置，服务器连不上不影响。
+    真的登录要建空间、拿令牌，走查里不划算。
+
+    令牌必须以 `sjt_` 开头：桥的 `CloudConfig::load` 认这个前缀才算登录，否则整份配置当没配置
+    （踩过：写成 `seed-recording` 时标记一直不出）。
+
+    同时清掉暂停文件：上一次走查点到「一直暂停」的话，这一次一上来就是「已暂停」，
+    连着的深色那轮会从错的状态开拍（踩过：深色那轮第一下点的是「恢复」而不是「暂停」）。"""
+    shutil.rmtree(root / "cloud", ignore_errors=True)
+    (root / "cloud.toml").write_text(
+        'server = "http://127.0.0.1:9"\ntoken = "sjt_seed-recording"\nlogs = true\n', encoding="utf-8")
+
+
+def clear_state(root: Path) -> None:
+    """回到「没开通云、没在记」的样子：memory/、cloud.toml 与暂停文件都清掉。"""
+    shutil.rmtree(root / "memory", ignore_errors=True)
+    (root / "cloud.toml").unlink(missing_ok=True)
+    shutil.rmtree(root / "cloud", ignore_errors=True)
+
+
 def seed(root: Path, legacy: bool, bad_card: bool) -> None:
     memory = root / "memory"
     if memory.exists():
@@ -152,14 +174,18 @@ def main() -> int:
     parser.add_argument("--device", default="booted", help="模拟器名字或 UDID，缺省是正开着的那台")
     parser.add_argument("--legacy", action="store_true", help="种成老格式（卡片文件是光秃秃的数组）")
     parser.add_argument("--bad-card", action="store_true", help="另给阿林塞一张不合格的卡")
-    parser.add_argument("--clean", action="store_true", help="只清掉 memory/")
+    parser.add_argument("--recording", action="store_true", help="另写一份 logs = true 的 cloud.toml")
+    parser.add_argument("--clean", action="store_true", help="清掉 memory/、cloud.toml 与暂停文件")
     args = parser.parse_args()
     root = container(args.device)
     if args.clean:
-        shutil.rmtree(root / "memory", ignore_errors=True)
-        print(f"清掉了 {root / 'memory'}")
+        clear_state(root)
+        print(f"清掉了 {root}（memory/、cloud.toml、暂停文件）")
         return 0
     seed(root, args.legacy, args.bad_card)
+    if args.recording:
+        seed_recording(root)
+        print(f"也写了 {root / 'cloud.toml'}（logs = true）")
     print(f"种好了：{root / 'memory'}（{'老格式' if args.legacy else '现在的格式'}{'，带坏卡' if args.bad_card else ''}）")
     return 0
 
