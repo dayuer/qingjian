@@ -25,13 +25,13 @@ struct ContactEditor: View {
     @State private var extra = ""
 
     /// 「先写几件…」那组里点了「填一下」的那一行；填了内容的那一行不用它、一直显示内容。
-    @State private var editingFact: Fact?
+    @State private var editingFact: ContactEditorFact?
 
     @State private var closeAfterAlert = false
 
     @FocusState private var nameFocused: Bool
 
-    @FocusState private var focusedFact: Fact?
+    @FocusState private var focusedFact: ContactEditorFact?
 
     var body: some View {
         ScrollView {
@@ -131,7 +131,9 @@ struct ContactEditor: View {
         .onTapGesture { if !hasBirthday { hasBirthday = true } }
     }
 
-    private func factRow(_ title: String, text: Binding<String>, prompt: String, fact: Fact) -> some View {
+    private func factRow(
+        _ title: String, text: Binding<String>, prompt: String, fact: ContactEditorFact
+    ) -> some View {
         let showsInput = !text.wrappedValue.isEmpty || editingFact == fact
         return HStack {
             Text(title).foregroundStyle(Theme.ink3)
@@ -187,7 +189,7 @@ struct ContactEditor: View {
     }
 
     /// 清空并失焦就退回「填一下」；生日那行的「清空」由 × 负责，不在这里管。
-    private func endEditingIfEmpty(_ fact: Fact) {
+    private func endEditingIfEmpty(_ fact: ContactEditorFact) {
         switch fact {
         case .birthday: break
         case .likes: if trimmed(likes).isEmpty { editingFact = nil }
@@ -248,12 +250,4 @@ struct ContactEditor: View {
             }
         }
     }
-}
-
-/// 「先写几件你已经知道的事」那组里的四行。
-private enum Fact: Hashable {
-    case birthday
-    case likes
-    case dislikes
-    case extra
 }
