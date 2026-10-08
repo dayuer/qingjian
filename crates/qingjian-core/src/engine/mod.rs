@@ -372,9 +372,10 @@ const EMOJI_PER_WORD: usize = 2;
 const EMOJI_TOTAL: usize = 3;
 
 /// 自动造词：用户连着选出的两个词，合起来不在词库里、且这条接续已记过这么多次，就记成用户词。
-/// 同一段拼音里连着选出来的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，两次就够；
-/// 第一次可能是误选或偶然。
-const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 2;
+/// 同一段拼音里连着选完的（`qingjian` 选 青 再选 简）是「用户把它当一个词打」的强信号，一次就造：
+/// 等第二次的话，第一次之后整段首选成了「学到的前半 + 词图的后半」（选了 鲤鱼 + 亲，下次首选 鲤鱼请），
+/// 比不学还难看。选错了退格重打时 `apply_retraction` 会把这次的造词退掉。
+const AUTO_WORD_THRESHOLD_SAME_BUFFER: u32 = 1;
 
 /// 分两段打的（`qing` 选 青、再打 `jian` 选 简）信号弱一些，要三次，免得 了我 这类虚词接续也成词。
 const AUTO_WORD_THRESHOLD: u32 = 3;

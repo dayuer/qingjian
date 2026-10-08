@@ -40,6 +40,10 @@ impl Engine {
                 let alternates = !self.scope_is_english_word();
                 let sentences = self.plain_sentence(items, best, typos, alternates);
                 let position = leading_english(items);
+                // 用户对这整段拼音选过的整词（分次选完造的用户词、整个点选过的词）排在整句前面：
+                // 选了 鲤鱼 + 亲 之后，词图最优还是 鲤鱼 + 请，整句再占第一就成了「学了一半」
+                let position =
+                    position + usize::from(self.chosen_for_whole_scope(items.get(position)));
                 // 词图读不通整段时模型直接生成的整句排在词图那几条前面：这时词图给的是把英文段
                 // 硬读成拼音的结果（`yongdockerbushuhenfangbian` → 用的哦乘客仍不熟很方便），排它前面没有可惜的
                 // `typos` 为假就是拼写纠错已经生效（见调用处），那时 `best` 是纠正后的切分。
@@ -89,6 +93,18 @@ impl Engine {
                 }
             }
         }
+    }
+
+    /// `candidate` 是用户在这整段拼音下选过的中文词（[`Learner::choice_weight`] 按整段字母记过）。
+    /// 不比音节：末尾补全过的（`xian` 选了 想）音节是 `xiang`，按整段记的选择本身就说明它答的是整段。
+    fn chosen_for_whole_scope(&self, candidate: Option<&Candidate>) -> bool {
+        let Some(candidate) = candidate else {
+            return false;
+        };
+        let scope = self.composition.scope();
+        let letters = choice_key(scope, scope.len());
+        candidate.kind == CandidateKind::Chinese
+            && self.learner.choice_weight(&letters, &candidate.text) > 0
     }
 
     /// 整段拼音的整句候选：最优切分至少两个音节、且最优路径不止一个词时才有（空格上屏的就是它）。

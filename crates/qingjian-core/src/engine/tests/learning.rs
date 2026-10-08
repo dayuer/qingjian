@@ -126,13 +126,9 @@ fn splitting_a_buffer_into_a_word_and_a_sentence_forms_the_whole_phrase() {
             engine.learner().choice_weight("xiangkaifaxian", &phrase),
             round
         );
-        // 第二次：整段合成 想开X先；接缝处不造两字词
+        // 第一次就整段合成 想开X先；接缝处不造两字词
         let words = shared.lock().unwrap().0.clone();
-        if round == 1 {
-            assert!(words.is_empty(), "{words:?}");
-        } else {
-            assert_eq!(words, [phrase.clone()]);
-        }
+        assert_eq!(words, [phrase.clone()], "round {round}");
         engine.note_passthrough('\n');
     }
     // 第三次整段打出来：合成词直接排第一
@@ -428,7 +424,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
         assert_eq!(ngram.pair(Some("想"), "开发"), 1);
     }
 
-    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次只记转移，第二次自动造词 开发先
+    // 标点断句；之后连续从同一段拼音里选 开发 + 先：第一次就自动造词 开发先
     engine.punctuate('，');
     let select = |engine: &mut Engine, text: &str| {
         let candidate = engine
@@ -457,7 +453,7 @@ fn commits_feed_the_personal_bigram_and_form_words() {
             learned.1.pair(Some("开发"), "先"),
             round * EXPLICIT_TRANSITION_WEIGHT
         );
-        assert_eq!(learned.0.len(), usize::from(round == 2), "round {round}");
+        assert_eq!(learned.0.len(), 1, "round {round}");
         engine.note_passthrough('\n');
     }
     assert_eq!(shared.lock().unwrap().0, ["开发先"]);
@@ -721,4 +717,42 @@ fn input_log_records_the_session_and_page_turns() {
         panic!("expected a commit");
     };
     assert_eq!(commit.pages, 2);
+}
+
+/// 分次选完一次就翻正：先选 开发、剩下的 xian 选一个不是首选的单字；再打 kaifaxian，
+/// 首选必须是合起来的那个词，而不是「学到的 开发 + 词图的 先」那条整句。
+#[test]
+fn a_buffer_picked_in_pieces_once_comes_first_next_time() {
+    let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
+    let learner = WordLearner {
+        shared: Arc::clone(&shared),
+        ..WordLearner::default()
+    };
+    let mut engine = engine().with_learner(Box::new(learner));
+    engine.set_input("kaifaxian");
+    let head = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "开发" && c.kind == CandidateKind::Chinese)
+        .unwrap();
+    engine.commit(&head);
+    let rest = engine.query().unwrap().candidates.items;
+    let tail = rest
+        .iter()
+        .skip(1)
+        .find(|c| c.kind == CandidateKind::Chinese && c.text.chars().count() == 1)
+        .expect("xian 有不止一个单字")
+        .clone();
+    assert_ne!(rest[0].text, tail.text);
+    engine.commit(&tail);
+    assert!(engine.composition().is_empty());
+    let phrase = format!("开发{}", tail.text);
+    engine.note_passthrough('\n');
+
+    engine.set_input("kaifaxian");
+    let items = texts_of(&engine);
+    assert_eq!(items[0], phrase, "{items:?}");
 }
