@@ -50,7 +50,7 @@ enum MemoryDetailText {
 
     /// 忘掉弹层的正文（本机版，开了云服务后改成两边一起删，见 T11）。
     static func forgetBody(knownDays: Int, cardCount: Int) -> String {
-        "\(knownDays) 天里的 \(cardCount) 条记忆和学到的说话习惯，会从这台手机上删除，无法恢复"
+        "\(knownDays) 天里的 \(cardCount) 条记忆和学到的说话习惯，会从这台手机上删除，无法恢复。"
     }
 
     /// 改代号时的收拾：去首尾空白、截到 12 字；空的或和名字一样的当没有（键盘上就显示名字）。

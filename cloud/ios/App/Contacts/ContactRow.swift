@@ -99,7 +99,7 @@ struct ContactRow: View {
 
     private var hairline: some View {
         Rectangle()
-            .fill(Color(.separator).opacity(0.6))
+            .fill(Hairline.line)
             .frame(height: 0.5)
     }
 }

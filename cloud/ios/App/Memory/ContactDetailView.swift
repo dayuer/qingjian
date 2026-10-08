@@ -1,7 +1,6 @@
-// 对象详情（02 的 1b，2A 没有「待确认」）：56pt 头像字、名字（设计稿是衬线，App 统一用 MiSans）、「认识 n 天 · n 条记忆」，卡片按日子 / 约定 / 喜好 / 近况 / 其他分组；右上「设置」。
-// 有日子的卡左列是下一次的 M.dd（设计稿 .when：衬线 13pt 灰绿），下面一行相对日子（MemoryDetailText.relativeDay）；
-// 没日子的卡照 .mem 行：15pt 正文，下面 11.5pt 灰字「种类 · 你写的」。「记一条」按钮设计稿 iOS 版没画，保留。
-// 卡片与「记一条」下面是「待整理」（MaterialsSection，记一笔存下的原话）；快满 180 条时顶上提示一次（MaterialNudge）。
+// 对象详情（02 的 1b）：56pt 头像、名字、「认识 n 天 · n 条记忆」，卡片按「日子与约定」与其余种类分组。
+// 有日子的卡左列是下一次的 M.dd（设计稿 .when，下面一行相对日子见 MemoryDetailText.relativeDay）；
+// 没日子的卡照 .mem 写正文 + 「种类 · 你写的」。「记一条」是不在分组里的线框按钮，下面是「待整理」（MaterialsSection）。
 
 import SwiftUI
 
@@ -24,59 +23,32 @@ struct ContactDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        List {
+        PaperPage(spacing: 12) {
             if let error = store.loadError {
                 MemoryFailureBanner(text: error) { Task { await store.reload() } }
+                    .padding(.horizontal, 20)
             }
             if let nudge {
                 Label(nudge, systemImage: "tray.full")
                     .font(AppFont.subheadline)
                     .foregroundStyle(ColorUsage.materialsNudge.role.color)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 20)
             }
             if let contact = store.contact(contactId) {
-                Section {
-                    header(contact)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 2, leading: 4, bottom: 4, trailing: 4))
-                }
-                ForEach(MemoryCard.Kind.allCases, id: \.self) { kind in
-                    let cards = store.cards(of: contactId).filter { $0.kind == kind }
-                    if !cards.isEmpty {
-                        Section(kind.title) {
-                            ForEach(cards) { card in
-                                Button {
-                                    editing = card
-                                } label: {
-                                    row(card)
-                                }
-                                .foregroundStyle(Theme.ink)
-                            }
-                        }
-                    }
-                }
-                if store.cards(of: contactId).isEmpty {
-                    Section {
-                        Text("还没有写下关于\(contact.name)的事").foregroundStyle(Theme.ink3)
-                    }
-                }
-                Section {
-                    Button {
-                        adding = true
-                    } label: {
-                        Label("记一条", systemImage: "plus")
-                    }
-                    .foregroundStyle(ColorUsage.addCardButton.role.color)
-                    .disabled(!store.canEdit)
-                    .opacity(store.canEdit ? 1 : 0.4)
-                }
+                header(contact)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 2)
+                    .padding(.bottom, 4)
+                cardSections
+                addCardButton
                 MaterialsSection(store: materials, contactId: contactId, memoryReady: memoryReady)
                 #if DEBUG
                 MemoryStressSection(store: store, contactId: contactId)
                 #endif
             }
         }
-        .contentMargins(.bottom, RootTab.listBottomMargin, for: .scrollContent)
+        // 标题留空：设计稿 1b 的导航条只有返回与「设置」（名字在下面的大头像旁边）。
+        // iOS 26 的返回键是胶囊里的箭头、本来就不显示上一页的名字，所以这里不再靠标题去喂它。
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -95,8 +67,16 @@ struct ContactDetailView: View {
         ) {
             Button("好", role: .cancel) {}
         }
-        .sheet(item: $editing) { card in CardEditor(store: store, contactId: contactId, card: card) }
-        .sheet(isPresented: $adding) { CardEditor(store: store, contactId: contactId, card: nil) }
+        .sheet(item: $editing) { card in editor(card: card) }
+        .sheet(isPresented: $adding) { editor(card: nil) }
+    }
+
+    /// 改一条 / 记一条都是盖在详情页上的底部弹层（设计稿 1c）：大档、圆角 22、顶部一根拖动条。
+    private func editor(card: MemoryCard?) -> some View {
+        CardEditor(store: store, contactId: contactId, card: card)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(22)
     }
 
     /// 重读待整理与开没开素笺云（键盘随时可能再记一笔，开通在别的页面）；读到快满就看要不要提示。
@@ -108,51 +88,109 @@ struct ContactDetailView: View {
         }
     }
 
+    // MARK: - 分节
+
+    private var cards: [MemoryCard] { store.cards(of: contactId) }
+
+    /// 日子与约定合成一节：设计稿只有一个「日子与约定」，两类的左列都是那一天，所以按日期排在一起。
+    private var datedCards: [MemoryCard] {
+        cards.filter(\.kind.hasDate)
+            .sorted { ($0.nextDate() ?? .distantFuture, $0.text) < ($1.nextDate() ?? .distantFuture, $1.text) }
+    }
+
+    @ViewBuilder
+    private var cardSections: some View {
+        if !datedCards.isEmpty {
+            PaperSectionTitle(text: "日子与约定")
+            PaperGroup {
+                ForEach(Array(datedCards.enumerated()), id: \.element.id) { index, card in
+                    if index > 0 { PaperRowLine() }
+                    cardButton(card) { datedRow(card) }
+                }
+            }
+        }
+        ForEach(MemoryCard.Kind.allCases.filter { !$0.hasDate }, id: \.self) { kind in
+            let list = cards.filter { $0.kind == kind }
+            if !list.isEmpty {
+                PaperSectionTitle(text: kind.title)
+                PaperGroup {
+                    ForEach(Array(list.enumerated()), id: \.element.id) { index, card in
+                        if index > 0 { PaperRowLine() }
+                        cardButton(card) { memRow(card) }
+                    }
+                }
+            }
+        }
+        if cards.isEmpty {
+            PaperGroup {
+                PaperRow(title: "还没有写下关于\(store.contact(contactId)?.name ?? "")的事", titleColor: Theme.ink3)
+            }
+        }
+    }
+
+    private var addCardButton: some View {
+        HStack {
+            PaperLineButton(title: "+ 记一条", height: 36, color: ColorUsage.addCardButton.role.color) {
+                adding = true
+            }
+            .disabled(!store.canEdit)
+            .opacity(store.canEdit ? 1 : 0.4)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func cardButton<Content: View>(_ card: MemoryCard, @ViewBuilder content: () -> Content) -> some View {
+        Button {
+            editing = card
+        } label: {
+            content()
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.ink)
+    }
+
     private func header(_ contact: MemoryContact) -> some View {
         HStack(spacing: 14) {
             MemoryAvatar(name: contact.name, size: 56, font: AppFont.font(size: 56 * 0.4, weight: .medium))
             VStack(alignment: .leading, spacing: 4) {
                 Text(contact.name).font(AppFont.font(size: 26, weight: .semibold))
-                Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: store.cards(of: contactId).count))
-                    .font(AppFont.font(size: 12.5, weight: .semibold))
+                Text(MemoryDetailText.subtitle(knownDays: contact.knownDays(), cardCount: cards.count))
+                    .font(AppFont.font(size: 12.5))
                     .foregroundStyle(Theme.ink3)
             }
         }
     }
 
-    @ViewBuilder
-    private func row(_ card: MemoryCard) -> some View {
-        if let monthDay = card.monthDay() {
-            HStack(spacing: 12) {
-                VStack(spacing: 1) {
-                    Text(monthDay)
-                        .font(AppFont.font(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.accentInk.color)
-                        .monospacedDigit()
-                    if let days = card.daysAway(), let target = card.nextDate(),
-                       let label = MemoryDetailText.relativeDay(days: days, target: target) {
-                        Text(label).font(AppFont.font(size: 10.5)).foregroundStyle(Theme.ink3)
-                    }
+    /// 设计稿 .when：左列 48pt 宽的 M.dd（等宽数字、灰绿）与下面一行相对日子。
+    private func datedRow(_ card: MemoryCard) -> some View {
+        HStack(spacing: 12) {
+            VStack(spacing: 1) {
+                Text(card.monthDay() ?? "")
+                    .font(AppFont.font(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.accentInk.color)
+                    .monospacedDigit()
+                if let days = card.daysAway(), let target = card.nextDate(),
+                   let label = MemoryDetailText.relativeDay(days: days, target: target) {
+                    Text(label).font(AppFont.font(size: 10.5)).foregroundStyle(Theme.ink3)
                 }
-                .frame(width: 48)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(card.text).font(AppFont.font(size: 15))
-                    if !card.subtitle.isEmpty {
-                        Text(card.subtitle).font(AppFont.font(size: 12.5)).foregroundStyle(Theme.ink3)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .contentShape(Rectangle())
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(card.text).font(AppFont.font(size: 15)).lineSpacing(3)
-                Text(MemoryDetailText.meta(kind: card.kind, source: card.source))
-                    .font(AppFont.font(size: 11.5))
-                    .foregroundStyle(Theme.ink3)
+            .frame(width: 48)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.text).font(AppFont.font(size: 15))
+                if !card.subtitle.isEmpty {
+                    Text(card.subtitle).font(AppFont.font(size: 12.5)).foregroundStyle(Theme.ink3)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    /// 没日子的卡：正文 + 「喜好 · 你写的」那行。已有一条卡时不重复写种类（小节标题就是它）。
+    private func memRow(_ card: MemoryCard) -> some View {
+        PaperMemRow(text: card.text, meta: MemoryDetailText.meta(kind: card.kind, source: card.source))
     }
 }

@@ -20,13 +20,25 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Xcode 会注入面向 iOS 的 SDKROOT 等变量，cargo 编 build.rs（主机平台）时会被带偏
 unset SDKROOT IPHONEOS_DEPLOYMENT_TARGET
 
-targets=(aarch64-apple-ios aarch64-apple-ios-sim)
+# 模拟器切片要 arm64 与 x86_64 两份（下面 lipo 合成通用库），少编一份新检出里 lipo 必然失败
+targets=(aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios)
+installed="$(rustup target list --installed)"
+for target in "${targets[@]}"; do
+  if ! grep -qx "$target" <<<"$installed"; then
+    echo "缺 Rust 目标 $target：先跑 rustup target add ${targets[*]}" >&2
+    exit 1
+  fi
+done
 for target in "${targets[@]}"; do
   cargo build $cargo_flag --manifest-path "$cloud_dir/Cargo.toml" -p qingjian-cloud-bridge --target "$target"
 done
 
+# 先打到临时目录，全部成功才替换 Frameworks/ 里那份：中途失败就删掉旧框架的话，
+# Xcode 会把「缺 xcframework」记进构建描述，文件补回来也照样报，得清 DerivedData
 out="$ios_dir/Frameworks/QingjianBridge.xcframework"
-rm -rf "$out"
+staging="$cloud_dir/target/xcframework-staging/QingjianBridge.xcframework"
+rm -rf "$staging"
+mkdir -p "$(dirname "$staging")"
 args=()
 for target in aarch64-apple-ios; do
   args+=(-library "$cloud_dir/target/$target/$profile/libqingjian_cloud_bridge.a"
@@ -41,9 +53,9 @@ lipo -create \
   -output "$sim_universal/libqingjian_cloud_bridge.a"
 args+=(-library "$sim_universal/libqingjian_cloud_bridge.a"
        -headers "$cloud_dir/crates/qingjian-cloud-bridge/include")
-xcodebuild -create-xcframework "${args[@]}" -output "$out" >/dev/null
+xcodebuild -create-xcframework "${args[@]}" -output "$staging" >/dev/null
 # Swift 用 `import QingjianBridge` 要一个 module map
-for headers in "$out"/*/Headers; do
+for headers in "$staging"/*/Headers; do
   cat > "$headers/module.modulemap" <<'MAP'
 module QingjianBridge {
     header "qingjian_bridge.h"
@@ -51,6 +63,9 @@ module QingjianBridge {
 }
 MAP
 done
+mkdir -p "$(dirname "$out")"
+rm -rf "$out"
+mv "$staging" "$out"
 
 data="${QINGJIAN_DATA:-$repo_dir/data/generated}"
 # 门槛：data/generated 只有过了评测门槛（GATE_PASSED 标记，`tools/release/gate-pass.sh` 写）才拿来装机，

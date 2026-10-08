@@ -43,8 +43,10 @@ final class NoFullAccessStyleTests: XCTestCase {
              .firstCandidate, .allMemoryButton, .appToggle, .addContactDone, .appLink, .onboardingProgress,
              .onboardingCurrentPlan, .onboardingPlanBadge,
              // 首页「记得」（02 的 2a）：日历选中那天、功勋路的下一站、事件行可点的动作标记、「+ 记一条」
-             .calendarSelectedDay, .milestoneNext, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
+             .calendarSelectedDay, .milestoneNext, .milestoneNextDot, .milestoneNextHalo, .eventActionTag, .eventActionTagInk,
              .quickNoteButton,
+             // 对象详情右上「设置」与改一条的「存好」（02 的 1b / 1c：App 照设计稿用 --accent-ink）
+             .contactSettingsButton, .editorConfirm,
              // 记一笔的草稿卡与冲突屏（01 的 1e-2 / 1e-3）：冲突屏新卡那圈描边与「新的」标签
              .conflictNewRing, .conflictNewLabel,
              // 通讯录行尾的事件提示（02 的 2b：关于某个人的事，用浅绿字）
@@ -58,13 +60,15 @@ final class NoFullAccessStyleTests: XCTestCase {
         XCTAssertEqual(ColorUsage.cardNotice.role, .ink2)
     }
 
-    /// App 的「键盘记住的事」：加人、记一条、存好、设置这些控件，以及读写失败的提示都是中性色，只有今天的提醒卡（关于某个人）用灰绿底。
+    /// App 的「键盘记住的事」：加人、记一条、导出这些控件，以及读写失败的提示都是中性色，只有今天的提醒卡（关于某个人）用灰绿底。
     func testMemoryAppControlsAreNeutral() {
-        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .contactSettingsButton, .cloudIntroLink, .failureBanner,
+        for usage in [ColorUsage.addContactButton, .addCardButton, .editorSave, .exportLink, .cloudIntroLink, .failureBanner,
                       .materialsCloudLink, .materialsNudge] {
             XCTAssertEqual(usage.role, .ink, "\(usage)")
         }
         XCTAssertEqual(ColorUsage.materialDelete.role, .ink2, "「待整理」设计稿没画，原话不是卡，一律中性色")
+        XCTAssertEqual(ColorUsage.editorCancel.role, .ink2, "改一条的「取消」是 .btn.ghost")
+        XCTAssertEqual(ColorUsage.draftUnsure.role, .ink3, "草稿卡拿不准的说明与虚线是 --ink-3")
         XCTAssertEqual(ColorUsage.reminderCard.role, .accentSoft)
         XCTAssertEqual(ColorUsage.reminderDay.role, .accent)
     }
@@ -102,11 +106,17 @@ final class NoFullAccessStyleTests: XCTestCase {
         }
     }
 
-    /// 「我」页的说明不分状态：不能写「开启后才能用」，开了的人会以为自己没开。
-    func testAppExplanationIsStateless() {
-        XCTAssertEqual(ScopeDisplay.fullAccessExplanation, "「完全访问」用于按键震动，以及让键盘读到你在「记得」里写下的人与事。开了也不联网，卡片只在这台手机上。")
-        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("登录"), "界面里不出现登录（约束 5）")
+    /// 「我」页「记忆」那一行（设计稿 05 的 2j 的版式）：标题、说明、去开完全访问的路径。
+    /// 文案有意偏离新稿那一句：不分状态，不能写「开启后才能用」，开了的人会以为自己没开（约束 3）。
+    func testFullAccessRowCopy() {
+        XCTAssertEqual(ScopeDisplay.fullAccessTitle, "用记忆要开完全访问")
+        XCTAssertFalse(ScopeDisplay.fullAccessTitle.contains("后才能"), "开了的人会以为自己没开（约束 3）")
+        XCTAssertEqual(ScopeDisplay.fullAccessNote, "开了也不联网，卡片只在这台手机上")
+        XCTAssertEqual(ScopeDisplay.fullAccessPath, "设置 → 通用 → 键盘 → 键盘 → 素笺 → 允许完全访问")
+        for text in [ScopeDisplay.fullAccessTitle, ScopeDisplay.fullAccessNote, ScopeDisplay.fullAccessPath] {
+            XCTAssertFalse(text.contains("账号"), "界面里不出现「账号」（约束 5）")
+            XCTAssertFalse(text.contains("登录"), "界面里不出现「登录」（约束 5）")
+        }
         XCTAssertEqual(ColorUsage.appLink.role, .accent, "App 链接色照设计稿 accent-ink")
-        XCTAssertFalse(ScopeDisplay.fullAccessExplanation.contains("后才能"))
     }
 }

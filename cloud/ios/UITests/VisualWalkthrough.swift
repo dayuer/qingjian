@@ -70,6 +70,12 @@ final class VisualWalkthrough: XCTestCase {
 
         // 第四步「第一个对象」（05 的 2g）
         shot("05-2g")
+        // 「先写几件…」点开再填那一态（设计稿 3c）
+        app.staticTexts["喜欢"].tap()
+        wait()
+        app.typeText("冰美式\n")
+        wait()
+        shot("05-2g-filled")
         if app.buttons["取消"].exists {
             app.buttons["取消"].tap()
         }
@@ -85,6 +91,54 @@ final class VisualWalkthrough: XCTestCase {
         }
         wait()
         shot(name)
+    }
+
+    /// 白页改版的四页（02 的 1b / 1c / 1d、05 的 2j）：叠图走查的底子。
+    /// 1b 走「从通讯录进」那条路（返回键该是「‹ 通讯录」）。数据要 seed（小美那张「不吃香菜」的卡）。
+    func testPaperPages() throws {
+        let app = XCUIApplication()
+        app.launch()
+        wait(3)
+        for label in ["开始", "先跳过", "先用免费版", "取消"] {
+            let button = app.buttons[label]
+            if button.waitForExistence(timeout: 2) { button.tap(); wait(1) }
+        }
+
+        if app.tabBars.buttons["我"].waitForExistence(timeout: 5) { app.tabBars.buttons["我"].tap() }
+        wait(2)
+        shot("paper-me")
+
+        app.tabBars.buttons["通讯录"].tap()
+        wait(2)
+        let person = app.buttons["contact-00000000000000000000000000000006"]
+        guard person.waitForExistence(timeout: 5) else {
+            XCTFail("名单里没有小美（先跑 UITests/seed/seed.py）")
+            return
+        }
+        person.tap()
+        wait()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH '全部'")).firstMatch.tap()
+        wait(2)
+        shot("paper-1b")
+
+        let card = app.buttons.matching(NSPredicate(format: "label CONTAINS '香菜'")).firstMatch
+        if card.waitForExistence(timeout: 3) {
+            card.tap()
+            wait(2)
+            shot("paper-1c")
+            if app.buttons["取消"].waitForExistence(timeout: 2) { app.buttons["取消"].tap() }
+            wait(2)
+        } else {
+            XCTFail("详情页里没找到那张卡")
+        }
+
+        if app.buttons["设置"].waitForExistence(timeout: 3) {
+            app.buttons["设置"].tap()
+            wait(2)
+            shot("paper-1d")
+        } else {
+            XCTFail("详情页右上没有「设置」")
+        }
     }
 
     /// 「记得」的标题、状态行与日历条要钉住不滚（设计稿里它们在滚动区外面）。

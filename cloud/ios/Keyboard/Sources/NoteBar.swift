@@ -17,7 +17,7 @@ struct NoteBar: View {
                     .frame(height: KeyStyle.hintRowHeight)
             }
         }
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Hairline.line).frame(height: 1) }
     }
 
     /// 设计稿 `.clip{gap:10px;padding:8px 10px}`，按钮是 `.btn`（32 高、左右 14）。

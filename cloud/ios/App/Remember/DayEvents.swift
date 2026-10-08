@@ -33,8 +33,8 @@ enum DayEvent: Identifiable, Equatable {
     var subtitle: String {
         switch self {
         case .person(let item):
-            // 「约定 · 9 月 28 日说的」这类出处在 2C 才有；本地卡先写种类
-            item.card.kind.title
+            // 设计稿写细节（「去年送的是香水」）；本地卡只有关键词，没有就空着，不重复行尾的种类
+            item.card.subtitle
         case .unassigned:
             "还没归到人 · 和谁？"
         }

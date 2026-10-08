@@ -18,7 +18,8 @@ struct DraftPanel: View {
             buttons
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
     }
 
     /// 原话那一行：点它展开 / 收起全文。
@@ -42,6 +43,7 @@ struct DraftPanel: View {
             }
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, 2)
     }
 
     private var fieldsCard: some View {
@@ -52,6 +54,7 @@ struct DraftPanel: View {
         }
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(UIColor.systemBackground)))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.1), radius: 0, y: 1)
     }
 
     private func fieldRow(index: Int, field: DraftField) -> some View {
@@ -62,22 +65,20 @@ struct DraftPanel: View {
                 .frame(width: 28, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
+                    // 拿不准的只在输入框底下画虚线（设计稿 border-bottom:1px dashed），问号在虚线外
                     TextField("", text: binding(index: index))
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.ink)
                         .textFieldStyle(.plain)
+                        .overlay(alignment: .bottom) {
+                            if field.unsure {
+                                DashedLine()
+                                    .stroke(ColorUsage.draftUnsure.role.color, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                                    .frame(height: 1)
+                                    .offset(y: 3)
+                            }
+                        }
                     if field.unsure { unsureBadge }
-                }
-                // 拿不准的画一条虚线（设计稿用虚线底边），并写明为什么
-                if field.unsure {
-                    Rectangle()
-                        .fill(Color(.separator))
-                        .frame(height: 1)
-                        .overlay(
-                            Rectangle().strokeBorder(
-                                ColorUsage.draftUnsure.role.color,
-                                style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                        )
                 }
                 if field.unsure, let why = field.why {
                     Text(why)
@@ -92,7 +93,7 @@ struct DraftPanel: View {
         .padding(.vertical, 6)
         .frame(minHeight: 40)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color(.separator).opacity(0.6)).frame(height: 0.5)
+            Rectangle().fill(Hairline.row).frame(height: 1)
         }
     }
 
@@ -109,7 +110,7 @@ struct DraftPanel: View {
     private var unsureBadge: some View {
         Text("?")
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(ColorUsage.draftUnsure.role.color)
+            .foregroundStyle(Theme.ink2)
             .frame(width: 16, height: 16)
             .overlay(Circle().strokeBorder(ColorUsage.draftUnsure.role.color, lineWidth: 1))
     }
@@ -141,7 +142,16 @@ struct DraftPanel: View {
                 .frame(height: 32)
                 .background(Capsule().fill(ColorUsage.noteConfirm.role.color))
                 .buttonStyle(.plain)
-                .disabled(model.draftFields.isEmpty)
         }
+    }
+}
+
+/// 一条横线，给虚线描边用（Rectangle 描边会画成一圈）。
+private struct DashedLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        return path
     }
 }

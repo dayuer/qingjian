@@ -19,7 +19,8 @@ struct ConflictPanel: View {
             buttons
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
     }
 
     private var sourceRow: some View {
@@ -65,10 +66,12 @@ struct ConflictPanel: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(UIColor.systemBackground)))
-        // 新卡加一圈强调色：这是关于某个人的新记忆
+        .shadow(color: .black.opacity(isNew ? 0 : 0.1), radius: 0, y: 1)
+        // 新卡加一圈强调色：这是关于某个人的新记忆；设计稿的环画在卡片外沿（box-shadow 0 0 0 1.5px）
         .overlay {
             if isNew {
                 RoundedRectangle(cornerRadius: 10)
+                    .inset(by: -1.5)
                     .strokeBorder(ColorUsage.conflictNewRing.role.color, lineWidth: 1.5)
             }
         }
@@ -97,7 +100,7 @@ struct ConflictPanel: View {
                 .foregroundStyle(ColorUsage.conflictBoth.role.color)
                 .frame(maxWidth: .infinity)
                 .frame(height: 32)
-                .overlay(Capsule().strokeBorder(Color(.separator)))
+                .overlay(Capsule().strokeBorder(Hairline.line))
                 .buttonStyle(.plain)
             Button("更新为新的") { model.resolveConflict(.useNew) }
                 .font(.system(size: 13, weight: .medium))

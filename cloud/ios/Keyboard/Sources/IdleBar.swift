@@ -24,6 +24,8 @@ struct IdleBar: View {
                 fullAccessNote
             } else if model.panel == .contactCard {
                 panelBar
+            } else if model.panel == .draft || model.panel == .conflict {
+                noteFlowBar
             } else if model.composedNote != nil {
                 HStack(spacing: 0) {
                     ScopeChip(model: model, interactive: false)
@@ -44,7 +46,7 @@ struct IdleBar: View {
             }
         }
         .frame(height: KeyStyle.candidateBarHeight)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(Hairline.line).frame(height: 1) }
         // 收起来再点开时从整句重新看起，不留在「去开启」那份路径上
         .onChange(of: model.showsFullAccessNote) { _, expanded in
             if !expanded { showsFullAccessPath = false }
@@ -75,7 +77,6 @@ struct IdleBar: View {
                 .accessibilityAddTraits(.isButton)
             // 这一栏把 actions 整行换掉了，收起键盘的箭头得跟着挪过来，不然用户没法收键盘
             ToolbarArrow(up: false, label: "收起键盘") { model.dismissKeyboard() }
-                .padding(.trailing, 2)
         }
         .padding(.horizontal, 12)
     }
@@ -83,7 +84,8 @@ struct IdleBar: View {
     private var actions: some View {
         HStack(spacing: 0) {
             ScopeChip(model: model)
-            Spacer(minLength: 4)
+                .padding(.trailing, 6)
+            // 设计稿 .tool 紧跟在牌子后面，只有箭头靠右（.arw.sp）
             if model.canNote, model.noteDraft == nil, !model.noteDone {
                 tool("记一笔") { model.startNote() }
             }
@@ -91,8 +93,8 @@ struct IdleBar: View {
                 // 按钮写着当前技能的（没读到技能表时为「改写」）；点一下用技能名右边的样子展开技能排
                 tool(model.rewriteSkill?.name ?? "改写") { model.toggleRewriteSkills() }
             }
+            Spacer(minLength: 4)
             ToolbarArrow(up: false, label: "收起键盘") { model.dismissKeyboard() }
-                .padding(.trailing, 2)
         }
     }
 
@@ -127,7 +129,19 @@ struct IdleBar: View {
             ScopeChip(model: model, interactive: false)
             Spacer()
             ToolbarArrow(up: false, label: "收起对象卡") { model.closePanel() }
-                .padding(.trailing, 2)
+        }
+    }
+
+    /// 草稿卡、冲突屏打开时（设计稿 1e-2 / 1e-3）：牌子 + 灰字「记一笔」（不是按钮）+ 收起箭头，收起等于不记。
+    private var noteFlowBar: some View {
+        HStack(spacing: 0) {
+            ScopeChip(model: model, interactive: false)
+            Text("记一笔")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.ink3)
+                .padding(.leading, 10)
+            Spacer()
+            ToolbarArrow(up: false, label: "收起记一笔") { model.discardDraft() }
         }
     }
 

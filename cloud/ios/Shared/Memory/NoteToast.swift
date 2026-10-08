@@ -15,6 +15,10 @@ struct NoteToast: Equatable {
         NoteToast(text: NoteBarText.doneText(count: count, cloud: cloud), warning: false)
     }
 
+    static func info(_ text: String) -> NoteToast {
+        NoteToast(text: text, warning: false)
+    }
+
     static func problem(_ text: String) -> NoteToast {
         NoteToast(text: text, warning: true)
     }

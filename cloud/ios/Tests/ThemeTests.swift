@@ -5,7 +5,8 @@ import XCTest
 
 final class ThemeTests: XCTestCase {
     private var swatches: [ThemeSwatch] {
-        [Theme.accent, Theme.accentInk, Theme.accentSoft, Theme.hintLine].flatMap { [$0.light, $0.dark] }
+        [Theme.accent, Theme.accentInk, Theme.accentSoft, Theme.hintLine, Theme.ink2Tone,
+         Theme.paperTone, Theme.paperCardTone].flatMap { [$0.light, $0.dark] }
     }
 
     func testSwatchesMatchOKLCHSources() {
@@ -15,6 +16,13 @@ final class ThemeTests: XCTestCase {
             XCTAssertLessThanOrEqual(abs(converted.g - swatch.g), 1, "\(swatch.hex) g")
             XCTAssertLessThanOrEqual(abs(converted.b - swatch.b), 1, "\(swatch.hex) b")
         }
+    }
+
+    func testPaperHexValues() {
+        XCTAssertEqual(Theme.paperTone.light.hex, 0xFCFCFC)
+        XCTAssertEqual(Theme.paperTone.dark.hex, 0x161616)
+        XCTAssertEqual(Theme.paperCardTone.light.hex, 0xFFFFFF)
+        XCTAssertEqual(Theme.paperCardTone.dark.hex, 0x1F1F1F)
     }
 
     func testLightHexValues() {

@@ -5,7 +5,8 @@
 //   --accent-ink  oklch(0.38  0.05  150)  #2E4A34  oklch(0.86 0.06  150)  #B6DDBD  强调色上的文字、按钮文字
 //   --accent-soft oklch(0.965 0.025 150)  #E8F9EB  oklch(0.26 0.02  150)  #1D271F  提示行与牌子的底色
 //   提示行下沿    oklch(0.91  0.035 150)  #D2E8D5  oklch(0.33 0.025 150)  #2C392F  .k-hint 的 1px 分隔线
-// ink / ink-2 不自定义，跟系统的 label / secondaryLabel 走；云端候选、剪贴板、润色的标识用 ink-2，不用强调色。
+// ink 跟系统 label 走；ink-2 照设计稿 oklch(0.42 0 0)（#4D4D4D，比 ink-3 深；系统 secondaryLabel 比 ink-3 还淡，层次会反过来），
+// 深色取对称的 oklch(0.82 0 0)。云端候选、剪贴板、润色的标识用 ink-2，不用强调色。
 // ink-3（设计稿 oklch(0.56 0 0)，#747474）是更淡的说明文字：「知道了」、页脚。
 
 import SwiftUI
@@ -31,8 +32,35 @@ enum Theme {
     /// 正文与按钮文字：系统 label。
     static let ink = Color(UIColor.label)
 
-    /// 次要文字与云端内容的标识：系统 secondaryLabel。
-    static let ink2 = Color(UIColor.secondaryLabel)
+    /// 灰底小块（设计稿 --paper-2 oklch(0.965 0 0)，事件行尾的种类标签）。
+    static let paper2 = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : UIColor(white: 0xF3 / 255.0, alpha: 1)
+    })
+
+    /// 页面底（设计稿 --paper oklch(0.99 0 0)），深色对调成 oklch(0.2)。
+    static let paperTone = ThemeColor(
+        light: ThemeSwatch(hex: 0xFCFCFC, l: 0.99, c: 0, h: 0),
+        dark: ThemeSwatch(hex: 0x161616, l: 0.2, c: 0, h: 0))
+
+    static let paper = paperTone.color
+
+    /// 分组卡片的底（设计稿 .group 白底），深色 oklch(0.24)。
+    static let paperCardTone = ThemeColor(
+        light: ThemeSwatch(hex: 0xFFFFFF, l: 1, c: 0, h: 0),
+        dark: ThemeSwatch(hex: 0x1F1F1F, l: 0.24, c: 0, h: 0))
+
+    static let paperCard = paperCardTone.color
+
+    /// 新稿里两处危险操作的颜色（设计稿写的 #ff3b30）：改一条里关键词那行的「删除」底、
+    /// 对象设置里「忘掉这个人」的字。别处不用红。跟系统红走，深色下自动换成浅一档。
+    static let danger = Color(.systemRed)
+
+    static let ink2Tone = ThemeColor(
+        light: ThemeSwatch(hex: 0x4D4D4D, l: 0.42, c: 0, h: 0),
+        dark: ThemeSwatch(hex: 0xC4C4C4, l: 0.82, c: 0, h: 0))
+
+    /// 次要文字与云端内容的标识（设计稿 --ink-2）。
+    static let ink2 = ink2Tone.color
 
     /// 更淡的说明文字：浅色 #747474，深色取对称的浅灰。
     static let ink3 = Color(UIColor { traits in

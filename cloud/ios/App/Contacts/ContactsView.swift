@@ -25,6 +25,8 @@ struct ContactsView: View {
             }
             .background(Color(.systemBackground))
             .toolbar(.hidden, for: .navigationBar)
+            // 导航栏是隐藏的，这个标题只给下一页当返回字（对象详情的「‹ 通讯录」）
+            .navigationTitle("通讯录")
             .navigationDestination(for: MemoryRoute.self) { route in
                 switch route {
                 case .contact(let id): ContactDetailView(store: store, contactId: id)
@@ -49,8 +51,9 @@ struct ContactsView: View {
         Button {
             adding = true
         } label: {
-            Image(systemName: "plus")
-                .font(AppFont.font(size: 22))
+            // 设计稿是 24px 的「+」字，不是 SF Symbol（那个更粗）
+            Text("+")
+                .font(AppFont.font(size: 24))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 28, height: 28)
         }
@@ -144,10 +147,10 @@ struct ContactsView: View {
             .font(AppFont.font(size: 13, weight: .semibold))
             .foregroundStyle(Theme.ink3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
             .frame(height: 24)
+            .padding(.top, 4)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color(.separator).opacity(0.6)).frame(height: 0.5)
+                Rectangle().fill(Hairline.line).frame(height: 0.5)
             }
             .padding(.leading, 20)
             .padding(.trailing, 24)

@@ -18,14 +18,24 @@ struct MemoryStressSection: View {
     @State private var running = false
 
     var body: some View {
-        Section {
+        PaperSectionTitle(text: "调试")
+        PaperGroup {
             Button(running ? "连续保存中 \(done) / \(Self.rounds)" : "连续保存 \(Self.rounds) 次") { run() }
+                .font(AppFont.font(size: 15))
                 .foregroundStyle(ColorUsage.addCardButton.role.color)
                 .disabled(running)
-        } header: {
-            Text("调试")
-        } footer: {
-            if done > 0 && !running { Text("完成 \(done) 次，失败 \(failures) 次；每次的修订号与冲突见系统日志 memory 分类") }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if done > 0 && !running {
+                PaperRowLine()
+                Text("完成 \(done) 次，失败 \(failures) 次；每次的修订号与冲突见系统日志 memory 分类")
+                    .font(AppFont.font(size: 12))
+                    .foregroundStyle(Theme.ink3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 

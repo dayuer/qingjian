@@ -48,7 +48,7 @@ final class DayEventsTests: XCTestCase {
 
         XCTAssertFalse(days[0].hasEvents)
         XCTAssertTrue(days[2].hasEvents)
-        XCTAssertEqual(days[2].events.first?.title, "小美 · 看电影", "约定写「人 · 内容」")
+        XCTAssertEqual(days[2].events.first?.title, "看电影", "约定只写内容，是谁看头像")
         XCTAssertEqual(days[2].events.first?.tag, "约定")
         XCTAssertFalse(days[2].events.first!.isAction, "有主的行不是动作")
     }
