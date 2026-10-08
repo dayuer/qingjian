@@ -260,11 +260,16 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
         );
         engine = engine.with_emoji(table);
     }
-    // 语言模型可选：没有就退化成一元词频整句；打包过的 lm.qj 优先
-    let packed = std::path::PathBuf::from("data/generated/lm.qj");
+    // 语言模型可选：没有就退化成一元词频整句；打包过的 lm.qj 优先。
+    // `--language-model` 给绝对路径就能换一份词图来评测，不必改工作目录或覆盖 data/generated
+    let packed = args
+        .language_model
+        .clone()
+        .unwrap_or_else(|| std::path::PathBuf::from("data/generated/lm.qj"));
     let unigram = std::path::PathBuf::from("data/generated/lm-unigram.tsv");
     let bigram = std::path::PathBuf::from("data/generated/lm-bigram.tsv");
-    if packed.is_file() || (unigram.is_file() && bigram.is_file()) {
+    if packed.is_file() || (args.language_model.is_none() && unigram.is_file() && bigram.is_file())
+    {
         let started = Instant::now();
         let model = if packed.is_file() {
             BigramModel::from_path(&packed)?
@@ -272,6 +277,7 @@ fn build_engine(args: &Args) -> Result<Engine, CliError> {
             BigramModel::from_paths(&unigram, &bigram)?
         };
         tracing::info!(
+            path = %packed.display(),
             words = model.word_count(),
             bigrams = model.bigram_count(),
             load_ms = started.elapsed().as_millis(),
