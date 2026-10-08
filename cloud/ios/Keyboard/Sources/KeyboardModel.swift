@@ -83,6 +83,15 @@ final class KeyboardModel {
     /// 面板里的一行短提示（键盘扩展打不开 App，「全部记忆」「去开启」只能这样告诉用户），2 秒后消失。
     private(set) var notice: String?
 
+    /// 「记录中」的标记状态（桥给的 0 不显示 / 1 记录中 / 2 定时暂停 / 3 一直暂停），每次刷新问一次。
+    private(set) var recording: UInt8 = 0
+
+    /// 暂停之后的提示条文案（05 的 2b）；nil 是不显示。
+    private(set) var recordingBanner: String?
+
+    /// 提示条上带不带「一直暂停」（只定时暂停那一句带）。
+    private(set) var recordingBannerPauseForever = false
+
     /// 所有人的卡片，按卡片 id 查（提示行加粗关键词、来源标签用）。
     @ObservationIgnored private var cardIndex: [String: MemoryCard] = [:]
 
@@ -303,6 +312,7 @@ final class KeyboardModel {
     }
 
     func typeEmoji(_ emoji: String) {
+        clearRecordingBanner()
         commitFirst()
         sink.commit(emoji)
     }
@@ -478,8 +488,54 @@ final class KeyboardModel {
         ScopeDisplay.hasHintRow(
             hasContact: currentContact != nil, hasHint: hint != nil,
             hasNoteBar: noteDraft != nil || noteDone || sink.isComposingNote,
+            hasBanner: recordingBanner != nil,
             noteCardOpen: panel == .draft || panel == .conflict)
     }
+
+    /// 工具栏牌子后面该出哪个标记（nil 是不出）：私密输入框、没开完全访问都不出（RecordingDisplay）。
+    var recordingBadge: RecordingDisplay.Badge? {
+        RecordingDisplay.badge(state: recording, privateField: privateField, fullAccess: fullAccess)
+    }
+
+    /// 点「记录中」：暂停 1 小时（到点自动恢复），提示条带「一直暂停」。
+    func pauseRecording() {
+        engine?.pauseRecording(RecordingDisplay.pauseSeconds)
+        refreshRecording()
+        showRecordingBanner(RecordingDisplay.pausedBanner, pauseForever: true, seconds: 4)
+    }
+
+    /// 点「一直暂停」：一直停到用户点「已暂停」恢复，不碰同意开关。
+    func pauseRecordingForever() {
+        engine?.pauseRecording(0)
+        refreshRecording()
+        showRecordingBanner(RecordingDisplay.pausedForeverBanner, pauseForever: false, seconds: 4)
+    }
+
+    /// 点「已暂停」：立刻恢复记录。
+    func resumeRecording() {
+        engine?.resumeRecording()
+        refreshRecording()
+        showRecordingBanner(RecordingDisplay.resumedBanner, pauseForever: false, seconds: 2)
+    }
+
+    private func showRecordingBanner(_ text: String, pauseForever: Bool, seconds: Double) {
+        recordingBanner = text
+        recordingBannerPauseForever = pauseForever
+        recordingBannerTask?.cancel()
+        recordingBannerTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            self?.recordingBanner = nil
+        }
+    }
+
+    /// 敲键就把提示条收掉（与 4 秒的超时谁先到算谁）。
+    private func clearRecordingBanner() {
+        recordingBannerTask?.cancel()
+        recordingBanner = nil
+    }
+
+    @ObservationIgnored private var recordingBannerTask: Task<Void, Never>?
 
     /// 提示行这一行实际画出来的高度：没有时为 0；记一笔确认条比提示行高（KeyStyle.clipRowHeight）。
     private var liveRowHeight: CGFloat {
@@ -803,6 +859,7 @@ final class KeyboardModel {
         scope = engine?.scope ?? MemoryScope()
         reloadContacts()
         refreshHint()
+        refreshRecording()
     }
 
     private func reloadContacts() {
@@ -828,6 +885,7 @@ final class KeyboardModel {
     private func typeLetter(_ letter: Character) {
         let upper = shifted
         shifted = false
+        clearRecordingBanner()
         guard let engine else {
             sink.commit(upper ? letter.uppercased() : String(letter))
             return
@@ -851,6 +909,7 @@ final class KeyboardModel {
     private static let returnsToLetters: Set<String> = ["。", "，", "、", "？", "！", "；", "…", "”", "’", "^_^"]
 
     private func typeSymbol(_ text: String) {
+        clearRecordingBanner()
         commitFirst()
         sink.commit(text)
         if Self.returnsToLetters.contains(text) { layer = .letters }
@@ -909,5 +968,11 @@ final class KeyboardModel {
             showsRewriteSkills = false
         }
         refreshHint()
+        refreshRecording()
+    }
+
+    /// 问一次桥「记录中」的状态；桥那边顺带把到点的定时暂停收掉，所以到期最多晚一次刷新。
+    private func refreshRecording() {
+        recording = engine?.recordingState ?? 0
     }
 }

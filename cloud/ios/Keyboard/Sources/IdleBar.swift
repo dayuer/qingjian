@@ -85,6 +85,13 @@ struct IdleBar: View {
         HStack(spacing: 0) {
             ScopeChip(model: model)
                 .padding(.trailing, 6)
+            // 「记录中 / 已暂停」紧跟在牌子后面（设计稿 05 的 2a / 2b）
+            if let badge = model.recordingBadge {
+                RecordingBadge(badge: badge) {
+                    badge == .recording ? model.pauseRecording() : model.resumeRecording()
+                }
+                .padding(.trailing, 4)
+            }
             // 设计稿 .tool 紧跟在牌子后面，只有箭头靠右（.arw.sp）
             if model.canNote, model.noteDraft == nil, !model.noteDone {
                 tool("记一笔") { model.startNote() }

@@ -19,8 +19,12 @@ enum ScopeDisplay {
     /// 代价是提示出现与消失时键盘高度变 34pt、宿主界面跟着动，用户把常驻的空行当成了 bug，2026-10-04 改定。
     /// 记一笔的草稿卡、冲突屏打开时（`noteCardOpen`）这一行收起：设计稿 1e-2、1e-3
     /// 那两屏顶上直接是牌子那一行，不画提示行，高度让给面板（`rowHeights`）。
-    static func hasHintRow(hasContact: Bool, hasHint: Bool, hasNoteBar: Bool, noteCardOpen: Bool = false) -> Bool {
-        !noteCardOpen && ((hasContact && hasHint) || hasNoteBar)
+    /// `hasBanner` 是「记录中」的暂停提示条（05 的 2b）：它也占提示行那一行。
+    static func hasHintRow(
+        hasContact: Bool, hasHint: Bool, hasNoteBar: Bool, hasBanner: Bool = false,
+        noteCardOpen: Bool = false
+    ) -> Bool {
+        !noteCardOpen && ((hasContact && hasHint) || hasNoteBar || hasBanner)
     }
 
     /// 没开完全访问时牌子只剩说明入口（点开是开启路径），不出人名与灰绿。

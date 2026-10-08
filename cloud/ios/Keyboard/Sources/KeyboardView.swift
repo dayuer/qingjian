@@ -21,6 +21,10 @@ struct KeyboardView: View {
                         NoteComposeBar(model: model, composer: composer)
                     } else if model.noteDraft != nil || model.noteDone {
                         NoteBar(model: model)
+                    } else if let banner = model.recordingBanner {
+                        PausedBanner(
+                            text: banner, showsPauseForever: model.recordingBannerPauseForever,
+                            onPauseForever: { model.pauseRecordingForever() })
                     } else {
                         HintRow(model: model, hint: model.hint)
                     }
