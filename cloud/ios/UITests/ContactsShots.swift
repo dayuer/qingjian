@@ -52,6 +52,14 @@ final class ContactsShots: XCTestCase {
         app.buttons["addContact"].tap()
         wait()
         shot("02-2b-add")
+
+        // 「先写几件…」是点开再填（设计稿 3c）：点「喜欢」那一行才在那一行里变成输入
+        app.staticTexts["喜欢"].tap()
+        wait()
+        app.typeText("冰美式\n")
+        wait()
+        shot("02-2b-add-filled")
+
         app.buttons["取消"].firstMatch.tap()  // 关掉建人页
         wait()
 

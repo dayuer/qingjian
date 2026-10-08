@@ -70,6 +70,12 @@ final class VisualWalkthrough: XCTestCase {
 
         // 第四步「第一个对象」（05 的 2g）
         shot("05-2g")
+        // 「先写几件…」点开再填那一态（设计稿 3c）
+        app.staticTexts["喜欢"].tap()
+        wait()
+        app.typeText("冰美式\n")
+        wait()
+        shot("05-2g-filled")
         if app.buttons["取消"].exists {
             app.buttons["取消"].tap()
         }
