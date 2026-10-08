@@ -7,7 +7,7 @@ use qingjian_format::{Container, Kind, Metadata};
 
 use crate::model::PrefixCache;
 use crate::vocab::EOS;
-use crate::{CharLm, ModelConfig, NeuralError, Vocab, find_model, qjm};
+use crate::{CharLm, ModelConfig, NeuralError, QuantizedWeights, Vocab, find_model, qjm};
 
 /// 加载好的模型 + 字表：给「前文 + 候选」打分。
 pub struct CharScorer {
@@ -64,14 +64,26 @@ impl CharScorer {
         Self::assemble(cfg, vocab, vb, device, None)
     }
 
-    /// `.qjm`：容器 mmap 一次，三节各自切片；张量搬上设备后容器就可以丢了。
+    /// `.qjm`：容器 mmap 一次，三节各自切片；张量搬上设备后容器就可以丢了。有 8 位那一节就走 8 位（中间量 f32，`dtype` 不管用）。
     fn load_packed(path: &Path, dtype: DType, device: Device) -> Result<Self, NeuralError> {
         let container = Container::open(path, Kind::Model)?;
         let cfg = ModelConfig::from_json(&container.text(qjm::CONFIG_TAG)?, path)?;
         let vocab = Vocab::from_json(&container.text(qjm::VOCAB_TAG)?, path)?;
+        let metadata = Some(container.metadata().clone());
+        if let Ok(bytes) = container.bytes(qjm::QUANTIZED_TAG) {
+            if vocab.len() != cfg.vocab_size {
+                return Err(NeuralError::Corrupt("vocab size differs from config"));
+            }
+            let weights = QuantizedWeights::read(bytes, &device)?;
+            return Ok(Self::with_model(
+                CharLm::load_quantized(weights, cfg, device)?,
+                vocab,
+                metadata,
+            ));
+        }
         let vb =
             VarBuilder::from_slice_safetensors(container.bytes(qjm::WEIGHTS_TAG)?, dtype, &device)?;
-        Self::assemble(cfg, vocab, vb, device, Some(container.metadata().clone()))
+        Self::assemble(cfg, vocab, vb, device, metadata)
     }
 
     fn assemble(
@@ -84,13 +96,20 @@ impl CharScorer {
         if vocab.len() != cfg.vocab_size {
             return Err(NeuralError::Corrupt("vocab size differs from config"));
         }
-        let model = CharLm::load(vb, cfg, device)?;
-        Ok(Self {
+        Ok(Self::with_model(
+            CharLm::load(vb, cfg, device)?,
+            vocab,
+            metadata,
+        ))
+    }
+
+    fn with_model(model: CharLm, vocab: Vocab, metadata: Option<Metadata>) -> Self {
+        Self {
             model,
             vocab,
             metadata,
             cache: Mutex::new(None),
-        })
+        }
     }
 
     /// 加载好的模型本体：逐字生成一类的实验直接用它。
@@ -338,7 +357,7 @@ mod tests {
             license: "CC-BY-SA-4.0".to_owned(),
             ..Metadata::default()
         };
-        let parameters = qjm::pack(&dir, &out, &metadata).unwrap();
+        let parameters = qjm::pack(&dir, &out, &metadata, false).unwrap();
         assert!(parameters > 1_000_000, "{parameters}");
 
         let packed = CharScorer::load(&out).unwrap();

@@ -13,6 +13,7 @@ mod error;
 mod model;
 mod p2c;
 pub mod qjm;
+mod quantized;
 mod scorer;
 mod vocab;
 
@@ -22,5 +23,6 @@ pub use error::NeuralError;
 pub use model::{CharLm, PrefixCache};
 pub use p2c::{Candidate, P2c};
 pub use qjm::find_model;
+pub use quantized::QuantizedWeights;
 pub use scorer::CharScorer;
 pub use vocab::Vocab;

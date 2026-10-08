@@ -1,0 +1,4 @@
+tongbian-f16.qjm 融合 n=1878 p50 102.5 p95 187.5 ms 生成 n=1878 p50 73 p95 171 ms
+tongbian-q8.qjm 融合 n=1878 p50 60.0 p95 122.8 ms 生成 n=1878 p50 39 p95 105 ms
+
+[exited with code 0]

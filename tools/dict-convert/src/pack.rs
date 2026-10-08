@@ -25,7 +25,7 @@ const CODES_ATTRIBUTION: &str = "CNS11643 全字庫筆順資料（數位發展�
 /// 来源：全字庫开放数据的数据集页。
 const CODES_SOURCE: &str = "https://data.gov.tw/dataset/5961";
 
-/// `pack codes` 的三个路径（别的种类不给）。都不给时都从 `out_dir` 里找。
+/// `pack codes` 的三个路径与 `pack model` 的输出与量化开关（别的种类不给）。路径都不给时都从 `out_dir` 里找。
 #[derive(Debug, Default)]
 pub struct CodePaths<'a> {
     /// 笔画表（`stroke` 子命令的产物）。
@@ -34,8 +34,11 @@ pub struct CodePaths<'a> {
     /// 取码用的词库。
     pub dict: Option<&'a Path>,
 
-    /// 码表产物。
+    /// 码表产物；`model` 的 `.qjm`。
     pub output: Option<&'a Path>,
+
+    /// `model` 用：权重写成 8 位（Q8_0）那一节。
+    pub quantize: bool,
 }
 
 /// 打包一种数据。`inputs` 为空时从 `out_dir` 里找缺省的 TSV。
@@ -113,7 +116,7 @@ pub fn pack(
                 .output
                 .map(Path::to_path_buf)
                 .unwrap_or_else(|| out_dir.join("model.qjm"));
-            let parameters = qingjian_neural::qjm::pack(&input, &out, &metadata)?;
+            let parameters = qingjian_neural::qjm::pack(&input, &out, &metadata, paths.quantize)?;
             report(
                 &out,
                 usize::try_from(parameters).unwrap_or(usize::MAX),

@@ -171,6 +171,7 @@ fn run() -> Result<(), ConvertError> {
             stroke,
             dict,
             output,
+            quantize,
             name,
             license,
             attribution,
@@ -184,6 +185,7 @@ fn run() -> Result<(), ConvertError> {
                 stroke: stroke.as_deref(),
                 dict: dict.as_deref(),
                 output: output.as_deref(),
+                quantize,
             },
             &language,
             qingjian_format::Metadata {

@@ -1,7 +1,15 @@
+//! 字级 decoder-only Transformer 的前向：稠密权重（safetensors）与 8 位权重（GGUF，见 `crate::quantized`）共用一套计算。
+
+mod token_table;
+mod weight;
+
 use candle_core::{D, DType, Device, Module, Result, Tensor};
 use candle_nn::{Embedding, LayerNorm, Linear, VarBuilder, layer_norm, linear, ops};
 
-use crate::ModelConfig;
+use crate::quantized::QuantizedWeights;
+use crate::{ModelConfig, NeuralError};
+use token_table::TokenTable;
+use weight::Weight;
 
 /// 掩码里未来位置加的值：够大到 softmax 后为 0，又在 f16 范围内。
 const MASKED: f32 = -1.0e4;
@@ -9,11 +17,11 @@ const MASKED: f32 = -1.0e4;
 /// 一层：pre-LN 自注意力 + pre-LN MLP，都带残差。
 struct Block {
     ln1: LayerNorm,
-    qkv: Linear,
-    attn_proj: Linear,
+    qkv: Weight,
+    attn_proj: Weight,
     ln2: LayerNorm,
-    fc: Linear,
-    mlp_proj: Linear,
+    fc: Weight,
+    mlp_proj: Weight,
 }
 
 /// 一段前文在每层的 K / V（形状 `[1, h, p, d]`）。前文在一次组句里不变，算一次存下来，
@@ -48,12 +56,11 @@ impl PrefixCache {
 
 /// 字级 decoder-only Transformer。张量名见 `tools/lm-train/model.py`。
 pub struct CharLm {
-    tok_emb: Embedding,
+    /// 输入嵌入，输出层也复用它。
+    tokens: TokenTable,
     pos_emb: Tensor,
     blocks: Vec<Block>,
     ln_f: LayerNorm,
-    /// 输出层复用输入嵌入。
-    head: Linear,
     cfg: ModelConfig,
     device: Device,
     /// 权重与中间量的精度（f32，或 Metal 上的 f16）。
@@ -70,25 +77,76 @@ impl CharLm {
             let b = vb.pp(format!("blocks.{i}"));
             blocks.push(Block {
                 ln1: layer_norm(cfg.n_embd, 1e-5, b.pp("ln1"))?,
-                qkv: linear(cfg.n_embd, 3 * cfg.n_embd, b.pp("attn.qkv"))?,
-                attn_proj: linear(cfg.n_embd, cfg.n_embd, b.pp("attn.proj"))?,
+                qkv: Weight::Dense(linear(cfg.n_embd, 3 * cfg.n_embd, b.pp("attn.qkv"))?),
+                attn_proj: Weight::Dense(linear(cfg.n_embd, cfg.n_embd, b.pp("attn.proj"))?),
                 ln2: layer_norm(cfg.n_embd, 1e-5, b.pp("ln2"))?,
-                fc: linear(cfg.n_embd, 4 * cfg.n_embd, b.pp("mlp.fc"))?,
-                mlp_proj: linear(4 * cfg.n_embd, cfg.n_embd, b.pp("mlp.proj"))?,
+                fc: Weight::Dense(linear(cfg.n_embd, 4 * cfg.n_embd, b.pp("mlp.fc"))?),
+                mlp_proj: Weight::Dense(linear(4 * cfg.n_embd, cfg.n_embd, b.pp("mlp.proj"))?),
             });
         }
         let ln_f = layer_norm(cfg.n_embd, 1e-5, vb.pp("ln_f"))?;
         let dtype = tok_weight.dtype();
-        let head = Linear::new(tok_weight, None);
+        let tokens = TokenTable::Dense {
+            embedding: tok_emb,
+            head: Linear::new(tok_weight, None),
+        };
         Ok(Self {
-            tok_emb,
+            tokens,
             pos_emb,
             blocks,
             ln_f,
-            head,
             cfg,
             device,
             dtype,
+        })
+    }
+
+    /// 8 位权重（`.qjm` 的 GGUF 段）：线性层与字嵌入表以 Q8_0 常驻，其余 f32，中间量 f32。
+    pub fn load_quantized(
+        mut weights: QuantizedWeights,
+        cfg: ModelConfig,
+        device: Device,
+    ) -> std::result::Result<Self, NeuralError> {
+        let norm = |w: &mut QuantizedWeights,
+                    prefix: &str|
+         -> std::result::Result<LayerNorm, NeuralError> {
+            Ok(LayerNorm::new(
+                w.dense(&format!("{prefix}.weight"))?,
+                w.dense(&format!("{prefix}.bias"))?,
+                1e-5,
+            ))
+        };
+        let dense =
+            |w: &mut QuantizedWeights, prefix: &str| -> std::result::Result<Weight, NeuralError> {
+                Ok(Weight::Quantized {
+                    matmul: w.matmul(&format!("{prefix}.weight"))?,
+                    bias: Some(w.dense(&format!("{prefix}.bias"))?),
+                })
+            };
+        let mut blocks = Vec::with_capacity(cfg.n_layer);
+        for i in 0..cfg.n_layer {
+            let b = format!("blocks.{i}");
+            blocks.push(Block {
+                ln1: norm(&mut weights, &format!("{b}.ln1"))?,
+                qkv: dense(&mut weights, &format!("{b}.attn.qkv"))?,
+                attn_proj: dense(&mut weights, &format!("{b}.attn.proj"))?,
+                ln2: norm(&mut weights, &format!("{b}.ln2"))?,
+                fc: dense(&mut weights, &format!("{b}.mlp.fc"))?,
+                mlp_proj: dense(&mut weights, &format!("{b}.mlp.proj"))?,
+            });
+        }
+        let pos_emb = weights.dense("pos_emb.weight")?;
+        if pos_emb.dims2()? != (cfg.context, cfg.n_embd) {
+            return Err(NeuralError::Corrupt("pos_emb shape differs from config"));
+        }
+        Ok(Self {
+            tokens: TokenTable::Quantized(weights.matmul("tok_emb.weight")?),
+            pos_emb,
+            blocks,
+            ln_f: norm(&mut weights, "ln_f")?,
+            cfg,
+            device,
+            dtype: DType::F32,
         })
     }
 
@@ -167,7 +225,7 @@ impl CharLm {
         let offset = past.map_or(0, PrefixCache::len);
         let mask = self.causal_mask(t, offset)?;
         let pos = self.pos_emb.narrow(0, offset, t)?;
-        let mut x = self.tok_emb.forward(idx)?.broadcast_add(&pos)?;
+        let mut x = self.tokens.embed(idx)?.broadcast_add(&pos)?;
         let mut keys = Vec::new();
         let mut values = Vec::new();
         for (i, block) in self.blocks.iter().enumerate() {
@@ -186,7 +244,7 @@ impl CharLm {
             x = (x + m)?;
         }
         let x = self.ln_f.forward(&x)?;
-        let logits = self.head.forward(&x)?;
+        let logits = self.tokens.logits(&x)?;
         let cache = record.then_some(PrefixCache {
             keys,
             values,
