@@ -43,6 +43,8 @@ struct PaperRow<Trailing: View>: View {
                 Text("›")
                     .font(AppFont.font(size: 16))
                     .foregroundStyle(Theme.ink3)
+                    // 「›」只是个记号：读屏与 UI 测试认这一行时应该只听到标题（不然会读成「键盘设置, ›」）
+                    .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, 14)
