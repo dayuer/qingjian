@@ -117,7 +117,11 @@ def seed_recording(root: Path) -> None:
     真的登录要建空间、拿令牌，走查里不划算。
 
     令牌必须以 `sjt_` 开头：桥的 `CloudConfig::load` 认这个前缀才算登录，否则整份配置当没配置
-    （踩过：写成 `seed-recording` 时标记一直不出）。"""
+    （踩过：写成 `seed-recording` 时标记一直不出）。
+
+    同时清掉暂停文件：上一次走查点到「一直暂停」的话，这一次一上来就是「已暂停」，
+    连着的深色那轮会从错的状态开拍（踩过：深色那轮第一下点的是「恢复」而不是「暂停」）。"""
+    shutil.rmtree(root / "cloud", ignore_errors=True)
     (root / "cloud.toml").write_text(
         'server = "http://127.0.0.1:9"\ntoken = "sjt_seed-recording"\nlogs = true\n', encoding="utf-8")
 

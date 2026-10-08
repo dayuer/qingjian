@@ -108,16 +108,23 @@ final class KeyboardShots: XCTestCase {
         guard let field = openTryTypingField(app) else { return }
         field.tap()
         wait(3)
+
+        // 按无障碍标签找，不按坐标点：坐标点偏了只会拍到错的状态、测试还照样过（踩过）
+        let badge = app.buttons["正在记录，点一下暂停"]
+        XCTAssertTrue(badge.waitForExistence(timeout: 5), "工具栏没有「记录中」标记")
         shot("01-recording")
 
-        // 牌子后面的「● 记录中」（坐标量自 01-recording.png）
-        tapKey(app, 99, 521.3)
-        wait(2.5)
+        badge.tap()
+        wait(1.5)
+        XCTAssertTrue(app.buttons["已暂停记录，点一下恢复"].exists, "标记没换成「已暂停」")
+        XCTAssertTrue(
+            app.staticTexts["已暂停记录，提示照常。1 小时后恢复"].exists, "没有暂停提示条")
         shot("01-paused-banner")
 
-        // 提示条右端的「一直暂停」（坐标量自 01-paused-banner.png）
-        tapKey(app, 348, 478.7)
-        wait(2.5)
+        app.buttons["一直暂停"].tap()
+        wait(1.5)
+        XCTAssertTrue(
+            app.staticTexts["已暂停记录，点「已暂停」恢复"].exists, "提示条没换成「一直暂停」那句")
         shot("01-paused-forever")
     }
 
