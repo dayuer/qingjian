@@ -293,6 +293,13 @@ impl Engine {
         self.forget_span_cache();
     }
 
+    /// 开关神经模型的自由生成（缺省开）；关掉后只给词图的整句路径重排，见 `sentence_generation` 字段。
+    pub fn set_sentence_generation(&mut self, enabled: bool) {
+        self.sentence_generation = enabled;
+        self.neural_cache.borrow_mut().take_wanted_generation();
+        self.forget_span_cache();
+    }
+
     /// 换一组个人 n-gram 插值参数（回放调参用）；整句格子缓存作废。
     pub fn set_interpolation(&mut self, interpolation: Interpolation) {
         self.interpolation = interpolation;

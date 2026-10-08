@@ -64,6 +64,18 @@ final class Engine {
     /// 卸下英文词表；下次像英文的输入自动再加载（词表是 mmap 的，卸掉主要是让出地址空间与页缓存）。
     func unloadEnglish() { qj_unload_english(session) }
 
+    /// 随包的 8 位含章·通变（`Data/models/hanzhang-tongbian-q8.qjm`）在后台加载，接上后整句候选带神经重排
+    /// （只重排词图的整句路径，不自由生成）。权重是 mmap 的干净页，加载只多约 1MB dirty。没有这个文件返回 false。
+    @discardableResult
+    func loadModel() -> Bool {
+        let url = dataDirectory.appendingPathComponent("models/hanzhang-tongbian-q8.qjm")
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        return url.path.withCString { qj_load_model(session, $0, true) }
+    }
+
+    /// 卸下本地整句模型（内存吃紧时）；之后可以再 `loadModel()`。
+    func unloadModel() { qj_unload_model(session) }
+
     /// 上屏第 `index` 个候选，返回要插入的文字。
     func commit(_ index: Int) -> String? {
         guard index >= 0 else { return nil }

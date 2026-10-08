@@ -125,9 +125,12 @@ candle 加载 Transformer（GPT-2 风格 decoder，导出成
 `model.safetensors` + `config.json` + `vocab.json` 三件套）。features `accelerate` / `metal` 换后端，壳用 `metal`。
 
 **8 位权重**：`dict-convert pack model --quantize` 把线性层与共享字嵌入表量化成 Q8_0（每 32 个一组 f16 尺度 + int8），其余张量 f32，
-整段写成 GGUF 放进 `.qjm` 的 `Q8GF` 节（不写 `SAFT`）。加载时有 `Q8GF` 就走 `CharLm::load_quantized`：线性层是 `QMatMul`，
-嵌入查表与输出层共用同一份 Q8_0 张量，中间量 f32；没有就按原路径读 fp16，旧文件照常能用。含章·通变 46 → 24.8MB，加载后
-phys_footprint 105 → 33MB（CPU 上 fp16 权重是展开成 f32 常驻的），融合与生成都快约四成。验收数字见 neural-rescoring.md「8 位量化」。
+整段写成 GGUF 放进 `.qjm` 的 `Q8GF` 节（不写 `SAFT`）。加载时有 `Q8GF` 就走 `CharLm::load_quantized`：权重不拷，
+`MappedMatrix` 把容器映射切片直接当 `[BlockQ8_0]`，乘法用 candle 的 `k_quants::matmul`（NEON），嵌入查表与输出层读同一块映射；
+只有 LayerNorm、偏置、位置嵌入拷成 f32，中间量 f32，始终在 CPU（开了 metal 也不上 GPU）。没有 `Q8GF` 就按原路径读 fp16，旧文件照常能用。
+`score_p2c` 只要目标字的 log 概率，输出层按 8 行一组算完就丢（`CharLm::target_log_probs_after`），不摊开 `[b, t, 8180]` 的 logits 与 log-softmax。
+Core 的 `Engine::set_sentence_generation(false)` 关掉自由生成，只重排词图路径（iOS 键盘桥在加载模型时关）。含章·通变 46 → 24.8MB，加载后
+dirty 105MB → 1.2MB（权重是映射的干净页；CPU 上 fp16 权重是展开成 f32 常驻的），融合与生成都快约四成。验收数字见 neural-rescoring.md「8 位量化」。
 真模型的一致性测试 `tests/quantized.rs` 靠环境变量 `QJ_TONGBIAN`（与可选的 `QJ_TONGBIAN_INT8REF`）找模型，没给就跳过。
 
 Core 的 `sentence::SentenceScorer` 有两个实现，同一个 trait 拿到**两种条件**（`context` 光标前文、`keys` 这批路径共同解释的那段按键），各挑自己训练时的那个、忽略另一个：

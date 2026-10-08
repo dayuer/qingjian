@@ -113,7 +113,7 @@ impl Engine {
     /// 出来的只能是把英文段硬读成拼音的结果（用的哦乘客仍不熟很方便）。这条路不受读法限制。
     /// 同步打分器当场生成，异步的先记下、等壳在用户停顿后取（与重打分同一次请求）。
     pub(super) fn generated_sentences(&self, keys: &str) -> Vec<String> {
-        if keys.is_empty() || !self.has_sentence_scorer() {
+        if keys.is_empty() || !self.sentence_generation || !self.has_sentence_scorer() {
             return Vec::new();
         }
         let mut cache = self.neural_cache.borrow_mut();

@@ -10,6 +10,7 @@ mod config;
 mod continuation;
 mod core_scorer;
 mod error;
+mod mapped_matrix;
 mod model;
 mod p2c;
 pub mod qjm;

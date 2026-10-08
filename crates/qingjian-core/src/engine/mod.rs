@@ -138,6 +138,9 @@ pub struct Engine {
     /// 异步重打分：后台线程里的打分器，壳在停顿后送任务、轮询结果（见 [`rescoring`]）。
     rescorer: Option<rescoring::RescoreWorker>,
 
+    /// 读不通的整段让模型自由生成整句（缺省开）。iOS 键盘关掉：生成要逐字 beam，K / V 缓存比只重排几条路径多 20MB 以上，键盘扩展放不下。
+    sentence_generation: bool,
+
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
 
@@ -449,6 +452,7 @@ impl Engine {
             language_model: Box::new(NoLanguageModel),
             sentence_scorer: None,
             rescorer: None,
+            sentence_generation: true,
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,

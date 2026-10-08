@@ -13,7 +13,7 @@ use crate::entry::Entry;
 use crate::rewrite::{Rewriter, Skill};
 
 /// 云端的词与整句插在第几格起：第 0 格留给本地首选。
-const CLOUD_POSITION: usize = 1;
+pub(super) const CLOUD_POSITION: usize = 1;
 
 impl Session {
     pub(super) fn connect(&mut self, cloud: &CloudConfig) {
@@ -127,11 +127,12 @@ impl Session {
         if let Some(uploader) = &self.uploader {
             uploader.kick();
         }
+        let rescored = self.poll_rescoring();
         self.apply_inbox();
         let rescoped = self.poll_memory();
         // 设置变了（主 App 改的或从 Mac 同步来的）、App 删了当前对象（换了叠加层），候选要重排
         let config_changed = self.reload_config();
-        let reloaded = (config_changed || rescoped) && self.composing();
+        let reloaded = (config_changed || rescoped) && self.composing() || rescored;
         let Some(prediction) = self.engine.poll_prediction() else {
             return reloaded;
         };

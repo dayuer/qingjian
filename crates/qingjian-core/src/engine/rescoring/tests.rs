@@ -214,6 +214,30 @@ fn a_readable_sentence_gets_the_generated_one_as_the_runner_up() {
     assert!(items.iter().all(|c| c.kind != CandidateKind::Generated));
 }
 
+/// 关掉自由生成（iOS 键盘）：整句路径照样重排，但不出生成的候选，打分器的 generate 一次都不调。
+#[test]
+fn generation_off_still_rescores_but_never_generates() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n一起\tyi qi\t80000\n去\tqu\t70000\n我\two\t90000\n们\tmen\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_sentence_scorer(
+        Box::new(PrefersAndGenerates("我们一起去", &["我们一齐去"])),
+        Some(0.5),
+        None,
+        None,
+    );
+    engine.set_sentence_generation(false);
+    engine.set_input("womenyiqiqu");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[0].text, "我们一起去");
+    assert!(items.iter().all(|c| c.kind != CandidateKind::Generated));
+    engine.set_sentence_generation(true);
+    engine.set_input("womenyiqiqu");
+    let items = engine.query().unwrap().candidates.items;
+    assert_eq!(items[1].kind, CandidateKind::Generated);
+}
+
 /// 记下每次打分的按键条件。
 struct RecordsKeys(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
 

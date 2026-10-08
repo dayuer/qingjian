@@ -110,9 +110,18 @@ fi
 cmp -s "$english_qj" "$ios_dir/Keyboard/Data/english.qj" || cp "$english_qj" "$ios_dir/Keyboard/Data/english.qj"
 # 旧版拷过 english.tsv，不再随包：清掉免得白白进扩展
 rm -f "$ios_dir/Keyboard/Data/english.tsv"
-# 本地神经模型不进键盘包：键盘里没有驱动异步重打分的调用，加载了也不出结果，却占 65–120MB 内存（见 cloud/docs/design.md）。
-# 旧版拷过通变（44MB），清掉免得白白进扩展。
-rm -rf "$ios_dir/Keyboard/Data/models"
+# 本地整句模型：8 位含章·通变（`dict-convert pack model --quantize` 打的 .qjm，权重 mmap，键盘里只重排不生成）。
+# 缺了构建时就失败，免得装上的键盘悄悄没有神经重排。
+model="${QINGJIAN_MODEL:-$repo_dir/data/models/hanzhang-tongbian/hanzhang-tongbian-q8.qjm}"
+if [[ ! -f "$model" ]]; then
+  echo "缺 8 位通变模型 $model：用 qingjian-dict-convert pack model --input <通变三件套> --quantize --output <它> 打一份" >&2
+  exit 1
+fi
+mkdir -p "$ios_dir/Keyboard/Data/models"
+# 旧版拷过 fp16 通变（44MB），只留 8 位这一份
+find "$ios_dir/Keyboard/Data/models" -mindepth 1 ! -name hanzhang-tongbian-q8.qjm -exec rm -rf {} +
+target="$ios_dir/Keyboard/Data/models/hanzhang-tongbian-q8.qjm"
+cmp -s "$model" "$target" || cp "$model" "$target"
 # 改写技能包：随包走，桥在运行时从 data_dir/skills 读。
 mkdir -p "$ios_dir/Keyboard/Data/skills"
 skills=()

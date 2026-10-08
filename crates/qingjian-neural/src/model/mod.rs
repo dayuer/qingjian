@@ -11,6 +11,9 @@ use crate::{ModelConfig, NeuralError};
 use token_table::TokenTable;
 use weight::Weight;
 
+/// 只要目标字 log 概率时，输出层一次算几行（见 [`CharLm::target_log_probs_after`]）。
+const TARGET_CHUNK: usize = 8;
+
 /// 掩码里未来位置加的值：够大到 softmax 后为 0，又在 f16 范围内。
 const MASKED: f32 = -1.0e4;
 
@@ -101,7 +104,7 @@ impl CharLm {
         })
     }
 
-    /// 8 位权重（`.qjm` 的 GGUF 段）：线性层与字嵌入表以 Q8_0 常驻，其余 f32，中间量 f32。
+    /// 8 位权重（`.qjm` 的 GGUF 段）：线性层与字嵌入表是文件映射上的 Q8_0 视图，其余 f32，中间量 f32。
     pub fn load_quantized(
         mut weights: QuantizedWeights,
         cfg: ModelConfig,
@@ -118,8 +121,8 @@ impl CharLm {
         };
         let dense =
             |w: &mut QuantizedWeights, prefix: &str| -> std::result::Result<Weight, NeuralError> {
-                Ok(Weight::Quantized {
-                    matmul: w.matmul(&format!("{prefix}.weight"))?,
+                Ok(Weight::Mapped {
+                    matrix: w.matrix(&format!("{prefix}.weight"))?,
                     bias: Some(w.dense(&format!("{prefix}.bias"))?),
                 })
             };
@@ -140,7 +143,7 @@ impl CharLm {
             return Err(NeuralError::Corrupt("pos_emb shape differs from config"));
         }
         Ok(Self {
-            tokens: TokenTable::Quantized(weights.matmul("tok_emb.weight")?),
+            tokens: TokenTable::Mapped(weights.matrix("tok_emb.weight")?),
             pos_emb,
             blocks,
             ln_f: norm(&mut weights, "ln_f")?,
@@ -221,6 +224,17 @@ impl CharLm {
         past: Option<&PrefixCache>,
         record: bool,
     ) -> Result<(Tensor, Option<PrefixCache>)> {
+        let (x, cache) = self.hidden(idx, past, record)?;
+        Ok((self.tokens.logits(&x)?, cache))
+    }
+
+    /// [`Self::run`] 去掉输出层：最后一层 LayerNorm 之后的隐状态 `[b, t, n_embd]`。
+    fn hidden(
+        &self,
+        idx: &Tensor,
+        past: Option<&PrefixCache>,
+        record: bool,
+    ) -> Result<(Tensor, Option<PrefixCache>)> {
         let (_, t) = idx.dims2()?;
         let offset = past.map_or(0, PrefixCache::len);
         let mask = self.causal_mask(t, offset)?;
@@ -244,13 +258,12 @@ impl CharLm {
             x = (x + m)?;
         }
         let x = self.ln_f.forward(&x)?;
-        let logits = self.tokens.logits(&x)?;
         let cache = record.then_some(PrefixCache {
             keys,
             values,
             len: offset + t,
         });
-        Ok((logits, cache))
+        Ok((x, cache))
     }
 
     /// 前向：`idx` 形状 `[b, t]`（u32），返回 logits `[b, t, vocab]`。
@@ -295,6 +308,38 @@ impl CharLm {
 
     /// 接在前文缓存后面的一段（`[b, t]`）每个位置对下一个 token 的 log-softmax，`[b, t, vocab]`，f32。
     /// 前文长度加 `t` 不能超过模型上下文。
+    /// 接在前文缓存后面的一段（`[b, t]`）每个位置上 `targets`（`b × t` 个，行优先）那个字的 log 概率。
+    /// 与 `log_probs_after` 再 gather 同值，但输出层按 [`TARGET_CHUNK`] 行一组算完就丢，不摊开 `[b, t, vocab]`
+    /// 的 logits 与 log-softmax（8 条路径时两份各几 MB；iOS 键盘里这块瞬时峰值会被分配器留成常驻的 dirty 页）。
+    pub fn target_log_probs_after(
+        &self,
+        cache: &PrefixCache,
+        idx: &Tensor,
+        targets: &[u32],
+    ) -> Result<Vec<f32>> {
+        let (x, _) = self.hidden(idx, Some(cache), false)?;
+        let (b, t, c) = x.dims3()?;
+        if targets.len() != b * t {
+            candle_core::bail!("targets: {} for {b}×{t} positions", targets.len());
+        }
+        let rows = x.reshape((b * t, c))?;
+        let mut out = Vec::with_capacity(b * t);
+        for start in (0..b * t).step_by(TARGET_CHUNK) {
+            let len = TARGET_CHUNK.min(b * t - start);
+            let logits = self
+                .tokens
+                .logits(&rows.narrow(0, start, len)?)?
+                .to_dtype(DType::F32)?
+                .to_vec2::<f32>()?;
+            for (row, &target) in logits.iter().zip(&targets[start..start + len]) {
+                let max = row.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                let sum: f32 = row.iter().map(|&v| (v - max).exp()).sum();
+                out.push(row[target as usize] - max - sum.ln());
+            }
+        }
+        Ok(out)
+    }
+
     pub fn log_probs_after(&self, cache: &PrefixCache, idx: &Tensor) -> Result<Tensor> {
         let (logits, _) = self.run(idx, Some(cache), false)?;
         ops::log_softmax(&logits.to_dtype(DType::F32)?, D::Minus1)

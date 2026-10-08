@@ -143,16 +143,18 @@ final class KeyboardModel {
         reloadRewriteSkills()
     }
 
-    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：余量低于 8MB 就卸掉英文表腾地方，
-    /// 下次像英文的输入会自动再加载。
-    ///
-    /// 本地整句模型（含章·通变）不在键盘里用：桥没有驱动异步重打分的调用，加载了也从不出结果（有无模型候选完全一样），
-    /// 却占 65–120MB 内存（CPU 推理，f16 / f32 权重），把键盘推到上限边上。以后有了合适的接法再加回来。
+    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：余量低于 8MB 先卸英文表
+    /// （下次像英文的输入会自动再加载），低于 4MB 再卸本地整句模型（8 位通变：权重是 mmap 的干净页，
+    /// 占 dirty 的主要是重排时的工作内存，卸掉后整句退回只用统计模型）。
     private func guardMemoryPressure() {
         guard let engine else { return }
         let available = Engine.availableMemoryMB
-        if available >= 0, available < 8 {
+        guard available >= 0 else { return }
+        if available < 8 {
             engine.unloadEnglish()
+        }
+        if available < 4 {
+            engine.unloadModel()
         }
     }
 

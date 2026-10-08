@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
@@ -64,19 +64,22 @@ impl CharScorer {
         Self::assemble(cfg, vocab, vb, device, None)
     }
 
-    /// `.qjm`：容器 mmap 一次，三节各自切片；张量搬上设备后容器就可以丢了。有 8 位那一节就走 8 位（中间量 f32，`dtype` 不管用）。
+    /// `.qjm`：容器 mmap 一次，三节各自切片。fp16 / f32 的张量搬上设备后容器就可以丢了；
+    /// 有 8 位那一节就走 8 位，权重一直读映射（容器随模型活着，中间量 f32，`dtype` 不管用）。
     fn load_packed(path: &Path, dtype: DType, device: Device) -> Result<Self, NeuralError> {
-        let container = Container::open(path, Kind::Model)?;
+        let container = Arc::new(Container::open(path, Kind::Model)?);
         let cfg = ModelConfig::from_json(&container.text(qjm::CONFIG_TAG)?, path)?;
         let vocab = Vocab::from_json(&container.text(qjm::VOCAB_TAG)?, path)?;
         let metadata = Some(container.metadata().clone());
-        if let Ok(bytes) = container.bytes(qjm::QUANTIZED_TAG) {
+        if container.bytes(qjm::QUANTIZED_TAG).is_ok() {
             if vocab.len() != cfg.vocab_size {
                 return Err(NeuralError::Corrupt("vocab size differs from config"));
             }
-            let weights = QuantizedWeights::read(bytes, &device)?;
+            // 8 位的乘法是 CPU 上的 Q8_0 内核（读映射），开了 metal 也留在 CPU：放 GPU 上每层都要来回搬
+            let _ = device;
+            let weights = QuantizedWeights::map(container, Device::Cpu)?;
             return Ok(Self::with_model(
-                CharLm::load_quantized(weights, cfg, device)?,
+                CharLm::load_quantized(weights, cfg, Device::Cpu)?,
                 vocab,
                 metadata,
             ));
@@ -155,7 +158,6 @@ impl CharScorer {
             }
         }
         let idx = Tensor::from_vec(flat, (batch, width), self.model.device())?;
-        let targets = Tensor::from_vec(targets, (batch, width, 1), self.model.device())?;
         let mut guard = self
             .cache
             .lock()
@@ -165,12 +167,11 @@ impl CharScorer {
             *guard = Some((head, cache));
         }
         let (_, cache) = guard.as_ref().expect("filled above");
-        let lp = self.model.log_probs_after(cache, &idx)?;
+        let picked = self.model.target_log_probs_after(cache, &idx, &targets)?;
         drop(guard);
-        let picked = lp.gather(&targets, 2)?.squeeze(2)?.to_vec2::<f32>()?;
         Ok(tails
             .iter()
-            .zip(picked)
+            .zip(picked.chunks(width))
             .map(|(tail, row)| row[..tail.len()].iter().map(|&v| f64::from(v)).sum())
             .collect())
     }

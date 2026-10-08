@@ -1,8 +1,9 @@
-//! 字嵌入表：输入查表与输出层共用同一份权重（共享嵌入）。8 位时两边共用同一份 Q8_0 张量，不各存一份。
+//! 字嵌入表：输入查表与输出层共用同一份权重（共享嵌入）。8 位时两边读同一块映射，不各存一份。
 
-use candle_core::quantized::QMatMul;
 use candle_core::{Module, Result, Tensor};
 use candle_nn::{Embedding, Linear};
+
+use crate::mapped_matrix::MappedMatrix;
 
 pub(super) enum TokenTable {
     Dense {
@@ -12,7 +13,7 @@ pub(super) enum TokenTable {
         head: Linear,
     },
 
-    Quantized(QMatMul),
+    Mapped(MappedMatrix),
 }
 
 impl TokenTable {
@@ -20,7 +21,7 @@ impl TokenTable {
     pub(super) fn embed(&self, idx: &Tensor) -> Result<Tensor> {
         match self {
             Self::Dense { embedding, .. } => embedding.forward(idx),
-            Self::Quantized(table) => table.embedding(idx),
+            Self::Mapped(table) => table.embedding(idx),
         }
     }
 
@@ -28,7 +29,7 @@ impl TokenTable {
     pub(super) fn logits(&self, x: &Tensor) -> Result<Tensor> {
         match self {
             Self::Dense { head, .. } => head.forward(x),
-            Self::Quantized(table) => table.forward(x),
+            Self::Mapped(table) => table.matmul(x),
         }
     }
 }

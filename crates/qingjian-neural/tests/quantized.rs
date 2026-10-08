@@ -96,3 +96,36 @@ fn eight_bit_matches_fp16_and_the_fake_quantized_reference() {
         assert!(vs_fake >= 0.95, "{q8:?}\n{fake:?}");
     }
 }
+
+/// 按块算目标字 log 概率（`score_p2c` 走的路）与摊开整张 log-softmax 再 gather 同值。
+#[test]
+fn chunked_target_log_probs_match_the_full_softmax() {
+    let Some(dir) = env_dir("QJ_TONGBIAN") else {
+        eprintln!("没给 QJ_TONGBIAN，跳过");
+        return;
+    };
+    let scorer = CharScorer::load(&pack(&dir, "q8-chunk.qjm", true)).unwrap();
+    let model = scorer.model();
+    let vocab = scorer.vocab();
+    let head: Vec<u32> = std::iter::once(0)
+        .chain(vocab.encode("zhegecanguan"))
+        .collect();
+    let cache = model.prefix_cache(&head).unwrap();
+    // 19 行：跨过两个块边界
+    let ids: Vec<u32> = vocab.encode("这个餐馆的电话是什么这个参观的电话是什么呀");
+    let (b, t) = (1, 19);
+    let idx = candle_core::Tensor::from_vec(ids[..b * t].to_vec(), (b, t), model.device()).unwrap();
+    let targets: Vec<u32> = ids[1..=b * t].to_vec();
+    let chunked = model
+        .target_log_probs_after(&cache, &idx, &targets)
+        .unwrap();
+    let full = model
+        .log_probs_after(&cache, &idx)
+        .unwrap()
+        .to_vec3::<f32>()
+        .unwrap();
+    for (i, (&got, &target)) in chunked.iter().zip(&targets).enumerate() {
+        let want = full[0][i][target as usize];
+        assert!((got - want).abs() < 1e-4, "{i}: {got} vs {want}");
+    }
+}
