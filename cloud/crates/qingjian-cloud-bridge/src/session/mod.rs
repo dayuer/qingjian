@@ -20,6 +20,7 @@ use self::memory::LiveMemory;
 use self::model::ModelState;
 
 pub use self::model::{MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING};
+pub use self::rescore::DEBOUNCE as RESCORE_DEBOUNCE;
 
 pub use self::memory::DroppedNotes;
 use crate::clipboard::Clipboard;

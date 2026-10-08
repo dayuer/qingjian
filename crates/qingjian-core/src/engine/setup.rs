@@ -287,10 +287,20 @@ impl Engine {
     /// 运行时换 / 卸异步重打分器（壳里模型在后台加载完才接上，配置关掉就卸）。
     pub fn set_async_sentence_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
         self.sentence_scorer = None;
-        self.rescorer = scorer.map(super::rescoring::RescoreWorker::spawn);
+        let notify = self.rescore_notify.clone();
+        self.rescorer = scorer.map(|scorer| super::rescoring::RescoreWorker::spawn(scorer, notify));
         self.sentence_awaiting = None;
         *self.neural_cache.borrow_mut() = super::rescoring::NeuralCache::default();
         self.forget_span_cache();
+    }
+
+    /// 后台打分算完一条时的回调（在后台线程上调；`None` 清掉）。壳在回调里把 [`Self::poll_rescoring`] 排进主线程，
+    /// 停键到重排就只剩打分本身的时间，不再等定时轮询的相位。
+    pub fn set_rescore_notifier(&mut self, notify: Option<super::rescoring::RescoreNotify>) {
+        *self
+            .rescore_notify
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = notify;
     }
 
     /// 开关神经模型的自由生成（缺省开）；关掉后只给词图的整句路径重排，见 `sentence_generation` 字段。

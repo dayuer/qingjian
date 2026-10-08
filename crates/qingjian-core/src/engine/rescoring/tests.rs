@@ -238,6 +238,32 @@ fn generation_off_still_rescores_but_never_generates() {
     assert_eq!(items[1].kind, CandidateKind::Generated);
 }
 
+/// 异步打分算完就调壳给的回调（在后台线程上），壳收到后来取，结果已经在信道里。
+#[test]
+fn notifier_fires_when_async_scores_are_ready() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n一起\tyi qi\t80000\n去\tqu\t70000\n我\two\t90000\n们\tmen\t100\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_async_sentence_scorer(Some(Box::new(PrefersAndGenerates("我们一起去", &[]))));
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tx = std::sync::Mutex::new(tx);
+    engine.set_rescore_notifier(Some(Box::new(move || {
+        let _ = tx.lock().unwrap().send(());
+    })));
+    engine.set_input("womenyiqiqu");
+    engine.query().unwrap();
+    assert!(engine.request_rescoring());
+    rx.recv_timeout(std::time::Duration::from_secs(5))
+        .expect("回调没来");
+    assert!(engine.poll_rescoring());
+    assert_eq!(
+        engine.query().unwrap().candidates.items[0].text,
+        "我们一起去"
+    );
+}
+
 /// 记下每次打分的按键条件。
 struct RecordsKeys(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
 

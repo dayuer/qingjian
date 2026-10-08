@@ -127,12 +127,38 @@ final class KeyboardModel {
 
     init(engine: Engine?) {
         self.engine = engine
+        listenForRescore()
+    }
+
+    /// 停键重排的一次性定时器：每次改缓冲重排一次，停键 `Engine.rescoreDebounce` 才送去打分。
+    @ObservationIgnored private var rescoreWork: DispatchWorkItem?
+
+    /// 本地整句模型打完分就重画候选（桥在打分线程上通知，这里已回到主线程）。
+    private func listenForRescore() {
+        engine?.onRescored { [weak self] in self?.rescoreTick() }
+    }
+
+    private func rescoreTick() {
+        guard let engine, composing else { return }
+        if engine.rescoreTick() { candidates = engine.candidates }
+    }
+
+    /// 每键之后排一拍；连打时前一拍作废，不在按键回调里算任何东西。
+    private func scheduleRescore() {
+        rescoreWork?.cancel()
+        guard composing else { return }
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.rescoreTick() }
+        }
+        rescoreWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Engine.rescoreDebounce, execute: work)
     }
 
     /// 换一个引擎（完全访问开关或连接配置变了，学习数据目录与云端都要重开）；旧的先落盘。
     func replaceEngine(_ engine: Engine?) {
         self.engine?.flush()
         self.engine = engine
+        listenForRescore()
         if privateField { engine?.setPrivate(true) }
         let shown = EngineDisplay.afterReplace(hasEngine: engine != nil, preedit: preedit, candidates: candidates)
         if shown.preedit != preedit { sink.setMarked(shown.preedit) }
@@ -905,6 +931,7 @@ final class KeyboardModel {
         if next != preedit { sink.setMarked(next) }
         preedit = next
         candidates = engine.candidates
+        scheduleRescore()
         if !composing, panel == .candidates { panel = .keys }
         if composing {
             quickOpen = false

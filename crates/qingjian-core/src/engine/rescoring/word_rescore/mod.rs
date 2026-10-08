@@ -47,7 +47,8 @@ impl Engine {
     /// 运行时换 / 卸异步知微（壳里模型后台加载完才接上，配置关掉就卸）。
     pub fn set_async_word_scorer(&mut self, scorer: Option<Box<dyn SentenceScorer>>) {
         self.word_scorer = None;
-        self.word_rescorer = scorer.map(RescoreWorker::spawn);
+        let notify = self.rescore_notify.clone();
+        self.word_rescorer = scorer.map(|scorer| RescoreWorker::spawn(scorer, notify));
         self.word_awaiting = None;
         *self.word_cache.borrow_mut() = NeuralCache::default();
     }

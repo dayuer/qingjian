@@ -6,7 +6,7 @@ use std::io::BufRead;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use qingjian_cloud_bridge::{MODEL_ACTIVE, Session};
+use qingjian_cloud_bridge::{MODEL_ACTIVE, RESCORE_DEBOUNCE, Session};
 
 fn pause(stage: &str) {
     println!("{stage}");
@@ -35,18 +35,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
+    // 照键盘：打分线程算完就通知，这里用信道等通知，收到后再调一拍取结果
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tx = std::sync::Mutex::new(tx);
+    session.set_rescore_notify(Some(Box::new(move || {
+        let _ = tx.lock().unwrap().send(());
+    })));
     pause("loaded");
     let mut rescored = 0;
+    let mut keystrokes: Vec<u128> = Vec::new();
     let mut waits = Vec::new();
     for sentence in &keys {
         for c in sentence.chars() {
+            let key = Instant::now();
             session.push(c);
-            session.poll();
+            keystrokes.push(key.elapsed().as_micros());
         }
         let typed = Instant::now();
-        for _ in 0..8 {
-            std::thread::sleep(Duration::from_millis(250));
-            if session.poll() {
+        while rx.try_recv().is_ok() {}
+        // 键盘的一次性定时器：停键 DEBOUNCE 后一拍送去打分；通知来了再一拍取结果
+        std::thread::sleep(RESCORE_DEBOUNCE);
+        session.rescore_tick();
+        while rx.recv_timeout(Duration::from_secs(2)).is_ok() {
+            if session.rescore_tick() {
                 rescored += 1;
                 waits.push(typed.elapsed().as_millis());
                 break;
@@ -66,6 +77,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         keys.len(),
         pick(0.5),
         pick(0.95)
+    );
+    keystrokes.sort_unstable();
+    eprintln!(
+        "按键 {} 次 p50 {:.1} p95 {:.1} ms",
+        keystrokes.len(),
+        keystrokes[keystrokes.len() / 2] as f64 / 1000.0,
+        keystrokes[keystrokes.len() * 95 / 100] as f64 / 1000.0
     );
     pause("typed");
     Ok(())

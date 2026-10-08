@@ -1,6 +1,6 @@
-//! 本地整句模型的异步重排：键盘控制器每 250ms 调一次 `qj_poll`，这里在那一拍里接上加载好的模型、
-//! 停键够久就把整句路径送去后台打分、分回来了就只重排本地候选（云端插进来的词原样留着，不再发一次云请求）。
-//! 照的是 Mac 壳 `host/model` 的防抖 + 轮询，只是借了现成的定时器。
+//! 本地整句模型的异步重排：壳在停键 [`DEBOUNCE`] 后调一拍 [`Session::rescore_tick`] 把整句路径送去后台打分，
+//! 打分线程算完就调壳设的回调（[`Session::set_rescore_notify`]），壳在主线程上再调一拍取结果、只重排本地候选
+//! （云端插进来的词原样留着，不再发一次云请求）。`qj_poll` 的 250ms 定时器也顺带调它，回调丢了也不至于不重排。
 
 use std::time::Duration;
 
@@ -8,12 +8,17 @@ use super::cloud::CLOUD_POSITION;
 use super::{MAX_CANDIDATES, Session};
 use crate::entry::Entry;
 
-/// 最后一次改缓冲后停这么久才送去打分：连打时不白算，又在 250ms 的轮询里最多晚一拍。
-const DEBOUNCE: Duration = Duration::from_millis(150);
+/// 最后一次改缓冲后停这么久才送去打分：连打时不白算（与 Mac 壳一致）。壳的一次性定时器按这个数排。
+pub const DEBOUNCE: Duration = Duration::from_millis(80);
 
 impl Session {
-    /// 轮询一拍：分回来了重排本地候选并返回 `true`（候选栏要重画）。
-    pub(super) fn poll_rescoring(&mut self) -> bool {
+    /// 后台打分算完时在后台线程上调的回调；`None` 清掉。壳在回调里把 [`Self::rescore_tick`] 排进主线程。
+    pub fn set_rescore_notify(&mut self, notify: Option<Box<dyn Fn() + Send + Sync>>) {
+        self.engine.set_rescore_notifier(notify);
+    }
+
+    /// 一拍：分回来了重排本地候选并返回 `true`（候选栏要重画）；停键够久且有没打分的路径就送去打分。
+    pub fn rescore_tick(&mut self) -> bool {
         self.attach_loaded_model();
         if !self.composing() {
             return false;

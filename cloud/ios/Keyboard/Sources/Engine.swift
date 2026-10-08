@@ -30,8 +30,37 @@ final class Engine {
         session = opened
     }
 
+    /// 后台打分算完时在主线程上调的处理（见 `onRescored`）。
+    private var rescoreHandler: (() -> Void)?
+
+    /// 回调上下文：弱引用引擎的盒子，交给桥按地址带过线程；deinit 先清回调再放它。
+    nonisolated(unsafe) private var rescoreBox: Unmanaged<WeakEngine>?
+
     deinit {
+        qj_set_rescore_notify(session, nil, nil)
+        rescoreBox?.release()
         qj_session_free(session)
+    }
+
+    /// 停键多久送整句路径去重排（桥给的数，与 Mac 壳一致）。
+    static var rescoreDebounce: TimeInterval { Double(qj_rescore_debounce_ms()) / 1000 }
+
+    /// 重排一拍：停键 `rescoreDebounce` 后调一次送去打分，`onRescored` 的处理里再调一次取结果；候选栏要重画返回 true。
+    func rescoreTick() -> Bool { qj_rescore_tick(session) }
+
+    /// 本地整句模型打完分时在主线程上调 `handler`（打分线程算完就通知，不等 250ms 的轮询）。
+    func onRescored(_ handler: @escaping () -> Void) {
+        rescoreHandler = handler
+        guard rescoreBox == nil else { return }
+        let box = Unmanaged.passRetained(WeakEngine(self))
+        rescoreBox = box
+        qj_set_rescore_notify(session, { context in
+            guard let context else { return }
+            let box = Unmanaged<WeakEngine>.fromOpaque(context).takeUnretainedValue()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { box.engine?.rescoreHandler?() }
+            }
+        }, box.toOpaque())
     }
 
     var composing: Bool { qj_composing(session) }
@@ -159,4 +188,11 @@ final class Engine {
         guard let string else { return body(nil) }
         return string.withCString { body($0) }
     }
+}
+
+/// 桥的回调上下文：只弱引用引擎，引擎没了回调就什么也不做。
+final class WeakEngine: @unchecked Sendable {
+    weak var engine: Engine?
+
+    init(_ engine: Engine) { self.engine = engine }
 }

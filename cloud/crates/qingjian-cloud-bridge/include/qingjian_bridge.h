@@ -44,6 +44,11 @@ bool qj_cloud_enabled(QjSession *session);
 bool qj_load_model(QjSession *session, const char *path, bool p2c);
 uint8_t qj_model_state(QjSession *session);
 void qj_unload_model(QjSession *session);
+// 停键重排：每键之后按 qj_rescore_debounce_ms() 排一次性定时器调 qj_rescore_tick 送去打分；
+// 打分线程算完在**后台线程**上调 notify(context)，壳在里面把 qj_rescore_tick 排进主线程取结果。返回 true 要重画候选。
+bool qj_rescore_tick(QjSession *session);
+uint32_t qj_rescore_debounce_ms(void);
+void qj_set_rescore_notify(QjSession *session, void (*notify)(void *context), void *context);
 // 内存吃紧先卸英文表（约 13MB），下次像英文的输入自动再加载；还紧再卸模型。
 void qj_unload_english(QjSession *session);
 // 模型自报的内存占用（MB）；没加载返回 0。调试面板显示用。

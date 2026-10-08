@@ -141,6 +141,9 @@ pub struct Engine {
     /// 读不通的整段让模型自由生成整句（缺省开）。iOS 键盘关掉：生成要逐字 beam，K / V 缓存比只重排几条路径多 20MB 以上，键盘扩展放不下。
     sentence_generation: bool,
 
+    /// 后台打分算完时的回调（见 [`Self::set_rescore_notifier`]），与打分线程共用。
+    rescore_notify: rescoring::NotifySlot,
+
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
 
@@ -453,6 +456,7 @@ impl Engine {
             sentence_scorer: None,
             rescorer: None,
             sentence_generation: true,
+            rescore_notify: rescoring::NotifySlot::default(),
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,

@@ -127,7 +127,7 @@ impl Session {
         if let Some(uploader) = &self.uploader {
             uploader.kick();
         }
-        let rescored = self.poll_rescoring();
+        let rescored = self.rescore_tick();
         self.apply_inbox();
         let rescoped = self.poll_memory();
         // 设置变了（主 App 改的或从 Mac 同步来的）、App 删了当前对象（换了叠加层），候选要重排
