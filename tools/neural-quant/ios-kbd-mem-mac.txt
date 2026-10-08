@@ -1,0 +1,104 @@
+== before
+======================================================================
+keyboard_probe [8093]: 64-bit    Footprint: 2212224 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+   475136 B           0 B           0 B        339    __DATA_CONST
+   376832 B           0 B           0 B          3    MALLOC_SMALL
+   352025 B           0 B           0 B        284    __DATA_DIRTY
+   278912 B           0 B           0 B          1    page table
+   262144 B           0 B           0 B          8    MALLOC metadata
+   158197 B           0 B           0 B        297    __DATA
+    65536 B           0 B           0 B          1    MALLOC_TINY
+    65536 B           0 B           0 B          2    stack
+    63274 B           0 B           0 B        851    unused dyld shared cache area
+    49096 B           0 B           0 B          2    __TPRO_CONST
+    32768 B           0 B           0 B          6    untagged (VM_ALLOCATE)
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B      393216 B           0 B        348    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B        340    __AUTH_CONST
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B        148    __AUTH
+        0 B           0 B           0 B          1    mapped file
+        ---           ---           ---        ---    ---
+  2212224 B      409600 B           0 B       2640    TOTAL
+
+Auxiliary data:
+    phys_footprint: 2244992 B
+    phys_footprint_peak: 2244992 B
+
+== loaded
+======================================================================
+keyboard_probe [8093]: 64-bit    Footprint: 4735480 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+  2408448 B           0 B           0 B          6    MALLOC_SMALL
+   475136 B           0 B           0 B        339    __DATA_CONST
+   360952 B           0 B           0 B          1    page table
+   352025 B           0 B           0 B        284    __DATA_DIRTY
+   344064 B           0 B           0 B          8    MALLOC metadata
+   294912 B           0 B           0 B         30    stack
+   163840 B           0 B           0 B          1    MALLOC_TINY
+   158197 B           0 B           0 B        297    __DATA
+    63274 B           0 B           0 B        851    unused dyld shared cache area
+    49096 B           0 B           0 B          2    __TPRO_CONST
+    32768 B           0 B           0 B         34    untagged (VM_ALLOCATE)
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B    72826880 B           0 B          4    mapped file
+        0 B     1966080 B           0 B        348    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B        340    __AUTH_CONST
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B        148    __AUTH
+        0 B           0 B           0 B          1    MALLOC_LARGE
+        ---           ---           ---        ---    ---
+  4735480 B    74809344 B           0 B       2703    TOTAL
+
+Auxiliary data:
+    phys_footprint: 4768248 B
+    phys_footprint_peak: 4784632 B
+
+== typed
+======================================================================
+keyboard_probe [8093]: 64-bit    Footprint: 16990784 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 11157504 B           0 B     7667712 B          9    MALLOC_SMALL
+  3309568 B           0 B           0 B          2    MALLOC_LARGE
+   475136 B           0 B           0 B        339    __DATA_CONST
+   425984 B           0 B           0 B          8    MALLOC metadata
+   410176 B           0 B           0 B          1    page table
+   352025 B           0 B           0 B        284    __DATA_DIRTY
+   344064 B           0 B           0 B         30    stack
+   180224 B           0 B           0 B          1    MALLOC_TINY
+   158197 B           0 B           0 B        297    __DATA
+    63274 B           0 B           0 B        851    unused dyld shared cache area
+    49096 B           0 B           0 B          2    __TPRO_CONST
+    32768 B           0 B           0 B         34    untagged (VM_ALLOCATE)
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B    72826880 B           0 B          4    mapped file
+        0 B     2588672 B           0 B        348    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B        340    __AUTH_CONST
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B        148    __AUTH
+        ---           ---           ---        ---    ---
+ 16990784 B    75431936 B     7667712 B       2707    TOTAL
+
+Auxiliary data:
+    phys_footprint: 17023552 B
+    phys_footprint_peak: 25936448 B
+
