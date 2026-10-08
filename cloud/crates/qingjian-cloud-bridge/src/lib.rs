@@ -9,6 +9,9 @@ mod cloud_config;
 mod entry;
 mod error;
 mod memory;
+// TODO(Task 2)：接上会话与 C 接口后删掉这个 allow——现在还没人用，clippy 的 dead_code 会拦。
+#[allow(dead_code)]
+mod recording;
 mod rewrite;
 mod scope;
 mod session;
