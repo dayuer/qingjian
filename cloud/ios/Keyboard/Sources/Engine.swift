@@ -54,14 +54,11 @@ final class Engine {
         guard rescoreBox == nil else { return }
         let box = Unmanaged.passRetained(WeakEngine(self))
         rescoreBox = box
-        qj_set_rescore_notify(session, { context in
-            guard let context else { return }
-            let box = Unmanaged<WeakEngine>.fromOpaque(context).takeUnretainedValue()
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated { box.engine?.rescoreHandler?() }
-            }
-        }, box.toOpaque())
+        qj_set_rescore_notify(session, rescoreNotified, box.toOpaque())
     }
+
+    /// 回到主线程后真正处理通知（`rescoreNotified` 排过来）。
+    fileprivate func handleRescored() { rescoreHandler?() }
 
     var composing: Bool { qj_composing(session) }
 
@@ -187,6 +184,16 @@ final class Engine {
     ) -> T {
         guard let string else { return body(nil) }
         return string.withCString { body($0) }
+    }
+}
+
+/// 桥在**打分线程**上调的 C 回调。必须是 nonisolated 的顶层函数：写成 `@MainActor` 方法里的闭包会被推断成主线程隔离，
+/// Swift 在后台线程上调它时做隔离检查直接 trap（模拟器浸泡测出的崩溃，栈顶 `_dispatch_assert_queue_fail`）。
+private nonisolated func rescoreNotified(_ context: UnsafeMutableRawPointer?) {
+    guard let context else { return }
+    let box = Unmanaged<WeakEngine>.fromOpaque(context).takeUnretainedValue()
+    DispatchQueue.main.async {
+        MainActor.assumeIsolated { box.engine?.handleRescored() }
     }
 }
 

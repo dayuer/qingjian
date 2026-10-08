@@ -363,12 +363,13 @@ pub unsafe extern "C" fn qj_model_memory_mb(_session: *mut Session) -> f64 {
 /// 无参数，随便调。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_available_memory_mb() -> f64 {
-    // Apple 平台独有；返回字节数，不可用时是 SIZE_MAX
+    // Apple 平台独有；返回字节数，不可用时是 SIZE_MAX。没有内存上限的进程（模拟器里的扩展、Mac 上的测试）给 0：
+    // 当成「余量 0」会让键盘一启动就把模型和英文表卸掉，所以也按拿不到算
     unsafe extern "C" {
         fn os_proc_available_memory() -> usize;
     }
     let bytes = unsafe { os_proc_available_memory() };
-    if bytes == usize::MAX {
+    if bytes == usize::MAX || bytes == 0 {
         -1.0
     } else {
         bytes as f64 / 1_048_576.0
