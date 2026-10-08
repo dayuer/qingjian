@@ -101,6 +101,26 @@ final class KeyboardShots: XCTestCase {
         shot("01-quick-picks")
     }
 
+    /// 「记录中 / 已暂停」（设计稿 05 的 2a / 2b）：点牌子后面的标记暂停，提示条出现；再点「一直暂停」。
+    /// 前提：`seed.py --recording`（造一份 `logs = true` 的 cloud.toml——真登录要建空间拿令牌，走查里不划算）。
+    func testRecordingBadge() throws {
+        let app = XCUIApplication()
+        guard let field = openTryTypingField(app) else { return }
+        field.tap()
+        wait(3)
+        shot("01-recording")
+
+        // 牌子后面的「● 记录中」（坐标量自 01-recording.png）
+        tapKey(app, 99, 521.3)
+        wait(2.5)
+        shot("01-paused-banner")
+
+        // 提示条右端的「一直暂停」（坐标量自 01-paused-banner.png）
+        tapKey(app, 348, 478.7)
+        wait(2.5)
+        shot("01-paused-forever")
+    }
+
     /// 点键打 `kaoshi`：应出候选栏与记忆提示行（提示行的文案来自 App Group 里的卡片）。
     func testKeyboardTyping() throws {
         let app = XCUIApplication()
