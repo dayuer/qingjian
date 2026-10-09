@@ -106,6 +106,13 @@ pub(crate) fn view(settings: &Settings, context: &mut ViewContext<Settings>) -> 
                 .on_toggled(context.callback(Message::Traditional)),
         ),
         field(
+            "候选后面显示 emoji",
+            "开着时有对应 emoji 的词后面跟一两个（kaixin → 开心 😄）；关掉候选里只有字词。",
+            ToggleSwitch::new()
+                .is_on(g.emoji)
+                .on_toggled(context.callback(Message::Emoji)),
+        ),
+        field(
             "中文模式标点转全角",
             "没在打拼音时敲 , . ? ! 等出「，。？！」，数字后面的点保持半角；悬浮状态条的「，。」格也能切，切的是当前模式那份。",
             ToggleSwitch::new()

@@ -144,6 +144,9 @@ pub enum Setting {
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
 
+    /// `[general] emoji`，勾选框：候选后面配 emoji。
+    Emoji,
+
     /// `[general] horizontal_grid`，勾选框：横排时上 / 下键展开成多行矩阵。
     HorizontalGrid,
 
@@ -253,6 +256,7 @@ impl Setting {
             Self::Preedit => 13,
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
+            Self::Emoji => 71,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
             Self::TranslationKeys => 15,
@@ -331,6 +335,7 @@ impl Setting {
             13 => Self::Preedit,
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
+            71 => Self::Emoji,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
             15 => Self::TranslationKeys,
@@ -434,6 +439,7 @@ mod tests {
             Setting::ShuangpinRawPreedit,
             Setting::EnterCommitsCandidate,
             Setting::Traditional,
+            Setting::Emoji,
             Setting::VerboseLog,
             Setting::OpenLogDirectory,
             Setting::CopyDiagnostics,

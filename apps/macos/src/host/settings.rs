@@ -389,6 +389,9 @@ impl Host {
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }
+            (Setting::Emoji, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "emoji", on);
+            }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {
                     ShiftLetter::Compose
