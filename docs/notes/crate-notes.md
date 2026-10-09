@@ -131,6 +131,7 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
 
 candle 加载 Transformer（GPT-2 风格 decoder，导出成
 `model.safetensors` + `config.json` + `vocab.json` 三件套）。features `accelerate` / `metal` 换后端，壳用 `metal`。
+Metal 缺少 `MTLResidencySetDescriptor`（如 macOS 14）时改用 CPU/F32，避免 candle 创建设备时 panic；支持该类时仍用 Metal/F16。
 
 **8 位权重**：`dict-convert pack model --quantize` 把线性层与共享字嵌入表量化成 Q8_0（每 32 个一组 f16 尺度 + int8），其余张量 f32，
 整段写成 GGUF 放进 `.qjm` 的 `Q8GF` 节（不写 `SAFT`）。加载时有 `Q8GF` 就走 `CharLm::load_quantized`：权重不拷，
