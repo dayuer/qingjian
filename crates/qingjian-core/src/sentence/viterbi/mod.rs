@@ -114,6 +114,7 @@ pub fn convert_with(
         1,
         model,
         personal,
+        Context::START,
         weight,
         cost,
         cache,
@@ -123,6 +124,7 @@ pub fn convert_with(
 }
 
 /// 得分最高的前 `k` 条路径（最多束宽条，按得分降序，文本相同的只留一条）：给重打分用。
+/// `start` 是第一个词的上文（光标前最后一两个词；句首、标点后、私密输入时是 [`Context::START`]）。
 #[allow(clippy::too_many_arguments)]
 pub fn convert_paths(
     dictionaries: &[&Dictionary],
@@ -131,6 +133,7 @@ pub fn convert_paths(
     k: usize,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
+    first: Context<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     cache: &mut SpanCache,
@@ -237,7 +240,7 @@ pub fn convert_paths(
                 let bonus = weight_bonus(weight(&hit.text));
                 let fallback = fallback_log_prob(hit.frequency, log_total);
                 let (score, back) =
-                    best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
+                    best_predecessor(&nodes, start, &hit.text, model, personal, first, fallback);
                 let previous = &nodes[start][back];
                 let penalty = previous.penalty + hit.penalty;
                 let static_step = model
@@ -265,6 +268,7 @@ pub fn convert_paths(
                 text,
                 &NoModel,
                 Personal::NONE,
+                Context::START,
                 UNKNOWN_LOG_PROB,
             );
             let penalty = nodes[start][back].penalty;
@@ -402,18 +406,21 @@ fn reading_share(dictionaries: &[&Dictionary], text: &str, frequency: u32) -> f6
 
 /// 在 `nodes[start]` 的前驱里挑让 `word` 得分最高的那条，返回 (累计得分, 前驱下标)。
 /// 转移概率先问静态模型（不认识就用词库兜底值），再与个人 n-gram 插值；前二词是前驱自己的前驱（回指）。
+/// 第一个词（`start == 0`）的上文是 `first`（光标前的词，没有就是句首）。
+#[allow(clippy::too_many_arguments)]
 fn best_predecessor(
     nodes: &[Vec<Node>],
     start: usize,
     word: &str,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
+    first: Context<'_>,
     fallback: f64,
 ) -> (f64, usize) {
     let mut best = (f64::NEG_INFINITY, 0);
     for (index, previous) in nodes[start].iter().enumerate() {
         let context = if start == 0 {
-            Context::START
+            first
         } else {
             Context {
                 previous: Some(previous.text.as_str()),

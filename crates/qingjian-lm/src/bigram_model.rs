@@ -286,6 +286,13 @@ fn group(pairs: &[(u32, u32, u32)], word_count: usize) -> (Vec<u32>, Vec<Success
 }
 
 impl LanguageModel for BigramModel {
+    fn knows_pair(&self, previous: &str, word: &str) -> bool {
+        match (self.word_id(previous), self.word_id(word)) {
+            (Some(previous), Some(word)) => self.bigram(previous, word).is_some(),
+            _ => false,
+        }
+    }
+
     fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
         let id = self.word_id(word)?;
         let unigram = f64::from(self.entries[id as usize].count) / self.total;

@@ -23,7 +23,12 @@ impl Pair {
         if text.is_empty() || pinyin.is_empty() {
             return None;
         }
-        let context = fields.next().unwrap_or("").trim().to_owned();
+        // 上文只去行尾换行、不去空白：光标前是空格或折行时产品回到句首（query/left_context.rs），评测得看到同样的东西
+        let context = fields
+            .next()
+            .unwrap_or("")
+            .trim_end_matches(['\r', '\n'])
+            .to_owned();
         Some(Self {
             text: text.to_owned(),
             pinyin: pinyin.to_owned(),
@@ -48,5 +53,12 @@ mod tests {
         assert_eq!(pair.context, "今天，");
         assert_eq!(pair.to_line(), "我想学好\twoxiangxuehao\t今天，");
         assert!(Pair::parse("只有一列").is_none());
+    }
+
+    #[test]
+    fn keeps_trailing_whitespace_in_the_context() {
+        // 原文折行留下的空格是上文的一部分：整句不接它前面的字
+        let pair = Pair::parse("放进\tfangjin\t按  \r").unwrap();
+        assert_eq!(pair.context, "按  ");
     }
 }

@@ -1,4 +1,4 @@
-//! 宿主前文进词级排序（整句首词不用）（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md）。
+//! 宿主前文进词级排序与整句首词（素笺分叉，见 cloud/docs/specs/2026-10-04-context-prediction-design.md、docs/notes/context-eval.md）。
 
 use std::collections::HashMap;
 
@@ -20,16 +20,27 @@ impl LanguageModel for ContextModel {
             (Some("汽车"), "邮箱") => -9.0,
             (Some("发送"), "邮箱") => -2.0,
             (Some("发送"), "油箱") => -9.0,
+            // 今天 → 油箱 分数高但二元表里没有（退回一元算出来的那种）
+            (Some("今天"), "油箱") => -2.0,
+            (Some("汽车"), "罚") => -1.0,
+            (Some("罚"), "送") => -0.5,
             (_, "邮箱") => -5.0,
             (_, "油箱") => -5.4,
             (_, "汽车") | (_, "发送") | (_, "今天") => -5.0,
-            (_, "送") | (_, "发") => -8.0,
+            (_, "送") | (_, "发") | (_, "罚") => -8.0,
             _ => return None,
         })
     }
+
+    fn knows_pair(&self, previous: &str, word: &str) -> bool {
+        matches!(
+            (previous, word),
+            ("汽车", "油箱" | "邮箱" | "罚") | ("发送", "邮箱" | "油箱") | ("罚", "送")
+        )
+    }
 }
 
-const WORDS: &str = "邮箱\tyou xiang\t9000\n油箱\tyou xiang\t3000\n汽车\tqi che\t9000\n发送\tfa song\t9000\n发\tfa\t20000\n送\tsong\t20000\n今天\tjin tian\t9000\n";
+const WORDS: &str = "罚\tfa\t20000\n邮箱\tyou xiang\t9000\n油箱\tyou xiang\t3000\n汽车\tqi che\t9000\n发送\tfa song\t9000\n发\tfa\t20000\n送\tsong\t20000\n今天\tjin tian\t9000\n";
 
 fn context_engine() -> Engine {
     Engine::new(Dictionary::parse(WORDS).unwrap()).with_language_model(Box::new(ContextModel))
@@ -121,8 +132,8 @@ fn the_commit_chain_wins_over_host_context() {
 }
 
 #[test]
-fn the_sentence_first_word_ignores_the_context() {
-    // 整句首词仍按句首算：前文只给词级排序。让首词也看前文会让 --replay 整句少 3 句（见计划文件 Task 2）
+fn a_multi_word_sentence_follows_the_context() {
+    // 实验（exp/sentence-left-context-a3）：不看上文时最优本来就是多词整句，首词才接前文；见 docs/notes/context-eval.md
     let mut engine = context_engine();
     let sentence_of = |engine: &mut Engine| {
         engine.set_input("youxiangfasong");
@@ -141,7 +152,36 @@ fn the_sentence_first_word_ignores_the_context() {
     };
     assert_eq!(sentence_of(&mut engine), "邮箱发送");
     engine.history_mut().record("汽车");
-    assert_eq!(sentence_of(&mut engine), "邮箱发送");
+    assert_eq!(sentence_of(&mut engine), "油箱发送");
+}
+
+/// 整句：不看上文时最优是 `words`；接上文（`history`）后的最优是什么。
+fn sentence_after(history: &str, input: &str) -> String {
+    let mut engine = context_engine();
+    engine.history_mut().record(history);
+    engine.set_input(input);
+    engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .iter()
+        .find(|c| c.kind == CandidateKind::Sentence)
+        .expect("有整句候选")
+        .text
+        .clone()
+}
+
+#[test]
+fn an_unseen_pair_does_not_pull_the_sentence() {
+    // 今天 → 油箱 分数高但语料没见过：首词仍按句首算
+    assert_eq!(sentence_after("今天", "youxiangfasong"), "邮箱发送");
+}
+
+#[test]
+fn the_context_never_shortens_the_first_word() {
+    // 汽车 → 罚 → 送 都见过且分数高，但会把首词 发送 拆成单字 罚：不接
+    assert_eq!(sentence_after("汽车", "fasongyouxiang"), "发送邮箱");
 }
 
 fn learning_engine() -> Engine {

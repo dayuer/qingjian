@@ -80,7 +80,7 @@
   现成出口：删候选快捷键（缺省 `Shift` + 数字）走的就是 `forget_english`。
 - [ ] 日语 emoji 要等有日语输入模式
 
-- [ ] 让通变（P2C）看上文：现在训练时 `<eos>` 切断前文，整句只能从句首算；把静态 bigram 接上文试过，四把尺子与回放都变差（见 [notes/context-eval.md](../notes/context-eval.md)），要靠带前文重训模型
+- [ ] 让通变（P2C）看上文：现在训练时 `<eos>` 切断前文，整句只能从句首算；静态 bigram 有条件地接上文后分段上屏首选 +2～2.7（见 [notes/context-eval.md](../notes/context-eval.md)），剩下的弱搭配要靠带前文重训模型
 
 ## 二、产品特色
 
