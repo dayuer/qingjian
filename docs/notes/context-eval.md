@@ -40,6 +40,7 @@
 
 融合下逐条看（不分口径的明细），整句变了 4 条：shiyixia、tiaoyong、youe 三条从首选掉出，suosi（锁死 → 索斯）A4 掉、A5 修回。
 掉的三条在 clean2 里都被剔了（两条是用户事后撤销，一条删掉重打），所以 clean2 不变；suosi 没被剔，它就是 A4 融合回放 103 → 102 的那一句。
+口径说明（只留档，不作判据）：原始回放（不剔除）整句两种配置都净 −3：不带模型 104 → 101（shiyixia、tiaoyong、youjian），融合 112 → 109（shiyixia、tiaoyong、youe；suosi 与基线同为首选）；这几条在 clean2 里全被剔（撤销或删掉重打）。
 
 同音快照 `--check` 一致。
 
