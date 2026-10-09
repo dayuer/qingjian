@@ -39,9 +39,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     private var lastDocument: UUID?
 
     /// 系统在控制器走了以后还留着它的根视图（inputView），挂在上面的 SwiftUI 宿主视图、触摸层、候选栏也就一直活着，
-    /// 宿主视图里的 KeyboardView 又强引用模型 → 引擎（Rust 会话、模型映射）：键盘每出现一次就漏一整份。
+    /// 宿主视图里的 KeyboardView 又强引用模型 → 引擎（Rust 会话、模型映射、打分线程）：键盘每出现一次就漏一整份。
     /// 所以控制器析构时把根视图上的子视图全摘掉、回调清空。deinit 不在主线程隔离里，摘视图排回主线程做。
     deinit {
+        LiveCount.released("controller")
         let (root, touch, panel, bar) = (view, touchView, panelView, barView)
         DispatchQueue.main.async {
             MainActor.assumeIsolated {
@@ -64,7 +65,10 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     override func viewDidLoad() {
         super.viewDidLoad()
         engineSignature = currentSignature
+        LiveCount.created("controller")
+        PerfRecorder.shared.mark("before_engine")
         model = KeyboardModel(engine: Self.openEngine(fullAccess: hasFullAccess))
+        PerfRecorder.shared.mark("after_engine")
         model.output = self
         model.onKeyDown = { [feedback] in feedback.keyDown() }
         mountKeyboard()
@@ -258,7 +262,8 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         self.hosting = hosting
     }
 
-    /// 回调都弱引用触摸层与模型：闭包存在触摸层自己身上，强引用触摸层就是自己留住自己。
+    /// 回调都弱引用触摸层与模型：闭包存在触摸层自己身上，强引用触摸层就是自己留住自己，
+    /// 连带模型与引擎（Rust 会话、模型映射、打分线程）在键盘每次收起后都漏一份。
     private func mountTouchView() {
         let model = model!
         touchView.onPress = { [weak touchView, weak model] index in

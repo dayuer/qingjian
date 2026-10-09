@@ -51,6 +51,7 @@ pub use prediction::{
     CloudWord, NoPredictor, Prediction, PredictionKind, PredictionPolicy, PredictionRequest,
     Predictor, SurroundingText,
 };
+pub use rescoring::RescoreStats;
 
 pub use query::Query;
 pub use raw::RawPreedit;
@@ -143,6 +144,9 @@ pub struct Engine {
 
     /// 后台打分算完时的回调（见 [`Self::set_rescore_notifier`]），与打分线程共用。
     rescore_notify: rescoring::NotifySlot,
+
+    /// 最近一次取走的整句重排的分段耗时（见 [`Self::last_rescore_stats`]）。
+    last_rescore_stats: Option<rescoring::RescoreStats>,
 
     /// 「前文 + 整句文本 → 神经分」缓存，同步与异步打分共用。
     neural_cache: std::cell::RefCell<rescoring::NeuralCache>,
@@ -458,6 +462,7 @@ impl Engine {
             rescorer: None,
             sentence_generation: true,
             rescore_notify: rescoring::NotifySlot::default(),
+            last_rescore_stats: None,
             neural_cache: std::cell::RefCell::new(rescoring::NeuralCache::default()),
             rescoring_before: None,
             neural_weight: NEURAL_WEIGHT,

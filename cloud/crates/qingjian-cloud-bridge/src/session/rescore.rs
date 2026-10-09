@@ -17,6 +17,16 @@ impl Session {
         self.engine.set_rescore_notifier(notify);
     }
 
+    /// 最近一次整句重排的分段耗时，`queue=…;forward=…;main=…;paths=…;max_chars=…`（毫秒）；还没有过返回 `None`。
+    pub fn rescore_stats(&self) -> Option<String> {
+        self.engine.last_rescore_stats().map(|s| {
+            format!(
+                "queue={:.1};forward={:.1};main={:.1};paths={};max_chars={}",
+                s.queue_ms, s.forward_ms, s.main_ms, s.paths, s.max_chars
+            )
+        })
+    }
+
     /// 一拍：分回来了重排本地候选并返回 `true`（候选栏要重画）；停键够久且有没打分的路径就送去打分。
     pub fn rescore_tick(&mut self) -> bool {
         self.attach_loaded_model();

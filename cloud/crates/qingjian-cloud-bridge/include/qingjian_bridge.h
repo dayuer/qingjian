@@ -50,6 +50,8 @@ void qj_unload_model(QjSession *session);
 // 打分线程算完在**后台线程**上调 notify(context)，壳在里面把 qj_rescore_tick 排进主线程取结果。返回 true 要重画候选。
 bool qj_rescore_tick(QjSession *session);
 uint32_t qj_rescore_debounce_ms(void);
+// 最近一次整句重排的分段耗时 "queue=…;forward=…;main=…;paths=…;max_chars=…"（毫秒），没有过返回 NULL；用 qj_string_free 释放。
+char *qj_rescore_stats(QjSession *session);
 void qj_set_rescore_notify(QjSession *session, void (*notify)(void *context), void *context);
 // 内存吃紧先卸英文表（约 13MB），下次像英文的输入自动再加载；还紧再卸模型。
 void qj_unload_english(QjSession *session);

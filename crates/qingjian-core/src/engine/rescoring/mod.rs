@@ -7,6 +7,7 @@
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
 mod cache;
+mod stats;
 mod word_rescore;
 mod worker;
 
@@ -16,6 +17,7 @@ mod tests;
 use super::*;
 
 pub(crate) use cache::NeuralCache;
+pub use stats::RescoreStats;
 pub use word_rescore::WORD_NEURAL_WEIGHT;
 pub(crate) use worker::RescoreWorker;
 
@@ -171,6 +173,11 @@ impl Engine {
         true
     }
 
+    /// 最近一次被取走的整句重排的分段耗时（真机验收的日志用）。
+    pub fn last_rescore_stats(&self) -> Option<RescoreStats> {
+        self.last_rescore_stats
+    }
+
     /// 送去后台的任务还有没回来的：两个模型各一条线程，先回来的那个不代表另一个也到了。
     /// 壳和 CLI 要等它为 `false` 才算这一轮重排结束（否则后到的结果白算）；换了输入、后台线程死了时它会一直为真，所以要配超时。
     pub fn rescoring_in_flight(&self) -> bool {
@@ -199,6 +206,18 @@ impl Engine {
             {
                 continue;
             }
+            self.last_rescore_stats = Some(RescoreStats {
+                queue_ms: scored.queue_ms,
+                forward_ms: scored.forward_ms,
+                main_ms: scored.done.elapsed().as_secs_f64() * 1000.0,
+                paths: scored.texts.len(),
+                max_chars: scored
+                    .texts
+                    .iter()
+                    .map(|t| t.chars().count())
+                    .max()
+                    .unwrap_or(0),
+            });
             for (text, score) in scored.texts.iter().zip(scored.scores) {
                 cache.insert(text, score);
             }
