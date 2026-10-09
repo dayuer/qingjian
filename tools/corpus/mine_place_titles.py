@@ -22,9 +22,10 @@ from opencc import OpenCC
 
 HAN = re.compile(r"^[一-鿿]+$")
 # 地标与机构的后缀（挑对输入法有用的：出行、订酒店、逛景点、去机构办事）
-# 单字后缀（要求标题 ≥3 字，避开「斯塔」这类两字碎片）：店 / 路 / 街 是 2026-10-09 补的，
-# 外部对话集里「四季民福烤鸭店」「北京亚运村店」这类「专名 + 行业后缀」缺的就是它们
-SINGLE_CHAR_TAILS = ("寺", "庙", "塔", "桥", "湖", "山", "岛", "湾", "店", "路", "街")
+# 单字后缀（要求标题 ≥3 字，避开「斯塔」这类两字碎片）：`店` 是 2026-10-09 补的。
+# `路` / `街` 试过但**整体不收**：抽出来的多是港台路段（三民路 / 北屯路 / 汀角路 / 佐治街），
+# 对简体大陆用户价值低（审计裁定 ①）
+SINGLE_CHAR_TAILS = ("寺", "庙", "塔", "桥", "湖", "山", "岛", "湾", "店")
 TAILS = (
     "公园", "广场", "纪念馆", "纪念堂", "博物馆", "展览馆", "美术馆", "图书馆", "科技馆",
     "大酒店", "酒店", "饭店", "宾馆", "大厦", "大楼", "中心", "商场", "广场",
@@ -113,8 +114,17 @@ def main() -> int:
         print(f"候选 {len(mentions)} 条写到 {args.dump}", file=sys.stderr)
     # 前缀必须是现有的专名/地名/机构表里的条目（「青山」+「公路」可以，「一带」+「一路」不行）：
     # 路 / 街 / 店 这类后缀噪声最大，不卡前缀就会收进一堆恰好以它结尾的普通词（2026-10-09 审计要求）
-    prefix = set(existing) | set(others)
-    for extra in (ROOT / "assets/lexicon/brand.tsv", ROOT / "assets/lexicon/domain_words.tsv"):
+    # 前缀集合只用**专名表**：地名 / 机构（places 与其它 03_domains 里的专名表）+ 品牌。
+    # 不含领域词表 —— 否则「蛋糕 + 店」「烤肉 + 店」这类通用词 + 后缀也会过（2026-10-09 审计裁定 ②）
+    proper = [ROOT / "assets/lexicon/03_domains/places.tsv",
+              ROOT / "assets/lexicon/03_domains/historical_figures.tsv"]
+    prefix = set()
+    for table in proper:
+        if table.exists():
+            for line in table.read_text(encoding="utf-8-sig").splitlines():
+                if line.strip() and not line.startswith("#"):
+                    prefix.add(line.split("\t")[0].strip())
+    for extra in (ROOT / "assets/lexicon/brand.tsv",):
         if extra.exists():
             for line in extra.read_text(encoding="utf-8-sig").splitlines():
                 if line.strip() and not line.startswith("#"):
