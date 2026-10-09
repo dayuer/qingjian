@@ -1,10 +1,14 @@
 //! `Learner` trait 的实现：Engine 上屏 / 撤销 / 删候选时调进来的记账。
 
-use super::*;
+use qingjian_core::sentence::{Context, UserNgram};
+use qingjian_core::{Candidate, Forgotten, Learner};
+use qingjian_dictionary::{Dictionary, WordList};
+
+use super::{FrequencyLearner, MAX_CHOICE_ENTRIES, RAW_MARK, bump};
 
 impl Learner for FrequencyLearner {
     fn record(&mut self, candidate: &Candidate) {
-        *self.counts.entry(candidate.text.clone()).or_default() += 1;
+        bump(self.counts.entry(candidate.text.clone()).or_default());
         self.dirty = true;
         tracing::debug!(text = %candidate.text, "记录用户选择");
     }
@@ -17,12 +21,13 @@ impl Learner for FrequencyLearner {
         if input.is_empty() || text.is_empty() {
             return;
         }
-        *self
-            .choices
-            .entry(input.to_owned())
-            .or_default()
-            .entry(text.to_owned())
-            .or_default() += 1;
+        bump(
+            self.choices
+                .entry(input.to_owned())
+                .or_default()
+                .entry(text.to_owned())
+                .or_default(),
+        );
         self.choices_dirty = true;
         if self.choice_count() > MAX_CHOICE_ENTRIES {
             self.decay_choices();
@@ -103,7 +108,7 @@ impl Learner for FrequencyLearner {
             .english
             .entry(word.to_ascii_lowercase())
             .or_insert_with(|| (word.to_owned(), 0));
-        entry.1 += 1;
+        bump(&mut entry.1);
         let count = entry.1;
         self.english_dirty = true;
         self.rebuild_english();
@@ -131,12 +136,13 @@ impl Learner for FrequencyLearner {
         if typed.is_empty() || intended.is_empty() {
             return;
         }
-        *self
-            .typos
-            .entry(typed.to_owned())
-            .or_default()
-            .entry(intended.to_owned())
-            .or_default() += 1;
+        bump(
+            self.typos
+                .entry(typed.to_owned())
+                .or_default()
+                .entry(intended.to_owned())
+                .or_default(),
+        );
         self.typos_dirty = true;
         tracing::debug!(typed, intended, "记录敲错");
     }

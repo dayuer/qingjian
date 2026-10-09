@@ -1,3 +1,6 @@
+use qingjian_core::sentence::Context;
+use qingjian_core::{Candidate, Learner};
+
 use super::*;
 
 fn candidate(text: &str) -> Candidate {
@@ -295,4 +298,62 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
     );
     let saved = std::fs::read_to_string(FrequencyLearner::english_path(&path)).unwrap();
     assert!(saved.contains("gist\t2"));
+}
+
+/// 同步出错累加出来的计数（真机上见过 `问题\t246018884`）读入时当坏行跳过，下次落盘就没了；正常的行照读。
+#[test]
+fn counts_over_the_cap_are_skipped_on_load() {
+    let dir = std::env::temp_dir().join(format!("qingjian-count-cap-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+    let over = MAX_LEARNED_COUNT + 1;
+    std::fs::write(&path, format!("问题\t246018884\n开发\t{over}\n中文\t3\n")).unwrap();
+    std::fs::write(
+        dir.join(USER_CHOICES_FILE),
+        format!("wt\t问题\t{over}\nba\t吧\t2\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(USER_TYPOS_FILE),
+        format!("gan\tguan\t{over}\nhs\tshi\t1\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(USER_ENGLISH_FILE),
+        format!("rust\t{over}\ngist\t2\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(USER_NGRAM_FILE),
+        format!("我\t问题\t{over}\n我\t想\t2\n我\t想\t{MAX_LEARNED_COUNT}\n"),
+    )
+    .unwrap();
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(learner.weight("问题"), 0);
+    assert_eq!(learner.weight("开发"), 0);
+    assert_eq!(learner.weight("中文"), 3);
+    assert_eq!(learner.choice_weight("wt", "问题"), 0);
+    assert_eq!(learner.choice_weight("ba", "吧"), 2);
+    assert_eq!(learner.typo_count("gan", "guan"), 0);
+    assert_eq!(learner.typo_count("hs", "shi"), 1);
+    assert_eq!(learner.english_count(), 1);
+    let ngram = learner.user_ngram().unwrap();
+    assert_eq!(ngram.pair(Some("我"), "问题"), 0);
+    // 重复的行相加也封顶，不会绕回去
+    assert_eq!(ngram.pair(Some("我"), "想"), MAX_LEARNED_COUNT);
+
+    learner.record(&candidate("中文"));
+    learner.flush();
+    let saved = std::fs::read_to_string(&path).unwrap();
+    assert!(!saved.contains("问题"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn recording_stops_at_the_cap() {
+    let mut learner = FrequencyLearner::parse(&format!("问题\t{MAX_LEARNED_COUNT}\n"));
+    learner.record(&candidate("问题"));
+    assert_eq!(learner.weight("问题"), MAX_LEARNED_COUNT);
 }

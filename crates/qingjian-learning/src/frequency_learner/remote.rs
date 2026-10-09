@@ -7,8 +7,8 @@
 
 use std::collections::BTreeMap;
 
-use qingjian_core::Learner;
 use qingjian_core::sentence::UserNgram;
+use qingjian_core::{Learner, MAX_LEARNED_COUNT};
 
 use super::{FrequencyLearner, data_lines};
 
@@ -26,19 +26,20 @@ impl FrequencyLearner {
                 continue;
             };
             let delta = delta.trim().parse::<i64>().ok();
-            match (fields.as_slice(), delta) {
+            let recognized = match (fields.as_slice(), delta) {
                 (["user", "add", text, _], Some(delta)) => {
                     let count = self.counts.entry((*text).to_owned()).or_default();
-                    adjust(count, delta);
+                    let within = adjust(count, delta);
                     if *count == 0 {
                         self.counts.remove(*text);
                     }
                     self.dirty = true;
+                    within
                 }
                 (["choices", "add", input, text, _], Some(delta)) => {
                     let texts = self.choices.entry((*input).to_owned()).or_default();
                     let count = texts.entry((*text).to_owned()).or_default();
-                    adjust(count, delta);
+                    let within = adjust(count, delta);
                     if *count == 0 {
                         texts.remove(*text);
                     }
@@ -46,11 +47,12 @@ impl FrequencyLearner {
                         self.choices.remove(*input);
                     }
                     self.choices_dirty = true;
+                    within
                 }
                 (["typos", "add", typed, intended, _], Some(delta)) => {
                     let intended_counts = self.typos.entry((*typed).to_owned()).or_default();
                     let count = intended_counts.entry((*intended).to_owned()).or_default();
-                    adjust(count, delta);
+                    let within = adjust(count, delta);
                     if *count == 0 {
                         intended_counts.remove(*intended);
                     }
@@ -58,6 +60,7 @@ impl FrequencyLearner {
                         self.typos.remove(*typed);
                     }
                     self.typos_dirty = true;
+                    within
                 }
                 (["english", "add", word, _], Some(delta)) => {
                     let code = word.to_ascii_lowercase();
@@ -65,32 +68,39 @@ impl FrequencyLearner {
                         .english
                         .entry(code.clone())
                         .or_insert_with(|| ((*word).to_owned(), 0));
-                    adjust(&mut entry.1, delta);
+                    let within = adjust(&mut entry.1, delta);
                     if entry.1 == 0 {
                         self.english.remove(&code);
                     }
                     english_changed = true;
+                    within
                 }
                 (["ngram", "add", ..], Some(delta)) if matches!(keys.len(), 4 | 5) => {
                     ngram.push((keys[2..].join("\t"), delta));
+                    true
                 }
                 (["words", "put", text, pinyin], _) if !pinyin.trim().is_empty() => {
                     self.words
                         .insert((*text).to_owned(), pinyin.trim().to_owned());
                     words_changed = true;
+                    true
                 }
                 (["words", "del", text], _) => {
                     words_changed |= self.words.remove(*text).is_some();
+                    true
                 }
-                _ => {
-                    skipped += 1;
-                    continue;
-                }
+                _ => false,
+            };
+            if !recognized {
+                skipped += 1;
+                continue;
             }
             applied += 1;
         }
         if !ngram.is_empty() {
-            self.merge_ngram(&ngram);
+            let rejected = self.merge_ngram(&ngram);
+            skipped += rejected;
+            applied -= rejected;
         }
         if english_changed {
             self.english_dirty = true;
@@ -108,7 +118,8 @@ impl FrequencyLearner {
 
     /// n-gram 的二元与三元在 `UserNgram` 里是一起记的，没有单独加减某一条的接口：
     /// 借它的文本格式整体导出、加上增量、再读回来（只在收到别的设备的变化时做一次）。
-    fn merge_ngram(&mut self, deltas: &[(String, i64)]) {
+    /// 加完超过 [`MAX_LEARNED_COUNT`] 的增量不要，返回不要了几条。
+    fn merge_ngram(&mut self, deltas: &[(String, i64)]) -> usize {
         let mut rows: BTreeMap<String, i64> = BTreeMap::new();
         for line in self.ngram.to_tsv().lines() {
             if let Some((key, count)) = line.rsplit_once('\t')
@@ -117,17 +128,23 @@ impl FrequencyLearner {
                 rows.insert(key.to_owned(), count);
             }
         }
+        let mut rejected = 0;
         for (key, delta) in deltas {
-            *rows.entry(key.clone()).or_default() += delta;
+            let count = rows.entry(key.clone()).or_default();
+            match count.checked_add(*delta) {
+                Some(sum) if sum <= i64::from(MAX_LEARNED_COUNT) => *count = sum,
+                _ => rejected += 1,
+            }
         }
         let tsv: String = rows
             .iter()
             .filter(|(_, count)| **count > 0)
-            .map(|(key, count)| format!("{key}\t{}\n", (*count).min(i64::from(u32::MAX))))
+            .map(|(key, count)| format!("{key}\t{count}\n"))
             .collect();
         let (ngram, _) = UserNgram::parse_lenient(&tsv);
         self.ngram = ngram;
         self.ngram_dirty = true;
+        rejected
     }
 
     /// 合并后马上落盘，确保收件箱删掉之前数据已经在磁盘上。
@@ -138,9 +155,17 @@ impl FrequencyLearner {
     }
 }
 
-/// 计数加上带符号的增量，夹在 0..=u32::MAX。
-fn adjust(count: &mut u32, delta: i64) {
-    *count = (i64::from(*count) + delta).clamp(0, i64::from(u32::MAX)) as u32;
+/// 计数加上带符号的增量，减到 0 以下按 0 算。加完超过 [`MAX_LEARNED_COUNT`] 的不加、返回 `false`：
+/// 那是别的设备同步出错累加出来的数，并进来会把这个词顶到所有候选前面。
+/// 收件箱的同步端照样把它算进了基线，下一轮看到本机没有这么多，会把差额作为负增量推回去，服务器上的坏数随之清掉。
+fn adjust(count: &mut u32, delta: i64) -> bool {
+    match i64::from(*count).checked_add(delta) {
+        Some(sum) if sum <= i64::from(MAX_LEARNED_COUNT) => {
+            *count = sum.max(0) as u32;
+            true
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -208,6 +233,31 @@ mod tests {
             learner.user_ngram().unwrap().to_tsv(),
             "我们\t开发\t3\n今天\t我们\t开发\t1\n"
         );
+    }
+
+    /// 别的设备推来的增量加完超过上限就不要（那边同步出错累加出来的），同一份收件箱里正常的行照并。
+    #[test]
+    fn deltas_that_overshoot_the_cap_are_skipped() {
+        let mut learner = FrequencyLearner::default();
+        learner.record(&candidate("问题"));
+        learner.record_transition(Context::after("我们"), "开发", 1);
+        let applied = learner.merge_inbox(&format!(
+            "user\tadd\t问题\t246018884\nuser\tadd\t开发\t2\n\
+             choices\tadd\twt\t问题\t{MAX_LEARNED_COUNT}\nchoices\tadd\tkf\t开发\t1\n\
+             english\tadd\tRust\t{over}\ntypos\tadd\ths\tshi\t{over}\n\
+             ngram\tadd\t我们\t开发\t{MAX_LEARNED_COUNT}\nngram\tadd\t今天\t开发\t1\n",
+            over = i64::from(MAX_LEARNED_COUNT) + 1,
+        ));
+        assert_eq!(applied, 4);
+        assert_eq!(learner.weight("问题"), 1);
+        assert_eq!(learner.weight("开发"), 2);
+        assert_eq!(learner.choice_weight("wt", "问题"), MAX_LEARNED_COUNT);
+        assert_eq!(learner.choice_weight("kf", "开发"), 1);
+        assert_eq!(learner.english_count(), 0);
+        assert_eq!(learner.typo_count("hs", "shi"), 0);
+        let ngram = learner.user_ngram().unwrap();
+        assert_eq!(ngram.pair(Some("我们"), "开发"), 1);
+        assert_eq!(ngram.pair(Some("今天"), "开发"), 1);
     }
 
     #[test]

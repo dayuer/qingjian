@@ -5,12 +5,17 @@
 //! 正确性靠「基线」：上次同步后双方一致的那份数据。本机增量 = 当前文件 − 基线，别的设备的增量 = 服务器值 − 基线。
 
 mod count_entry;
+mod learning_remote;
 mod learning_state;
 mod learning_sync;
 mod snapshot;
 mod table;
 
+#[cfg(test)]
+mod tests;
+
 pub use count_entry::CountEntry;
+pub(crate) use learning_remote::LearningRemote;
 pub use learning_state::LearningState;
 pub(crate) use learning_sync::{BASE_FILE, STATE_FILE};
 pub use learning_sync::{LearningOutcome, LearningSync};

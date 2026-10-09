@@ -8,9 +8,9 @@ use foldhash::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use qingjian_core::sentence::{Context, UserNgram};
+use qingjian_core::MAX_LEARNED_COUNT;
+use qingjian_core::sentence::UserNgram;
 use qingjian_core::storage::{read_text_lossy, write_atomic};
-use qingjian_core::{Candidate, Forgotten, Learner};
 use qingjian_dictionary::{Dictionary, WordList};
 
 use crate::error::LearningError;
@@ -102,7 +102,7 @@ impl FrequencyLearner {
         for line in data_lines(source) {
             match line
                 .split_once('\t')
-                .and_then(|(text, count)| Some((text, count.trim().parse::<u32>().ok()?)))
+                .and_then(|(text, count)| Some((text, parse_count(count)?)))
             {
                 Some((text, count)) => {
                     self.counts.insert(text.to_owned(), count);
@@ -116,7 +116,7 @@ impl FrequencyLearner {
     /// 从文件加载，之后 [`Learner::flush`] 会写回同一个文件。
     /// 文件不存在时返回空表，而不是报错：首次运行没有用户数据是正常的。
     ///
-    /// 各文件按行容错：格式不对的行（崩溃写坏、手改错了）记一条警告跳过，其余照读，下次落盘时就没了；
+    /// 各文件按行容错：格式不对的行（崩溃写坏、手改错了、次数超过 [`MAX_LEARNED_COUNT`]）记一条警告跳过，其余照读，下次落盘时就没了；
     /// 编码坏掉的字节按替换字符读进来交给按行解析处理。只有真正的 io 错误（权限、坏盘）才返回 `Err`，
     /// 这时壳该退回只在内存里学习，别拿空表覆盖用户的文件。
     pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, LearningError> {
@@ -208,8 +208,20 @@ fn parse_counted_pair(line: &str) -> Option<(&str, &str, u32)> {
     else {
         return None;
     };
-    let count = count.trim().parse::<u32>().ok()?;
-    Some((first, second, count))
+    Some((first, second, parse_count(count)?))
+}
+
+/// 解析一个次数；超过 [`MAX_LEARNED_COUNT`] 的不是用户真敲出来的（同步出错累加出来的），按坏行处理。
+fn parse_count(text: &str) -> Option<u32> {
+    text.trim()
+        .parse::<u32>()
+        .ok()
+        .filter(|count| *count <= MAX_LEARNED_COUNT)
+}
+
+/// 记一次：到上限就不再涨。
+fn bump(count: &mut u32) {
+    *count = count.saturating_add(1).min(MAX_LEARNED_COUNT);
 }
 
 /// 加载时跳过了坏行就记一条警告：用户能从日志里知道文件被写坏过，下次落盘会把坏行清掉。
