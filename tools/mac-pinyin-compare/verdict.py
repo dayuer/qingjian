@@ -30,7 +30,7 @@ def main() -> int:
     meta = {text: label for text, label in
             (line.split("\t") for line in (HERE / "task-300.meta.tsv").read_text(encoding="utf-8").splitlines() if line.strip())}
     ours = load_ours(LAB / "ours.jsonl")
-    mac = {expected: got for expected, _pinyin, got, *_ in
+    mac = {expected: got.replace(" ", "") for expected, _pinyin, got, *_ in
            (line.split("\t") for line in (LAB / "mac-raw.tsv").read_text(encoding="utf-8").splitlines() if line.strip())}
 
     counts = {source: {"n": 0, "ours": 0, "mac": 0, "mac_only": 0, "ours_only": 0, "both_wrong": 0} for source in SOURCES}
