@@ -209,6 +209,9 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         "数据加载完成"
     );
 
+    /// 语料里出现这么多次、却在词库里一个读音都没有的字，要整批列出来报警（不是逐字修）。
+    const MISSING_READING_ALARM: u64 = 1000;
+
     // 通用词里每个字各种读音出现的次数：多音字在词里猜读音的第一依据
     let mut common_stats: HashMap<char, HashMap<String, u32>> = HashMap::new();
     for row in &pack.common {
@@ -272,7 +275,20 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     extra.sort_unstable();
     chars.extend(extra.into_iter().map(|c| (c, None)));
     for (ch, level) in &chars {
-        let weighted = readings.weighted(*ch, MINOR_READING_SHARE);
+        let mut weighted = readings.weighted(*ch, MINOR_READING_SHARE);
+        // 「没有可用读音」有两种：Unihan 里根本没这个字，或者有读音但没有字母形式
+        // （嗯 的 ń / ňg / ǹg、诶 的 ēi）—— 两种都要用人工判定兜底，只判 empty 会漏后者（2026-10-09）
+        if weighted.iter().all(|(syllable, _)| !is_syllable(syllable)) {
+            // 字表那条路给不出结果，用人工判定（`00_meta/pinyin-corrections.jsonl`）兜底
+            if let Some(annotation) = annotations.get(&ch.to_string()) {
+                weighted = annotation
+                    .syllables
+                    .iter()
+                    .map(|syllable| (syllable.clone(), 1.0))
+                    .collect();
+                tracing::info!(ch = %ch, syllables = ?annotation.syllables, "Unihan 无读音，用人工判定兜底");
+            }
+        }
         let valid: Vec<(String, f64)> = weighted
             .into_iter()
             .filter(|(syllable, _)| is_syllable(syllable))
@@ -537,6 +553,37 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
                         .insert((entry.text.clone(), entry.syllables.clone()), entry);
                 }
             }
+        }
+    }
+
+    // 语料里常见却在词库里一个读音都没有的字：**从语料一元表出发**找，覆盖表外的字 ——
+    // 只看字表的话，像 诶（不在 8105 表里、语料 35,620 次）这种根本走不到上面的循环（2026-10-09）
+    {
+        let single: HashSet<&str> = entries
+            .keys()
+            .filter(|(text, _)| text.chars().count() == 1)
+            .map(|(text, _)| text.as_str())
+            .collect();
+        let mut missing: Vec<(&str, u64)> = counts
+            .iter()
+            .filter(|(word, count)| {
+                word.chars().count() == 1
+                    && **count >= MISSING_READING_ALARM
+                    && !single.contains(word.as_str())
+            })
+            .map(|(word, count)| (word.as_str(), *count))
+            .collect();
+        missing.sort_unstable_by_key(|(_, count)| std::cmp::Reverse(*count));
+        if !missing.is_empty() {
+            let shown: Vec<String> = missing
+                .iter()
+                .map(|(word, n)| format!("{word}({n})"))
+                .collect();
+            tracing::warn!(
+                count = missing.len(),
+                chars = %shown.join(" "),
+                "语料里常见（≥ {MISSING_READING_ALARM} 次）但这些字在词库里没有任何读音：补读取音，或确认可以丢"
+            );
         }
     }
 
