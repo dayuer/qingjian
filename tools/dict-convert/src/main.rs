@@ -118,6 +118,8 @@ fn run() -> Result<(), ConvertError> {
             max_bigrams,
             phrase_bigram_share,
             phrase_neighbors,
+            homophone_boost,
+            homophone_errors,
         } => bigram::convert(
             &corpus,
             &dict,
@@ -127,6 +129,8 @@ fn run() -> Result<(), ConvertError> {
             max_bigrams,
             phrase_bigram_share,
             phrase_neighbors,
+            homophone_boost,
+            homophone_errors.as_deref(),
             &args.out_dir,
         ),
         Command::Mine {

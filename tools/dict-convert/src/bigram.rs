@@ -165,6 +165,42 @@ impl Vocabulary {
     }
 }
 
+/// 同音错误榜 `正确词\t错词\t次数` → 正确词 id → 与它同音的**错词** id 列表。
+/// 只收「错的次数 ≥ min_count」的对，一次两次的当个例、不算规律。榜由留出集挖错得到，不是手写名单。
+fn load_homophones(
+    path: &Path,
+    vocabulary: &Vocabulary,
+    min_count: u32,
+) -> Result<HashMap<u32, Vec<u32>>, ConvertError> {
+    let mut out: HashMap<u32, Vec<u32>> = HashMap::new();
+    for line in std::fs::read_to_string(path)?.lines() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split('\t');
+        let (Some(right), Some(wrong), Some(count)) = (fields.next(), fields.next(), fields.next())
+        else {
+            continue;
+        };
+        let Ok(count) = count.trim().parse::<u32>() else {
+            continue;
+        };
+        if count < min_count {
+            continue;
+        }
+        if let (Some(&right_id), Some(&wrong_id)) = (
+            vocabulary.ids.get(right.trim()),
+            vocabulary.ids.get(wrong.trim()),
+        ) {
+            let rivals = out.entry(right_id).or_default();
+            if !rivals.contains(&wrong_id) {
+                rivals.push(wrong_id);
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub(crate) fn is_han(c: char) -> bool {
     matches!(c, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
 }
@@ -427,6 +463,8 @@ pub fn convert(
     max_bigrams: usize,
     phrase_bigram_share: f64,
     phrase_neighbors: usize,
+    homophone_boost: f64,
+    homophone_errors: Option<&Path>,
     out_dir: &Path,
 ) -> Result<(), ConvertError> {
     let mut vocabulary = Vocabulary::load(dict)?;
@@ -500,18 +538,60 @@ pub fn convert(
         tracing::info!(path = %path.display(), words = added, "品牌词一元与句首二元已写入");
     }
 
+    // 同音加分：只在「同一个前文 A 下，正确词 B 被错词 W 压过」的位置动手，且**只拉接近的**
+    // —— 计数之比决定胜负，光让低频的 (A,B) 存在没用（试过「只救被截断毁掉的对比」，
+    // 留出集 56.3% 对修前 56.4%，等于没动，2026-10-09）。这里把 (A,B) 抬到刚好压过对手。
+    // `--homophone-boost` 是「愿意拉多远」的旋钮：只有 nB × boost ≥ nW 的才动，1.0 = 只动平手。
+    // 不加限制地全拉会把 B 本来选对的位置也翻过去（误伤），所以旋钮必须在挖错的那一半上扫。
+    let mut boosted = 0usize;
+    if let Some(path) = homophone_errors.filter(|_| homophone_boost > 1.0) {
+        let rivals_of = load_homophones(path, &vocabulary, min_count)?;
+        let mut updates: Vec<(u64, u32)> = Vec::new();
+        for (&key, &count) in &bigram {
+            let Some(corrects) = rivals_of.get(&((key & 0xFFFF_FFFF) as u32)) else {
+                continue;
+            };
+            let first = key >> 32;
+            for &correct in corrects {
+                let target = (first << 32) | u64::from(correct);
+                let current = bigram.get(&target).copied().unwrap_or(0);
+                if current > 0
+                    && current <= count
+                    && f64::from(current) * homophone_boost >= f64::from(count)
+                {
+                    updates.push((target, count + 1));
+                }
+            }
+        }
+        boosted = updates.len();
+        for (key, want) in updates {
+            bigram.insert(key, want);
+        }
+        tracing::info!(
+            boosted,
+            boost = homophone_boost,
+            distinct_bigrams = bigram.len(),
+            homophone_words = rivals_of.len(),
+            "同音加分：把被压过的正确侧拉到刚好压过对手"
+        );
+    }
+
     // 二元：按计数降序，砍掉低频与超出上限的；短语的合成行另加，不占真实行的名额
     let mut pairs: Vec<(u64, u32)> = bigram
         .iter()
         .map(|(k, c)| (*k, *c))
         .filter(|(_, count)| *count >= min_count)
         .collect();
-    pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     // 短语的合成行**预留固定份额**（`--phrase-bigram-share`，缺省 8%）：真实行占满上限时，
     // 短语层（我的 / 后端）一条合成行都拿不到的话整句会退步。真实行先截到「上限 − 预留」。
     let synth_budget =
         ((max_bigrams as f64) * phrase_bigram_share.clamp(0.0, 0.5)).round() as usize;
-    pairs.truncate(max_bigrams.saturating_sub(synth_budget));
+    let real_budget = max_bigrams.saturating_sub(synth_budget);
+    pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    pairs.truncate(real_budget);
+    if boosted > 0 {
+        tracing::info!(boosted, real_rows = pairs.len(), "加分后的真实行");
+    }
     let real_rows = pairs.len();
     if !phrase_parts.is_empty() {
         let synthesized = synthesize_phrases(
