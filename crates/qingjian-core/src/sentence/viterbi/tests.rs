@@ -404,3 +404,28 @@ fn rare_word_without_context_stays_out() {
     // 句首没有前文抬举，亩 进不了格子
     assert_ne!(with_mu_model(&["mu"]), "亩");
 }
+
+/// 第一个词接上文时静态分也按上文算：融合按「神经分 − 静态分」换掉静态那一份，上文的贡献要在静态分里，才会跟着按比例换掉。
+#[test]
+fn the_first_word_static_score_follows_the_start_context() {
+    let dictionary = Dictionary::parse(SAMPLE).unwrap();
+    let patterns = complete(&["xiang"]);
+    let paths = convert_paths(
+        &[&dictionary],
+        &patterns,
+        true,
+        1,
+        &XiangModel,
+        Personal::NONE,
+        Context::after("我"),
+        |_| 0,
+        |_, _| 0.0,
+        &mut SpanCache::default(),
+    );
+    assert_eq!(paths[0].text, "翔");
+    assert!(
+        (paths[0].static_score - -2.0).abs() < 1e-9,
+        "{}",
+        paths[0].static_score
+    );
+}

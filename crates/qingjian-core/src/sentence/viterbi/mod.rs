@@ -243,8 +243,15 @@ pub fn convert_paths(
                     best_predecessor(&nodes, start, &hit.text, model, personal, first, fallback);
                 let previous = &nodes[start][back];
                 let penalty = previous.penalty + hit.penalty;
+                // 静态分也按同一个上文算第一个词：融合时神经分换掉的是「静态分」那一份，
+                // 上文的贡献要跟着按比例换掉，不然它会原样叠在神经分上，把接上文后抬高的备选路径顶到第一
+                let static_previous = if start > 0 {
+                    Some(previous.text.as_str())
+                } else {
+                    first.previous
+                };
                 let static_step = model
-                    .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
+                    .log_prob(static_previous, &hit.text)
                     .unwrap_or(fallback);
                 let static_score = previous.static_score + static_step;
                 nodes[end].push(Node {
