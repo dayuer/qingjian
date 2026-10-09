@@ -58,6 +58,9 @@ pub struct GeneralPage {
 
     /// 默认中文标点模式。
     punctuation: Retained<NSPopUpButton>,
+
+    /// 组句中会转全角的标点先把高亮候选上屏再补标点。
+    punct_commits: Retained<NSButton>,
 }
 
 impl GeneralPage {
@@ -154,6 +157,13 @@ impl GeneralPage {
             mtm,
             "仅影响标点，字母和数字保持半角；自定义短语原样输出。设置会保存。 ",
         );
+        let punct_commits = checkbox(mtm, "组句中标点先上屏候选", Setting::PunctCommits, target);
+        row_checkbox(layout, &punct_commits);
+        note(
+            layout,
+            mtm,
+            "打拼音时敲 , . ? ! 等先把高亮候选上屏、再补该标点（nihao, 一气打完「你好，」）；不勾恢复老行为：标点进英文直输段。",
+        );
         let traditional = checkbox(mtm, "繁体输出", Setting::Traditional, target);
         row_checkbox(layout, &traditional);
         let emoji = checkbox(mtm, "候选后面显示 emoji", Setting::Emoji, target);
@@ -234,6 +244,7 @@ impl GeneralPage {
             shift_letter,
             languages: languages.to_vec(),
             punctuation,
+            punct_commits,
         }
     }
 
@@ -243,6 +254,7 @@ impl GeneralPage {
             &self.punctuation,
             Some(usize::from(!general.full_width_punctuation)),
         );
+        set_checked(&self.punct_commits, general.punct_commits);
         select(
             &self.learning_language,
             if general.learning_language_off() {
