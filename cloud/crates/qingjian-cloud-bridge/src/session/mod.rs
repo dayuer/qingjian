@@ -193,6 +193,11 @@ impl Session {
         self.model.state()
     }
 
+    /// 最近一次模型加载的报告（`ok|failed sha=… ms=…[ error=…]`），加载线程出了结果之后才有。
+    pub fn model_report(&self) -> Option<&str> {
+        self.model.report()
+    }
+
     /// 卸载本地模型：重打分停用，状态回未加载。内存吃紧时腾地方。
     pub fn unload_model(&mut self) {
         self.engine.set_async_sentence_scorer(None);

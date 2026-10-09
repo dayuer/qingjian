@@ -99,6 +99,12 @@ final class Engine {
         return url.path.withCString { qj_load_model(session, $0, true) }
     }
 
+    /// 本地整句模型的状态：0 未加载 / 1 加载中 / 2 在用 / 3 上次失败。
+    var modelState: UInt8 { qj_model_state(session) }
+
+    /// 最近一次模型加载的报告（`ok|failed sha=… ms=…[ error=…]`），还没出结果是 nil。
+    var modelReport: String? { take(qj_model_report(session)) }
+
     /// 卸下本地整句模型（内存吃紧时）；之后可以再 `loadModel()`。
     func unloadModel() { qj_unload_model(session) }
 

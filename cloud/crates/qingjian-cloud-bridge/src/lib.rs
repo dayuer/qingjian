@@ -292,6 +292,19 @@ pub unsafe extern "C" fn qj_model_state(session: *mut Session) -> u8 {
     with(session, session::MODEL_IDLE, Session::model_state)
 }
 
+/// 最近一次模型加载的报告：`ok|failed sha=<文件 sha256 前 8 位> ms=<加载加预热耗时>[ error=<原因>]`；
+/// 还没出结果返回空指针。壳在 [`qj_model_state`] 变成在用或失败时写进系统日志。返回的字符串用 [`qj_string_free`] 释放。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_model_report(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.attach_loaded_model();
+        s.model_report().map_or(ptr::null_mut(), owned)
+    })
+}
+
 /// 内存吃紧时先卸这个：英文词表（约 13MB，比模型小），下次像英文的输入会自动再加载。
 ///
 /// # Safety

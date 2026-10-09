@@ -133,6 +133,19 @@ final class KeyboardModel {
     /// 停键重排的一次性定时器：每次改缓冲重排一次，停键 `Engine.rescoreDebounce` 才送去打分。
     @ObservationIgnored private var rescoreWork: DispatchWorkItem?
 
+    /// 上一次看到的模型状态：变成在用或失败时写一行系统日志（成败、文件 sha 前 8 位、耗时），真机上看模型到底起没起来。
+    @ObservationIgnored private var loggedModelState: UInt8 = 0
+
+    private func logModelState(_ engine: Engine) {
+        let state = engine.modelState
+        guard state != loggedModelState else { return }
+        loggedModelState = state
+        guard state == 2 || state == 3, let report = engine.modelReport else { return }
+        Self.modelLog.info("model_load \(report, privacy: .public)")
+    }
+
+    private static let modelLog = Logger(subsystem: "sujian.keyboard", category: "model")
+
     /// 本地整句模型打完分就重画候选（桥在打分线程上通知，这里已回到主线程）。
     private func listenForRescore() {
         engine?.onRescored { [weak self] in self?.rescoreTick() }
@@ -426,6 +439,7 @@ final class KeyboardModel {
     /// 控制器定时调：取大模型候选、合并别的设备的学习数据、看润色有没有回来。
     func poll() {
         guard let engine else { return }
+        logModelState(engine)
         refreshHint()
         // App 删了当前对象时桥会退回不指定
         if let next = engine.scope, next != scope {
