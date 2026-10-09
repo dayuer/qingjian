@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use crate::sentence::SentenceScorer;
 
@@ -18,6 +19,9 @@ struct Job {
 
     /// 要生成整句的那段按键（整段作用域）；`None` 就只打分。
     generate: Option<String>,
+
+    /// 送出的时刻（算排队耗时）。
+    submitted: Instant,
 }
 
 /// 后台算好的结果，与任务一一对应。
@@ -32,6 +36,15 @@ pub(crate) struct Scored {
 
     /// 生成用的按键与生成出来的整句，对应任务里的 `generate`。
     pub generated: Option<(String, Vec<String>)>,
+
+    /// 在队列里等的毫秒数。
+    pub queue_ms: f64,
+
+    /// 前向打分的毫秒数。
+    pub forward_ms: f64,
+
+    /// 结果放进信道的时刻（主线程取走时算回主线程的耗时）。
+    pub done: Instant,
 }
 
 /// 后台打分线程：模型前向要几十毫秒，不能放在按键回调里。
@@ -57,8 +70,10 @@ impl RescoreWorker {
                         job = newer;
                     }
                     let texts: Vec<&str> = job.texts.iter().map(String::as_str).collect();
-                    let started = std::time::Instant::now();
+                    let started = Instant::now();
+                    let queue_ms = started.duration_since(job.submitted).as_secs_f64() * 1000.0;
                     let scores = scorer.score(&job.context, &job.keys, &texts);
+                    let forward_ms = started.elapsed().as_secs_f64() * 1000.0;
                     tracing::debug!(
                         texts = texts.len(),
                         context_chars = job.context.chars().count(),
@@ -84,6 +99,9 @@ impl RescoreWorker {
                         texts: job.texts,
                         scores,
                         generated,
+                        queue_ms,
+                        forward_ms,
+                        done: Instant::now(),
                     };
                     if result_tx.send(done).is_err() {
                         break;
@@ -126,6 +144,7 @@ impl RescoreWorker {
                 keys,
                 texts,
                 generate,
+                submitted: Instant::now(),
             })
             .is_err()
         {

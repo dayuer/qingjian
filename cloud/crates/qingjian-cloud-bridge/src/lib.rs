@@ -324,6 +324,19 @@ pub unsafe extern "C" fn qj_rescore_tick(session: *mut Session) -> bool {
     with(session, false, Session::rescore_tick)
 }
 
+/// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…`，毫秒），真机验收写日志用；
+/// 还没有过返回空指针。返回的字符串用 [`qj_string_free`] 释放。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rescore_stats(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.rescore_stats()
+            .map_or(ptr::null_mut(), |text| owned(&text))
+    })
+}
+
 /// 停键多久送去打分（毫秒）：壳每键之后按它排一个一次性定时器调 [`qj_rescore_tick`]。
 #[unsafe(no_mangle)]
 pub extern "C" fn qj_rescore_debounce_ms() -> u32 {
