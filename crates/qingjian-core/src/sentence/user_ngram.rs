@@ -1,6 +1,7 @@
 use foldhash::{HashMap, HashMapExt};
 
 use super::{Context, Interpolation, MAX_USER_TRANSITIONS, SENTENCE_START};
+use crate::MAX_LEARNED_COUNT;
 
 /// 个人 n-gram：用户上屏过的词序列计数（二元 + 三元），随上屏在线更新，进整句转换与词级排序的打分。
 ///
@@ -338,7 +339,7 @@ impl UserNgram {
     }
 
     /// 同 [`Self::parse`]，但坏行跳过而不是整份报错，返回 (模型, 跳过的行号)。
-    /// 学习数据文件可能被崩溃写坏一两行，不能因此丢掉整个个人模型。
+    /// 学习数据文件可能被崩溃写坏一两行，不能因此丢掉整个个人模型；次数超过 [`MAX_LEARNED_COUNT`] 的也算坏行。
     pub fn parse_lenient(source: &str) -> (Self, Vec<usize>) {
         let mut pairs: HashMap<String, HashMap<String, u32>> = HashMap::new();
         let mut triples: HashMap<String, HashMap<String, HashMap<String, u32>>> = HashMap::new();
@@ -361,6 +362,10 @@ impl UserNgram {
                 skipped.push(index + 1);
                 continue;
             };
+            if count > MAX_LEARNED_COUNT {
+                skipped.push(index + 1);
+                continue;
+            }
             if count == 0 || word.is_empty() {
                 continue;
             }
@@ -373,7 +378,8 @@ impl UserNgram {
                     .or_default(),
                 _ => unreachable!(),
             };
-            *slot.entry(word.to_owned()).or_default() += count;
+            let total = slot.entry(word.to_owned()).or_default();
+            *total = total.saturating_add(count).min(MAX_LEARNED_COUNT);
         }
         (Self::from_counts(pairs, triples), skipped)
     }

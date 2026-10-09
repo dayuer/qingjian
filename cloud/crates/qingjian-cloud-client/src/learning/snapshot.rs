@@ -11,6 +11,10 @@ use serde::{Deserialize, Serialize};
 use super::{CountEntry, Table};
 use crate::ClientError;
 
+/// 一条计数的合理上限，与输入法的 `qingjian_core::MAX_LEARNED_COUNT` 一致（这里不依赖 Core）。
+/// 输入法读文件时把超过它的行当坏行跳过，这里也不认，两边看到的「当前」才一样。
+const MAX_COUNT: i64 = 1_000_000;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Snapshot {
     counts: BTreeMap<(Table, String), CountEntry>,
@@ -27,7 +31,7 @@ struct Stored {
 }
 
 impl Snapshot {
-    /// 读输入法数据目录下的各张表；文件不存在算空表，格式不对的行跳过（与输入法自己的读法一致）。
+    /// 读输入法数据目录下的各张表；文件不存在算空表，格式不对的行与超过 [`MAX_COUNT`] 的行跳过（与输入法自己的读法一致）。
     pub fn read_dir(dir: &Path) -> Result<Self, ClientError> {
         let mut snapshot = Self::default();
         for table in Table::ALL {
@@ -41,6 +45,7 @@ impl Snapshot {
     }
 
     pub fn parse_table(&mut self, table: Table, text: &str) {
+        let mut oversized = 0;
         for line in text.lines().map(str::trim) {
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -63,6 +68,10 @@ impl Snapshot {
             let Ok(count) = count.trim().parse::<i64>() else {
                 continue;
             };
+            if count > MAX_COUNT {
+                oversized += 1;
+                continue;
+            }
             if count <= 0
                 || !table.key_columns().contains(&keys.len())
                 || keys.iter().any(|k| k.is_empty())
@@ -78,6 +87,13 @@ impl Snapshot {
             if entry.display.is_none() {
                 entry.display = display;
             }
+        }
+        if oversized > 0 {
+            tracing::warn!(
+                table = table.name(),
+                oversized,
+                "学习数据里有超过上限的计数，当坏行跳过"
+            );
         }
     }
 

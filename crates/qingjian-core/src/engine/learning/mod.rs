@@ -12,7 +12,7 @@ mod learner;
 mod muted;
 
 pub use forgotten::Forgotten;
-pub use learner::{Learner, NoLearner};
+pub use learner::{Learner, MAX_LEARNED_COUNT, NoLearner};
 pub(super) use muted::MutedLearner;
 
 impl Engine {

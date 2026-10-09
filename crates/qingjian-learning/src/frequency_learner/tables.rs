@@ -1,6 +1,17 @@
 //! 各张表的路径、加载、保存与重建：用户词、按输入串的选择、个人英文词、个人敲错表、个人 n-gram。
 
-use super::*;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use foldhash::HashMap;
+use qingjian_core::storage::write_atomic;
+use qingjian_dictionary::{Dictionary, WordList};
+
+use super::{
+    FrequencyLearner, USER_CHOICES_FILE, USER_ENGLISH_FILE, USER_NGRAM_FILE, USER_TYPOS_FILE,
+    USER_WORD_FREQUENCY, USER_WORDS_FILE, data_lines, parse_count, parse_counted_pair,
+};
+use crate::error::LearningError;
 
 impl FrequencyLearner {
     /// 个人英文词表文件与词频文件同目录。
@@ -14,7 +25,7 @@ impl FrequencyLearner {
         for line in data_lines(source) {
             let Some((word, count)) = line
                 .split_once('\t')
-                .and_then(|(word, count)| Some((word, count.trim().parse::<u32>().ok()?)))
+                .and_then(|(word, count)| Some((word, parse_count(count)?)))
             else {
                 skipped += 1;
                 continue;

@@ -4,6 +4,10 @@ use super::Forgotten;
 use crate::candidate::Candidate;
 use crate::sentence::{Context, UserNgram};
 
+/// 学习数据里一条计数的合理上限：一天选同一个词几百次，几年也到不了。
+/// 读文件、合并别的设备的增量时超过它的行当坏数据跳过（同步出错时见过 2 亿多的计数）；记一次时也不越过它。
+pub const MAX_LEARNED_COUNT: u32 = 1_000_000;
+
 /// 用户词频学习。
 pub trait Learner: Send {
     /// 用户上屏了某个候选。
