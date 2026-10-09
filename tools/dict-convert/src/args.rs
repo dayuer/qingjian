@@ -42,6 +42,11 @@ pub enum Command {
         #[arg(long)]
         frequency: Option<PathBuf>,
 
+        /// 单字频次表（`字\t次数`，`bigram` 顺带写出的 lm-char.tsv）：报「语料里常见但词库里没有读音」
+        /// 的字要用它 —— 词级一元表里根本没有那些字（嗯 / 诶），拿它当基准抓不到（2026-10-09）
+        #[arg(long)]
+        char_frequency: Option<PathBuf>,
+
         /// 把仍靠猜读音的多音字词写到这个文件（一行一个），交给 `gloss-gen pinyin`
         #[arg(long)]
         emit_ambiguous: Option<PathBuf>,

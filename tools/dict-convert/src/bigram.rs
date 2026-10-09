@@ -476,6 +476,9 @@ pub fn convert(
     }
     let mut unigram: Vec<u64> = vec![0; vocabulary.words.len()];
     let mut bigram: HashMap<u64, u32> = HashMap::new();
+    // 字级频次：单字读不出音的那些（嗯 / 诶）在词级一元表里根本不存在，
+    // 建库要按**字频**报警就得单独数一份（2026-10-09）
+    let mut char_counts: HashMap<char, u64> = HashMap::new();
     let mut tokens = Vec::new();
     let mut lines = 0u64;
     let mut runs = 0u64;
@@ -491,6 +494,9 @@ pub fn convert(
             let line: String = line.chars().filter(|c| *c != ' ').collect();
             for run in han_runs(&line) {
                 runs += 1;
+                for ch in run.chars() {
+                    *char_counts.entry(ch).or_insert(0) += 1;
+                }
                 vocabulary.segment(run, &mut tokens);
                 unigram[0] += 1;
                 let mut previous: Option<u32> = Some(0);
@@ -627,6 +633,22 @@ pub fn convert(
     writer.flush()?;
 
     // 一元：只输出出现过的词
+    let char_path = out_dir.join("lm-char.tsv");
+    {
+        let mut writer = BufWriter::new(File::create(&char_path)?);
+        writeln!(
+            writer,
+            "# 由 qingjian-dict-convert bigram 从语料统计的单字频次（字\t次数）"
+        )?;
+        let mut rows: Vec<(&char, &u64)> = char_counts.iter().collect();
+        rows.sort_unstable_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        for (ch, count) in rows {
+            writeln!(writer, "{ch}\t{count}")?;
+        }
+        writer.flush()?;
+    }
+    tracing::info!(path = %char_path.display(), chars = char_counts.len(), "字频表已写出");
+
     let unigram_path = out_dir.join("lm-unigram.tsv");
     let mut writer = BufWriter::new(File::create(&unigram_path)?);
     writeln!(

@@ -131,6 +131,9 @@ pub struct Options<'a> {
     /// 同音不危险要等语料实测，所以缺省不并；命令行 `--internet-base` 指过来才生效。
     pub internet_base: Option<&'a Path>,
 
+    /// 单字频次表（`字\t次数`，`bigram` 的 lm-char.tsv）；缺省退回词级一元表（抓不到从未被计数的字）
+    pub char_frequency: Option<&'a Path>,
+
     /// 输出目录
     pub out_dir: &'a Path,
 }
@@ -143,6 +146,7 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     let unihan = options.unihan;
     let pinyin = options.pinyin;
     let frequency = options.frequency;
+    let char_frequency = options.char_frequency;
     let emit_ambiguous = options.emit_ambiguous;
     let extra_words = options.extra_words;
     let mixed_words = options.mixed_words;
@@ -188,6 +192,30 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     // 领域词门槛按语料规模换算（`<s>` 是语料句数）：语料一换，绝对次数就变味了。
     // 没有词频表时按旧口径（五千万句语料下的 50 次）折算，反正那时领域词全拆出去
     let sentences = counts.get("<s>").copied().unwrap_or(0);
+    // 缺读音报警要用的字频：给了 --char-frequency 就用它（能覆盖词级一元表里不存在的字），
+    // 否则退回词级一元表（只覆盖单字词，抓不到 诶 那种从未被计数过的）
+    let char_counts: HashMap<String, u64> = match char_frequency {
+        Some(path) => {
+            let mut map = HashMap::new();
+            for line in std::fs::read_to_string(path)?.lines() {
+                let mut fields = line.split('\t');
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let (Some(ch), Some(count)) = (fields.next(), fields.next())
+                    && let Ok(count) = count.trim().parse::<u64>()
+                {
+                    map.insert(ch.to_owned(), count);
+                }
+            }
+            map
+        }
+        None => counts
+            .iter()
+            .filter(|(word, _)| word.chars().count() == 1)
+            .map(|(word, count)| (word.clone(), *count))
+            .collect(),
+    };
     let domain_keep_min = if sentences > 0 {
         ((options.domain_keep_per_10m as f64) * (sentences as f64 / 10_000_000.0)).round() as u64
     } else {
@@ -564,12 +592,10 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             .filter(|(text, _)| text.chars().count() == 1)
             .map(|(text, _)| text.as_str())
             .collect();
-        let mut missing: Vec<(&str, u64)> = counts
+        let mut missing: Vec<(&str, u64)> = char_counts
             .iter()
             .filter(|(word, count)| {
-                word.chars().count() == 1
-                    && **count >= MISSING_READING_ALARM
-                    && !single.contains(word.as_str())
+                **count >= MISSING_READING_ALARM && !single.contains(word.as_str())
             })
             .map(|(word, count)| (word.as_str(), *count))
             .collect();
@@ -754,6 +780,7 @@ mod tests {
             unihan: &unihan,
             pinyin: &[],
             frequency: None,
+            char_frequency: None,
             emit_ambiguous: None,
             extra_words: &[],
             mixed_words: &mixed,
