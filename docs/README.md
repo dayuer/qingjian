@@ -33,6 +33,7 @@ README.md 只介绍项目，所有技术内容放在这里，分四类：前三�
 | [notes/domain-words.md](notes/domain-words.md) | 领域词（2026-09-12）：从输入日志人工挑 48 条进基础词库的挑法、低频词当 token 统计为什么伤整句、两把尺子的前后数字 |
 | [notes/constant-sweep.md](notes/constant-sweep.md) | 排序常数扫描（2026-09-12）：插值与敲错代价在冻结日志上扫网格，全在平台区不改；没命中的构成与复现步骤 |
 | [notes/replay-clean.md](notes/replay-clean.md) | 干净回放口径（2026-10-07）：剔除撤销、删掉重打、拼音残段上屏的规则（冻结），新旧库基线与 +10% 目标线 |
+| [notes/context-eval.md](notes/context-eval.md) | 上文对整句首选的作用（2026-10-09）：现状为 0（整句解码不看上文），接进去反而变差，上文留给词级排序 |
 | [notes/old-lexicon-analysis.md](notes/old-lexicon-analysis.md) | 旧库为什么在对话上强（2026-10-08）：dict / lm 交叉四格、外部集逐条归因、一元先验的语域偏移、新管线怎么补回来 |
 | [notes/windows-win10.md](notes/windows-win10.md) | Windows 10 与设置程序（2026-09-13）：Reactor 早期绑定 Windows 11 才有的 AppModel API 导致加载期失败，改自包含部署 + 延迟加载 |
 
