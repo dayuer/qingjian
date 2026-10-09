@@ -80,6 +80,8 @@
   现成出口：删候选快捷键（缺省 `Shift` + 数字）走的就是 `forget_english`。
 - [ ] 日语 emoji 要等有日语输入模式
 
+- [ ] 让通变（P2C）看上文：现在训练时 `<eos>` 切断前文，整句只能从句首算；静态 bigram 有条件地接上文后分段上屏首选 +2～2.7（见 [notes/context-eval.md](../notes/context-eval.md)），剩下的弱搭配要靠带前文重训模型
+
 ## 二、产品特色
 
 - [ ] 释义表收尾：覆盖面再扩（次数阈值降到 100 约 10 万词）；JMdict 校对假名与日文词性；等级表（CEFR / JLPT 已随包，见 `assets/levels/`）

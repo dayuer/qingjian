@@ -3,6 +3,12 @@ pub trait LanguageModel: Send {
     /// `log P(word | previous)`；`previous` 为 `None` 表示句首。模型不认识 `word` 时返回 `None`，
     /// 由 Core 用词库词频兜底。
     fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64>;
+
+    /// 语料里真见过 `previous` 后面接 `word`（二元表里有这一条，不是退回一元算出来的）。
+    /// 整句首词要不要接光标前的词就看它：没见过的接续只会把句首统计换成一元词频（见 docs/notes/context-eval.md）。
+    fn knows_pair(&self, _previous: &str, _word: &str) -> bool {
+        false
+    }
 }
 
 /// 没接语言模型：一律兜底，整句转换退化为一元词频。

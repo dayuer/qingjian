@@ -266,17 +266,41 @@ impl Engine {
         } else {
             want
         };
-        let mut paths = sentence::convert_paths(
-            &dictionaries,
-            &expanded.positions(),
-            whole,
-            k,
-            &*self.language_model,
-            self.personal(),
-            |text| self.learner.weight(text),
-            |index, syllable| expanded.cost(index, syllable),
-            &mut self.span_cache.borrow_mut(),
-        );
+        let positions = expanded.positions();
+        let convert = |first: sentence::Context<'_>| {
+            sentence::convert_paths(
+                &dictionaries,
+                &positions,
+                whole,
+                k,
+                &*self.language_model,
+                self.personal(),
+                first,
+                |text| self.learner.weight(text),
+                |index, syllable| expanded.cost(index, syllable),
+                &mut self.span_cache.borrow_mut(),
+            )
+        };
+        let mut paths = convert(sentence::Context::START);
+        // 第一个词接着光标前的文字（会话链优先、句末标点后与私密输入时是句首，规则同词级排序，见 query/left_context.rs），
+        // 但只在不看上文时最优路径本来就是多词整句时才接：整段本来是一个词（帐号、获取）时，上文的二元会把它拆成
+        // 「长 + 好」「活 + 去」再当整句插到最前，回放里误伤的全是这种
+        let left = self.word_context();
+        if let (Some(previous), Some(best)) = (left.context().previous, paths.first())
+            && best.word_count() > 1
+        {
+            let start_first = best.words[0].text.chars().count();
+            let with_context = convert(left.context());
+            // 接上文后的最优只在两个条件都满足时采用（回放里的误伤逐条拆过，见 docs/notes/context-eval.md）：
+            // 首词不比不看上文时短（不把 识别 拆成 是 + 别），且语料真见过「上文末词 → 首词」（没见过的接续只是一元词频）
+            if with_context.first().is_some_and(|p| {
+                let first = &p.words[0].text;
+                first.chars().count() >= start_first
+                    && self.language_model.knows_pair(previous, first)
+            }) {
+                paths = with_context;
+            }
+        }
         // 静态最优路径整段就是一个词时不重排：「整段本来就是一个词」归词级排序与纠错判断（`plain_sentence` 据此不出整句），
         // 重排把多词拆分换到第一条会绕过那道关、挤掉词级首选（`enngli` 能力 → 恩能力、`shihou` 时候 → 是后）
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的

@@ -4,7 +4,7 @@
 //! 只看原文；整句排序、语言模型的改动先在同一份句子集上比过再合。
 //! 输入既可以是原始文本（一行一段，按标点切句、汉字转拼音），也可以是之前 `--eval-save` 冻结下来的
 //! `句子\t拼音\t上文` 三列文件；后者保证不同时间、不同分支比的是同一份句子。
-//! 每句独立：不上屏、不学习，只把这句在原文里的上文写进输入历史给整句转换用。
+//! 每句独立：不上屏、不学习，这句在原文里的上文照壳的路子给（`set_rescoring_context`），整句第一个词与词级排序都接着它。
 
 pub mod context;
 pub mod continuation;
@@ -137,7 +137,7 @@ pub(super) fn collect(
     Ok(pairs)
 }
 
-/// 评一句：清空引擎状态、写入上文、喂拼音、看候选。
+/// 评一句：清空引擎状态、喂拼音、给上文、看候选。
 fn evaluate(
     engine: &mut Engine,
     pair: &Pair,
@@ -148,8 +148,10 @@ fn evaluate(
     engine.clear();
     engine.break_chain();
     engine.history_mut().clear();
-    engine.history_mut().record(&pair.context);
     engine.set_input(&pair.pinyin);
+    // 上文走壳的那条路（Mac 的 surrounding text、iOS 的 documentContextBeforeInput 都是 set_rescoring_context），
+    // 不写上屏历史：评测和产品是同一条路。`clear()` 会清掉它，所以每句在 clear 之后设
+    engine.set_rescoring_context((!pair.context.is_empty()).then(|| pair.context.clone()));
     let started = Instant::now();
     let query = match engine.query() {
         Ok(query) => query,
