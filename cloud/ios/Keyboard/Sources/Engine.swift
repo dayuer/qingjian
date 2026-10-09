@@ -28,6 +28,7 @@ final class Engine {
         }
         guard let opened else { return nil }
         session = opened
+        LiveCount.created("engine")
     }
 
     /// 后台打分算完时在主线程上调的处理（见 `onRescored`）。
@@ -37,10 +38,14 @@ final class Engine {
     nonisolated(unsafe) private var rescoreBox: Unmanaged<WeakEngine>?
 
     deinit {
+        LiveCount.released("engine")
         qj_set_rescore_notify(session, nil, nil)
         rescoreBox?.release()
         qj_session_free(session)
     }
+
+    /// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…`），真机验收的日志用。
+    var rescoreStats: String? { take(qj_rescore_stats(session)) }
 
     /// 停键多久送整句路径去重排（桥给的数，与 Mac 壳一致）。
     static var rescoreDebounce: TimeInterval { Double(qj_rescore_debounce_ms()) / 1000 }

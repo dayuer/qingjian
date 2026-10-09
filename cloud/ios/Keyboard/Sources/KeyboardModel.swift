@@ -127,11 +127,23 @@ final class KeyboardModel {
 
     init(engine: Engine?) {
         self.engine = engine
+        LiveCount.created("model")
         listenForRescore()
     }
 
+    deinit { LiveCount.released("model") }
+
     /// 停键重排的一次性定时器：每次改缓冲重排一次，停键 `Engine.rescoreDebounce` 才送去打分。
     @ObservationIgnored private var rescoreWork: DispatchWorkItem?
+
+    /// 性能日志（`sujian.keyboard` / `perf`）：每键耗时、停键到重排的时延，真机验收用；只在 `Diagnostics.enabled` 时写。
+    private static let perf = Logger(subsystem: "sujian.keyboard", category: "perf")
+
+    /// 最后一次改缓冲的时刻（停键到重排的起点）。
+    @ObservationIgnored private var lastEdit = DispatchTime.now()
+
+    /// 去抖到点、送去打分的时刻（分段计时用）。
+    @ObservationIgnored private var requestAt = DispatchTime.now()
 
     /// 上一次看到的模型状态：变成在用或失败时写一行系统日志（成败、文件 sha 前 8 位、耗时），真机上看模型到底起没起来。
     @ObservationIgnored private var loggedModelState: UInt8 = 0
@@ -153,7 +165,18 @@ final class KeyboardModel {
 
     private func rescoreTick() {
         guard let engine, composing else { return }
-        if engine.rescoreTick() { candidates = engine.candidates }
+        if engine.rescoreTick() {
+            candidates = engine.candidates
+            guard Diagnostics.enabled else { return }
+            let ms = Double(DispatchTime.now().uptimeNanoseconds - lastEdit.uptimeNanoseconds) / 1e6
+            // 去抖定时器送出的请求晚于最后一键；早于最后一键说明这次是 250ms 轮询顺带送的，没有去抖段可记
+            let debounce = requestAt.uptimeNanoseconds >= lastEdit.uptimeNanoseconds
+                ? String(format: "%.1f", Double(requestAt.uptimeNanoseconds - lastEdit.uptimeNanoseconds) / 1e6)
+                : "- via=poll"
+            let stages = engine.rescoreStats ?? "-"
+            Self.perf.info("rescore_ms=\(ms, format: .fixed(precision: 1), privacy: .public) debounce_ms=\(debounce, privacy: .public) \(stages, privacy: .public)")
+            PerfRecorder.shared.rescore(ms)
+        }
     }
 
     /// 每键之后排一拍；连打时前一拍作废，不在按键回调里算任何东西。
@@ -161,7 +184,10 @@ final class KeyboardModel {
         rescoreWork?.cancel()
         guard composing else { return }
         let work = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated { self?.rescoreTick() }
+            MainActor.assumeIsolated {
+                self?.requestAt = DispatchTime.now()
+                self?.rescoreTick()
+            }
         }
         rescoreWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Engine.rescoreDebounce, execute: work)
@@ -447,6 +473,7 @@ final class KeyboardModel {
             reloadContacts()
         }
         if engine.poll() { candidates = engine.candidates }
+        PerfRecorder.shared.tick()
         guardMemoryPressure()
         pushPasteboardIfChanged()
         if !privateField {
@@ -885,8 +912,13 @@ final class KeyboardModel {
         if !composing {
             engine.setContext(before: sink.contextBefore, after: sink.contextAfter)
         }
+        let started = DispatchTime.now()
         engine.push(letter)
         refresh()
+        guard Diagnostics.enabled else { return }
+        let ms = Double(DispatchTime.now().uptimeNanoseconds - started.uptimeNanoseconds) / 1e6
+        Self.perf.info("key_ms=\(ms, format: .fixed(precision: 2), privacy: .public)")
+        PerfRecorder.shared.key(ms)
     }
 
     /// 敲了断句的标点就回字母层，接着打拼音（与系统键盘一致）；数字与 `- / : . @` 这类常夹在数字里的符号留在原层，连着敲。
@@ -945,6 +977,7 @@ final class KeyboardModel {
         if next != preedit { sink.setMarked(next) }
         preedit = next
         candidates = engine.candidates
+        lastEdit = DispatchTime.now()
         scheduleRescore()
         if !composing, panel == .candidates { panel = .keys }
         if composing {
