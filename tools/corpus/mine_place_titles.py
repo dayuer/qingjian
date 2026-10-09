@@ -22,11 +22,14 @@ from opencc import OpenCC
 
 HAN = re.compile(r"^[一-鿿]+$")
 # 地标与机构的后缀（挑对输入法有用的：出行、订酒店、逛景点、去机构办事）
-SINGLE_CHAR_TAILS = ("寺", "庙", "塔", "桥", "湖", "山", "岛", "湾")
+# 单字后缀（要求标题 ≥3 字，避开「斯塔」这类两字碎片）：店 / 路 / 街 是 2026-10-09 补的，
+# 外部对话集里「四季民福烤鸭店」「北京亚运村店」这类「专名 + 行业后缀」缺的就是它们
+SINGLE_CHAR_TAILS = ("寺", "庙", "塔", "桥", "湖", "山", "岛", "湾", "店", "路", "街")
 TAILS = (
     "公园", "广场", "纪念馆", "纪念堂", "博物馆", "展览馆", "美术馆", "图书馆", "科技馆",
     "大酒店", "酒店", "饭店", "宾馆", "大厦", "大楼", "中心", "商场", "广场",
     "机场", "火车站", "高铁站", "地铁站", "码头", "客运站",
+    "南站", "北站", "东站", "西站",
     "大学", "学院", "中学", "小学", "医院", "体育馆", "体育场", "游泳馆", "剧院", "影院",
     "古镇", "风景区", "度假区", "开发区",
 ) + SINGLE_CHAR_TAILS
@@ -45,6 +48,9 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=20000)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--report", type=pathlib.Path, help="把「收了多少、按哪条规则、样例」写到这里")
+    parser.add_argument("--dump", type=pathlib.Path,
+                        help="把**所有**候选与语料次数写到这里（`词\t次数`）；给了它就不按 --min-mentions 筛，"
+                             "门槛留到 dev 上定")
     args = parser.parse_args()
 
     # 条目标题里繁简混杂（聯合颱風警報中心 / 孫中山），先统一成简体再筛
@@ -100,6 +106,28 @@ def main() -> int:
                             mentions[candidate] += 1
                     start = hit + 1
 
+    if args.dump:
+        args.dump.write_text("".join(f"{w}\t{c}\n" for w, c in
+                                    sorted(mentions.items(), key=lambda kv: (-kv[1], kv[0]))),
+                             encoding="utf-8")
+        print(f"候选 {len(mentions)} 条写到 {args.dump}", file=sys.stderr)
+    # 前缀必须是现有的专名/地名/机构表里的条目（「青山」+「公路」可以，「一带」+「一路」不行）：
+    # 路 / 街 / 店 这类后缀噪声最大，不卡前缀就会收进一堆恰好以它结尾的普通词（2026-10-09 审计要求）
+    prefix = set(existing) | set(others)
+    for extra in (ROOT / "assets/lexicon/brand.tsv", ROOT / "assets/lexicon/domain_words.tsv"):
+        if extra.exists():
+            for line in extra.read_text(encoding="utf-8-sig").splitlines():
+                if line.strip() and not line.startswith("#"):
+                    prefix.add(line.split("\t")[0].strip())
+    def has_known_prefix(title: str) -> str | None:
+        tail = next((t for t in TAILS if title.endswith(t)), None)
+        if tail is None or len(title) <= len(tail):
+            return None
+        return title[: -len(tail)] if title[: -len(tail)] in prefix else None
+
+    rejected = [t for t in mentions if has_known_prefix(t) is None]
+    mentions = {t: c for t, c in mentions.items() if has_known_prefix(t) is not None}
+    print(f"前缀不在专名表里的 {len(rejected)} 条不收（如 " + "、".join(rejected[:6]) + "）", file=sys.stderr)
     picked = [(title, count) for title, count in mentions.items() if count >= args.min_mentions]
     picked.sort(key=lambda kv: (-kv[1], kv[0]))
     picked = picked[: args.limit]
