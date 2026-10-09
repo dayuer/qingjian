@@ -44,21 +44,48 @@ pub fn build(engine: &Engine) -> Groups {
     groups
 }
 
+/// 词库指纹：全部条目（读音 / 词 / 词频）排序后的 64 位哈希 + 条目数。
+/// 快照是从**引擎实际加载的词库**算的（`--dict` 解析到什么就是什么），指纹写进快照头，
+/// `--check` 先比对它 —— 否则「本地加载的是另一份词库」会被报成「同音竞争变了」（2026-10-09 踩过）。
+/// 条目先排序再入哈希：`entries()` 的顺序不该影响指纹。
+pub fn fingerprint(engine: &Engine) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut rows: Vec<(String, String, u32)> = engine
+        .dictionary()
+        .entries()
+        .map(|hit| (hit.pinyin.to_owned(), hit.text.to_owned(), hit.frequency))
+        .collect();
+    rows.sort();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for row in &rows {
+        row.hash(&mut hasher);
+    }
+    format!("{:016x} 条目 {}", hasher.finish(), rows.len())
+}
+
 /// 写快照，或与已有快照比对。`check` 为真时不一致就返回错（CI 靠它失败）。
 pub fn run(engine: &Engine, path: &Path, check: bool) -> Result<(), CliError> {
     let current = build(engine);
+    let loaded = fingerprint(engine);
     let (group_count, row_count) = counts(&current);
     if !check {
-        snapshot::write(&current, path)?;
+        snapshot::write(&current, &loaded, path)?;
         println!(
-            "同音快照已写出 {}（{group_count} 组、{row_count} 行；每组前 {} 名）",
+            "同音快照已写出 {}（{group_count} 组、{row_count} 行；每组前 {} 名；词库 {loaded}）",
             path.display(),
             snapshot::TOP
         );
         return Ok(());
     }
 
-    let old = snapshot::read(path)?;
+    let (recorded, old) = snapshot::read(path)?;
+    match recorded {
+        Some(recorded) if recorded != loaded => {
+            return Err(HomophoneError::WrongDictionary { recorded, loaded }.into());
+        }
+        Some(_) => {}
+        None => eprintln!("提示：快照没记词库指纹（旧格式），无法确认两边比的是不是同一份词库"),
+    }
     let differences = snapshot::diff(&old, &current);
     if differences.is_empty() {
         println!(
@@ -96,6 +123,18 @@ pub fn run(engine: &Engine, path: &Path, check: bool) -> Result<(), CliError> {
 /// 同音快照的错。
 #[derive(Debug, thiserror::Error)]
 pub enum HomophoneError {
+    /// 快照记的词库与这次加载的不是同一份（先比对指纹，避免把「换了词库」当成「同音竞争变了」）。
+    #[error(
+        "homophone snapshot was built from a different dictionary: file says `{recorded}`, loaded is `{loaded}`"
+    )]
+    WrongDictionary {
+        /// 快照头里记的指纹。
+        recorded: String,
+
+        /// 这次实际加载的词库指纹。
+        loaded: String,
+    },
+
     /// 快照与当前词库不一致。
     #[error("homophone snapshot differs: {differences} change(s), {alarms} alarm(s)")]
     Mismatch {
@@ -118,7 +157,8 @@ mod tests {
     fn known_homophone_cases_keep_their_first_slot() {
         let path =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("snapshots/homophones.tsv");
-        let groups = snapshot::read(&path).expect("入库的同音快照读不出来");
+        // 入库那份是旧格式（没有词库指纹）时指纹是 None；这一条只查成员与名次
+        let (_fingerprint, groups) = snapshot::read(&path).expect("入库的同音快照读不出来");
         for (pinyin, first) in [
             ("bai gei", "败给"),
             ("lao liu", "老刘"),
