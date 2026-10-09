@@ -38,7 +38,7 @@ pub use self::scope::{
     ContactPick, ScopeHandle, ScopeState, ScopedLearner, contact_learning_dir, is_contact_id,
 };
 pub use self::session::{
-    DroppedNotes, MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING, Session,
+    DroppedNotes, MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING, RESCORE_DEBOUNCE, Session,
 };
 pub use self::settings::{DomainSetting, SchemeOption, Settings};
 
@@ -292,6 +292,19 @@ pub unsafe extern "C" fn qj_model_state(session: *mut Session) -> u8 {
     with(session, session::MODEL_IDLE, Session::model_state)
 }
 
+/// 最近一次模型加载的报告：`ok|failed sha=<文件 sha256 前 8 位> ms=<加载加预热耗时>[ error=<原因>]`；
+/// 还没出结果返回空指针。壳在 [`qj_model_state`] 变成在用或失败时写进系统日志。返回的字符串用 [`qj_string_free`] 释放。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_model_report(session: *mut Session) -> *mut c_char {
+    with(session, ptr::null_mut(), |s| {
+        s.attach_loaded_model();
+        s.model_report().map_or(ptr::null_mut(), owned)
+    })
+}
+
 /// 内存吃紧时先卸这个：英文词表（约 13MB，比模型小），下次像英文的输入会自动再加载。
 ///
 /// # Safety
@@ -299,6 +312,42 @@ pub unsafe extern "C" fn qj_model_state(session: *mut Session) -> u8 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_unload_english(session: *mut Session) {
     with(session, (), Session::unload_english);
+}
+
+/// 重排一拍：停键 [`qj_rescore_debounce_ms`] 后调一次送去打分；[`qj_set_rescore_notify`] 的回调来了再调一次取结果。
+/// 候选栏要重画返回 `true`。
+///
+/// # Safety
+/// 同 [`qj_push`]。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_rescore_tick(session: *mut Session) -> bool {
+    with(session, false, Session::rescore_tick)
+}
+
+/// 停键多久送去打分（毫秒）：壳每键之后按它排一个一次性定时器调 [`qj_rescore_tick`]。
+#[unsafe(no_mangle)]
+pub extern "C" fn qj_rescore_debounce_ms() -> u32 {
+    RESCORE_DEBOUNCE.as_millis() as u32
+}
+
+/// 后台打分算完时的回调：在**后台线程**上调 `notify(context)`，壳在里面把 [`qj_rescore_tick`] 排进主线程，
+/// 不要在回调里直接碰会话。`notify` 传空清掉。`context` 由壳保证在会话关闭前一直有效。
+///
+/// # Safety
+/// 同 [`qj_push`]；`notify` 可以在任意线程上被调用。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qj_set_rescore_notify(
+    session: *mut Session,
+    notify: Option<unsafe extern "C" fn(*mut std::ffi::c_void)>,
+    context: *mut std::ffi::c_void,
+) {
+    // 裸指针不是 Send：按地址传过线程，壳保证它活得比会话久
+    let context = context as usize;
+    let callback = notify.map(|notify| {
+        Box::new(move || unsafe { notify(context as *mut std::ffi::c_void) })
+            as Box<dyn Fn() + Send + Sync>
+    });
+    with(session, (), |s| s.set_rescore_notify(callback));
 }
 
 /// 卸载本地模型（内存吃紧时腾地方），状态回未加载；之后可以再 [`qj_load_model`]。
@@ -327,12 +376,13 @@ pub unsafe extern "C" fn qj_model_memory_mb(_session: *mut Session) -> f64 {
 /// 无参数，随便调。
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qj_available_memory_mb() -> f64 {
-    // Apple 平台独有；返回字节数，不可用时是 SIZE_MAX
+    // Apple 平台独有；返回字节数，不可用时是 SIZE_MAX。没有内存上限的进程（模拟器里的扩展、Mac 上的测试）给 0：
+    // 当成「余量 0」会让键盘一启动就把模型和英文表卸掉，所以也按拿不到算
     unsafe extern "C" {
         fn os_proc_available_memory() -> usize;
     }
     let bytes = unsafe { os_proc_available_memory() };
-    if bytes == usize::MAX {
+    if bytes == usize::MAX || bytes == 0 {
         -1.0
     } else {
         bytes as f64 / 1_048_576.0

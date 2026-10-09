@@ -244,6 +244,10 @@ pub enum Command {
         #[arg(long)]
         output: Option<PathBuf>,
 
+        /// `model` 用：线性层与字嵌入表量化成 8 位（Q8_0）常驻，体积与内存约为 fp16 的一半、f32 的四分之一
+        #[arg(long)]
+        quantize: bool,
+
         /// 元数据：名称（`codes` 缺省「笔画」，别的种类必填）
         #[arg(long, default_value = "")]
         name: String,

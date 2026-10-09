@@ -30,9 +30,35 @@ final class Engine {
         session = opened
     }
 
+    /// 后台打分算完时在主线程上调的处理（见 `onRescored`）。
+    private var rescoreHandler: (() -> Void)?
+
+    /// 回调上下文：弱引用引擎的盒子，交给桥按地址带过线程；deinit 先清回调再放它。
+    nonisolated(unsafe) private var rescoreBox: Unmanaged<WeakEngine>?
+
     deinit {
+        qj_set_rescore_notify(session, nil, nil)
+        rescoreBox?.release()
         qj_session_free(session)
     }
+
+    /// 停键多久送整句路径去重排（桥给的数，与 Mac 壳一致）。
+    static var rescoreDebounce: TimeInterval { Double(qj_rescore_debounce_ms()) / 1000 }
+
+    /// 重排一拍：停键 `rescoreDebounce` 后调一次送去打分，`onRescored` 的处理里再调一次取结果；候选栏要重画返回 true。
+    func rescoreTick() -> Bool { qj_rescore_tick(session) }
+
+    /// 本地整句模型打完分时在主线程上调 `handler`（打分线程算完就通知，不等 250ms 的轮询）。
+    func onRescored(_ handler: @escaping () -> Void) {
+        rescoreHandler = handler
+        guard rescoreBox == nil else { return }
+        let box = Unmanaged.passRetained(WeakEngine(self))
+        rescoreBox = box
+        qj_set_rescore_notify(session, rescoreNotified, box.toOpaque())
+    }
+
+    /// 回到主线程后真正处理通知（`rescoreNotified` 排过来）。
+    fileprivate func handleRescored() { rescoreHandler?() }
 
     var composing: Bool { qj_composing(session) }
 
@@ -63,6 +89,24 @@ final class Engine {
 
     /// 卸下英文词表；下次像英文的输入自动再加载（词表是 mmap 的，卸掉主要是让出地址空间与页缓存）。
     func unloadEnglish() { qj_unload_english(session) }
+
+    /// 随包的 8 位含章·通变（`Data/models/hanzhang-tongbian-q8.qjm`）在后台加载，接上后整句候选带神经重排
+    /// （只重排词图的整句路径，不自由生成）。权重是 mmap 的干净页，加载只多约 1MB dirty。没有这个文件返回 false。
+    @discardableResult
+    func loadModel() -> Bool {
+        let url = dataDirectory.appendingPathComponent("models/hanzhang-tongbian-q8.qjm")
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        return url.path.withCString { qj_load_model(session, $0, true) }
+    }
+
+    /// 本地整句模型的状态：0 未加载 / 1 加载中 / 2 在用 / 3 上次失败。
+    var modelState: UInt8 { qj_model_state(session) }
+
+    /// 最近一次模型加载的报告（`ok|failed sha=… ms=…[ error=…]`），还没出结果是 nil。
+    var modelReport: String? { take(qj_model_report(session)) }
+
+    /// 卸下本地整句模型（内存吃紧时）；之后可以再 `loadModel()`。
+    func unloadModel() { qj_unload_model(session) }
 
     /// 上屏第 `index` 个候选，返回要插入的文字。
     func commit(_ index: Int) -> String? {
@@ -147,4 +191,21 @@ final class Engine {
         guard let string else { return body(nil) }
         return string.withCString { body($0) }
     }
+}
+
+/// 桥在**打分线程**上调的 C 回调。必须是 nonisolated 的顶层函数：写成 `@MainActor` 方法里的闭包会被推断成主线程隔离，
+/// Swift 在后台线程上调它时做隔离检查直接 trap（模拟器浸泡测出的崩溃，栈顶 `_dispatch_assert_queue_fail`）。
+private nonisolated func rescoreNotified(_ context: UnsafeMutableRawPointer?) {
+    guard let context else { return }
+    let box = Unmanaged<WeakEngine>.fromOpaque(context).takeUnretainedValue()
+    DispatchQueue.main.async {
+        MainActor.assumeIsolated { box.engine?.handleRescored() }
+    }
+}
+
+/// 桥的回调上下文：只弱引用引擎，引擎没了回调就什么也不做。
+final class WeakEngine: @unchecked Sendable {
+    weak var engine: Engine?
+
+    init(_ engine: Engine) { self.engine = engine }
 }

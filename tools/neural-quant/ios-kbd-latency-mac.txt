@@ -1,0 +1,2 @@
+sentences 50 rescored 49 停键到重排 p50 112 p95 129 ms
+按键 904 次 p50 0.4 p95 3.8 ms

@@ -19,6 +19,12 @@ pub(crate) use cache::NeuralCache;
 pub use word_rescore::WORD_NEURAL_WEIGHT;
 pub(crate) use worker::RescoreWorker;
 
+/// 后台打分算完一条时调的回调（在后台线程上）：壳拿它把「去取结果」排进主线程，不用等轮询。
+pub type RescoreNotify = Box<dyn Fn() + Send + Sync>;
+
+/// 回调的共享槽：引擎与两条打分线程共用，壳什么时候设都对已起的线程生效。
+pub(crate) type NotifySlot = std::sync::Arc<std::sync::Mutex<Option<RescoreNotify>>>;
+
 /// 直接生成整句时的 beam 宽度。5 是 2026-09-24 在冻结集上量的：beam 5 首选 51.9%、前五 73.5%，
 /// 再宽只换来零点几个点，延迟却线性涨。
 const GENERATE_BEAM: usize = 5;
@@ -113,7 +119,7 @@ impl Engine {
     /// 出来的只能是把英文段硬读成拼音的结果（用的哦乘客仍不熟很方便）。这条路不受读法限制。
     /// 同步打分器当场生成，异步的先记下、等壳在用户停顿后取（与重打分同一次请求）。
     pub(super) fn generated_sentences(&self, keys: &str) -> Vec<String> {
-        if keys.is_empty() || !self.has_sentence_scorer() {
+        if keys.is_empty() || !self.sentence_generation || !self.has_sentence_scorer() {
             return Vec::new();
         }
         let mut cache = self.neural_cache.borrow_mut();

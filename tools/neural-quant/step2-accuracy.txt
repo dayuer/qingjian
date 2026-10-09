@@ -1,0 +1,7 @@
+dict d25f200a  lm bc19ea57  model 2c326abf  cli 13855c1
+int8e {'fuse-sent': 38.1, 'gen-sent': 47.9, 'fuse-dialog': 65.5, 'gen-dialog': 56.5, 'fuse-prose': 48.8, 'gen-prose': 46.8, 'fuse-ext': 63.5, 'gen-ext': 58.6, 'gen p50/p95': '301/706', 'clean2 词': '906/441/465', 'clean2 整句': '108/52/56', '指纹': 'dict d25f200a  lm bc19ea57  model ad72e8d5  cli ef8041d'}
+q8real {'fuse-sent': 38.1, 'gen-sent': 48.3, 'fuse-dialog': 65.5, 'gen-dialog': 56.7, 'fuse-prose': 48.9, 'gen-prose': 46.7, 'fuse-ext': 63.4, 'gen-ext': 58.7, 'gen p50/p95': '337/949', 'clean2 词': '906/441/465', 'clean2 整句': '108/52/56', '指纹': 'dict d25f200a  lm bc19ea57  model 2c326abf  cli 13855c1'}
+int8e 对 fp16： {'fuse-sent': 0.0, 'gen-sent': -0.4, 'fuse-dialog': 0.0, 'gen-dialog': 0.0, 'fuse-prose': 0.0, 'gen-prose': 0.0, 'fuse-ext': 0.1, 'gen-ext': -0.1} 最大掉分 -0.4
+q8real 对 fp16： {'fuse-sent': 0.0, 'gen-sent': 0.0, 'fuse-dialog': 0.0, 'gen-dialog': 0.2, 'fuse-prose': 0.1, 'gen-prose': -0.1, 'fuse-ext': 0.0, 'gen-ext': 0.0} 最大掉分 -0.1
+
+[exited with code 0]

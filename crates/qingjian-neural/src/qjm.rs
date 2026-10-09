@@ -1,6 +1,7 @@
 //! `.qjm`：本地整句模型的单文件形态——就是 `.qj` 容器（`qingjian-format`）装了 [`Kind::Model`]：
 //! `META`（名称 / 许可证 / 署名，条数记参数量）+ `CONF`（`config.json` 原文）+ `VOCB`（`vocab.json` 原文）
-//! + `SAFT`（`model.safetensors` 原文，mmap 后切片直接给 candle）。
+//! + `SAFT`（`model.safetensors` 原文，mmap 后切片直接给 candle）或 `Q8GF`（8 位权重：线性层与字嵌入表 Q8_0、其余 f32 的 GGUF，
+//!   见 [`QuantizedWeights`]）。两节只有一节；加载时先找 `Q8GF`，没有就按 `SAFT` 走 fp16 / f32，旧文件照常能读。
 //!
 //! 导出的仍是三件套目录，开发时直接加载；随包与用户目录用 `.qjm`，`dict-convert pack model` 把前者打成后者。
 //! safetensors 在这里是不透明载荷，容器版本只管自己那一层。
@@ -10,7 +11,7 @@ use std::path::{Path, PathBuf};
 use candle_core::safetensors::SliceSafetensors;
 use qingjian_format::{Kind, Metadata, Writer};
 
-use crate::{ModelConfig, NeuralError, Vocab};
+use crate::{ModelConfig, NeuralError, QuantizedWeights, Vocab};
 
 /// 单文件模型的扩展名。
 pub const EXTENSION: &str = "qjm";
@@ -33,6 +34,9 @@ pub const VOCAB_TAG: [u8; 4] = *b"VOCB";
 /// `model.safetensors` 原文那一节。
 pub const WEIGHTS_TAG: [u8; 4] = *b"SAFT";
 
+/// 8 位权重那一节（GGUF）。
+pub const QUANTIZED_TAG: [u8; 4] = *b"Q8GF";
+
 /// `dir` 下能加载的模型：先找 `.qjm` 单文件（有几份按文件名取第一份），没有再看三件套（返回目录本身）；都没有为 `None`。
 pub fn find_model(dir: &Path) -> Option<PathBuf> {
     let mut packed: Vec<PathBuf> = std::fs::read_dir(dir)
@@ -49,8 +53,13 @@ pub fn find_model(dir: &Path) -> Option<PathBuf> {
 }
 
 /// 把三件套目录打成一个 `.qjm`：三个文件原文各占一节，写之前把结构、字表、权重都解析一遍，坏文件在这里就报出来。
-/// `metadata.entries` 是 0 就填成参数量。返回参数量。
-pub fn pack(dir: &Path, out: &Path, metadata: &Metadata) -> Result<u64, NeuralError> {
+/// `metadata.entries` 是 0 就填成参数量。`quantize` 为真时权重写成 8 位那一节（`Q8GF`）而不是 safetensors 原文。返回参数量。
+pub fn pack(
+    dir: &Path,
+    out: &Path,
+    metadata: &Metadata,
+    quantize: bool,
+) -> Result<u64, NeuralError> {
     let config = read(&dir.join(CONFIG_FILE))?;
     let vocab = read(&dir.join(VOCAB_FILE))?;
     let weights = read(&dir.join(WEIGHTS_FILE))?;
@@ -72,10 +81,15 @@ pub fn pack(dir: &Path, out: &Path, metadata: &Metadata) -> Result<u64, NeuralEr
         },
         ..metadata.clone()
     };
+    let (tag, payload) = if quantize {
+        (QUANTIZED_TAG, QuantizedWeights::encode(&weights)?)
+    } else {
+        (WEIGHTS_TAG, weights)
+    };
     Writer::new(Kind::Model, &metadata)?
         .section(CONFIG_TAG, &config)
         .section(VOCAB_TAG, &vocab)
-        .section(WEIGHTS_TAG, &weights)
+        .section(tag, &payload)
         .write_to(out)?;
     Ok(parameters)
 }
@@ -118,7 +132,7 @@ mod tests {
     #[test]
     fn pack_rejects_missing_files() {
         let dir = scratch("pack-missing");
-        let error = pack(&dir, &dir.join("out.qjm"), &Metadata::default()).unwrap_err();
+        let error = pack(&dir, &dir.join("out.qjm"), &Metadata::default(), false).unwrap_err();
         assert!(matches!(error, NeuralError::Io { .. }), "{error}");
         let _ = std::fs::remove_dir_all(&dir);
     }

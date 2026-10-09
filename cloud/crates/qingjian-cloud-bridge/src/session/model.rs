@@ -22,12 +22,18 @@ pub const MODEL_ACTIVE: u8 = 2;
 /// `qj_model_state` 的取值：上次加载失败。
 pub const MODEL_FAILED: u8 = 3;
 
+/// 加载线程交回来的：打分器（或错误），以及一行报告（见 [`ModelState::report`]）。
+type Loaded = (Result<Box<dyn SentenceScorer>, NeuralError>, String);
+
 /// 模型的加载状态与交接信道。
 pub struct ModelState {
     state: u8,
 
     /// 加载线程的结果信道；`None` 是没在加载。
-    loader: Option<Receiver<Result<Box<dyn SentenceScorer>, NeuralError>>>,
+    loader: Option<Receiver<Loaded>>,
+
+    /// 最近一次加载的报告：`ok|failed sha=<前 8 位> ms=<耗时>[ error=<原因>]`；壳在状态变化时写进系统日志。
+    report: Option<String>,
 }
 
 impl Default for ModelState {
@@ -35,6 +41,7 @@ impl Default for ModelState {
         Self {
             state: MODEL_IDLE,
             loader: None,
+            report: None,
         }
     }
 }
@@ -42,6 +49,11 @@ impl Default for ModelState {
 impl ModelState {
     pub fn state(&self) -> u8 {
         self.state
+    }
+
+    /// 最近一次加载的报告（加载线程出了结果之后才有）。
+    pub fn report(&self) -> Option<&str> {
+        self.report.as_deref()
     }
 
     /// 开始异步加载。已在加载或在用时返回 `false`；起不了线程按失败记。
@@ -66,18 +78,19 @@ impl ModelState {
                         Ok(Box::new(scorer) as Box<dyn SentenceScorer>)
                     }
                 });
+                let elapsed = started.elapsed().as_millis();
+                let sha = file_sha8(&path).unwrap_or_else(|| "-".to_owned());
+                let report = match &loaded {
+                    Ok(_) => format!("ok sha={sha} ms={elapsed}"),
+                    Err(error) => format!("failed sha={sha} ms={elapsed} error={error}"),
+                };
                 if loaded.is_ok() {
-                    tracing::info!(
-                        path = %path.display(),
-                        p2c,
-                        elapsed_ms = started.elapsed().as_millis(),
-                        "本地模型已加载并预热"
-                    );
+                    tracing::info!(path = %path.display(), p2c, %report, "本地模型已加载并预热");
                 } else {
-                    tracing::warn!(path = %path.display(), "本地模型加载失败");
+                    tracing::warn!(path = %path.display(), %report, "本地模型加载失败");
                 }
                 // 接收端可能已随卸载丢掉，晚到的结果就地丢弃
-                let _ = tx.send(loaded);
+                let _ = tx.send((loaded, report));
             });
         match spawned {
             Ok(_) => {
@@ -97,14 +110,16 @@ impl ModelState {
     pub fn poll(&mut self) -> Option<Box<dyn SentenceScorer>> {
         if let Some(rx) = &self.loader {
             match rx.try_recv() {
-                Ok(Ok(scorer)) => {
+                Ok((Ok(scorer), report)) => {
                     self.loader = None;
                     self.state = MODEL_ACTIVE;
+                    self.report = Some(report);
                     return Some(scorer);
                 }
-                Ok(Err(_)) => {
+                Ok((Err(_), report)) => {
                     self.loader = None;
                     self.state = MODEL_FAILED;
+                    self.report = Some(report);
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
@@ -120,6 +135,24 @@ impl ModelState {
         self.loader = None;
         self.state = MODEL_IDLE;
     }
+}
+
+/// 模型文件 sha256 的前 8 位（十六进制）；读不了返回 `None`。按块读，不整个读进内存。
+fn file_sha8(path: &Path) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 1 << 20];
+    loop {
+        let read = file.read(&mut buffer).ok()?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    let digest = hasher.finalize();
+    Some(digest.iter().take(4).map(|b| format!("{b:02x}")).collect())
 }
 
 #[cfg(test)]
@@ -142,6 +175,9 @@ mod tests {
             assert!(waited < 10_000, "加载线程没有出结果");
         }
         assert_eq!(state.state(), MODEL_FAILED);
+        let report = state.report().expect("失败也有报告");
+        assert!(report.starts_with("failed sha=- ms="), "{report}");
+        assert!(report.contains("error="), "{report}");
         // 失败后可以再来
         assert!(state.load(Path::new("/nonexistent/model.qjm"), true));
         state.unload();

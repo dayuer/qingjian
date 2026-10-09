@@ -1,0 +1,98 @@
+== before
+======================================================================
+load_probe [70721]: 64-bit    Footprint: 999736 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+   229688 B           0 B           0 B          1    page table
+   229376 B           0 B           0 B          8    MALLOC metadata
+   134992 B           0 B           0 B         36    __DATA_DIRTY
+    92669 B           0 B           0 B         36    __DATA
+    50923 B           0 B           0 B        130    unused dyld shared cache area
+    49152 B           0 B           0 B         45    __DATA_CONST
+    49152 B           0 B           0 B          2    stack
+    32768 B           0 B           0 B          1    MALLOC_TINY
+    32768 B           0 B           0 B          6    untagged (VM_ALLOCATE)
+    32768 B           0 B           0 B          1    MALLOC_SMALL
+    32712 B           0 B           0 B          2    __TPRO_CONST
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B      294912 B           0 B         48    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B         47    __AUTH_CONST
+        0 B           0 B           0 B         12    __AUTH
+        0 B           0 B           0 B          1    mapped file
+        ---           ---           ---        ---    ---
+   999736 B      311296 B           0 B        383    TOTAL
+
+Auxiliary data:
+    phys_footprint: 1016120 B
+    phys_footprint_peak: 1048888 B
+
+== loaded
+======================================================================
+load_probe [70721]: 64-bit    Footprint: 33161600 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 24100864 B           0 B           0 B          8    MALLOC_SMALL
+  7798784 B           0 B           0 B          2    MALLOC_LARGE
+   409600 B           0 B           0 B          8    MALLOC metadata
+   278912 B           0 B           0 B          1    page table
+   134992 B           0 B           0 B         36    __DATA_DIRTY
+    98304 B           0 B           0 B          1    MALLOC_TINY
+    92669 B           0 B           0 B         36    __DATA
+    50923 B           0 B           0 B        130    unused dyld shared cache area
+    49152 B           0 B           0 B         45    __DATA_CONST
+    49152 B           0 B           0 B          2    stack
+    32768 B           0 B           0 B          6    untagged (VM_ALLOCATE)
+    32712 B           0 B           0 B          2    __TPRO_CONST
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B      770048 B           0 B         48    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B         47    __AUTH_CONST
+        0 B           0 B           0 B         12    __AUTH
+        0 B           0 B           0 B          1    mapped file
+        ---           ---           ---        ---    ---
+ 33161600 B      786432 B           0 B        392    TOTAL
+
+Auxiliary data:
+    phys_footprint: 33177984 B
+    phys_footprint_peak: 33210800 B
+
+== generated
+======================================================================
+load_probe [70721]: 64-bit    Footprint: 61047216 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 51675136 B           0 B           0 B         16    MALLOC_SMALL
+  7798784 B           0 B           0 B          3    MALLOC_LARGE
+   557056 B           0 B           0 B          8    MALLOC metadata
+   311728 B           0 B           0 B          1    page table
+   163840 B           0 B           0 B         16    stack
+   134992 B           0 B           0 B         36    __DATA_DIRTY
+   114688 B           0 B           0 B          1    MALLOC_TINY
+    92669 B           0 B           0 B         36    __DATA
+    50923 B           0 B           0 B        130    unused dyld shared cache area
+    49152 B           0 B           0 B         45    __DATA_CONST
+    32768 B           0 B           0 B         20    untagged (VM_ALLOCATE)
+    32712 B           0 B           0 B          2    __TPRO_CONST
+    16384 B           0 B           0 B          1    os_alloc_once
+    16384 B           0 B           0 B          1    tag 22
+        0 B     1327104 B           0 B         48    __TEXT
+        0 B       16384 B           0 B          3    __LINKEDIT
+        0 B           0 B           0 B         47    __AUTH_CONST
+        0 B           0 B           0 B         12    __AUTH
+        0 B           0 B           0 B          1    mapped file
+        ---           ---           ---        ---    ---
+ 61047216 B     1343488 B           0 B        429    TOTAL
+
+Auxiliary data:
+    phys_footprint: 61063600 B
+    phys_footprint_peak: 61063600 B
+

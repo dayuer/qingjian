@@ -390,9 +390,11 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
             return nil
         }
         let files = UserData.resolve(fullAccess: fullAccess, bundledData: data)
-        return Engine(
+        let engine = Engine(
             dataDirectory: data, userDirectory: files.userDirectory, configFile: files.configFile,
             cloudConfig: files.cloudFile)
+        engine?.loadModel()
+        return engine
     }
 }
 

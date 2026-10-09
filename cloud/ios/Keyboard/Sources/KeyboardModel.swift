@@ -127,12 +127,51 @@ final class KeyboardModel {
 
     init(engine: Engine?) {
         self.engine = engine
+        listenForRescore()
+    }
+
+    /// 停键重排的一次性定时器：每次改缓冲重排一次，停键 `Engine.rescoreDebounce` 才送去打分。
+    @ObservationIgnored private var rescoreWork: DispatchWorkItem?
+
+    /// 上一次看到的模型状态：变成在用或失败时写一行系统日志（成败、文件 sha 前 8 位、耗时），真机上看模型到底起没起来。
+    @ObservationIgnored private var loggedModelState: UInt8 = 0
+
+    private func logModelState(_ engine: Engine) {
+        let state = engine.modelState
+        guard state != loggedModelState else { return }
+        loggedModelState = state
+        guard state == 2 || state == 3, let report = engine.modelReport else { return }
+        Self.modelLog.info("model_load \(report, privacy: .public)")
+    }
+
+    private static let modelLog = Logger(subsystem: "sujian.keyboard", category: "model")
+
+    /// 本地整句模型打完分就重画候选（桥在打分线程上通知，这里已回到主线程）。
+    private func listenForRescore() {
+        engine?.onRescored { [weak self] in self?.rescoreTick() }
+    }
+
+    private func rescoreTick() {
+        guard let engine, composing else { return }
+        if engine.rescoreTick() { candidates = engine.candidates }
+    }
+
+    /// 每键之后排一拍；连打时前一拍作废，不在按键回调里算任何东西。
+    private func scheduleRescore() {
+        rescoreWork?.cancel()
+        guard composing else { return }
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.rescoreTick() }
+        }
+        rescoreWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Engine.rescoreDebounce, execute: work)
     }
 
     /// 换一个引擎（完全访问开关或连接配置变了，学习数据目录与云端都要重开）；旧的先落盘。
     func replaceEngine(_ engine: Engine?) {
         self.engine?.flush()
         self.engine = engine
+        listenForRescore()
         if privateField { engine?.setPrivate(true) }
         let shown = EngineDisplay.afterReplace(hasEngine: engine != nil, preedit: preedit, candidates: candidates)
         if shown.preedit != preedit { sink.setMarked(shown.preedit) }
@@ -143,16 +182,18 @@ final class KeyboardModel {
         reloadRewriteSkills()
     }
 
-    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：余量低于 8MB 就卸掉英文表腾地方，
-    /// 下次像英文的输入会自动再加载。
-    ///
-    /// 本地整句模型（含章·通变）不在键盘里用：桥没有驱动异步重打分的调用，加载了也从不出结果（有无模型候选完全一样），
-    /// 却占 65–120MB 内存（CPU 推理，f16 / f32 权重），把键盘推到上限边上。以后有了合适的接法再加回来。
+    /// 键盘扩展的内存上限紧（jetsam 按 phys_footprint 杀，社区实测 48–60MB）：余量低于 8MB 先卸英文表
+    /// （下次像英文的输入会自动再加载），低于 4MB 再卸本地整句模型（8 位通变：权重是 mmap 的干净页，
+    /// 占 dirty 的主要是重排时的工作内存，卸掉后整句退回只用统计模型）。
     private func guardMemoryPressure() {
         guard let engine else { return }
         let available = Engine.availableMemoryMB
-        if available >= 0, available < 8 {
+        guard available >= 0 else { return }
+        if available < 8 {
             engine.unloadEnglish()
+        }
+        if available < 4 {
+            engine.unloadModel()
         }
     }
 
@@ -398,6 +439,7 @@ final class KeyboardModel {
     /// 控制器定时调：取大模型候选、合并别的设备的学习数据、看润色有没有回来。
     func poll() {
         guard let engine else { return }
+        logModelState(engine)
         refreshHint()
         // App 删了当前对象时桥会退回不指定
         if let next = engine.scope, next != scope {
@@ -903,6 +945,7 @@ final class KeyboardModel {
         if next != preedit { sink.setMarked(next) }
         preedit = next
         candidates = engine.candidates
+        scheduleRescore()
         if !composing, panel == .candidates { panel = .keys }
         if composing {
             quickOpen = false

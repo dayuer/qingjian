@@ -29,6 +29,7 @@ toml_edit = "0.25"
 tracing.workspace = true
 uuid.workspace = true
 getrandom = "0.4"
+sha2 = "0.11.0"
 
 [dev-dependencies]
 # 集成测试要起假服务，用 client 里那份（`test-support` feature）

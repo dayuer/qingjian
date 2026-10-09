@@ -6,6 +6,7 @@ mod cloud;
 mod config;
 mod memory;
 mod model;
+mod rescore;
 
 use std::path::{Path, PathBuf};
 
@@ -19,6 +20,7 @@ use self::memory::LiveMemory;
 use self::model::ModelState;
 
 pub use self::model::{MODEL_ACTIVE, MODEL_FAILED, MODEL_IDLE, MODEL_LOADING};
+pub use self::rescore::DEBOUNCE as RESCORE_DEBOUNCE;
 
 pub use self::memory::DroppedNotes;
 use crate::clipboard::Clipboard;
@@ -79,6 +81,9 @@ pub struct Session {
 
     /// 英文词表已挂上引擎（内存吃紧先卸它：比模型小，触发器还会再加载）。
     english_loaded: bool,
+
+    /// 最后一次改缓冲的时刻：停键够久才送整句路径去重排（见 `rescore`）。
+    last_edit: Option<std::time::Instant>,
 }
 
 impl Session {
@@ -149,6 +154,7 @@ impl Session {
             model: ModelState::default(),
             english_pending,
             english_loaded: false,
+            last_edit: None,
             uploader: user_dir.map(|dir| {
                 crate::upload::Uploader::start(dir.join("cloud.toml"), dir.to_path_buf())
             }),
@@ -175,7 +181,9 @@ impl Session {
     }
 
     /// 开始异步加载本地神经整句模型（含章·通变）；已在加载或在用返回 `false`。
+    /// 键盘里只给词图的整句路径重排、不自由生成：生成要逐字 beam，K / V 缓存多占 20MB 以上，扩展放不下。
     pub fn load_model(&mut self, path: &Path, p2c: bool) -> bool {
+        self.engine.set_sentence_generation(false);
         self.model.load(path, p2c)
     }
 
@@ -183,6 +191,11 @@ impl Session {
     pub fn model_state(&mut self) -> u8 {
         self.attach_loaded_model();
         self.model.state()
+    }
+
+    /// 最近一次模型加载的报告（`ok|failed sha=… ms=…[ error=…]`），加载线程出了结果之后才有。
+    pub fn model_report(&self) -> Option<&str> {
+        self.model.report()
     }
 
     /// 卸载本地模型：重打分停用，状态回未加载。内存吃紧时腾地方。
@@ -269,6 +282,7 @@ impl Session {
 
     /// 每次按键后：先补写拿不到锁时留下的待办，再重查候选。
     fn refresh(&mut self) {
+        self.last_edit = Some(std::time::Instant::now());
         self.retry_pending();
         self.load_english_if_english_like();
         self.refresh_candidates();

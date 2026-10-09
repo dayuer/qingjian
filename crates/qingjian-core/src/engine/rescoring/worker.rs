@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 
 use crate::sentence::SentenceScorer;
 
-use super::{GENERATE_BEAM, GENERATE_MAX_CHARS};
+use super::{GENERATE_BEAM, GENERATE_MAX_CHARS, NotifySlot};
 
 /// 一次后台任务：两个条件与一批要打分的文本，外加可选的「直接按这段按键生成整句」。
 /// 两件事合成一条任务是因为它们都在用户停顿后一起发出，而排队的任务只算最新一条。
@@ -44,7 +44,8 @@ pub(crate) struct RescoreWorker {
 }
 
 impl RescoreWorker {
-    pub fn spawn(scorer: Box<dyn SentenceScorer>) -> Self {
+    /// `notify` 里有回调时，每算完一条（结果已放进信道）就在后台线程上调一次，壳据此立刻来取，不用等下一拍轮询。
+    pub fn spawn(scorer: Box<dyn SentenceScorer>, notify: NotifySlot) -> Self {
         let (jobs, job_rx) = channel::<Job>();
         let (result_tx, results) = channel::<Scored>();
         let handle = std::thread::Builder::new()
@@ -86,6 +87,10 @@ impl RescoreWorker {
                     };
                     if result_tx.send(done).is_err() {
                         break;
+                    }
+                    if let Some(notify) = notify.lock().unwrap_or_else(|p| p.into_inner()).as_ref()
+                    {
+                        notify();
                     }
                 }
             })
