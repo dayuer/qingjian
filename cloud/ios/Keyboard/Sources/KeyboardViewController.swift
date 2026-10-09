@@ -38,6 +38,24 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
     /// 上一次看到的宿主输入框（`textDocumentProxy.documentIdentifier`）。
     private var lastDocument: UUID?
 
+    /// 系统在控制器走了以后还留着它的根视图（inputView），挂在上面的 SwiftUI 宿主视图、触摸层、候选栏也就一直活着，
+    /// 宿主视图里的 KeyboardView 又强引用模型 → 引擎（Rust 会话、模型映射）：键盘每出现一次就漏一整份。
+    /// 所以控制器析构时把根视图上的子视图全摘掉、回调清空。deinit 不在主线程隔离里，摘视图排回主线程做。
+    deinit {
+        let (root, touch, panel, bar) = (view, touchView, panelView, barView)
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                touch.onPress = nil
+                touch.onRelease = nil
+                touch.onDrag = nil
+                touch.onChevron = nil
+                panel.onSelect = nil
+                bar.onSelect = nil
+                root?.subviews.forEach { $0.removeFromSuperview() }
+            }
+        }
+    }
+
     override func loadView() {
         super.loadView()
         inputView = KeyboardInputView(frame: .zero, inputViewStyle: .keyboard)
@@ -240,24 +258,25 @@ final class KeyboardViewController: UIInputViewController, TextOutput {
         self.hosting = hosting
     }
 
+    /// 回调都弱引用触摸层与模型：闭包存在触摸层自己身上，强引用触摸层就是自己留住自己。
     private func mountTouchView() {
         let model = model!
-        touchView.onPress = { [touchView] index in
-            guard index < touchView.slots.count else { return }
+        touchView.onPress = { [weak touchView, weak model] index in
+            guard let touchView, let model, index < touchView.slots.count else { return }
             model.press(slot: index, key: touchView.slots[index].key)
         }
-        touchView.onRelease = { [touchView] index, cancelled in
-            guard index < touchView.slots.count else { return }
+        touchView.onRelease = { [weak touchView, weak model] index, cancelled in
+            guard let touchView, let model, index < touchView.slots.count else { return }
             model.release(slot: index, key: touchView.slots[index].key, cancelled: cancelled)
         }
-        touchView.onChevron = { model.toggleCandidatePanel() }
-        touchView.onDrag = { [touchView] index, dx in
-            guard index < touchView.slots.count else { return }
+        touchView.onChevron = { [weak model] in model?.toggleCandidatePanel() }
+        touchView.onDrag = { [weak touchView, weak model] index, dx in
+            guard let touchView, let model, index < touchView.slots.count else { return }
             model.drag(slot: index, key: touchView.slots[index].key, dx: dx)
         }
         // 面板在触摸层下面：展开时触摸层不认键区的触摸，面板自己收
-        panelView.onSelect = { model.selectCandidate($0) }
-        barView.onSelect = { model.selectCandidate($0) }
+        panelView.onSelect = { [weak model] in model?.selectCandidate($0) }
+        barView.onSelect = { [weak model] in model?.selectCandidate($0) }
         view.addSubview(panelView)
         // 候选栏也在触摸层下面：触摸层的 hitTest 只认键区与 ⌄，候选栏那一条会穿透下来，滑动与点击都归它
         view.addSubview(barView)
