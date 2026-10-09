@@ -389,6 +389,9 @@ impl Host {
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
             }
+            (Setting::EnglishInChinese, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_in_chinese", on);
+            }
             (Setting::Emoji, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "emoji", on);
             }

@@ -144,6 +144,9 @@ pub enum Setting {
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
 
+    /// `[general] english_in_chinese`，勾选框：中文模式也给英文词与补全。
+    EnglishInChinese,
+
     /// `[general] emoji`，勾选框：候选后面配 emoji。
     Emoji,
 
@@ -257,6 +260,7 @@ impl Setting {
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
             Self::Emoji => 71,
+            Self::EnglishInChinese => 72,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
             Self::TranslationKeys => 15,
@@ -336,6 +340,7 @@ impl Setting {
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
             71 => Self::Emoji,
+            72 => Self::EnglishInChinese,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
             15 => Self::TranslationKeys,
@@ -440,6 +445,7 @@ mod tests {
             Setting::EnterCommitsCandidate,
             Setting::Traditional,
             Setting::Emoji,
+            Setting::EnglishInChinese,
             Setting::VerboseLog,
             Setting::OpenLogDirectory,
             Setting::CopyDiagnostics,

@@ -80,6 +80,9 @@ impl Engine {
     /// 真机日志里 `gd` → Gd 混进了中文句子。试过再放宽到三个字母全大写（DOA），会把 GPU / SQL / LLM 一起压到中文后面，
     /// 词频也分不开（DOA 2760、LLM 2290），所以只到两个字母。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
+        if !self.english_in_chinese {
+            return;
+        }
         let lists = self.english_lists();
         if lists.is_empty() {
             return;
@@ -164,7 +167,8 @@ impl Engine {
     /// 整段作用域本身就是个英文词（`database`、`agent`）：用户多半在打那个词。
     pub(in crate::engine) fn scope_is_english_word(&self) -> bool {
         let scope = self.composition.scope();
-        !scope.is_empty()
+        self.english_in_chinese
+            && !scope.is_empty()
             && self
                 .english_lists()
                 .iter()

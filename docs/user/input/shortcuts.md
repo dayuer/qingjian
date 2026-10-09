@@ -31,6 +31,7 @@ description: 日期时间、算式与中文数字、按码点输入字符、中�
   `Space` 上屏的仍是中文，按 `2` 选英文；没有中文候选时（`github`）英文仍排第一。
   专名按正确大小写上屏：`windows` → **Windows**，`github` → **GitHub**，`python` → **Python**。
 - 拼音不成立且不少于 3 个字母时补全前缀：`compa` → company / companies / compared。
+- 不想在中文模式里看到英文词与补全，取消勾选「偏好设置 → 通用」的「输入拼音时也给英文词和补全」（配置文件里是 `[general] english_in_chinese = false`），英文模式不受影响。
 - 一句拼音末尾接一个英文词时，整句直接包含该词：`woxiangxuehaorust` → 我想学好rust，`wodeid` → 我的ID，`woyongvim` → 我用vim，`yongwindows` → 用Windows。
   拼音行显示 `wo'xiang'xue'hao'rust`，`Space` 上屏整句。该英文词需在词表中（用户自己输入过的也算，见 [英文模式](english-mode.md)）。
   `database` 这类同时可读作拼音的输入，按两种读法的通顺程度排序：我的database 排第一、我的大塔巴瑟 排第二；

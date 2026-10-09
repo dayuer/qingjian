@@ -217,6 +217,8 @@ english_candidates = true
 traditional = false
 # 中文模式下整段输入是英文词时（hello / key）是否让中文候选排第一、英文词第二；缺省 false：拼音不像话的输入英文词排第一
 chinese_first = false
+# 中文模式下整段是英文词或英文词的开头时给英文候选与补全（hello、compa → company）；false 时中文模式只出中文，英文模式不受影响
+english_in_chinese = true
 # 候选后面配 emoji（kaixin → 开心 😄）；false 时候选里只有字词
 emoji = true
 # 中文模式下按住 Shift 敲的字母：passthrough 拼音原样上屏、字母交给应用（缺省，与以前一致）/ compose 收进组句
@@ -674,6 +676,7 @@ mod tests {
         assert_eq!(config.general.learning_language, "off");
         assert!(config.general.english_candidates);
         assert!(config.general.emoji);
+        assert!(config.general.english_in_chinese);
         assert!(!config.general.traditional);
         assert_eq!(config.general.shuangpin(), None);
         assert_eq!(config.general.log_level, LogLevel::Info);

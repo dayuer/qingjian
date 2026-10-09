@@ -444,6 +444,15 @@ impl Engine {
         self.emoji_candidates
     }
 
+    /// 中文模式下给不给英文词与补全（配置 `[general] english_in_chinese`，缺省开）；英文模式不受影响。
+    pub fn set_english_in_chinese(&mut self, on: bool) {
+        self.english_in_chinese = on;
+    }
+
+    pub fn english_in_chinese(&self) -> bool {
+        self.english_in_chinese
+    }
+
     /// 中英混输里中文候选是否总排在英文词前面（配置 `[general] chinese_first`，缺省关）。
     /// 关着时拼音「不像话」的输入英文词排第一（`hello` 先英文再 荷兰咯）；开了英文词固定第二。
     pub fn set_chinese_first(&mut self, on: bool) {
