@@ -36,7 +36,7 @@ pub struct RouterConfig {
     pub english_full_width: bool,
 
     /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
-    ///（`nihao,` 一气打完「你好，」）的开关（`[general] punct_commits`），缺省开。
+    ///（`nihao,` 一气打完「你好，」）的开关（`[general] punct_commits`），缺省关。
     pub punct_commits: bool,
 
     /// 按应用的设置（`[apps]`），按宿主 exe 名认。

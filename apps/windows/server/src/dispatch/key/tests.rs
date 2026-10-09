@@ -153,6 +153,7 @@ fn tab_with_raw_input_and_no_candidates_is_consumed_without_commit() {
 #[test]
 fn punctuation_commits_highlighted_candidate() {
     let mut router = router(5);
+    router.config.punct_commits = true;
     let normal = KeyModifiers::default();
     compose(&mut router, "ni", normal);
     let result = key(&mut router, 0xBC, Some(','), normal);
@@ -173,6 +174,7 @@ fn punctuation_commits_highlighted_candidate() {
 #[test]
 fn unconvertible_symbols_do_not_commit_candidates() {
     let mut router = router(5);
+    router.config.punct_commits = true;
     let normal = KeyModifiers::default();
     compose(&mut router, "ni", normal);
     let result = key(&mut router, 0xBD, Some('-'), normal);
@@ -189,13 +191,14 @@ fn unconvertible_symbols_do_not_commit_candidates() {
 #[test]
 fn digit_then_composition_resets_decimal_point_state() {
     let mut router = router(5);
+    router.config.punct_commits = true;
     let normal = KeyModifiers::default();
     key(&mut router, 0x33, Some('3'), normal);
     compose(&mut router, "ni", normal);
     let result = key(&mut router, 0xBE, Some('.'), normal);
     assert_eq!(result.1.as_deref(), Some("你。"));
 }
-/// 关掉 `[general] punct_commits`：组句中的标点回到老行为——进英文直输段，不再上屏候选；开回来恢复。
+/// `[general] punct_commits` 关着（缺省）：组句中的标点进英文直输段，不上屏候选；打开后上屏候选再补标点。
 #[test]
 fn punct_commits_off_keeps_punctuation_in_raw_segment() {
     let mut router = router(5);
