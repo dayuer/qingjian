@@ -1,6 +1,8 @@
-//! Unihan 里每个字的普通话读音：kHanyuPinlu（带频次）、kXHC1983（《现代汉语词典》1983 全部读音）、kMandarin（首选读音）。
+//! Unihan 里每个字的普通话读音：kHanyuPinlu（带频次）、kXHC1983（《现代汉语词典》1983 全部读音）、kMandarin（首选读音）；
+//! 另收 `kTGH`（通用规范汉字表索引）只用于判断「这个字在不在规范表里」——报警要按它筛，
+//! 否则繁体与港台/日文异体会把清单灌满（`诶` 没有 kTGH，所以它本来就不在规范表里，2026-10-09）。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use super::tone::strip_tone;
@@ -24,6 +26,10 @@ struct Entry {
 pub struct CharReadings {
     /// 每个字的资料。
     entries: HashMap<char, Entry>,
+
+    /// 有 `kTGH`（通用规范汉字表索引）的字。只用来判断「在不在规范表里」：
+    /// 报警要按它筛，否则繁体与港台/日文异体把清单灌满（`诶` 没有 kTGH —— 它本来就不在规范表里）。
+    tgh: HashSet<char>,
 }
 
 impl CharReadings {
@@ -31,6 +37,7 @@ impl CharReadings {
     pub fn load(path: &Path) -> Result<Self, ConvertError> {
         let source = std::fs::read_to_string(path)?;
         let mut entries: HashMap<char, Entry> = HashMap::new();
+        let mut tgh: HashSet<char> = HashSet::new();
         for line in source.lines() {
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -41,7 +48,8 @@ impl CharReadings {
             else {
                 continue;
             };
-            if !matches!(field, "kMandarin" | "kHanyuPinlu" | "kXHC1983") {
+            let is_tgh = field.starts_with("kTGH");
+            if !is_tgh && !matches!(field, "kMandarin" | "kHanyuPinlu" | "kXHC1983") {
                 continue;
             }
             let Some(ch) = code
@@ -51,6 +59,10 @@ impl CharReadings {
             else {
                 continue;
             };
+            if is_tgh {
+                tgh.insert(ch);
+                continue;
+            }
             let entry = entries.entry(ch).or_default();
             match field {
                 // 两个值时第一个是大陆读音
@@ -76,11 +88,17 @@ impl CharReadings {
                 _ => {}
             }
         }
-        Ok(Self { entries })
+        Ok(Self { entries, tgh })
     }
 
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    /// 这个字在不在《通用规范汉字表》里（Unihan 的 `kTGH` 索引）。
+    /// 缺读音报警按它筛：表外的繁体与港台/日文异体不算缺口（`诶` 就没有 kTGH）。
+    pub fn in_tgh(&self, ch: char) -> bool {
+        self.tgh.contains(&ch)
     }
 
     /// 这个字的全部读音，按可信度排：kHanyuPinlu 频次高的在前，然后 kMandarin，然后 kXHC1983 其余的。去重。

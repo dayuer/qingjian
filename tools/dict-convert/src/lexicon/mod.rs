@@ -325,9 +325,16 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             dropped += 1;
             continue;
         }
-        let total = counts.get(&ch.to_string()).copied().unwrap_or_else(|| {
-            u64::from(CHAR_FLOOR[usize::from(level.unwrap_or(3).saturating_sub(1).min(2))])
-        });
+        // 词频：优先语料一元表；单字**分词时进不来**（不在分词词表里，一元表自然也没有它）
+        // 就退回**字频表**的独立计数 —— 嗯 在语料里 300 万次，用底值 10 会让用户打 en 永远看不到它
+        // （2026-10-09 审计裁定 (c)）。字频表由 `bigram` 顺带写出，与一元表同一权重口径。
+        let total = counts
+            .get(&ch.to_string())
+            .copied()
+            .or_else(|| char_counts.get(&ch.to_string()).copied())
+            .unwrap_or_else(|| {
+                u64::from(CHAR_FLOOR[usize::from(level.unwrap_or(3).saturating_sub(1).min(2))])
+            });
         let sum: f64 = valid.iter().map(|(_, w)| w).sum();
         for (syllable, weight) in valid {
             let frequency = ((total as f64) * weight / sum).round().max(1.0) as u32;
@@ -592,10 +599,14 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             .filter(|(text, _)| text.chars().count() == 1)
             .map(|(text, _)| text.as_str())
             .collect();
+        // 只报**在规范表里**（有 kTGH）却没有读音的字：表外的繁体与港台/日文异体不算缺口，
+        // 全报出来一次 1,623 条没人看（2026-10-09 审计裁定）
         let mut missing: Vec<(&str, u64)> = char_counts
             .iter()
             .filter(|(word, count)| {
-                **count >= MISSING_READING_ALARM && !single.contains(word.as_str())
+                **count >= MISSING_READING_ALARM
+                    && !single.contains(word.as_str())
+                    && word.chars().next().is_some_and(|ch| readings.in_tgh(ch))
             })
             .map(|(word, count)| (word.as_str(), *count))
             .collect();
