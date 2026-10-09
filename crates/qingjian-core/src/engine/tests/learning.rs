@@ -756,3 +756,89 @@ fn a_buffer_picked_in_pieces_once_comes_first_next_time() {
     let items = texts_of(&engine);
     assert_eq!(items[0], phrase, "{items:?}");
 }
+
+/// 只认一条整句、别的都给很低分的打分器：模拟融合把选错的那条抬上去的最坏情况。
+struct Prefers(String);
+
+impl sentence::SentenceScorer for Prefers {
+    fn score(&self, _context: &str, _keys: &str, texts: &[&str]) -> Vec<f64> {
+        texts
+            .iter()
+            .map(|t| if *t == self.0 { 0.0 } else { -50.0 })
+            .collect()
+    }
+}
+
+/// 把 kaifaxian 分两次选完：开发 + 读 xian 的单字 `tail`。返回合起来的词。
+fn pick_in_pieces(engine: &mut Engine, tail: &str) -> String {
+    engine.set_input("kaifaxian");
+    let head = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.text == "开发" && c.kind == CandidateKind::Chinese)
+        .unwrap();
+    engine.commit(&head);
+    let chosen = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .find(|c| c.kind == CandidateKind::Chinese && c.text == tail)
+        .unwrap_or_else(|| panic!("xian 的候选里没有 {tail}"));
+    engine.commit(&chosen);
+    assert!(engine.composition().is_empty());
+    engine.note_passthrough('\n');
+    format!("开发{tail}")
+}
+
+/// 整段选了很多次的 A，与只误打过一次、靠个人接续拼出来的整句 B：首选必须是 A。
+/// B 是最近的、接续计数还在；融合开着时打分器还偏向 B（最坏情况）。
+#[test]
+fn many_picks_beat_one_mistaken_pick_with_and_without_fusion() {
+    const DICT: &str =
+        "开发\tkai fa\t9000\n先\txian\t10000\n线\txian\t3000\n现\txian\t2000\n鲜\txian\t1000\n";
+    for fusion in [false, true] {
+        let shared = Arc::new(Mutex::new((Vec::new(), sentence::UserNgram::default())));
+        let learner = WordLearner {
+            shared: Arc::clone(&shared),
+            ..WordLearner::default()
+        };
+        let mut engine =
+            Engine::new(Dictionary::parse(DICT).unwrap()).with_learner(Box::new(learner));
+        let mut wanted = String::new();
+        for _ in 0..5 {
+            wanted = pick_in_pieces(&mut engine, "线");
+        }
+        // 误选的那次是分两段打的（kaifa 选 开发、再打 xian 选 现）：不记整段选择，只留下 开发 → 现 的接续，
+        // 下次整段打 kaifaxian 时词图最优就成了 开发 + 现 这条整句（用户数据里 姓 + 吁请 就是这样排到第一的）
+        for (keys, text) in [("kaifa", "开发"), ("xian", "现")] {
+            engine.set_input(keys);
+            let candidate = engine
+                .query()
+                .unwrap()
+                .candidates
+                .items
+                .into_iter()
+                .find(|c| c.kind == CandidateKind::Chinese && c.text == text)
+                .unwrap();
+            engine.commit(&candidate);
+        }
+        engine.note_passthrough('\n');
+        let mistaken = "开发现".to_owned();
+        if fusion {
+            engine = engine.with_sentence_scorer(
+                Box::new(Prefers(mistaken.clone())),
+                Some(0.5),
+                None,
+                None,
+            );
+        }
+        engine.set_input("kaifaxian");
+        let items = texts_of(&engine);
+        assert_eq!(items[0], wanted, "fusion {fusion}: {items:?}");
+    }
+}

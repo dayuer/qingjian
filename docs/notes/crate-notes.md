@@ -91,6 +91,9 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
   连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词选一次就造，退格重打时撤回）。
+  撤回只认「键盘退格删掉、同一段拼音重打」：在 App 里选中删掉、隔很久才删，学到的词频与接续都留着。
+  留下的误选不会压过多次正确选择：用户在这整段拼音下选过的词排在整句前面（`chosen_for_whole_scope`），
+  误选拼出来的整句（个人接续把 姓 + 书面词 抬成词图最优）只能排它后面；多个选过的词之间按选择次数排。
 - `InputLog`：输入日志（`input-log.jsonl`，每次上屏一行：敲的键、切分、看到的前几个候选、选了第几个、来源、纠错、撤销，
   Core `InputLogger` trait 的落盘实现，`[general] input_log` 缺省开，只写本机，给离线回归评测与个人模型用）。
 - `UsageStats`：输入统计（`usage.tsv`，按天记汉字 / 中文词 / 英文词 / 上屏次数，Core `UsageMeter` trait 的实现，Engine 每次上屏 `Usage::of_text` + 按来源定词数，
