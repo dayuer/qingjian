@@ -101,21 +101,32 @@ def initial(syllable: str) -> str:
     return syllable[:1]
 
 
-def render_input(syllables: list[str], rng: random.Random) -> str:
+def render_input(syllables: list[str], rng: random.Random,
+                 stats: dict[str, int] | None = None) -> str:
     """按真实打字习惯造输入串：七成全拼、两成混合简拼（每音节一半几率换成声母）、一成全简拼；
-    另约 3% 的句子随机敲错一个相邻键。"""
+    另约 3% 的句子随机敲错一个相邻键。
+
+    `stats` 给出去就顺手记一笔「全拼 / 混合 / 全简拼 / 错键」的实际条数——带上文那一路要拿它断言
+    噪声比例没走样（默认 None，底座调用方不受影响）。"""
     roll = rng.random()
     if roll < 0.70:
-        letters = "".join(syllables)
+        letters, kind = "".join(syllables), "全拼"
     elif roll < 0.90:
         letters = "".join(initial(s) if rng.random() < 0.5 else s for s in syllables)
+        kind = "混合"
     else:
-        letters = "".join(initial(s) for s in syllables)
+        letters, kind = "".join(initial(s) for s in syllables), "全简拼"
+    typo = False
     if letters and rng.random() < 0.03:
         index = rng.randrange(len(letters))
         near = ADJACENT.get(letters[index], "")
         if near:
             letters = letters[:index] + rng.choice(near) + letters[index + 1 :]
+            typo = True
+    if stats is not None:
+        stats[kind] = stats.get(kind, 0) + 1
+        if typo:
+            stats["错键"] = stats.get("错键", 0) + 1
     return letters
 
 
@@ -731,6 +742,10 @@ def main() -> int:
     stop = args.max_steps if args.max_steps is not None else (200 if args.smoke else None)
     per_epoch = max(1, ((len(tokens) - 1) // CTX) // args.batch)
     steps_total = max(1, per_epoch * epochs)
+
+    # 训练前先查死路径：探针要读 --eval-dev，缺了会在第一次评测（几千步之后）才炸，白跑几小时
+    if args.eval_dev and not pathlib.Path(args.eval_dev).exists():
+        raise SystemExit(f"--eval-dev 不存在：{args.eval_dev}")
 
     ckpt, done_file = out / "ckpt.pt", out / "done"
     dev_log = out / "dev.log"

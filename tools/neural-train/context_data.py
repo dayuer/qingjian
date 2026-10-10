@@ -87,6 +87,18 @@ def in_vocab(text: str, vocab: set[str]) -> bool:
     return all(ch in vocab for ch in text)
 
 
+def noisy_pinyin(words: list[str], readings: dict[str, str], rng: random.Random,
+                 stats: dict[str, int] | None = None) -> str:
+    """切好的词 → 带噪拼音：拼出音节后交给底座的 `render_input`（70/20/10 + 3% 错键）。
+
+    训练样本必须走这条；[`plain_pinyin`] 留给 dev 集（探针与 dev 一直是全拼，换了就与前几轮不可比）。
+    2026-10-10 第四轮：样本全是全拼、底座见过三成简拼，微调后简拼行的损失率是全拼行的 5 倍。"""
+    from train_p2c import render_input   # 延迟导入：train_p2c 顶层 import 本模块，反向会成环
+
+    return render_input([syllable for word in words for syllable in readings[word].split()],
+                        rng, stats)
+
+
 def usable(text: str, readings: dict[str, str], low: int = 2, high: int = 24) -> list[str] | None:
     """够格当样本的句子：长度合适、逐字有读音。"""
     if not (low <= len(text) <= high):
@@ -154,11 +166,12 @@ def build_context_samples(readings: dict[str, str], vocab: set[str], rng: random
 
     返回 `(上文, 拼音, 汉字)`；空上文的上下文是空串。
     配额按来源分别装（2026-10-10 修：原先三桶共用、LCCC 在前装满就 break → 实测 100% 对话、0% 书面）。"""
-    key = f"v=3 k={per_kind} share={lccc_share} vocab={len(vocab)}"
+    key = f"v=4 k={per_kind} share={lccc_share} vocab={len(vocab)}"
     if CACHE.exists() and CACHE.read_text(encoding="utf-8").splitlines()[:1] == [f"# {key}"]:
         rows = [l.split("\t") for l in CACHE.read_text(encoding="utf-8").splitlines()[1:] if l.strip()]
         print(f"带上文样本从缓存读入 {len(rows):,} 条（{key}）", flush=True)
         return [(r[0], r[1], r[2]) for r in rows]
+    stats: dict[str, int] = {}
     quota = int(per_kind * lccc_share), per_kind - int(per_kind * lccc_share)
     pools = {tag: {"empty": [], "split": [], "previous": []} for tag in ("lccc", "zhwiki")}
     for name, tag in (("lccc-lm90.txt", "lccc"), ("zhwiki-lm90.txt", "zhwiki")):
@@ -176,7 +189,7 @@ def build_context_samples(readings: dict[str, str], vocab: set[str], rng: random
                 if words is None:
                     previous_text = None
                     continue
-                pinyin = plain_pinyin(words, readings)
+                pinyin = noisy_pinyin(words, readings, rng, stats)
                 if not in_vocab(pinyin, vocab) or not in_vocab(text, vocab):
                     previous_text = None
                     continue
@@ -188,7 +201,7 @@ def build_context_samples(readings: dict[str, str], vocab: set[str], rng: random
                     cut = rng.randrange(1, len(words))
                     head = words[:cut]
                     if len("".join(head)) <= CTX_MAX and ok_ctx("".join(head)):
-                        tail_pinyin = plain_pinyin(words[cut:], readings)
+                        tail_pinyin = noisy_pinyin(words[cut:], readings, rng, stats)
                         if in_vocab(tail_pinyin, vocab):
                             pool["split"].append(("".join(head), tail_pinyin, "".join(words[cut:])))
                 # 上一句当上文：超长就取**末 32 字**（规格本来就是「上文 ≤32 字」）——
@@ -212,8 +225,23 @@ def build_context_samples(readings: dict[str, str], vocab: set[str], rng: random
     out = (pools["lccc"]["empty"] + pools["zhwiki"]["empty"]
            + pools["lccc"]["split"] + pools["zhwiki"]["split"]
            + pools["lccc"]["previous"] + pools["zhwiki"]["previous"])
+    check_noise(stats)
     CACHE.write_text(f"# {key}\n" + "".join(f"{c}\t{p}\t{t}\n" for c, p, t in out), encoding="utf-8")
     return out
+
+
+NOISE_TARGET = {"全拼": 70.0, "混合": 20.0, "全简拼": 10.0, "错键": 3.0}
+
+
+def check_noise(stats: dict[str, int]) -> None:
+    """打印实际的噪声比例并卡在 70/20/10/3 ±1%——样本的拼音换了造法，比例走样就白跑一轮。"""
+    total = sum(v for k, v in stats.items() if k != "错键") or 1
+    print(f"  拼音抽样噪声（含未入选的抽样）：{total:,} 次", flush=True)
+    for name, want in NOISE_TARGET.items():
+        got = stats.get(name, 0) / total * 100
+        print(f"    {name:4s} {stats.get(name, 0):>9,} = {got:5.2f}%（目标 {want:.0f}%）", flush=True)
+        if abs(got - want) > 1.0:
+            raise RuntimeError(f"噪声比例断言失败：{name} 实得 {got:.2f}%，目标 {want:.0f}%±1%")
 
 
 def derive_context_dev(readings: dict[str, str], seed: int = 20261010) -> int:

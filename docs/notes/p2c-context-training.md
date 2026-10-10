@@ -142,3 +142,26 @@ $A/neural-lab/venv/bin/python tools/neural-train/train_p2c.py --context --per-ki
 - `context-dev.tsv`（带上文 dev，496 行，里面是留出集的句子）：
   `python3 -c "import sys; sys.path.insert(0,'tools/neural-train'); import context_data as c, train_p2c as t; print(c.derive_context_dev(t.load_readings()))"`
 - `.cache-ctx-samples.tsv`（120 万条样本的缓存，75MB，改取样逻辑要升 `v=` 版本号）。
+
+## 规矩：脚本改完至少冒烟跑一次再推（2026-10-10 定）
+
+**触发**：`ctx_chars = CTX_MAX if args.context else None` 里的 `CTX_MAX` 没导入——那段代码是第三轮
+跑完**之后**才加的，写完一次都没执行过，直到第四轮真跑 `--context` 才 `NameError` 崩在启动第一行。
+`cargo fmt`、`py_compile`、单测都看不见「名字没定义」，只看得到语法。
+
+**规矩**：脚本改完，**至少跑一次 `--smoke`（或几步真跑）再提交推送**。训练脚本用自己的
+`--smoke`（200 步）；改了取样 / 建流就配一个小 `--per-kind` 跑一遍，让那些断言（配比、噪声比例、泄漏）
+真的执行一次。改了别的 crate，就用那个 crate 的测试或 example 走一遍新路径。
+
+**为什么**：编译与静态检查只能证明「语法对」，证明不了「这条分支能跑到底」。推到远端之后炸的是别人的时间，
+而且像这次一样，会把「从未运行过的代码」伪装成「已验证」。
+
+## 第五轮：给带上文样本的拼音加简拼噪声（2026-10-10）
+
+单一变量：训练样本的拼音从 `plain_pinyin`（纯全拼）换成底座的 `render_input`
+（**70% 全拼 / 20% 混合简拼 / 10% 全简拼，另 3% 随机敲错相邻键**），其余全不动
+（同一份语料与配额、10000 步、lr 1e-5、三类上文各 1/3、每类对话:书面 1:1）。
+
+- dev 集与探针**仍是全拼**（`derive_context_dev` 继续用 `plain_pinyin`），这样与前几轮可比。
+- 抽样时打印实际比例并断言在 ±1% 内（`context_data.check_noise`），样本缓存键升到 `v=4`。
+- 冒烟（`--per-kind 3000 --smoke`）：全拼 70.01% / 混合 20.01% / 全简拼 9.98% / 错键 2.99%，断言通过。
