@@ -34,6 +34,7 @@ import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import context_data  # noqa: E402
 from align_check import forward  # noqa: E402
 
 # 2026-10-10：三个 worktree 的 .lab 合并迁到主检出 data/archive/，脚本不再指 worktree 路径。
@@ -590,7 +591,8 @@ def write_model(target: pathlib.Path, params: dict, vocab_list: list[str],
 
     `context_chars` 只在**带前文训练**的模型上写：推理侧靠它决定要不要把光标前文喂进去。
     没这个字段（老通变）就是不带前文，推理侧一律不喂——喂了它读不懂反而掉分。"""
-    assert context_chars is None or context_chars == CTX_MAX, f"上下文长度要等于 CTX_MAX({CTX_MAX})"
+    assert context_chars is None or context_chars == context_data.CTX_MAX, \
+        f"上下文长度要等于 CTX_MAX({context_data.CTX_MAX})"
     target.mkdir(parents=True, exist_ok=True)
     save_safetensors({name: p.detach() for name, p in params.items()}, target / "model.safetensors")
     config = {"vocab_size": len(vocab_list), "n_layer": N_LAYER, "n_embd": N_EMBD,
@@ -679,8 +681,6 @@ def main() -> int:
     vocab = {token: index for index, token in enumerate(vocab_list)}
 
     if args.context:
-        import context_data  # noqa: PLC0415
-
         readings = load_readings()
         vocab_set = set(vocab_list)
         rng = random.Random(20261010)
@@ -735,7 +735,7 @@ def main() -> int:
     ckpt, done_file = out / "ckpt.pt", out / "done"
     dev_log = out / "dev.log"
     losses: list[float] = []
-    ctx_chars = CTX_MAX if args.context else None
+    ctx_chars = context_data.CTX_MAX if args.context else None
     best, stale = -1.0, 0
     start_step = 0
     interrupted = False
