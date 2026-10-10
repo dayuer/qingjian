@@ -63,13 +63,18 @@ impl Component for Settings {
             Message::ShuangpinRawPreedit(on) => self.save("general", "shuangpin_raw_preedit", on),
             Message::Wubi(on) => self.save("general", "wubi", if on { "wubi86" } else { "" }),
             Message::Traditional(on) => self.save("general", "traditional", on),
+            Message::Emoji(on) => self.save("general", "emoji", on),
             Message::EnglishCandidates(on) => self.save("general", "english_candidates", on),
+            Message::EnglishInChinese(on) => self.save("general", "english_in_chinese", on),
             Message::ChineseFirst(on) => self.save("general", "chinese_first", on),
             Message::FullWidthPunctuation(on) => {
                 self.save("general", "full_width_punctuation", on);
             }
             Message::EnglishFullWidthPunctuation(on) => {
                 self.save("general", "english_full_width_punctuation", on);
+            }
+            Message::PunctCommits(on) => {
+                self.save("general", "punct_commits", on);
             }
             Message::EnglishOffInApps(on) => {
                 let list: Vec<String> = if on {

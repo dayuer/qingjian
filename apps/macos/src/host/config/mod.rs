@@ -22,6 +22,9 @@ impl Host {
         self.apply_custom_phrases(&config);
         self.engine.set_mode_keys(config.shortcut.mode);
         self.engine.set_chinese_first(config.general.chinese_first);
+        self.engine.set_emoji_candidates(config.general.emoji);
+        self.engine
+            .set_english_in_chinese(config.general.english_in_chinese);
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.apply_scheme(config.general.scheme(), config.general.wubi());
@@ -35,6 +38,7 @@ impl Host {
         self.page_size = config.general.page_size();
         self.cloud_slots = config.predict.slots;
         self.page_keys = config.general.page_keys();
+        self.punct_commits = config.general.punct_commits;
         self.preedit_mode = config.general.preedit;
         self.english_candidates = config.general.english_candidates;
         self.apps = config.apps.clone();

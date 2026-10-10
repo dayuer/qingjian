@@ -202,6 +202,9 @@ impl Host {
                 self.settings
                     .set_bool("general", "full_width_punctuation", index == 0);
             }
+            (Setting::PunctCommits, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "punct_commits", on);
+            }
             (Setting::LearningLanguage, SettingValue::Index(index)) => {
                 // 菜单最后一项是「不显示译文」
                 let code = self
@@ -388,6 +391,12 @@ impl Host {
             }
             (Setting::ChineseFirst, SettingValue::Bool(on)) => {
                 self.settings.set_bool("general", "chinese_first", on);
+            }
+            (Setting::EnglishInChinese, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "english_in_chinese", on);
+            }
+            (Setting::Emoji, SettingValue::Bool(on)) => {
+                self.settings.set_bool("general", "emoji", on);
             }
             (Setting::ShiftLetter, SettingValue::Bool(on)) => {
                 let mode = if on {

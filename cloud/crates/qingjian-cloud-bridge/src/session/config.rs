@@ -48,6 +48,11 @@ impl Session {
         self.engine
             .set_full_width_punctuation(config.general.full_width_punctuation);
         self.engine.set_learning(config.general.learning);
+        // 上游 v0.2.0 的两个开关（缺省值跟着 `[general]`，与 Mac / Windows 一致）。
+        // `emoji` 现在在 iOS 上是空转：随包的 Data/ 里没有 emoji 表（要另把 emoji-*.tsv 打进包才有效果）。
+        self.engine.set_emoji_candidates(config.general.emoji);
+        self.engine
+            .set_english_in_chinese(config.general.english_in_chinese);
         // iOS 键盘是 26 键：全拼与双拼都能用，注音与「只用形码」按全拼
         let shuangpin = match config.general.scheme() {
             Scheme::Shuangpin(scheme) => Some(scheme),

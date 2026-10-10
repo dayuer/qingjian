@@ -58,6 +58,12 @@ pub struct GeneralConfig {
     /// 常在中文模式里打英文词的人不受影响；想要中文永远在前的自己打开。
     pub chinese_first: bool,
 
+    /// 中文模式下整段是英文词或英文词的开头时给英文候选与补全（`hello`、`compa` → company）。关掉中文模式只出中文，英文模式照旧。
+    pub english_in_chinese: bool,
+
+    /// 候选后面配 emoji（`kaixin` → 开心 😄）。关掉候选里就只有字词。
+    pub emoji: bool,
+
     /// 中文模式下按住 Shift 敲的字母：交给应用（缺省）还是收进组句缓冲区参与匹配。
     /// 收进组句才能打出「C盘」这类混杂词（`Cpan` 与 `cpan` 一样匹配）。
     pub shift_letter: ShiftLetter,
@@ -71,6 +77,10 @@ pub struct GeneralConfig {
 
     /// 英文模式下的同一件事，中英各记一份；缺省半角。只有 Windows 用（macOS 英文模式一律半角）。
     pub english_full_width_punctuation: bool,
+
+    /// 组句中敲会转全角的标点（`,` `.` `?` `!` 等，翻页键除外）先把高亮候选上屏、再补该标点
+    ///（`nihao,` 一气打完「你好，」）。缺省关：标点进英文直输段整段原样上屏，与以前一致。
+    pub punct_commits: bool,
 
     /// 辅码触发键：拼音打完之后敲它进辅码态，缺省 `;`。校验 = 单字符、ASCII 可打印、
     /// 非字母数字、非翻页键（见 [`qingjian_core::is_valid_aux_code_key`]）。
@@ -137,10 +147,13 @@ impl Default for GeneralConfig {
             english_candidates: true,
             traditional: false,
             chinese_first: false,
+            english_in_chinese: true,
+            emoji: true,
             shift_letter: ShiftLetter::default(),
             english_mode: true,
             full_width_punctuation: true,
             english_full_width_punctuation: false,
+            punct_commits: false,
             aux_code_key: qingjian_core::DEFAULT_AUX_CODE_KEY.to_string(),
             aux_code_show: false,
             aux_code_keep_empty: true,
@@ -301,6 +314,14 @@ mod tests {
         assert_eq!(general.page_keys(), ('[', ']'));
         general.page_keys = ",,".to_owned();
         assert_eq!(general.page_keys(), ('[', ']'));
+    }
+
+    /// 组句中标点先上屏候选缺省关（`[general] punct_commits`），保持标点进英文直输段的老行为。
+    #[test]
+    fn punct_commits_defaults_off() {
+        assert!(!GeneralConfig::default().punct_commits);
+        let general: GeneralConfig = toml::from_str("punct_commits = true\n").unwrap();
+        assert!(general.punct_commits);
     }
 
     #[test]

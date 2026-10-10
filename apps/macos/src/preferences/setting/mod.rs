@@ -99,6 +99,9 @@ pub enum Setting {
     /// 默认中文标点模式。
     FullWidthPunctuation,
 
+    /// `[general] punct_commits`，勾选框：组句中会转全角的标点先把高亮候选上屏再补标点。
+    PunctCommits,
+
     /// 选择已有自定义短语。
     SelectPhrase,
 
@@ -143,6 +146,12 @@ pub enum Setting {
 
     /// `[general] chinese_first`，勾选框：中英混输时中文候选排在英文词前。
     ChineseFirst,
+
+    /// `[general] english_in_chinese`，勾选框：中文模式也给英文词与补全。
+    EnglishInChinese,
+
+    /// `[general] emoji`，勾选框：候选后面配 emoji。
+    Emoji,
 
     /// `[general] horizontal_grid`，勾选框：横排时上 / 下键展开成多行矩阵。
     HorizontalGrid,
@@ -253,6 +262,8 @@ impl Setting {
             Self::Preedit => 13,
             Self::EnglishCandidates => 14,
             Self::ChineseFirst => 42,
+            Self::Emoji => 71,
+            Self::EnglishInChinese => 72,
             Self::ShiftLetter => 50,
             Self::HorizontalGrid => 51,
             Self::TranslationKeys => 15,
@@ -293,6 +304,7 @@ impl Setting {
             Self::Wubi => 49,
             Self::Renderer => 43,
             Self::Font => 44,
+            Self::PunctCommits => 73,
             Self::SystemTextReplacements => 46,
             Self::Fuzzy(index) => FUZZY_TAG_BASE + index as NSInteger,
             Self::DictionaryEnabled(index) => DICTIONARY_ENABLED_TAG_BASE + index as NSInteger,
@@ -308,6 +320,7 @@ impl Setting {
             4 => Self::Theme,
             43 => Self::Renderer,
             44 => Self::Font,
+            73 => Self::PunctCommits,
             5 => Self::ExpressionKey,
             6 => Self::QuestionKey,
             41 => Self::QuestionMark,
@@ -331,6 +344,8 @@ impl Setting {
             13 => Self::Preedit,
             14 => Self::EnglishCandidates,
             42 => Self::ChineseFirst,
+            71 => Self::Emoji,
+            72 => Self::EnglishInChinese,
             50 => Self::ShiftLetter,
             51 => Self::HorizontalGrid,
             15 => Self::TranslationKeys,
@@ -398,6 +413,7 @@ mod tests {
             Setting::Theme,
             Setting::Renderer,
             Setting::Font,
+            Setting::PunctCommits,
             Setting::ExpressionKey,
             Setting::QuestionKey,
             Setting::CloudEnabled,
@@ -434,6 +450,8 @@ mod tests {
             Setting::ShuangpinRawPreedit,
             Setting::EnterCommitsCandidate,
             Setting::Traditional,
+            Setting::Emoji,
+            Setting::EnglishInChinese,
             Setting::VerboseLog,
             Setting::OpenLogDirectory,
             Setting::CopyDiagnostics,

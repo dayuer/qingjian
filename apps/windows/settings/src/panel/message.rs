@@ -13,12 +13,16 @@ pub(crate) enum Message {
     ShuangpinRawPreedit(bool),
     Wubi(bool),
     Traditional(bool),
+    Emoji(bool),
     EnglishCandidates(bool),
+    EnglishInChinese(bool),
     ChineseFirst(bool),
     /// 中文模式下 Shift+字母：交给应用（缺省）还是进组句缓冲区。
     ShiftLetter(Option<usize>),
     FullWidthPunctuation(bool),
     EnglishFullWidthPunctuation(bool),
+    /// 组句中会转全角的标点先把高亮候选上屏再补标点。
+    PunctCommits(bool),
     /// 开=写入平台默认名单，关=清空。
     EnglishOffInApps(bool),
     /// 勾上 / 去掉一个中英切换键。

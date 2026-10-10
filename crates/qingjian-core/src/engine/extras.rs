@@ -46,6 +46,21 @@ impl Engine {
             } else {
                 self.modes().expression
             };
+        // 嗯 的标准音 ng 不是拼音音节（音节表不收叹词写法）；整段正好是 ng 时按快捷候选给它，排第一。
+        // 只认全拼：双拼与注音里这两个键是别的音
+        if scope == "ng" && self.shuangpin.is_none() && !self.zhuyin {
+            items.insert(
+                0,
+                Candidate {
+                    text: "嗯".to_owned(),
+                    kind: CandidateKind::Shortcut,
+                    syllables: Vec::new(),
+                    reading: None,
+                    translation: None,
+                    aux_code: None,
+                },
+            );
+        }
         let shortcuts = shortcut::candidates(scope, expression_char, &jiff::Zoned::now());
         if shortcuts.is_empty() {
             return;
@@ -65,6 +80,9 @@ impl Engine {
     /// 真机日志里 `gd` → Gd 混进了中文句子。试过再放宽到三个字母全大写（DOA），会把 GPU / SQL / LLM 一起压到中文后面，
     /// 词频也分不开（DOA 2760、LLM 2290），所以只到两个字母。
     pub(super) fn insert_english(&self, items: &mut Vec<Candidate>, unlikely_pinyin: bool) {
+        if !self.english_in_chinese {
+            return;
+        }
         let lists = self.english_lists();
         if lists.is_empty() {
             return;
@@ -149,7 +167,8 @@ impl Engine {
     /// 整段作用域本身就是个英文词（`database`、`agent`）：用户多半在打那个词。
     pub(in crate::engine) fn scope_is_english_word(&self) -> bool {
         let scope = self.composition.scope();
-        !scope.is_empty()
+        self.english_in_chinese
+            && !scope.is_empty()
             && self
                 .english_lists()
                 .iter()
@@ -177,7 +196,9 @@ impl Engine {
     /// emoji 候选：前几个中文候选里有配 emoji 的，emoji 紧跟在那个词后面，右侧标注它对应的词。
     /// 词后面紧挨着的英文词候选（中文优先时 `key` → 可以、key）不被 emoji 挤开，emoji 排在它之后。
     pub(super) fn insert_emoji(&self, items: &mut Vec<Candidate>) {
-        let Some(table) = &self.emoji else { return };
+        let Some(table) = self.emoji.as_ref().filter(|_| self.emoji_candidates) else {
+            return;
+        };
         let mut inserted = 0;
         let mut index = 0;
         let mut scanned = 0;
