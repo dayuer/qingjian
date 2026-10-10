@@ -149,6 +149,7 @@ Core 的 `sentence::SentenceScorer` 有两个实现，同一个 trait 拿到**�
   字级模型没有下岗，它是移动端「光标联想」那类 `P(下一段 | 前文)` 功能的基础。
   **前文开关是模型自己的属性**：`config.json` 里没有 `context_chars`（老通变）就一律不喂——它训练时没见过前文，喂了读不懂反而掉分。
   判定落在 `CharScorer::context_chars()`（`score_p2c` 与 `P2c::convert` 内部各判一次），不靠调用方自觉：多喂一次就是产品里静默掉分。
+  ⚠️ 整条前文通路**目前是实验、未过验收**（第三轮回放 clean2 整句 103/138 → 93/138）：Core 侧改动，**合之前另行派活审**。
 
 Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·(神经分 − 静态二元分)` 重排（λ `NEURAL_WEIGHT` 0.5，
 个人 n-gram / 用户加分 / 代价不动）。静态最优路径整段就是一个词时不重排（「整段是一个词就不出整句」归词级排序，重排换上多词拆分会绕过它，`shihou` 时候 → 是后）。拼写纠错比分走 `convert_sentence_static`，只要静态最优、不重排：门槛按静态尺度定，而且每个纠正候选一种按键条件，同步打分器下逐个重排要好几秒（`helange` 6.8 s → 0.7 s）。**神经分只决定名次，不写回 `Conversion::score`**：P2C 打的是 `log P(汉字 | 拼音)`，

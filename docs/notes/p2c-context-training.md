@@ -1,5 +1,12 @@
 # 通变看上文：带前文重训（2026-10-10）
 
+> **状态：实验，未过验收。不要合、不要开 PR。**
+> 第三轮没过硬线（回放 clean2 整句 103/138 → 93/138），停在原地等下一轮方案被批。
+>
+> **范围**：下面「推理侧接前文」那节动了 Core 侧与三个壳的模型预热自检
+> （`crates/qingjian-neural`、`apps/cli`、`apps/{macos,linux,windows}/*/rescore`），
+> **不在本轮审的范围内**，Core 集成另行派活——要合必须先过那一道审。
+
 给 `train_p2c.py` 加 `--context`：序列改成 `<eos> [上文 ≤32 字] 拼音 <sep> 汉字 <eos>`，同一批
 字表与结构（8 层 / 448 / 8 头 / context 128），从含章·通变热启动、lr 3e-5。数据由
 `tools/neural-train/context_data.py` 造，三种上文各占三分之一：
