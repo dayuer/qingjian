@@ -7,6 +7,7 @@
 #   tools/release/data-bundle.sh --tag data-v3 --target main # 本地发版提交未推送时，标签指向远端 main
 #   tools/release/data-bundle.sh --pack          # 只打包到 target/release-data/
 #   tools/release/data-bundle.sh --repo dayuer/qingjian --prefix sujian-data-v   # 分叉发到自己仓库、用自己的标签系列
+#   tools/release/data-bundle.sh --exclude internet_slang_coarse.qj               # 某本领域词库不进包（可给多次）
 # 给了 --repo（或锁文件里已有 repo 字段）就显式发到那个仓库并写进锁文件，data-fetch.sh 照它取；都没有时与原来一样由 gh 按 origin 推断。
 # 标签系列不能与上游的 data-vN 撞名：分叉用 --prefix 换一个前缀。
 set -euo pipefail
@@ -21,6 +22,7 @@ TAG=""
 TARGET="$(git rev-parse HEAD)"
 REPO="$(sed -nE 's/^repo *= *//p' "$LOCK" 2>/dev/null | head -1 | tr -d '[:space:]')"
 PREFIX=data-v
+EXCLUDE=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pack) MODE=pack; shift ;;
@@ -28,9 +30,17 @@ while [[ $# -gt 0 ]]; do
     --target) TARGET="$2"; shift 2 ;;
     --repo) REPO="$2"; shift 2 ;;
     --prefix) PREFIX="$2"; shift 2 ;;
+    --exclude) EXCLUDE+=("$2"); shift 2 ;;
     *) echo "未知参数 $1" >&2; exit 1 ;;
   esac
 done
+# 禁止向上游发布：没指定仓库时按 gh 实际会用的那个（origin 推断）算，解析不出来也不发。打包之前就查，免得白打
+if [[ "$MODE" == upload ]]; then
+  [[ -n "$REPO" ]] || REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+  [[ -n "$REPO" ]] || { echo "解析不出要发到哪个仓库，用 --repo 指定" >&2; exit 1; }
+  [[ "$REPO" == qingjian-team/* ]] && { echo "禁止向上游发布（$REPO）：分叉用 --repo 指向自己的仓库" >&2; exit 1; }
+fi
+repo_args=(--repo "$REPO")
 
 PRODUCT_FILES=(dict.qj lm.qj glossary-en.qj glossary-ja.qj glossary-zh.qj glossary-es.qj english.qj english.tsv english-frequency.tsv)
 MODEL_FILE=data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm
@@ -40,7 +50,12 @@ for f in "${PRODUCT_FILES[@]}"; do
   [[ -f "data/generated/$f" ]] || { echo "缺少 data/generated/$f，先按 assets/lexicon/QINGJIAN.md 生成" >&2; exit 1; }
 done
 DOMAIN_FILES=()
-for f in data/generated/dicts/*.qj; do [[ -f "$f" ]] && DOMAIN_FILES+=("dicts/$(basename "$f")"); done
+excluded() { local name; for name in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do [[ "$1" == "$name" ]] && return 0; done; return 1; }
+for f in data/generated/dicts/*.qj; do
+  [[ -f "$f" ]] || continue
+  if excluded "$(basename "$f")"; then echo "已排除：$(basename "$f")"; continue; fi
+  DOMAIN_FILES+=("dicts/$(basename "$f")")
+done
 [[ ${#DOMAIN_FILES[@]} -gt 0 ]] || { echo "缺少 data/generated/dicts/*.qj（领域词库）" >&2; exit 1; }
 # 随包辅码码表（笔画，issue #8）：由 tools/dict-convert 的 stroke + pack codes 生成，来源与许可见 assets/stroke/README.md
 CODE_FILES=()
@@ -63,13 +78,16 @@ done
 cp "$MODEL_FILE" "$OUT/stage/$MODEL_FILE"
 cp "$P2C_MODEL_FILE" "$OUT/stage/$P2C_MODEL_FILE"
 COPYFILE_DISABLE=1 tar -czf "$OUT/qingjian-data.tar.gz" -C "$OUT/stage" data
+for name in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do
+  if tar -tzf "$OUT/qingjian-data.tar.gz" | grep -q "/$name\$"; then echo "排除的 $name 仍在压缩包里" >&2; exit 1; fi
+done
+echo "包内文件（$(find "$OUT/stage" -type f | wc -l | tr -d ' ') 个）："
+(cd "$OUT/stage" && find data -type f | sort | xargs shasum -a 256)
 (cd "$OUT" && shasum -a 256 ./qingjian-data.tar.gz | tee SHA256SUMS)
 du -h "$OUT/qingjian-data.tar.gz"
 
 [[ "$MODE" == "pack" ]] && exit 0
 
-repo_args=()
-[[ -n "$REPO" ]] && repo_args=(--repo "$REPO")
 if [[ -z "$TAG" ]]; then
   last="$(gh release list ${repo_args[@]+"${repo_args[@]}"} --limit 200 --json tagName --jq '.[].tagName' | grep -E "^${PREFIX}[0-9]+\$" | sed "s/^${PREFIX}//" | sort -n | tail -1)"
   TAG="${PREFIX}$(( ${last:-0} + 1 ))"

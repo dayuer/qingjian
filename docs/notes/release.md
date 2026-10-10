@@ -95,6 +95,12 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 2026-09-16 之前用的是滚动覆盖的 `data` Release，已冻结不再更新。
 分叉（如 sujian）在自己仓库发数据时，给 `data-bundle.sh` 加 `--repo <owner/name> --prefix <前缀>-data-v`（例：`--repo dayuer/qingjian --prefix sujian-data-v`）：
 标签系列不与上游的 `data-vN` 撞名，锁文件多写一行 `repo = …`，`data-fetch.sh` 与 CI 照它去那个仓库取；锁文件没有 `repo` 时仍取上游 `qingjian-team/qingjian`。
+`data-bundle.sh` 最终要发到的仓库（含没给 `--repo`、由 gh 按 origin 推断的情况）只要是 `qingjian-team/` 开头就直接退出，不往上游发。
+sujian 的发布命令（粗口包 `internet_slang_coarse.qj` 不进数据包，`--pack` 会打印「已排除」）：
+
+```bash
+tools/release/data-bundle.sh --repo dayuer/qingjian --prefix sujian-data-v --exclude internet_slang_coarse.qj
+```
 
 ## 版本索引的签名
 
