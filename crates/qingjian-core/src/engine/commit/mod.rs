@@ -17,6 +17,7 @@ use std::time::Instant;
 
 mod chain;
 mod last;
+mod run;
 mod transition;
 
 pub(super) use chain::CommitChain;
@@ -215,6 +216,7 @@ impl Engine {
         // 上屏即收尾：码段清空、回初始态（数字键与「标点先上屏」都走这里）
         self.aux_code = None;
         let buffer_left = !self.composition.is_empty();
+        let mut run_phrase = None;
         match candidate.kind {
             CandidateKind::Chinese | CandidateKind::Cloud | CandidateKind::Code => {
                 // 形码没有音节，`record_word` 里按音节数做的整段造词自然不会触发
@@ -225,9 +227,17 @@ impl Engine {
                     true,
                     buffer_left,
                 );
+                // 整段只出了这一个词、按全拼打、没纠错：接进连打短语（分段打的 舒服 / 着 / 呢）
+                let whole = candidate.kind == CandidateKind::Chinese
+                    && !split
+                    && !buffer_left
+                    && typos.is_empty()
+                    && input == candidate.syllables.concat();
+                run_phrase = self.extend_run(&candidate.text, &candidate.syllables, whole);
             }
             CandidateKind::Sentence => match sentence_words {
                 Some(words) => {
+                    self.chain.break_run();
                     // 句末的英文词（我想学好rust 的 rust）记进个人英文词表，和英文候选上屏一样
                     if let Some(word) = words.last().filter(|w| is_english_word(w)) {
                         self.note_english_commit(&word.text);
@@ -261,10 +271,14 @@ impl Engine {
             | CandidateKind::Generated => self.chain.reset(),
         }
         // 一次整句上屏里的几个词不算分段选，只有这段拼音经过至少两次上屏才合起来看
+        let mut phrase_learned = false;
         let phrase = if split && !buffer_left {
             self.finish_buffer()
         } else {
-            None
+            run_phrase.map(|(key, text, learned)| {
+                phrase_learned = learned;
+                (key, text)
+            })
         };
         self.punctuation.note_committed(&candidate.text);
         self.history.record(&candidate.text);
@@ -290,6 +304,7 @@ impl Engine {
                 erased: 0,
                 log_id,
                 phrase,
+                phrase_learned,
             }
         } else {
             let mut plain = LastCommit::plain(&candidate.text);
@@ -384,7 +399,16 @@ impl Engine {
             self.learner.unrecord_typo(typed, intended);
         }
         if let Some((key, phrase)) = &last.phrase {
-            self.learner.unrecord_choice(key, phrase);
+            if last.phrase_learned {
+                // 这次上屏才凑够次数造的词：词连同全部选择一起忘掉，再补回这次之前的几次选择
+                let before = self.learner.choice_weight(key, phrase).saturating_sub(1);
+                self.learner.forget(phrase);
+                for _ in 0..before {
+                    self.learner.record_choice(key, phrase);
+                }
+            } else {
+                self.learner.unrecord_choice(key, phrase);
+            }
         }
     }
 

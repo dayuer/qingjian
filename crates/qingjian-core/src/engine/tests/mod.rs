@@ -12,6 +12,7 @@ mod english_fork;
 mod learning;
 mod lookup;
 mod mnemonic;
+mod phrase_run;
 mod privacy;
 mod raw;
 mod shuangpin;
@@ -330,6 +331,27 @@ impl Learner for WordLearner {
 
     fn user_words(&self) -> Option<&Dictionary> {
         self.dictionary.as_ref()
+    }
+
+    fn forget(&mut self, text: &str) -> Forgotten {
+        let before = self.words.len();
+        self.words.retain(|(t, _)| t != text);
+        let user_word = self.words.len() != before;
+        if user_word {
+            let tsv: String = self
+                .words
+                .iter()
+                .map(|(t, s)| format!("{t}\t{}\t100\n", s.join(" ")))
+                .collect();
+            self.dictionary = (!tsv.is_empty()).then(|| Dictionary::parse(&tsv).unwrap());
+        }
+        let suffix = format!("\t{text}");
+        let choices = self.choices.len();
+        self.choices.retain(|key, _| !key.ends_with(&suffix));
+        Forgotten {
+            user_word,
+            learning: self.choices.len() != choices,
+        }
     }
 
     fn record_transition(&mut self, context: sentence::Context<'_>, word: &str, times: u32) {

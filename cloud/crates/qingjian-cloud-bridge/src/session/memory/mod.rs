@@ -270,8 +270,10 @@ impl Session {
         false
     }
 
-    /// 宿主换了输入框（或键盘收起）：最近上屏的字清掉，免得在 A 聊天里打的字在 B 里触发提示。
+    /// 宿主换了输入框（或键盘收起）：最近上屏的字清掉，免得在 A 聊天里打的字在 B 里触发提示；
+    /// 上屏的链也断开（同 Mac 的 deactivateServer），在 A 里打的词不当 B 里下一个词的上文、也不和它连成短语。
     pub fn reset_context(&mut self) {
+        self.engine.break_chain();
         if let Some(memory) = self.memory.as_mut() {
             memory.forget_context();
         }

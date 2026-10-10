@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::sentence::Context;
 
 /// 连续上屏的链：记住最近上屏的两个中文词，下一个词上屏时就能记一条带前二词的转移（个人 n-gram 的三元）。
@@ -19,7 +21,21 @@ pub struct CommitChain {
 
     /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
     buffer_key: String,
+
+    /// 连着分几段打、每段整段选完的词（`shufu` 选 舒服、`zhe` 选 着、`ne` 选 呢），最多留 [`RUN_MAX_WORDS`] 个；
+    /// 三个以上合起来不超过四字时当短语记（见 `Engine::extend_run`）。
+    run: Vec<(String, Vec<String>)>,
+
+    /// 连打短语里最后一个词上屏的时刻，隔太久再接的不算一串。
+    run_at: Option<Instant>,
 }
+
+/// 连打短语最多看几个词：短语不超过四字，四个单字就到头了。
+const RUN_MAX_WORDS: usize = 4;
+
+/// 连打短语里相邻两次上屏最多隔多久。10-04 输入日志里相邻两次选词的间隔 p95 5 秒、p99 9 秒，
+/// 超过 10 秒的只占 0.6%：再久多半是停下来做了别的（在微信里打完 舒服，一小时后到备忘录打 着 呢）。
+const RUN_MAX_GAP: Duration = Duration::from_secs(10);
 
 impl CommitChain {
     /// 上一个词（若有）。
@@ -75,12 +91,44 @@ impl CommitChain {
         &self.buffer_key
     }
 
+    /// 一段拼音整段选完一个词：接到连打短语的末尾；离上一个词超过 [`RUN_MAX_GAP`] 就从头算。
+    pub fn extend_run(&mut self, text: &str, syllables: &[String], now: Instant) {
+        if self
+            .run_at
+            .is_some_and(|at| now.saturating_duration_since(at) > RUN_MAX_GAP)
+        {
+            self.run.clear();
+        }
+        self.run_at = Some(now);
+        if self.run.len() == RUN_MAX_WORDS {
+            self.run.remove(0);
+        }
+        self.run.push((text.to_owned(), syllables.to_vec()));
+    }
+
+    /// 连打短语里的词，按顺序。
+    pub fn run(&self) -> &[(String, Vec<String>)] {
+        &self.run
+    }
+
+    /// 测试用：把连打短语最后一个词的上屏时刻往前挪，模拟隔了这么久才接着打。
+    #[cfg(test)]
+    pub fn age_run(&mut self, by: Duration) {
+        self.run_at = self.run_at.and_then(|at| at.checked_sub(by));
+    }
+
+    /// 这次上屏不是「一段整段选完一个词」：连打短语从头算。
+    pub fn break_run(&mut self) {
+        self.run.clear();
+    }
+
     /// 打断链。
     pub fn reset(&mut self) {
         self.previous = None;
         self.earlier = None;
         self.same_buffer = false;
         self.buffer_words.clear();
+        self.run.clear();
     }
 
     /// 缓冲区被清空或整段被别的东西吃掉：链不断，但下一个词不算同一段拼音。
