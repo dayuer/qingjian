@@ -89,11 +89,21 @@ for file in dict.qj lm.qj; do
   cmp -s "$data/$file" "$ios_dir/Keyboard/Data/$file" || cp "$data/$file" "$ios_dir/Keyboard/Data/$file"
 done
 # 领域词库：设置页里逐个开关，键盘按 config.toml 的 [dictionaries] domains 加载
+# tools/release/exclude-dicts.txt 列的几本不装（与数据包同一份名单）：设置页按目录列开关，留着文件就会露出开关。
+# Data/dicts 跨构建保留，以前拷进去的也要删掉；拷完再核一遍
 mkdir -p "$ios_dir/Keyboard/Data/dicts"
+excluded_dicts="$(grep -v '^#' "$repo_dir/tools/release/exclude-dicts.txt" | sed '/^[[:space:]]*$/d')"
+for name in $excluded_dicts; do
+  rm -f "$ios_dir/Keyboard/Data/dicts/$name"
+done
 for dict in "$data"/dicts/*.qj; do
   [[ -f "$dict" ]] || continue
+  grep -qxF "$(basename "$dict")" <<< "$excluded_dicts" && continue
   target="$ios_dir/Keyboard/Data/dicts/$(basename "$dict")"
   cmp -s "$dict" "$target" || cp "$dict" "$target"
+done
+for name in $excluded_dicts; do
+  [[ ! -e "$ios_dir/Keyboard/Data/dicts/$name" ]] || { echo "错误：排除名单里的 $name 进了键盘包" >&2; exit 1; }
 done
 # 英文词表：键盘扩展用 .qj（mmap 零拷贝、堆驻留 0；解析 TSV 要 13MB）。没有或比 TSV 旧就现打一个。
 # TSV 缺了要在构建时就失败（与技能包、字体同规矩）。

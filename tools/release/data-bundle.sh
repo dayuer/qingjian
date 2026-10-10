@@ -7,7 +7,8 @@
 #   tools/release/data-bundle.sh --tag data-v3 --target main # 本地发版提交未推送时，标签指向远端 main
 #   tools/release/data-bundle.sh --pack          # 只打包到 target/release-data/
 #   tools/release/data-bundle.sh --repo dayuer/qingjian --prefix sujian-data-v   # 分叉发到自己仓库、用自己的标签系列
-#   tools/release/data-bundle.sh --exclude internet_slang_coarse.qj               # 某本领域词库不进包（可给多次）
+#   tools/release/data-bundle.sh --exclude foo.qj                                 # 在 exclude-dicts.txt 之外再临时排除一本（可给多次）
+# tools/release/exclude-dicts.txt 里列的领域词库总是不进包（装机脚本读同一份）。
 #   tools/release/data-bundle.sh --expect dict.qj=0c24a7ae --expect lm.qj=94d18e77 # 打包前核 data/generated 里文件的 sha256 前缀，不符就退出
 # 给了 --repo（或锁文件里已有 repo 字段）就显式发到那个仓库并写进锁文件，data-fetch.sh 照它取；都没有时与原来一样由 gh 按 origin 推断。
 # 标签系列不能与上游的 data-vN 撞名：分叉用 --prefix 换一个前缀。
@@ -24,6 +25,9 @@ TARGET="$(git rev-parse HEAD)"
 REPO="$(sed -nE 's/^repo *= *//p' "$LOCK" 2>/dev/null | head -1 | tr -d '[:space:]')"
 PREFIX=data-v
 EXCLUDE=()
+while IFS= read -r line; do
+  [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] || EXCLUDE+=("$line")
+done < "$ROOT/tools/release/exclude-dicts.txt"
 EXPECT=()
 while [[ $# -gt 0 ]]; do
   case "$1" in

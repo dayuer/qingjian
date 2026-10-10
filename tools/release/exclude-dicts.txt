@@ -1,0 +1,6 @@
+# 不随包、不装机的领域词库（data/generated/dicts 下的文件名，一行一个，# 开头是注释）。
+# tools/release/data-bundle.sh、apps/macos/scripts/bundle.sh、cloud/ios/scripts/build-bridge.sh 都读这一份，别在别处另写。
+# 2026-10-10 红线扫描没过：网络用语两本有谐音粗口、地域黑、针对具体个人的词；地名扩展混着辱骂与人名噪音。
+internet_slang_coarse.qj
+internet_slang.qj
+places-extended.qj
