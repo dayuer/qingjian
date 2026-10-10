@@ -90,6 +90,8 @@ cargo 命令全 `--locked`（含 `bundle.sh` 与 `build.ps1`）。普通 CI 只�
 
 数据重生成之后（重跑 lexicon / bigram / gloss-gen export）或模型重训之后跑一次 `data-bundle.sh`（三件套比 `.qjm` 新会自动重打），
 把锁文件的改动提交（`chore(data): 数据 data-vN`），否则 CI 打的包还是锁文件指的旧数据。模型文件缺失或哈希不符时 CI 会失败，不会静默地发出错数据的包。
+只在上次发版那份上补几条词、不重跑管线时用 `tools/release/shipped-patch/patch.sh`：倒回 TSV（`dump_dict` / `dump_lm` 两个 example）、接上该目录的行、按原元数据重打并核对哈希，
+发版时把整份随包数据拷成 `data/generated/`、用这两个 `.qj` 覆盖，再走 `data-bundle.sh`。频次按随包数据自己的口径换算，做法写在该目录的 TSV 头部。
 2026-09-16 之前用的是滚动覆盖的 `data` Release，已冻结不再更新。
 
 ## 版本索引的签名
