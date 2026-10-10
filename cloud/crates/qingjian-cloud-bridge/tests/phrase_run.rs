@@ -55,3 +55,22 @@ fn shufuzhene_typed_in_three_pieces_three_times_comes_first() {
     }
     let _ = std::fs::remove_dir_all(&user);
 }
+
+/// 键盘换了输入框或收起（壳调 `reset_context`）：之前打的 舒服 不和之后的 着 呢 连成短语。
+#[test]
+fn changing_the_host_between_pieces_breaks_the_phrase() {
+    let Some(data) = data_dir() else { return };
+    let user = std::env::temp_dir().join(format!("qj-phrase-run-host-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&user);
+    std::fs::create_dir_all(&user).unwrap();
+    let mut session = Session::open(&data, Some(&user), None, None).unwrap();
+    for _ in 0..4 {
+        pick(&mut session, "shufu", "舒服");
+        session.reset_context();
+        pick(&mut session, "zhe", "着");
+        pick(&mut session, "ne", "呢");
+        session.note_passthrough('\n');
+    }
+    assert_ne!(first(&mut session, "shufuzhene"), "舒服着呢");
+    let _ = std::fs::remove_dir_all(&user);
+}

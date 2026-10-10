@@ -3,6 +3,8 @@
 //! 选够 [`PHRASE_RUN_THRESHOLD`] 次、词库里没有就造成用户词，下次整串连着打它排第一。
 //! 只靠个人二元帮不上：整句转换只走最优切分（`shufuzhene` 是 zhen'e），着 → 呢 根本进不了词图。
 
+use std::time::Instant;
+
 use crate::candidate::{Candidate, CandidateKind};
 use crate::engine::learning::Learner;
 use crate::engine::{AUTO_WORD_MAX_CHARS, Engine, PHRASE_RUN_THRESHOLD};
@@ -20,7 +22,7 @@ impl Engine {
             self.chain.break_run();
             return None;
         }
-        self.chain.extend_run(text, syllables);
+        self.chain.extend_run(text, syllables, Instant::now());
         let run = self.chain.run();
         // 从最长的后缀往短里找第一个够条件的：字数 = 音节数、不超过四字、至少三个词
         let (phrase, phrase_syllables) = (3..=run.len()).rev().find_map(|count| {

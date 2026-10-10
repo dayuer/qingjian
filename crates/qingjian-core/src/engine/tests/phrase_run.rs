@@ -92,3 +92,33 @@ fn punctuation_between_the_pieces_breaks_the_phrase() {
     assert_eq!(engine.learner().choice_weight("shufuzhene", "舒服着呢"), 0);
     assert_ne!(first_for(&mut engine, "shufuzhene"), "舒服着呢");
 }
+
+#[test]
+fn a_long_pause_between_the_pieces_breaks_the_phrase() {
+    let mut engine = phrase_engine();
+    for _ in 0..PHRASE_RUN_THRESHOLD + 1 {
+        pick(&mut engine, "shufu", "舒服");
+        pick(&mut engine, "zhe", "着");
+        // 打完 着 隔了一小时才接着打 呢
+        engine.chain.age_run(std::time::Duration::from_secs(3600));
+        pick(&mut engine, "ne", "呢");
+        engine.note_passthrough('\n');
+    }
+    assert_eq!(engine.learner().choice_weight("shufuzhene", "舒服着呢"), 0);
+    assert_ne!(first_for(&mut engine, "shufuzhene"), "舒服着呢");
+}
+
+#[test]
+fn switching_focus_between_the_pieces_breaks_the_phrase() {
+    let mut engine = phrase_engine();
+    for _ in 0..PHRASE_RUN_THRESHOLD + 1 {
+        pick(&mut engine, "shufu", "舒服");
+        // 换了应用 / 输入框（壳调 break_chain）
+        engine.break_chain();
+        pick(&mut engine, "zhe", "着");
+        pick(&mut engine, "ne", "呢");
+        engine.note_passthrough('\n');
+    }
+    assert_eq!(engine.learner().choice_weight("shufuzhene", "舒服着呢"), 0);
+    assert_ne!(first_for(&mut engine, "shufuzhene"), "舒服着呢");
+}
