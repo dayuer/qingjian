@@ -8,6 +8,7 @@
 #   tools/release/data-bundle.sh --pack          # 只打包到 target/release-data/
 #   tools/release/data-bundle.sh --repo dayuer/qingjian --prefix sujian-data-v   # 分叉发到自己仓库、用自己的标签系列
 #   tools/release/data-bundle.sh --exclude internet_slang_coarse.qj               # 某本领域词库不进包（可给多次）
+#   tools/release/data-bundle.sh --expect dict.qj=0c24a7ae --expect lm.qj=94d18e77 # 打包前核 data/generated 里文件的 sha256 前缀，不符就退出
 # 给了 --repo（或锁文件里已有 repo 字段）就显式发到那个仓库并写进锁文件，data-fetch.sh 照它取；都没有时与原来一样由 gh 按 origin 推断。
 # 标签系列不能与上游的 data-vN 撞名：分叉用 --prefix 换一个前缀。
 set -euo pipefail
@@ -23,6 +24,7 @@ TARGET="$(git rev-parse HEAD)"
 REPO="$(sed -nE 's/^repo *= *//p' "$LOCK" 2>/dev/null | head -1 | tr -d '[:space:]')"
 PREFIX=data-v
 EXCLUDE=()
+EXPECT=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pack) MODE=pack; shift ;;
@@ -31,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --repo) REPO="$2"; shift 2 ;;
     --prefix) PREFIX="$2"; shift 2 ;;
     --exclude) EXCLUDE+=("$2"); shift 2 ;;
+    --expect) EXPECT+=("$2"); shift 2 ;;
     *) echo "未知参数 $1" >&2; exit 1 ;;
   esac
 done
@@ -48,6 +51,16 @@ if [[ "$MODE" == upload ]]; then
   fi
 fi
 repo_args=(--repo "$REPO")
+
+# data/generated 常被软链到别的检出（那边可能是另一份数据），先打印真实路径，再按 --expect 核指纹
+echo "data/generated 实际是：$(cd data/generated && pwd -P)"
+for pair in ${EXPECT[@]+"${EXPECT[@]}"}; do
+  file="${pair%%=*}"; want="${pair#*=}"
+  [[ -f "data/generated/$file" ]] || { echo "--expect 的 $file 不在 data/generated 里" >&2; exit 1; }
+  got="$(shasum -a 256 "data/generated/$file" | cut -c1-${#want})"
+  [[ "$got" == "$want" ]] || { echo "data/generated/$file 的 sha256 是 $got…，期望 $want：数据不是要发布的那份" >&2; exit 1; }
+  echo "核对通过：$file $got"
+done
 
 PRODUCT_FILES=(dict.qj lm.qj glossary-en.qj glossary-ja.qj glossary-zh.qj glossary-es.qj english.qj english.tsv english-frequency.tsv)
 MODEL_FILE=data/models/hanzhang-zhiwei/hanzhang-zhiwei-small.qjm
