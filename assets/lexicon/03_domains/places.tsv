@@ -47157,3 +47157,14 @@ word	pinyin	rank	doc_freq	level	source
 青岛湾			50		wikipedia-titles
 高丽寺			50		wikipedia-titles
 默拉皮火山			50		wikipedia-titles
+# 以下由 tools/corpus/mine_place_titles.py 从维基条目标题挖出（CC BY-SA 4.0）：
+# df >= 50、前缀在地名/机构/人名专名表里、后缀限行业词（店/酒店/饭店/宾馆/站）；
+# 路/街 整体不收（港台路段为主，价值低）；按 df 拆到 places 领域包，不进基础库。
+北京北站		156		wikipedia-titles
+机场北站		116		wikipedia-titles
+南昌西站		110		wikipedia-titles
+机场东站		81		wikipedia-titles
+广场饭店		80		wikipedia-titles
+前门饭店		72		wikipedia-titles
+温州南站		67		wikipedia-titles
+凯宾斯基酒店		56		wikipedia-titles

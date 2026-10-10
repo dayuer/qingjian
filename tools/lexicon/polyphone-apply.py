@@ -63,7 +63,7 @@ def main() -> int:
         if len(fields) < 3:
             continue
         word = fields[0].strip()
-        if len(word) == 1:
+        if len(word) == 1 and fields[1].strip():
             skipped_single += 1
             continue
         corrections[word] = entry(word, fields[2].strip())
@@ -75,7 +75,10 @@ def main() -> int:
         word, syllables = fields[0].strip(), fields[2].strip()
         if not syllables:
             raise SystemExit(f"判定为「改」的「{word}」没写建议读音：补上，或者把判定改成「不确定」")
-        if len(word) == 1:
+        if len(word) == 1 and fields[1].strip():
+            # 单字一般走字表那条路（不查标注）；**词库读音为空的单字是例外** ——
+            # 那是 Unihan 根本没有读音的字（嗯 / 诶 这类没有字母形式的鼻音），
+            # 字表那条路给不出结果，只能靠这里补（2026-10-09）
             skipped_single += 1
             continue
         corrections[word] = entry(word, syllables)

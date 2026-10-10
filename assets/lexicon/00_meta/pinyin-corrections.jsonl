@@ -55,6 +55,7 @@
 {"word": "啪嚓", "pinyin": ["pa", "cha"]}
 {"word": "喀什市", "pinyin": ["ka", "shi", "shi"]}
 {"word": "喳喳", "pinyin": ["cha", "cha"]}
+{"word": "嗯", "pinyin": ["en"]}
 {"word": "嘚瑟", "pinyin": ["de", "se"]}
 {"word": "处长", "pinyin": ["chu", "zhang"]}
 {"word": "够不着", "pinyin": ["gou", "bu", "zhao"]}
@@ -155,6 +156,7 @@
 {"word": "西藏", "pinyin": ["xi", "zang"]}
 {"word": "见长", "pinyin": ["jian", "chang"], "keep_both": true}
 {"word": "说客", "pinyin": ["shui", "ke"]}
+{"word": "诶", "pinyin": ["ei"]}
 {"word": "谁知道", "pinyin": ["shei", "zhi", "dao"], "keep_both": true}
 {"word": "调休", "pinyin": ["tiao", "xiu"]}
 {"word": "调色板", "pinyin": ["tiao", "se", "ban"]}

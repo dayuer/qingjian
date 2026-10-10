@@ -42,6 +42,11 @@ pub enum Command {
         #[arg(long)]
         frequency: Option<PathBuf>,
 
+        /// 单字频次表（`字\t次数`，`bigram` 顺带写出的 lm-char.tsv）：报「语料里常见但词库里没有读音」
+        /// 的字要用它 —— 词级一元表里根本没有那些字（嗯 / 诶），拿它当基准抓不到（2026-10-09）
+        #[arg(long)]
+        char_frequency: Option<PathBuf>,
+
         /// 把仍靠猜读音的多音字词写到这个文件（一行一个），交给 `gloss-gen pinyin`
         #[arg(long)]
         emit_ambiguous: Option<PathBuf>,
@@ -148,10 +153,31 @@ pub enum Command {
         #[arg(long, default_value_t = 3)]
         min_count: u32,
 
+        /// 短语合成行占上限的份额（0–1）：真实行截到「上限 ×(1−份额)」，给短语层（我的 / 后端）
+        /// 留出固定空间 —— 不留的话真实行占满之后短语会拿不到任何 LM 支撑
+        #[arg(long, default_value_t = 0.08)]
+        phrase_bigram_share: f64,
+
+        /// 每条短语最多合成多少个邻居（按邻居计数取前 K）：常用成分（的 / 了 / 是）的邻居上百万，
+        /// 全合成会把预算吃光，而真正有用的只是最高频的那批
+        #[arg(long, default_value_t = 200)]
+        phrase_neighbors: usize,
+
         /// 最多输出多少条二元组（按计数取前 N）。缺省 500 万：随包那份 lm.qj 一直是 486 万条，
         /// 按 300 万截会让整句评测的首选掉一个点（2026-10-07 量过：33.2% → 34.1%，基线 34.2%）
         #[arg(long, default_value_t = 5_000_000)]
         max_bigrams: usize,
+
+        /// 同音加分倍数（1.0 = 关）：榜上的同音对里，同一个前文下正确侧计数被错词压过的位置，
+        /// 把正确侧的计数抬到错词的这么多倍。纯频次截断把稀有一侧（往往正是正确答案）砍得更狠
+        /// —— 改前 LM 里 得 只剩 5,969 条上下文而 的 有 49,363，事 1,523 对 是 22,405（2026-10-09）
+        #[arg(long, default_value_t = 1.0)]
+        homophone_boost: f64,
+
+        /// 同音错误榜 `正确词\t错词\t次数`（`.lab/mine/mine_errors.py` 从留出集挖出）：
+        /// 只有榜上的对才做加分，次数低于 min_count 的当个例不收
+        #[arg(long)]
+        homophone_errors: Option<PathBuf>,
     },
 
     /// 从语料里挖词库没收的词：分词时被拆成连续单字的段按子串计数，出现够多的写到 oov-candidates.tsv（再交给 gloss-gen pinyin 标音、lexicon --extra-words 并入）

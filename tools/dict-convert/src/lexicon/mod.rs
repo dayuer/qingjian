@@ -131,6 +131,9 @@ pub struct Options<'a> {
     /// 同音不危险要等语料实测，所以缺省不并；命令行 `--internet-base` 指过来才生效。
     pub internet_base: Option<&'a Path>,
 
+    /// 单字频次表（`字\t次数`，`bigram` 的 lm-char.tsv）；缺省退回词级一元表（抓不到从未被计数的字）
+    pub char_frequency: Option<&'a Path>,
+
     /// 输出目录
     pub out_dir: &'a Path,
 }
@@ -143,6 +146,7 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     let unihan = options.unihan;
     let pinyin = options.pinyin;
     let frequency = options.frequency;
+    let char_frequency = options.char_frequency;
     let emit_ambiguous = options.emit_ambiguous;
     let extra_words = options.extra_words;
     let mixed_words = options.mixed_words;
@@ -188,6 +192,30 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     // 领域词门槛按语料规模换算（`<s>` 是语料句数）：语料一换，绝对次数就变味了。
     // 没有词频表时按旧口径（五千万句语料下的 50 次）折算，反正那时领域词全拆出去
     let sentences = counts.get("<s>").copied().unwrap_or(0);
+    // 缺读音报警要用的字频：给了 --char-frequency 就用它（能覆盖词级一元表里不存在的字），
+    // 否则退回词级一元表（只覆盖单字词，抓不到 诶 那种从未被计数过的）
+    let char_counts: HashMap<String, u64> = match char_frequency {
+        Some(path) => {
+            let mut map = HashMap::new();
+            for line in std::fs::read_to_string(path)?.lines() {
+                let mut fields = line.split('\t');
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let (Some(ch), Some(count)) = (fields.next(), fields.next())
+                    && let Ok(count) = count.trim().parse::<u64>()
+                {
+                    map.insert(ch.to_owned(), count);
+                }
+            }
+            map
+        }
+        None => counts
+            .iter()
+            .filter(|(word, _)| word.chars().count() == 1)
+            .map(|(word, count)| (word.clone(), *count))
+            .collect(),
+    };
     let domain_keep_min = if sentences > 0 {
         ((options.domain_keep_per_10m as f64) * (sentences as f64 / 10_000_000.0)).round() as u64
     } else {
@@ -208,6 +236,9 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         counts = counts.len(),
         "数据加载完成"
     );
+
+    /// 语料里出现这么多次、却在词库里一个读音都没有的字，要整批列出来报警（不是逐字修）。
+    const MISSING_READING_ALARM: u64 = 1000;
 
     // 通用词里每个字各种读音出现的次数：多音字在词里猜读音的第一依据
     let mut common_stats: HashMap<char, HashMap<String, u32>> = HashMap::new();
@@ -272,7 +303,20 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
     extra.sort_unstable();
     chars.extend(extra.into_iter().map(|c| (c, None)));
     for (ch, level) in &chars {
-        let weighted = readings.weighted(*ch, MINOR_READING_SHARE);
+        let mut weighted = readings.weighted(*ch, MINOR_READING_SHARE);
+        // 「没有可用读音」有两种：Unihan 里根本没这个字，或者有读音但没有字母形式
+        // （嗯 的 ń / ňg / ǹg、诶 的 ēi）—— 两种都要用人工判定兜底，只判 empty 会漏后者（2026-10-09）
+        if weighted.iter().all(|(syllable, _)| !is_syllable(syllable)) {
+            // 字表那条路给不出结果，用人工判定（`00_meta/pinyin-corrections.jsonl`）兜底
+            if let Some(annotation) = annotations.get(&ch.to_string()) {
+                weighted = annotation
+                    .syllables
+                    .iter()
+                    .map(|syllable| (syllable.clone(), 1.0))
+                    .collect();
+                tracing::info!(ch = %ch, syllables = ?annotation.syllables, "Unihan 无读音，用人工判定兜底");
+            }
+        }
         let valid: Vec<(String, f64)> = weighted
             .into_iter()
             .filter(|(syllable, _)| is_syllable(syllable))
@@ -281,9 +325,16 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
             dropped += 1;
             continue;
         }
-        let total = counts.get(&ch.to_string()).copied().unwrap_or_else(|| {
-            u64::from(CHAR_FLOOR[usize::from(level.unwrap_or(3).saturating_sub(1).min(2))])
-        });
+        // 词频：优先语料一元表；单字**分词时进不来**（不在分词词表里，一元表自然也没有它）
+        // 就退回**字频表**的独立计数 —— 嗯 在语料里 300 万次，用底值 10 会让用户打 en 永远看不到它
+        // （2026-10-09 审计裁定 (c)）。字频表由 `bigram` 顺带写出，与一元表同一权重口径。
+        let total = counts
+            .get(&ch.to_string())
+            .copied()
+            .or_else(|| char_counts.get(&ch.to_string()).copied())
+            .unwrap_or_else(|| {
+                u64::from(CHAR_FLOOR[usize::from(level.unwrap_or(3).saturating_sub(1).min(2))])
+            });
         let sum: f64 = valid.iter().map(|(_, w)| w).sum();
         for (syllable, weight) in valid {
             let frequency = ((total as f64) * weight / sum).round().max(1.0) as u32;
@@ -540,6 +591,39 @@ pub fn convert(options: &Options) -> Result<(), ConvertError> {
         }
     }
 
+    // 语料里常见却在词库里一个读音都没有的字：**从语料一元表出发**找，覆盖表外的字 ——
+    // 只看字表的话，像 诶（不在 8105 表里、语料 35,620 次）这种根本走不到上面的循环（2026-10-09）
+    {
+        let single: HashSet<&str> = entries
+            .keys()
+            .filter(|(text, _)| text.chars().count() == 1)
+            .map(|(text, _)| text.as_str())
+            .collect();
+        // 只报**在规范表里**（有 kTGH）却没有读音的字：表外的繁体与港台/日文异体不算缺口，
+        // 全报出来一次 1,623 条没人看（2026-10-09 审计裁定）
+        let mut missing: Vec<(&str, u64)> = char_counts
+            .iter()
+            .filter(|(word, count)| {
+                **count >= MISSING_READING_ALARM
+                    && !single.contains(word.as_str())
+                    && word.chars().next().is_some_and(|ch| readings.in_tgh(ch))
+            })
+            .map(|(word, count)| (word.as_str(), *count))
+            .collect();
+        missing.sort_unstable_by_key(|(_, count)| std::cmp::Reverse(*count));
+        if !missing.is_empty() {
+            let shown: Vec<String> = missing
+                .iter()
+                .map(|(word, n)| format!("{word}({n})"))
+                .collect();
+            tracing::warn!(
+                count = missing.len(),
+                chars = %shown.join(" "),
+                "语料里常见（≥ {MISSING_READING_ALARM} 次）但这些字在词库里没有任何读音：补读取音，或确认可以丢"
+            );
+        }
+    }
+
     std::fs::create_dir_all(out_dir)?;
     report.write(&out_dir.join("domain-report.tsv"))?;
     let output = out_dir.join("dict.tsv");
@@ -652,82 +736,4 @@ fn write_domains(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{Options, convert};
-    use std::path::{Path, PathBuf};
-
-    fn write(path: &Path, body: &str) {
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, body).unwrap();
-    }
-
-    fn temp_dir(tag: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("qingjian-lexicon-{tag}-{}", std::process::id()));
-        std::fs::remove_dir_all(&dir).ok();
-        dir
-    }
-
-    /// 中英混杂词走 `--mixed-words` 这条正规通路：含非汉字的词（`C盘`）读音由源文件直接给、
-    /// 只核对其中的汉字部分，重建后必须在基础词库里。
-    /// 背景：`84e94b9` 是手工往 `dict.tsv` 里加的这 15 条，代码里没有通路 —— 2026-10-07 用新语料重建时
-    /// 它们被静默丢掉（`accepts_word` 对字母 C 判失败），这条守住。
-    #[test]
-    fn mixed_words_survive_a_rebuild() {
-        let dir = temp_dir("mixed");
-        let pack = dir.join("pack");
-        write(
-            &pack.join("01_characters/standard_8105.tsv"),
-            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n\
-             盘\tpan2\t1\t\t1\tx\n\
-             站\tzhan4\t2\t\t1\tx\n",
-        );
-        write(
-            &pack.join("02_common/modern_chinese_common_words.tsv"),
-            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n\
-             盘\tpan2\t1\t\t1\tx\n",
-        );
-        write(
-            &pack.join("03_domains/places.tsv"),
-            "词条\t拼音\t排序号\t文档频次\t字表级别\t来源\n",
-        );
-        let unihan = dir.join("Unihan_Readings.txt");
-        write(&unihan, "U+76D8\tkMandarin\tpán\nU+7AD9\tkMandarin\tzhàn\n");
-        let mixed = dir.join("mixed_words.tsv");
-        write(
-            &mixed,
-            "# 词\t次数\t读音\nC盘\t8000\tc pan\nB站\t40000\tb zhan\n",
-        );
-        let keep = dir.join("domain-keep.tsv");
-        write(&keep, "# 词\n");
-        let out = dir.join("out");
-
-        convert(&Options {
-            pack: &pack,
-            unihan: &unihan,
-            pinyin: &[],
-            frequency: None,
-            emit_ambiguous: None,
-            extra_words: &[],
-            mixed_words: &mixed,
-            domain_keep_per_10m: 10,
-            places_min_df: 500,
-            keep_file: &keep,
-            internet_dir: &dir.join("04_internet_slang"),
-            internet_base: None,
-            out_dir: &out,
-        })
-        .expect("建词库失败");
-
-        let dict = std::fs::read_to_string(out.join("dict.tsv")).unwrap();
-        assert!(
-            dict.contains("C盘\tc pan\t8000"),
-            "C盘 没进基础词库：\n{dict}"
-        );
-        assert!(
-            dict.contains("B站\tb zhan\t40000"),
-            "B站 没进基础词库：\n{dict}"
-        );
-        std::fs::remove_dir_all(dir).unwrap();
-    }
-}
+mod tests;

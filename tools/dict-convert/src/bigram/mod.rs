@@ -165,6 +165,42 @@ impl Vocabulary {
     }
 }
 
+/// 同音错误榜 `正确词\t错词\t次数` → 正确词 id → 与它同音的**错词** id 列表。
+/// 只收「错的次数 ≥ min_count」的对，一次两次的当个例、不算规律。榜由留出集挖错得到，不是手写名单。
+fn load_homophones(
+    path: &Path,
+    vocabulary: &Vocabulary,
+    min_count: u32,
+) -> Result<HashMap<u32, Vec<u32>>, ConvertError> {
+    let mut out: HashMap<u32, Vec<u32>> = HashMap::new();
+    for line in std::fs::read_to_string(path)?.lines() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split('\t');
+        let (Some(right), Some(wrong), Some(count)) = (fields.next(), fields.next(), fields.next())
+        else {
+            continue;
+        };
+        let Ok(count) = count.trim().parse::<u32>() else {
+            continue;
+        };
+        if count < min_count {
+            continue;
+        }
+        if let (Some(&right_id), Some(&wrong_id)) = (
+            vocabulary.ids.get(right.trim()),
+            vocabulary.ids.get(wrong.trim()),
+        ) {
+            let rivals = out.entry(right_id).or_default();
+            if !rivals.contains(&wrong_id) {
+                rivals.push(wrong_id);
+            }
+        }
+    }
+    Ok(out)
+}
+
 pub(crate) fn is_han(c: char) -> bool {
     matches!(c, '\u{4E00}'..='\u{9FFF}' | '\u{3400}'..='\u{4DBF}')
 }
@@ -416,6 +452,8 @@ fn char_offset(chars: &[char], index: usize) -> usize {
     chars[..index].iter().map(|c| c.len_utf8()).sum()
 }
 
+// 参数多是因为统计选项本来就是一堆旋钮；这里不为它单独造一个结构体
+#[allow(clippy::too_many_arguments)]
 pub fn convert(
     corpus: &[PathBuf],
     dict: &Path,
@@ -423,6 +461,10 @@ pub fn convert(
     brand: &[PathBuf],
     min_count: u32,
     max_bigrams: usize,
+    phrase_bigram_share: f64,
+    phrase_neighbors: usize,
+    homophone_boost: f64,
+    homophone_errors: Option<&Path>,
     out_dir: &Path,
 ) -> Result<(), ConvertError> {
     let mut vocabulary = Vocabulary::load(dict)?;
@@ -434,6 +476,9 @@ pub fn convert(
     }
     let mut unigram: Vec<u64> = vec![0; vocabulary.words.len()];
     let mut bigram: HashMap<u64, u32> = HashMap::new();
+    // 字级频次：单字读不出音的那些（嗯 / 诶）在词级一元表里根本不存在，
+    // 建库要按**字频**报警就得单独数一份（2026-10-09）
+    let mut char_counts: HashMap<char, u64> = HashMap::new();
     let mut tokens = Vec::new();
     let mut lines = 0u64;
     let mut runs = 0u64;
@@ -449,6 +494,9 @@ pub fn convert(
             let line: String = line.chars().filter(|c| *c != ' ').collect();
             for run in han_runs(&line) {
                 runs += 1;
+                for ch in run.chars() {
+                    *char_counts.entry(ch).or_insert(0) += 1;
+                }
                 vocabulary.segment(run, &mut tokens);
                 unigram[0] += 1;
                 let mut previous: Option<u32> = Some(0);
@@ -496,18 +544,81 @@ pub fn convert(
         tracing::info!(path = %path.display(), words = added, "品牌词一元与句首二元已写入");
     }
 
+    // 同音加分：只在「同一个前文 A 下，正确词 B 被错词 W 压过」的位置动手，且**只拉接近的**
+    // —— 计数之比决定胜负，光让低频的 (A,B) 存在没用（试过「只救被截断毁掉的对比」，
+    // 留出集 56.3% 对修前 56.4%，等于没动，2026-10-09）。这里把 (A,B) 抬到刚好压过对手。
+    // `--homophone-boost` 是「愿意拉多远」的旋钮：只有 nB × boost ≥ nW 的才动，1.0 = 只动平手。
+    // 不加限制地全拉会把 B 本来选对的位置也翻过去（误伤），所以旋钮必须在挖错的那一半上扫。
+    let mut boosted = 0usize;
+    if let Some(path) = homophone_errors.filter(|_| homophone_boost > 1.0) {
+        let rivals_of = load_homophones(path, &vocabulary, min_count)?;
+        let mut updates: Vec<(u64, u32)> = Vec::new();
+        for (&key, &count) in &bigram {
+            let Some(corrects) = rivals_of.get(&((key & 0xFFFF_FFFF) as u32)) else {
+                continue;
+            };
+            let first = key >> 32;
+            for &correct in corrects {
+                let target = (first << 32) | u64::from(correct);
+                let current = bigram.get(&target).copied().unwrap_or(0);
+                if current > 0
+                    && current <= count
+                    && f64::from(current) * homophone_boost >= f64::from(count)
+                {
+                    updates.push((target, count + 1));
+                }
+            }
+        }
+        boosted = updates.len();
+        for (key, want) in updates {
+            bigram.insert(key, want);
+        }
+        tracing::info!(
+            boosted,
+            boost = homophone_boost,
+            distinct_bigrams = bigram.len(),
+            homophone_words = rivals_of.len(),
+            "同音加分：把被压过的正确侧拉到刚好压过对手"
+        );
+    }
+
     // 二元：按计数降序，砍掉低频与超出上限的；短语的合成行另加，不占真实行的名额
     let mut pairs: Vec<(u64, u32)> = bigram
         .iter()
         .map(|(k, c)| (*k, *c))
         .filter(|(_, count)| *count >= min_count)
         .collect();
+    // 短语的合成行**预留固定份额**（`--phrase-bigram-share`，缺省 8%）：真实行占满上限时，
+    // 短语层（我的 / 后端）一条合成行都拿不到的话整句会退步。真实行先截到「上限 − 预留」。
+    let synth_budget =
+        ((max_bigrams as f64) * phrase_bigram_share.clamp(0.0, 0.5)).round() as usize;
+    let real_budget = max_bigrams.saturating_sub(synth_budget);
     pairs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    pairs.truncate(max_bigrams);
+    pairs.truncate(real_budget);
+    if boosted > 0 {
+        tracing::info!(boosted, real_rows = pairs.len(), "加分后的真实行");
+    }
+    let real_rows = pairs.len();
     if !phrase_parts.is_empty() {
-        let synthesized = synthesize_phrases(&phrase_parts, &mut unigram, &bigram, min_count);
+        let synthesized = synthesize_phrases(
+            &phrase_parts,
+            &mut unigram,
+            &bigram,
+            min_count,
+            synth_budget,
+            phrase_neighbors,
+        );
         pairs.extend(synthesized);
     }
+    debug_assert!(pairs.len() <= max_bigrams.max(1));
+    tracing::info!(
+        real = real_rows,
+        synth = pairs.len() - real_rows,
+        budget = synth_budget,
+        total = pairs.len(),
+        limit = max_bigrams,
+        "二元写出前（真实行 + 合成行 ≤ 上限）"
+    );
     let bigram_path = out_dir.join("lm-bigram.tsv");
     let mut writer = BufWriter::new(File::create(&bigram_path)?);
     writeln!(
@@ -522,6 +633,22 @@ pub fn convert(
     writer.flush()?;
 
     // 一元：只输出出现过的词
+    let char_path = out_dir.join("lm-char.tsv");
+    {
+        let mut writer = BufWriter::new(File::create(&char_path)?);
+        writeln!(
+            writer,
+            "# 由 qingjian-dict-convert bigram 从语料统计的单字频次（字\t次数）"
+        )?;
+        let mut rows: Vec<(&char, &u64)> = char_counts.iter().collect();
+        rows.sort_unstable_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        for (ch, count) in rows {
+            writeln!(writer, "{ch}\t{count}")?;
+        }
+        writer.flush()?;
+    }
+    tracing::info!(path = %char_path.display(), chars = char_counts.len(), "字频表已写出");
+
     let unigram_path = out_dir.join("lm-unigram.tsv");
     let mut writer = BufWriter::new(File::create(&unigram_path)?);
     writeln!(
@@ -589,6 +716,8 @@ fn synthesize_phrases(
     unigram: &mut [u64],
     bigram: &HashMap<u64, u32>,
     min_count: u32,
+    max_synth_bigrams: usize,
+    max_neighbors: usize,
 ) -> Vec<(u64, u32)> {
     let key = |a: u32, b: u32| (u64::from(a) << 32) | u64::from(b);
     // 按后词 / 前词索引一遍二元表，合成时按成分查前接与后接
@@ -602,6 +731,16 @@ fn synthesize_phrases(
     let pair = |bigram: &HashMap<u64, u32>, a: u32, b: u32| {
         f64::from(bigram.get(&key(a, b)).copied().unwrap_or(0))
     };
+    // 邻居表按计数降序，之后每条短语只取前 K 个 —— 常用成分（的 / 了 / 是）的邻居上百万，
+    // 全合成会把预留份额吃光，而真正有用的只是最高频的那批
+    for list in by_second.values_mut() {
+        list.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        list.truncate(max_neighbors);
+    }
+    for list in by_first.values_mut() {
+        list.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        list.truncate(max_neighbors);
+    }
     let mut added = 0usize;
     let mut rows: Vec<(u64, u32)> = Vec::new();
     for (id, parts) in phrases {
@@ -636,62 +775,14 @@ fn synthesize_phrases(
             }
         }
     }
+    // 合成行也要有上限：每个短语会把它首尾成分的**所有**邻居都合成一遍，常用成分（的 / 了 / 是）
+    // 的邻居上百万，5838 条短语就能合成出上千万行 —— 2026-10-08 实测 1068 万行，把 500 万上限的
+    // 语言模型撑到 1568 万，产品侧（iOS 内存预算）与「和旧库同规模对比」都做不到。
+    rows.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    rows.truncate(max_synth_bigrams);
     tracing::info!(phrases = added, bigrams = rows.len(), "短语计数已合成");
     rows
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// 贴着数字的汉字串是日期/范围的碎片（「3月1日至10日」里的「日至」），统计时不计数；
-    /// 不贴着数字的正常词照旧。2026-10-08 加：新语料下 日至 52634 次，把真词 日志 2380 次压得看不见。
-    #[test]
-    fn han_runs_skips_fragments_glued_to_digits() {
-        assert_eq!(
-            han_runs("3月1日至10日"),
-            Vec::<&str>::new(),
-            "「日至」夹在两个数字之间，丢"
-        );
-        assert_eq!(han_runs("2019年3月至5月").len(), 0, "被数字夹住的都该丢");
-        assert_eq!(
-            han_runs("参见参考资料"),
-            vec!["参见参考资料"],
-            "正常词不受影响"
-        );
-        assert_eq!(
-            han_runs("2019年至2020年"),
-            Vec::<&str>::new(),
-            "日期范围里夹出来的都丢"
-        );
-        assert_eq!(
-            han_runs("第3章的正文"),
-            vec!["章的正文"],
-            "只夹了一边数字的不算碎片"
-        );
-        assert_eq!(han_runs("5G手机"), vec!["手机"], "字母夹着的不算数字");
-    }
-
-    #[test]
-    fn vocabulary_skips_hidden_temp_and_non_file_dicts() {
-        let dir = std::env::temp_dir().join(format!(
-            "qingjian-dict-convert-bigram-{}",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(dir.join("dicts")).unwrap();
-        let base = dir.join("dict.tsv");
-        std::fs::write(&base, "词\t拼音\t词频\n").unwrap();
-        for name in ["law.tsv", ".hidden.tsv", "~$law.tsv", "notes.txt"] {
-            std::fs::write(dir.join("dicts").join(name), "词\t拼音\t词频\n").unwrap();
-        }
-
-        let files = Vocabulary::files(&base);
-        let names: Vec<String> = files
-            .iter()
-            .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_owned))
-            .collect();
-        assert_eq!(names, ["dict.tsv", "law.tsv"]);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-}
+mod tests;
