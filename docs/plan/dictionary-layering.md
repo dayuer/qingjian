@@ -224,7 +224,21 @@ word	pinyin	freq	year	source
 
 ## 五、验收（两步共用）
 
-### 5.1 两条尺子的基线（2026-10-07 量的，改前改后都要对这两组数字）
+### 5.1 两条尺子的基线
+
+**2026-10-10 起门槛按这一组**：整句评测 + clean2 回放，不带模型与融合（含章·通变 8 位）两种配置各一遍。
+在 sujian 361214b + data-v3（dict `7fafe1b8`、lm `f9fb7b44`）+ 通变 `2c326abf` 上量的：
+
+| 配置 | 评测首选 | 评测前三 | 评测字准 | clean2 词首选 | clean2 整句首选 |
+|---|---:|---:|---:|---:|---:|
+| 不带模型 | 34.2% | 39.9% | 77.5% | 89.9%（919/1022） | 69.6%（96/138） |
+| 融合 | 38.8% | 57.7% | 79.9% | 89.8%（918/1022） | 74.6%（103/138） |
+
+回放改用 clean2 口径（剔掉用户事后撤销、删掉重打的上屏，规则见 `apps/cli/src/replay/clean`）：原始回放里那些行的「答案」
+本身是错的，#19 之后原始回放整句净 −3 正是这几条（`docs/notes/context-eval.md`），拿它当门槛会让任何新数据都过不去。
+融合那一遍防的是只在模型开着时才出现的回退（#19 的 A4 就是不带模型过、融合掉一句）。
+
+下面是 2026-10-07 定门槛时的旧基线（原始回放，只有不带模型一种配置），留作对照。
 
 命令（`tools/eval/offline.toml` 是本规格新加的：把 `[predict] enabled = false` 固定住，
 CLI 不吃用户配置里的素笺云设置；领域包按产品缺省只开成语）：
@@ -252,13 +266,15 @@ cargo run --release -p qingjian-cli -- --config tools/eval/offline.toml \
 
 ### 5.2 装机门槛（2026-10-07 加）
 
-两条尺子过了才写 `data/generated/GATE_PASSED`（`tools/release/gate-pass.sh` 跑尺子并写标记，容差 −0.3 个点）。
+两条尺子在两种配置下都过了才写 `data/generated/GATE_PASSED`（`tools/release/gate-pass.sh` 跑尺子并写标记，容差 −0.3 个点；
+clean2 整句一共 138 条、一条 0.72 个点，等于整句一条都不许掉）。融合那一遍用 `QINGJIAN_P2C_MODEL_DIR`（缺省 `data/models/hanzhang-tongbian`）
+下的 `hanzhang-tongbian-small.qjm`，与 `bundle.sh` 同一个位置，没有模型就不放行。
 装机脚本（`apps/macos/scripts/bundle.sh`、`cloud/ios/scripts/build-bridge.sh`）**没有这个标记就回退**到上次发版那份
 `data/generated.shipped/`（那份从已装的 `Sujian.app/Contents/Resources/` 里另存：`dict.qj`、`lm.qj`、`dicts/*.qj`、
 `glossary-*.qj`、`english.tsv`），两份都没有就拒绝装机。这样词库/语言模型没门槛的期间，谁在本机装机都不会把
 不合格的数据带上去。已实测：缺标记时打出来的 app 里 `dict.qj` 与发版那份逐字节相同。
 
-**判据**：第 1 步与第 2 步合并后，两边都不能比上表差。容差：首选 / 前三 / 字准确率各允许 **−0.3 个点**以内
+**判据**：数据改动后，两种配置都不能比 5.1 的门槛基线差。容差：首选 / 前三 / 字准确率各允许 **−0.3 个点**以内
 （洗包只删不加，掉一点属正常；网络用语补进来的新词要能把这 0.3 个点挣回来，挣不回来就说明收的词不对）。
 单次运行的抖动远小于 0.3 个点（同一份输入两次跑的数字一致），所以不设「多跑几次取平均」。
 
