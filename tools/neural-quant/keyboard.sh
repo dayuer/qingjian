@@ -1,7 +1,9 @@
 #!/bin/bash
 # 用法：keyboard.sh [句数]：键盘 Data 目录 + 8 位通变上跑 keyboard_probe，三个阶段各量一次 footprint，写 kbd-mem.txt
-W=/Users/liyuqing/sproot/qingjian-dict-hunt; P=$W/cloud/target/release/examples/keyboard_probe
-D=$W/cloud/ios/Keyboard/Data; Q=/Users/liyuqing/sproot/qingjian/data/eval/sentences.tsv; out=$W/.lab/quant/kbd-mem.txt
+R=${QJ_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}   # 脚本所在仓库（主检出）
+A=${QJ_ARCHIVE:-$R/data/archive}                  # 2026-10-10 三个 worktree 的 .lab 合并迁到这里
+P=$R/cloud/target/release/examples/keyboard_probe
+D=$R/cloud/ios/Keyboard/Data; Q=$R/data/eval/sentences.tsv; out=$A/dict-hunt-lab/quant/kbd-mem.txt
 fifo=$(mktemp -u /tmp/kbd.XXXX); mkfifo $fifo; log=$(mktemp /tmp/kbd-log.XXXX)
 $P $D $Q ${1:-50} < $fifo > $log 2> $out.err & pid=$!
 exec 3> $fifo; : > $out

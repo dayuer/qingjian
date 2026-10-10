@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     for key in &keys {
-        let out = p2c.convert(key, 3, 24)?;
+        let out = p2c.convert("", key, 3, 24)?;
         println!("{key}");
         for candidate in &out {
             println!("    {:<24}{:7.2}", candidate.text, candidate.score);
@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     for key in &keys {
         let chars = p2c
-            .convert(key, 1, 24)?
+            .convert("", key, 1, 24)?
             .first()
             .map_or(0, |c| c.text.chars().count());
         print!("{:<22}", format!("{key} / {chars}"));
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             print!(
                 "  {:<10.1}",
                 median(15, || {
-                    p2c.convert(key, beam, 24).unwrap();
+                    p2c.convert("", key, beam, 24).unwrap();
                 })
             );
         }

@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let vocab = Vocab::load(&dir.join("vocab.json"))?;
     let p2c = P2c::new(&model, &vocab).ok_or("字表里没有 <sep>：这不是 P2C 模型")?;
     for key in keys {
-        for candidate in p2c.convert(&key, 4, 16)?.iter().take(3) {
+        for candidate in p2c.convert("", &key, 4, 16)?.iter().take(3) {
             println!("{key}\t{}\t{:.6}", candidate.text, candidate.score);
         }
     }

@@ -42,12 +42,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .and_then(|r| r.parse().ok())
             .unwrap_or(50);
         for round in 0..rounds {
-            scorer.score_p2c(&KEYS[..10 + round % 21], &PATHS)?;
+            scorer.score_p2c("", &KEYS[..10 + round % 21], &PATHS)?;
         }
         eprintln!("fused {rounds}");
     } else {
         let p2c = P2c::new(scorer.model(), scorer.vocab()).ok_or("不是 P2C 模型")?;
-        let top = p2c.convert(KEYS, 4, 32)?;
+        let top = p2c.convert("", KEYS, 4, 32)?;
         eprintln!(
             "generated {}",
             top.first().map(|c| c.text.as_str()).unwrap_or_default()

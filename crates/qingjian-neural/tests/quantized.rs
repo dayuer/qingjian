@@ -42,7 +42,7 @@ fn top_choices(scorer: &CharScorer) -> Vec<String> {
     let p2c = P2c::new(scorer.model(), scorer.vocab()).expect("P2C 模型");
     KEYS.iter()
         .map(|keys| {
-            p2c.convert(keys, 4, 32)
+            p2c.convert("", keys, 4, 32)
                 .unwrap()
                 .first()
                 .map(|c| c.text.clone())

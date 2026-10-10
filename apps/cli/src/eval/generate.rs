@@ -101,7 +101,7 @@ pub fn run(
         out.total += 1;
         let keys = pair.pinyin.replace('\'', "");
         let started = Instant::now();
-        let generated = decoder.convert(&keys, BEAM, MAX_CHARS);
+        let generated = decoder.convert("", &keys, BEAM, MAX_CHARS);
         let elapsed = started.elapsed();
         out.time += elapsed;
         out.slowest = out.slowest.max(elapsed);

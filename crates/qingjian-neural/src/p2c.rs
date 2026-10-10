@@ -1,7 +1,8 @@
 //! 带噪拼音 → 汉字（beam search）。
 //!
-//! 训练序列是 `[带噪拼音] <sep> [汉字] <eos>`，所以解码就是：把拼音和 `<sep>` 喂进去当前缀，
-//! 然后逐字生成到 `<eos>`。前缀的 K/V 算一次存下来，每敲一键只需把新字母接上去。
+//! 训练序列是 `<eos> [前文 ≤32 字] [带噪拼音] <sep> [汉字] <eos>`，所以解码就是：把前文、
+//! 拼音和 `<sep>` 喂进去当前缀，然后逐字生成到 `<eos>`。前缀的 K/V 算一次存下来，
+//! 每敲一键只需把新字母接上去。前文可空——空就是只看按键的老行为。
 //!
 //! 前缀开头要带一个 `<eos>`：训练流里每个样本的拼音前面都跟着上一个样本的 `<eos>`，
 //! 少了它模型会当成在续写上文、把短拼音看成被截断的尾巴，于是把正确的词放句尾再补一堆前缀
@@ -35,16 +36,28 @@ impl<'a> P2c<'a> {
         Some(Self { model, vocab, sep })
     }
 
-    /// 拼音键 → 前 `beam` 条候选，按分数降序。`max_chars` 是生成长度上限。
+    /// 模型自己声明的上文上限（字）：没带前文训练过就是 0，传进来的 `context` 会被丢掉。
+    fn context_chars(&self) -> usize {
+        self.model
+            .config()
+            .context_chars
+            .unwrap_or(0)
+            .min(crate::vocab::CONTEXT_CHARS)
+    }
+
+    /// 前文 + 拼音键 → 前 `beam` 条候选，按分数降序。`max_chars` 是生成长度上限。
+    /// `context` 给光标前文（不给就传空串，退化成原来的只看按键）。
     pub fn convert(
         &self,
+        context: &str,
         keys: &str,
         beam: usize,
         max_chars: usize,
     ) -> Result<Vec<Candidate>, NeuralError> {
         let beam = beam.max(1);
-        let mut prefix = Vec::with_capacity(keys.len() + 2);
+        let mut prefix = Vec::with_capacity(context.chars().count() + keys.len() + 2);
         prefix.push(EOS);
+        prefix.extend(self.vocab.encode_context(context, self.context_chars()));
         prefix.extend(self.vocab.encode(keys));
         prefix.push(self.sep);
 

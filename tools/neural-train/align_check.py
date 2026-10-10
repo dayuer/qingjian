@@ -48,7 +48,8 @@ def forward(weights: dict[str, torch.Tensor], idx: torch.Tensor, n_layer: int, n
     x = embd[idx] + weights["pos_emb.weight"][:length]
     head = embd.shape[1] // n_head
     # 因果掩码：广播到 (batch, head, length, length)
-    mask = torch.triu(torch.full((length, length), float("-inf")), diagonal=1)[None, None]
+    # 掩码必须与输入同 device：MPS 上拿 CPU 掩码相加会直接报错（2026-10-10）
+    mask = torch.triu(torch.full((length, length), float("-inf"), device=idx.device), diagonal=1)[None, None]
     for layer in range(n_layer):
         prefix = f"blocks.{layer}."
         h = ln(x, weights[prefix + "ln1.weight"], weights[prefix + "ln1.bias"])

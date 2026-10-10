@@ -45,7 +45,7 @@ impl Host {
                     if p2c {
                         let scorer = P2cScorer::new(scorer)
                             .ok_or(NeuralError::Corrupt("含章·通变模型缺少 <sep> 分隔符"))?;
-                        scorer.0.score_p2c("ni", &["你"])?;
+                        scorer.0.score_p2c("", "ni", &["你"])?; // 预热探针不给前文
                         Ok(Box::new(scorer) as Box<dyn SentenceScorer>)
                     } else {
                         scorer.score("", &["的"])?;

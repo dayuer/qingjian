@@ -1,15 +1,18 @@
 #!/bin/bash
 # 串行量延迟（不并发）：sentences.tsv 上融合 query_ms 与生成 generate_ms 的 p50 / p95，fp16 与 8 位同机同底座
-W=/Users/liyuqing/sproot/qingjian-dict-hunt; B=$W/target/release/qingjian-cli; Q=$W/.lab/quant; R=$Q/run-fp16
-cd $R
+R=${QJ_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}   # 脚本所在仓库（主检出）
+A=${QJ_ARCHIVE:-$R/data/archive}                  # 2026-10-10 三个 worktree 的 .lab 合并迁到这里
+B=$R/target/release/qingjian-cli; Q=$A/dict-hunt-lab/quant; RUN=$Q/run-fp16
+cd $RUN
 for m in tongbian-f16.qjm tongbian-q8.qjm; do
   rm -f $Q/lat-fuse-$m.jsonl $Q/lat-gen-$m.jsonl
   $B --config /tmp/eval-config.toml --eval-text data/eval/sentences.tsv --neural $Q/$m --misses 0 --eval-details $Q/lat-fuse-$m.jsonl > /dev/null 2>&1
   $B --config /tmp/eval-config.toml --eval-text data/eval/sentences.tsv --eval-generate $Q/$m --misses 0 --eval-details $Q/lat-gen-$m.jsonl > /dev/null 2>&1
 done
+export Q
 /tmp/q-venv/bin/python - <<'PY'
-import json
-Q='/Users/liyuqing/sproot/qingjian-dict-hunt/.lab/quant'
+import json, os
+Q=os.environ['Q']
 def p(v,q): v=sorted(v); return v[min(len(v)-1,int(q*len(v)))]
 for m in ('tongbian-f16.qjm','tongbian-q8.qjm'):
     f=[json.loads(l)['query_ms'] for l in open(f'{Q}/lat-fuse-{m}.jsonl')]

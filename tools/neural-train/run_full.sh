@@ -5,17 +5,19 @@
 # 用法：bash tools/neural-train/run_full.sh
 
 set -u
-cd /Users/liyuqing/sproot/qingjian-neural || exit 1
-LOG=.lab/full.log
-EVAL=/Users/liyuqing/sproot/qingjian/data/eval
+R=${QJ_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}   # 脚本所在仓库（主检出）
+A=${QJ_ARCHIVE:-$R/data/archive}                  # 2026-10-10 三个 worktree 的 .lab 合并迁到这里
+LAB=$A/neural-lab
+LOG=$LAB/full.log
+EVAL=$R/data/eval
 
 for attempt in 1 2 3 4; do
     echo "=== 第 $attempt 次启动 $(date '+%m-%d %H:%M') ===" >> "$LOG"
-    caffeinate -i -s .lab/venv/bin/python tools/neural-train/train_p2c.py \
-        --epochs 2 --resume --out .lab/full \
+    caffeinate -i -s "$LAB/venv/bin/python" tools/neural-train/train_p2c.py \
+        --epochs 2 --resume --out "$LAB/full" \
         --dev "$EVAL/dialog-dev.tsv" "$EVAL/prose-dev.tsv" >> "$LOG" 2>&1
     code=$?
-    if [ -f .lab/full/done ]; then
+    if [ -f "$LAB/full/done" ]; then
         echo "=== 训练完成 $(date '+%m-%d %H:%M') ===" >> "$LOG"
         exit 0
     fi

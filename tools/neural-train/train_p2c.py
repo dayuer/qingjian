@@ -36,20 +36,26 @@ import torch.nn.functional as F
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from align_check import forward  # noqa: E402
 
-DATA = pathlib.Path("/Users/liyuqing/sproot/qingjian/data")
-TB = pathlib.Path("/Users/liyuqing/sproot/qingjian-neural/.lab/tongbian")
-OUT = pathlib.Path("/Users/liyuqing/sproot/qingjian-neural/.lab/neural")
-REPO = pathlib.Path("/Users/liyuqing/sproot/qingjian")
-CLI_CONFIG = pathlib.Path("/Users/liyuqing/sproot/qingjian-neural/.lab/cli-config.toml")
+# 2026-10-10：三个 worktree 的 .lab 合并迁到主检出 data/archive/，脚本不再指 worktree 路径。
+# 默认按**脚本所在仓库**（主检出）解析；在 worktree 里跑时用 QJ_REPO 指主检出。
+REPO = pathlib.Path(os.environ.get("QJ_REPO") or pathlib.Path(__file__).resolve().parents[2])
+ARCHIVE = pathlib.Path(os.environ.get("QJ_ARCHIVE") or REPO / "data/archive")
+LAB = ARCHIVE / "neural-lab"            # 训练产物、模型、venv、验收日志
+LEXICON_LAB = ARCHIVE / "lexicon-lab"   # 词库线的中间产物（prose-holdout-clean.tsv、base-cap100…）
+DATA = REPO / "data"
+TB = LAB / "tongbian"
+OUT = LAB / "neural"
+CLI_CONFIG = LAB / "cli-config.toml"
 
-N_LAYER, N_EMBD, N_HEAD, CTX = 5, 320, 8, 128
+N_LAYER, N_EMBD, N_HEAD, CTX = 5, 320, 8, 128      # 缺省是小模型；通变用 --layers/--embd/--heads 覆盖
+TB_DIR = LAB / "tongbian"   # 通变 fp16 三件套（热启动起点）
 
 
 def load_readings() -> dict[str, str]:
     """词库 TSV → 词 / 字读音，**保留音节间的空格**（`你好` → `ni hao`）：简拼噪声要按音节做。"""
     out: dict[str, str] = {}
     for path in (
-        pathlib.Path("/Users/liyuqing/sproot/qingjian-lexicon/.lab/libs/base-single-w10/dict.tsv"),
+        LEXICON_LAB / "libs/base-single-w10/dict.tsv",
         DATA / "generated/dict.tsv",
     ):
         if not path.exists():
@@ -446,6 +452,27 @@ def init_weights(vocab_size: int, seed: int = 0) -> dict[str, torch.Tensor]:
     return w
 
 
+def warm_start(params: dict[str, torch.nn.Parameter], source: pathlib.Path) -> None:
+    """热启动：把 `source`（三件套目录）里的 fp16 权重读进当前参数。
+
+    张量名与结构必须完全一致（通变的 `tok_emb` / `pos_emb` / `blocks.N.*` / `ln_f`），
+    对不上就报错退出 —— 微调最怕「以为加载了、其实随机初始化」。"""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from align_check import load_safetensors  # noqa: PLC0415
+
+    weight = source / "model.safetensors"
+    loaded = load_safetensors(weight)
+    missing = set(params) - set(loaded)
+    extra = set(loaded) - set(params)
+    if missing or extra:
+        raise SystemExit(f"热启动权重对不上：缺 {sorted(missing)[:4]}，多 {sorted(extra)[:4]}")
+    for name, tensor in loaded.items():
+        if tuple(tensor.shape) != tuple(params[name].shape):
+            raise SystemExit(f"{name} 形状不符：权重 {tuple(tensor.shape)} vs 模型 {tuple(params[name].shape)}")
+        params[name].data.copy_(tensor)
+    print(f"热启动：已从 {weight} 读入 {len(loaded)} 个张量", flush=True)
+
+
 def trainable(w: dict[str, torch.Tensor]) -> dict[str, torch.nn.Parameter]:
     return {name: torch.nn.Parameter(tensor.clone()) for name, tensor in w.items()}
 
@@ -460,7 +487,7 @@ def verify_safetensors(tensors: dict[str, torch.Tensor], path: pathlib.Path) -> 
         assert set(header) == set(tensors), "张量名不符"
         for name, tensor in tensors.items():
             start, end = header[name]["data_offsets"]
-            expect = tensor.detach().to(torch.float16).contiguous().numpy().tobytes()
+            expect = tensor.detach().to(torch.float16).cpu().contiguous().numpy().tobytes()
             assert end - start == len(expect), f"{name} 段长 {end - start} ≠ {len(expect)}"
             fh.seek(base + start)
             assert digest(fh.read(end - start)) == digest(expect), f"{name} 字节不符"
@@ -472,7 +499,7 @@ def save_safetensors(tensors: dict[str, torch.Tensor], path: pathlib.Path) -> No
     # 偏移量是相对「数据区起点」的（不是相对文件开头）：第一段从 0 开始，candle 才认
     header, offset, blobs = {}, 0, []
     for name, tensor in tensors.items():
-        raw = tensor.detach().to(torch.float16).contiguous().numpy().tobytes()
+        raw = tensor.detach().to(torch.float16).cpu().contiguous().numpy().tobytes()
         offset = (offset + 7) // 8 * 8
         header[name] = {
             "dtype": "F16",
@@ -531,15 +558,46 @@ def leak_filter() -> Callable[[str], bool]:
     return is_leaked
 
 
-def write_model(target: pathlib.Path, params: dict, vocab_list: list[str]) -> None:
-    """把权重与两件套写进 `target`（三件套目录，`CharScorer` / CLI 直接加载）。"""
+def probe_three(model: pathlib.Path, dev: pathlib.Path) -> dict[str, float]:
+    """用同一个贪心探针评三份集合：有上文 dev、空上文 dev、书面干净子集。
+
+    返回 {'ctx': 有上文首选, 'plain': 空上文首选, 'clean': 书面干净子集空上文首选}（百分比）。
+    """
+    script = pathlib.Path(__file__).resolve().parent / "ctx_probe.py"
+    clean = LEXICON_LAB / "mine/prose-holdout-clean.tsv"
+    out = {}
+    for key, path, extra in (("ctx", dev, ["--ctx-first"]), ("plain", dev, ["--ctx-first"]),
+                             ("clean", clean, [])):
+        result = subprocess.run(
+            [sys.executable, str(script), str(model), str(path), *extra],
+            capture_output=True, text=True, timeout=3600,
+        )
+        label = "有上文" if key == "ctx" else "空上文"
+        value = None
+        for line in result.stdout.splitlines():
+            if line.strip().startswith(label):
+                value = float(re.search(r"= ([\d.]+)%", line).group(1))
+                break
+        if value is None:
+            raise RuntimeError(f"探针没读到 {label}：{result.stdout[-300:]}{result.stderr[-200:]}")
+        out[key] = value
+    return out
+
+
+def write_model(target: pathlib.Path, params: dict, vocab_list: list[str],
+                context_chars: int | None = None) -> None:
+    """把权重与两件套写进 `target`（三件套目录，`CharScorer` / CLI 直接加载）。
+
+    `context_chars` 只在**带前文训练**的模型上写：推理侧靠它决定要不要把光标前文喂进去。
+    没这个字段（老通变）就是不带前文，推理侧一律不喂——喂了它读不懂反而掉分。"""
+    assert context_chars is None or context_chars == CTX_MAX, f"上下文长度要等于 CTX_MAX({CTX_MAX})"
     target.mkdir(parents=True, exist_ok=True)
     save_safetensors({name: p.detach() for name, p in params.items()}, target / "model.safetensors")
-    (target / "config.json").write_text(
-        json.dumps({"vocab_size": len(vocab_list), "n_layer": N_LAYER, "n_embd": N_EMBD,
-                    "n_head": N_HEAD, "context": CTX}),
-        encoding="utf-8",
-    )
+    config = {"vocab_size": len(vocab_list), "n_layer": N_LAYER, "n_embd": N_EMBD,
+              "n_head": N_HEAD, "context": CTX}
+    if context_chars is not None:
+        config["context_chars"] = context_chars
+    (target / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (target / "vocab.json").write_text(
         json.dumps({"tokens": vocab_list}, ensure_ascii=False), encoding="utf-8"
     )
@@ -578,10 +636,27 @@ def main() -> int:
     parser.add_argument("--max-steps", type=int, default=None, help="跑够 N 步就停（试点用）")
     parser.add_argument("--out", type=pathlib.Path, default=OUT, help="产物目录")
     parser.add_argument("--build-pool", action="store_true", help="只抽样建句子池并落盘缓存，不训练")
+    parser.add_argument("--eval-every", type=int, default=0, help="每 N 步评测一次（0 = 不评）")
+    parser.add_argument("--eval-dev", type=pathlib.Path, default=None, help="带上文 dev 文件")
+    parser.add_argument("--eval-baseline-clean", type=float, default=36.1,
+                        help="通变在书面干净子集上的空上文首选（36.1，贪心探针口径）")
+    parser.add_argument("--eval-floor-delta", type=float, default=3.0,
+                        help="书面干净子集低于基线这么多就停下")
+    parser.add_argument("--context", action="store_true",
+                        help="带上文微调：三种上文各 1/3（空 / 同句按词边界切开 / 上一句）")
+    parser.add_argument("--per-kind", type=int, default=60000, help="每种上文抽多少条（--context 用）")
     parser.add_argument("--dev", type=pathlib.Path, nargs="*", default=[], help="dev 三列冻结题，按小时报首选")
     parser.add_argument("--dev-every", type=int, default=3600, help="dev 评测间隔（秒）")
     parser.add_argument("--cli", type=pathlib.Path, default=REPO / "target/release/qingjian-cli")
     parser.add_argument("--cli-config", type=pathlib.Path, default=CLI_CONFIG)
+    parser.add_argument("--init-from", type=pathlib.Path, default=None,
+                        help="热启动：从三件套目录读 fp16 权重（张量名与形状必须一致）")
+    parser.add_argument("--device", default=None, help="cpu / mps，缺省有 MPS 用 MPS")
+    parser.add_argument("--max-size-mb", type=float, default=20.0,
+                        help="fp16 体积闸门（小模型 20；通变热启动后 44MB、要量化成 8 位，另有许可上限）")
+    parser.add_argument("--layers", type=int, default=None, help="覆盖层数（通变 8）")
+    parser.add_argument("--embd", type=int, default=None, help="覆盖 hidden（通变 448）")
+    parser.add_argument("--heads", type=int, default=None, help="覆盖头数（通变 8）")
     parser.add_argument("--resume", action="store_true", help="从 out/ckpt.pt 精确续训（没有就从零开始）")
     parser.add_argument("--ckpt-every", type=int, default=900, help="检查点间隔（秒）")
     args = parser.parse_args()
@@ -590,17 +665,52 @@ def main() -> int:
         load_samples()
         return 0
 
+    global N_LAYER, N_EMBD, N_HEAD
+    N_LAYER = args.layers or N_LAYER
+    N_EMBD = args.embd or N_EMBD
+    N_HEAD = args.heads or N_HEAD
+    device = torch.device(args.device or ("mps" if torch.backends.mps.is_available() else "cpu"))
+    print(f"设备 {device}；结构 {N_LAYER} 层 / {N_EMBD} / {N_HEAD} 头 / context {CTX}", flush=True)
+
     out = args.out.resolve()
     limit = args.limit if args.limit is not None else (40000 if args.smoke else None)
     out.mkdir(parents=True, exist_ok=True)
     vocab_list = json.loads((TB / "vocab.json").read_text(encoding="utf-8"))["tokens"]
     vocab = {token: index for index, token in enumerate(vocab_list)}
 
-    is_leaked = leak_filter()
-    pool = load_samples()
-    leaked = sum(1 for _, text in pool if is_leaked(text))
-    print(f"泄漏断言：池 {len(pool):,} 句，与评测/留出/dev 撞 {leaked:,} 句 → 已从训练集剔除", flush=True)
-    tokens, weights = build_streams(vocab, limit, args.mask_after_sep, skip=is_leaked if leaked else None)
+    if args.context:
+        import context_data  # noqa: PLC0415
+
+        readings = load_readings()
+        vocab_set = set(vocab_list)
+        rng = random.Random(20261010)
+        samples = context_data.build_context_samples(readings, vocab_set, rng, args.per_kind, report=True)
+        forbidden = leak_filter()
+        kept = [s for s in samples if not (forbidden(s[2]) or (s[0] and forbidden(s[0])))]
+        dropped = len(samples) - len(kept)
+        print(f"带上文样本 {len(samples):,} 条；剔除命中留出集的 {dropped:,} 条（{dropped/len(samples):.2%}）", flush=True)
+        # 断言：剔完必须一条不剩（目标与上文都查）
+        bad = sum(1 for ctx, _p, text in kept if forbidden(text) or (ctx and forbidden(ctx)))
+        if bad:
+            raise RuntimeError(f"泄漏断言失败：剔完仍有 {bad} 条命中留出集")
+        samples = kept
+        digest = hashlib.sha256()
+        for ctx, pinyin, text in samples:
+            digest.update(f"{ctx}\t{pinyin}\t{text}\n".encode())
+        print(f"剔除后 {len(samples):,} 条；泄漏断言 0 ✓；训练集 sha256 {digest.hexdigest()[:16]}", flush=True)
+        tokens, weights = context_data.build_stream(vocab, samples, limit, CTX)
+        weights0 = init_weights(len(vocab_list))
+        # 其余流程与空上文那条完全一致
+        pool = samples
+        leaked = 0
+        is_leaked = None
+    else:
+        is_leaked = leak_filter()
+        pool = load_samples()
+    if not args.context:
+        leaked = sum(1 for _, text in pool if is_leaked(text))
+        print(f"泄漏断言：池 {len(pool):,} 句，与评测/留出/dev 撞 {leaked:,} 句 → 已从训练集剔除", flush=True)
+        tokens, weights = build_streams(vocab, limit, args.mask_after_sep, skip=is_leaked if leaked else None)
 
     weights0 = init_weights(len(vocab_list))
     total = sum(t.numel() for t in weights0.values())
@@ -608,10 +718,14 @@ def main() -> int:
     save_safetensors(weights0, probe)
     size_mb = probe.stat().st_size / 1048576
     print(f"参数量 {total / 1e6:.2f} M；fp16 导出 {size_mb:.1f} MB", flush=True)
-    if size_mb > 20.0:
-        raise SystemExit(f"体积闸门失败：{size_mb:.1f} MB > 20 MB")
+    if size_mb > args.max_size_mb:
+        raise SystemExit(f"体积闸门失败：{size_mb:.1f} MB > {args.max_size_mb:.0f} MB")
 
     params = trainable(weights0)
+    if args.init_from:
+        warm_start(params, args.init_from)
+    for tensor in params.values():
+        tensor.data = tensor.data.to(device)
     optimizer = torch.optim.AdamW(params.values(), lr=args.lr, weight_decay=0.1)
     epochs = 1 if args.smoke else args.epochs
     stop = args.max_steps if args.max_steps is not None else (200 if args.smoke else None)
@@ -621,6 +735,7 @@ def main() -> int:
     ckpt, done_file = out / "ckpt.pt", out / "done"
     dev_log = out / "dev.log"
     losses: list[float] = []
+    ctx_chars = CTX_MAX if args.context else None
     best, stale = -1.0, 0
     start_step = 0
     interrupted = False
@@ -677,6 +792,7 @@ def main() -> int:
         lr = lr_at(index, steps_total, base_lr_now)
         for group in optimizer.param_groups:
             group["lr"] = lr
+        x, y, w = x.to(device), y.to(device), w.to(device)
         logits = forward(params, x, N_LAYER, N_HEAD)
         per_token = F.cross_entropy(
             logits.reshape(-1, len(vocab_list)), y.reshape(-1), reduction="none"
@@ -715,12 +831,24 @@ def main() -> int:
             print(f"中断：已存检查点（step {index}）退出，外层会用 --resume 续上", flush=True)
             return 1
 
+        if args.eval_every and args.eval_dev and index > 0 and index % args.eval_every == 0:
+            live = out / "live"
+            write_model(live, params, vocab_list, ctx_chars)
+            save_checkpoint(out / f"ckpt-{index}.pt", checkpoint_payload(index))
+            scores = probe_three(live, args.eval_dev)
+            print(f"step {index} 有上文 {scores['ctx']:.1f}% / 空上文 {scores['plain']:.1f}% / "
+                  f"书面干净 {scores['clean']:.1f}%（基线 {args.eval_baseline_clean:.1f}）", flush=True)
+            if scores["clean"] < args.eval_baseline_clean - args.eval_floor_delta:
+                save_checkpoint(out / "ckpt.pt", checkpoint_payload(index))
+                write_model(out / "stopped", params, vocab_list, ctx_chars)
+                print(f"书面干净子集比基线低 {args.eval_baseline_clean - scores['clean']:.1f} 点 → 停在这里", flush=True)
+                return 1
         if args.dev and time.time() >= next_dev:
             # 每小时只往 dev.log 写一行：步数、滑动 loss、各 dev 文件的首选。
             # 监控归监控：评测自己出错不许把几小时的主训练一起带走（2026-10-08 相对路径那次就毁了 14060 步）
             try:
                 live = out / "live"
-                write_model(live, params, vocab_list)
+                write_model(live, params, vocab_list, ctx_chars)
                 tops = dev_top1(args.cli, args.cli_config, REPO, live, args.dev)
             except Exception as error:  # noqa: BLE001 —— 监控失败只记一行，接着训
                 line = f"{time.strftime('%H:%M')} step {index} dev 评测失败：{error}"
@@ -737,7 +865,7 @@ def main() -> int:
                 mean = sum(tops) / len(tops)
                 if mean > best:
                     best, stale = mean, 0
-                    write_model(out / "best", params, vocab_list)
+                    write_model(out / "best", params, vocab_list, ctx_chars)
                     print(f"dev 均值 {mean:.1f}% 创新高 → 存 best/", flush=True)
                 else:
                     stale += 1
@@ -748,9 +876,9 @@ def main() -> int:
         if stop is not None and index >= stop:
             break
 
-    write_model(out, params, vocab_list)
+    write_model(out, params, vocab_list, ctx_chars)
     if best < 0:  # 没跑过 dev（或冒烟）：best 就用最后的
-        write_model(out / "best", params, vocab_list)
+        write_model(out / "best", params, vocab_list, ctx_chars)
     done_file.write_text(f"step={len(losses)} best={best:.1f}\n", encoding="utf-8")
     print(f"写出 {out}；loss {losses[0]:.3f} → {losses[-1]:.3f}；最好 dev {best:.1f}%", flush=True)
     return 0

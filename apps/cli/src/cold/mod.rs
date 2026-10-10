@@ -88,7 +88,7 @@ pub fn run(
         // 固定 beam 与生成上限，不能用目标字数限制搜索。分隔符只从 P2C 输入去掉。
         let generated = decoder
             .as_ref()
-            .map(|d| d.convert(&keys, 5, 16))
+            .map(|d| d.convert("", &keys, 5, 16))
             .transpose()?
             .unwrap_or_default();
         let generation_ms = generated_start.elapsed().as_secs_f64() * 1000.0;

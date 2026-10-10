@@ -7,4 +7,4 @@
 /data
 /design
 .playwright-mcp/
-tools/lexicon-lab/__pycache__/
+__pycache__/

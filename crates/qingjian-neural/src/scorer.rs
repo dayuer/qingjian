@@ -6,7 +6,7 @@ use candle_nn::VarBuilder;
 use qingjian_format::{Container, Kind, Metadata};
 
 use crate::model::PrefixCache;
-use crate::vocab::EOS;
+use crate::vocab::{CONTEXT_CHARS, EOS};
 use crate::{CharLm, ModelConfig, NeuralError, QuantizedWeights, Vocab, find_model, qjm};
 
 /// 加载好的模型 + 字表：给「前文 + 候选」打分。
@@ -129,9 +129,23 @@ impl CharScorer {
         &self.vocab
     }
 
-    /// 教师强制计算 `log P(候选 | 完整拼音)`，只累加候选字符，不计 EOS。
+    /// 模型自己声明的上文上限（字）：带前文训练过才有这个字段，没有就是 0——前文一律不喂。
+    pub fn context_chars(&self) -> usize {
+        self.model
+            .config()
+            .context_chars
+            .unwrap_or(0)
+            .min(CONTEXT_CHARS)
+    }
+
+    /// 教师强制计算 `log P(候选 | 前文 + 完整拼音)`，只累加候选字符，不计 EOS。
     /// 与字级重排使用相同的求和口径；超长输入报错，不截断用户拼音。
-    pub fn score_p2c(&self, keys: &str, texts: &[&str]) -> Result<Vec<f64>, NeuralError> {
+    pub fn score_p2c(
+        &self,
+        context: &str,
+        keys: &str,
+        texts: &[&str],
+    ) -> Result<Vec<f64>, NeuralError> {
         let sep = self.vocab.sep().ok_or(NeuralError::Corrupt(
             "Hanzhang Tongbian model requires a <sep> token in its vocabulary",
         ))?;
@@ -139,6 +153,7 @@ impl CharScorer {
             return Ok(Vec::new());
         }
         let head: Vec<u32> = std::iter::once(EOS)
+            .chain(self.vocab.encode_context(context, self.context_chars()))
             .chain(self.vocab.encode(keys))
             .collect();
         let tails: Vec<Vec<u32>> = texts.iter().map(|text| self.vocab.encode(text)).collect();
@@ -280,7 +295,7 @@ mod tests {
             ),
             ("jiekou", vec!["接口", "借口"]),
         ] {
-            let cached = scorer.score_p2c(keys, &texts).unwrap();
+            let cached = scorer.score_p2c("", keys, &texts).unwrap();
             for (text, score) in texts.iter().zip(&cached) {
                 let mut ids = vec![EOS];
                 ids.extend(scorer.vocab.encode(keys));
@@ -308,8 +323,8 @@ mod tests {
                 eprintln!("P2C_CHECK {keys} {text:?} {score:.6} full={full:.6}");
             }
         }
-        assert!(scorer.score_p2c(&"a".repeat(128), &["字"]).is_err());
-        assert!(scorer.score_p2c("a", &[]).unwrap().is_empty());
+        assert!(scorer.score_p2c("", &"a".repeat(128), &["字"]).is_err());
+        assert!(scorer.score_p2c("", "a", &[]).unwrap().is_empty());
     }
 
     /// 与训练脚本 `score.py` 对拍：同一模型、同一序列，log 概率要一致（数值差在 fp16 权重转 f32 的误差内）。

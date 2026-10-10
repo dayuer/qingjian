@@ -41,6 +41,11 @@ pub struct Args {
     #[arg(long)]
     pub glossary: Option<PathBuf>,
 
+    /// 语言模型 `.qj` 路径。缺省 `data/generated/lm.qj`（相对当前目录）：给绝对路径就能对着
+    /// 另一份词图评测，不必改工作目录、也不用覆盖 data/generated
+    #[arg(long)]
+    pub language_model: Option<PathBuf>,
+
     /// 学习语言：en / ja / es。也可用环境变量 QINGJIAN_LEARNING_LANGUAGE
     #[arg(long, env = "QINGJIAN_LEARNING_LANGUAGE", default_value = "en")]
     pub language: String,

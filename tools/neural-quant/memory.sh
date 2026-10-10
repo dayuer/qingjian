@@ -1,6 +1,8 @@
 #!/bin/bash
 # 用法：memory.sh <模型>：三个阶段各量一次 footprint（-f bytes），输出写 mem-<文件名>.txt（macOS 自带 bash 3.2 没有 coproc，用 FIFO）
-P=/Users/liyuqing/sproot/qingjian-dict-hunt/target/release/examples/load_probe; m=$1; out=mem-$(basename $m).txt
+R=${QJ_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}   # 脚本所在仓库（主检出）
+A=${QJ_ARCHIVE:-$R/data/archive}                  # 2026-10-10 三个 worktree 的 .lab 合并迁到这里
+P=$R/target/release/examples/load_probe; m=$1; out=mem-$(basename $m).txt
 fifo=$(mktemp -u /tmp/probe.XXXX); mkfifo $fifo; log=$(mktemp /tmp/probe-log.XXXX); export ERR=$out.err
 $P $m ${MODE:-generate} < $fifo > $log 2>$out.err & pid=$!
 exec 3> $fifo

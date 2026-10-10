@@ -35,7 +35,7 @@ impl ModelLoader {
                 let loaded = CharScorer::load(&path).and_then(|scorer| {
                     if scorer.vocab().sep().is_some() {
                         let p2c = P2cScorer::new(scorer).expect("P2C vocab checked above");
-                        p2c.0.score_p2c("ni", &["你"])?;
+                        p2c.0.score_p2c("", "ni", &["你"])?; // 预热探针不给前文
                         Ok((Box::new(p2c) as Box<dyn SentenceScorer>, "含章·通变"))
                     } else {
                         scorer.score("", &["的"])?;

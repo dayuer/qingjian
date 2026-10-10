@@ -143,9 +143,12 @@ Core 的 `sentence::SentenceScorer` 有两个实现，同一个 trait 拿到**�
 
 - `CharScorer`（含章·知微，字级模型）用 `context`：给「前文 + 整句」按字累加 log 概率，前文的每层 K / V 缓存（`PrefixCache`），
   同一段前文只算一次，每个候选只算自己那几个字（64 字前文 × 8 条 28 ms，Metal）。
-- `P2cScorer`（含章·通变，P2C 模型）用 `keys`，不看前文。**产品端整句重排用它**：冻结集 8322 句上 42.49% 对含章·知微字级模型的 41.80%
+- `P2cScorer`（含章·通变，P2C 模型）用 `keys`；**带前文重训的那版连 `context` 一起用**（见 [p2c-context-training.md](p2c-context-training.md)）。
+  **产品端整句重排用它**：冻结集 8322 句上 42.49% 对含章·知微字级模型的 41.80%
   （配对 McNemar p=0.003，留出验证 λ 未过拟合），中位延迟 18.5 对 22.0 ms，而且同一个模型还能造词。
-  字级模型没有下岗，它是移动端「光标联想」那类 `P(下一段 | 前文)` 功能的基础——P2C 的 `<eos>` 明确切断上文，结构上做不了那件事。
+  字级模型没有下岗，它是移动端「光标联想」那类 `P(下一段 | 前文)` 功能的基础。
+  **前文开关是模型自己的属性**：`config.json` 里没有 `context_chars`（老通变）就一律不喂——它训练时没见过前文，喂了读不懂反而掉分。
+  判定落在 `CharScorer::context_chars()`（`score_p2c` 与 `P2c::convert` 内部各判一次），不靠调用方自觉：多喂一次就是产品里静默掉分。
 
 Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_PATHS` = 6 条路径按 `路径分 + λ·(神经分 − 静态二元分)` 重排（λ `NEURAL_WEIGHT` 0.5，
 个人 n-gram / 用户加分 / 代价不动）。静态最优路径整段就是一个词时不重排（「整段是一个词就不出整句」归词级排序，重排换上多词拆分会绕过它，`shihou` 时候 → 是后）。拼写纠错比分走 `convert_sentence_static`，只要静态最优、不重排：门槛按静态尺度定，而且每个纠正候选一种按键条件，同步打分器下逐个重排要好几秒（`helange` 6.8 s → 0.7 s）。**神经分只决定名次，不写回 `Conversion::score`**：P2C 打的是 `log P(汉字 | 拼音)`，
@@ -156,7 +159,9 @@ Engine 侧在 `engine/rescoring/`：接了打分器就取 Viterbi 前 `RESCORE_P
 异步的（`with_async_sentence_scorer`，后台线程 `RescoreWorker`）查询不等模型：缺分的记下来，壳停键后 `request_rescoring`、`poll_rescoring` 到了再 `query` 一次。
 前文优先用壳给的应用光标前文（`set_rescoring_context`），没有用本会话最近 64 个上屏字符。CLI `--neural <导出目录>`（`--neural-weight` / `--neural-context` / `--neural-async`）。
 
-P2C 教师强制打分 `CharScorer::score_p2c(keys, texts)`：前缀 `<eos> + 完整拼音 + <sep>`，只累加候选字符的 log 概率（不计 EOS），
+P2C 教师强制打分 `CharScorer::score_p2c(context, keys, texts)`：前缀 `<eos> + 前文 + 完整拼音 + <sep>`，只累加候选字符的 log 概率（不计 EOS），
+前文走 `Vocab::encode_context(context, 上限)`：**字表外的字符（标点、罕见字）直接丢掉**——训练时的上文全是表内字，喂 `<unk>` 是分布外的，
+再截到末 32 字（模型声明的 `context_chars`）；没声明上限的模型这里得到空串。
 共享拼音前缀 KV，候选批量前向；超过上下文时报错，不截断拼音。CLI 实验入口 `--eval-p2c data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm --eval-text data/eval/sentences.tsv`，
 用 `--neural-weight` 调 λ。评测适配器与产品端 `P2cScorer` 同一条件，只是推理出错时直接终止（不静默回退到基线冒充成功）。
 `--eval-details <输出.jsonl>` 为任意整句评测保存逐句首选、整句候选、全部候选与查询耗时，支持配对比较，仍不上屏、不学习。
