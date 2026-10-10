@@ -6,6 +6,11 @@
 #   tools/release/data-bundle.sh --tag data-v7   # 指定标签；已存在就拒绝
 #   tools/release/data-bundle.sh --tag data-v3 --target main # 本地发版提交未推送时，标签指向远端 main
 #   tools/release/data-bundle.sh --pack          # 只打包到 target/release-data/
+#   tools/release/data-bundle.sh --repo dayuer/qingjian --prefix sujian-data-v   # 分叉发到自己仓库、用自己的标签系列
+#   tools/release/data-bundle.sh --exclude internet_slang_coarse.qj               # 某本领域词库不进包（可给多次）
+#   tools/release/data-bundle.sh --expect dict.qj=0c24a7ae --expect lm.qj=94d18e77 # 打包前核 data/generated 里文件的 sha256 前缀，不符就退出
+# 给了 --repo（或锁文件里已有 repo 字段）就显式发到那个仓库并写进锁文件，data-fetch.sh 照它取；都没有时与原来一样由 gh 按 origin 推断。
+# 标签系列不能与上游的 data-vN 撞名：分叉用 --prefix 换一个前缀。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -16,13 +21,45 @@ cd "$ROOT"
 MODE=upload
 TAG=""
 TARGET="$(git rev-parse HEAD)"
+REPO="$(sed -nE 's/^repo *= *//p' "$LOCK" 2>/dev/null | head -1 | tr -d '[:space:]')"
+PREFIX=data-v
+EXCLUDE=()
+EXPECT=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pack) MODE=pack; shift ;;
     --tag) TAG="$2"; shift 2 ;;
     --target) TARGET="$2"; shift 2 ;;
+    --repo) REPO="$2"; shift 2 ;;
+    --prefix) PREFIX="$2"; shift 2 ;;
+    --exclude) EXCLUDE+=("$2"); shift 2 ;;
+    --expect) EXPECT+=("$2"); shift 2 ;;
     *) echo "未知参数 $1" >&2; exit 1 ;;
   esac
+done
+# 禁止向上游发布：没指定仓库时按 gh 实际会用的那个（origin 推断）算，解析不出来也不发。打包之前就查，免得白打
+if [[ "$MODE" == upload ]]; then
+  [[ -n "$REPO" ]] || REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+  if [[ -z "$REPO" ]]; then
+    echo "解析不出要发到哪个仓库，用 --repo 指定" >&2
+    exit 1
+  fi
+  # GitHub 的 owner 不区分大小写（Qingjian-Team/qingjian 也是上游），先转小写再比；macOS 的 bash 3.2 没有 ${REPO,,}
+  if [[ "$(printf '%s' "$REPO" | tr '[:upper:]' '[:lower:]')" == qingjian-team/* ]]; then
+    echo "禁止向上游发布（$REPO）：分叉用 --repo 指向自己的仓库" >&2
+    exit 1
+  fi
+fi
+repo_args=(--repo "$REPO")
+
+# data/generated 常被软链到别的检出（那边可能是另一份数据），先打印真实路径，再按 --expect 核指纹
+echo "data/generated 实际是：$(cd data/generated && pwd -P)"
+for pair in ${EXPECT[@]+"${EXPECT[@]}"}; do
+  file="${pair%%=*}"; want="${pair#*=}"
+  [[ -f "data/generated/$file" ]] || { echo "--expect 的 $file 不在 data/generated 里" >&2; exit 1; }
+  got="$(shasum -a 256 "data/generated/$file" | cut -c1-${#want})"
+  [[ "$got" == "$want" ]] || { echo "data/generated/$file 的 sha256 是 $got…，期望 $want：数据不是要发布的那份" >&2; exit 1; }
+  echo "核对通过：$file $got"
 done
 
 PRODUCT_FILES=(dict.qj lm.qj glossary-en.qj glossary-ja.qj glossary-zh.qj glossary-es.qj english.qj english.tsv english-frequency.tsv)
@@ -33,7 +70,12 @@ for f in "${PRODUCT_FILES[@]}"; do
   [[ -f "data/generated/$f" ]] || { echo "缺少 data/generated/$f，先按 assets/lexicon/QINGJIAN.md 生成" >&2; exit 1; }
 done
 DOMAIN_FILES=()
-for f in data/generated/dicts/*.qj; do [[ -f "$f" ]] && DOMAIN_FILES+=("dicts/$(basename "$f")"); done
+excluded() { local name; for name in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do [[ "$1" == "$name" ]] && return 0; done; return 1; }
+for f in data/generated/dicts/*.qj; do
+  [[ -f "$f" ]] || continue
+  if excluded "$(basename "$f")"; then echo "已排除：$(basename "$f")"; continue; fi
+  DOMAIN_FILES+=("dicts/$(basename "$f")")
+done
 [[ ${#DOMAIN_FILES[@]} -gt 0 ]] || { echo "缺少 data/generated/dicts/*.qj（领域词库）" >&2; exit 1; }
 # 随包辅码码表（笔画，issue #8）：由 tools/dict-convert 的 stroke + pack codes 生成，来源与许可见 assets/stroke/README.md
 CODE_FILES=()
@@ -56,26 +98,32 @@ done
 cp "$MODEL_FILE" "$OUT/stage/$MODEL_FILE"
 cp "$P2C_MODEL_FILE" "$OUT/stage/$P2C_MODEL_FILE"
 COPYFILE_DISABLE=1 tar -czf "$OUT/qingjian-data.tar.gz" -C "$OUT/stage" data
+for name in ${EXCLUDE[@]+"${EXCLUDE[@]}"}; do
+  if tar -tzf "$OUT/qingjian-data.tar.gz" | grep -q "/$name\$"; then echo "排除的 $name 仍在压缩包里" >&2; exit 1; fi
+done
+echo "包内文件（$(find "$OUT/stage" -type f | wc -l | tr -d ' ') 个）："
+(cd "$OUT/stage" && find data -type f | sort | xargs shasum -a 256)
 (cd "$OUT" && shasum -a 256 ./qingjian-data.tar.gz | tee SHA256SUMS)
 du -h "$OUT/qingjian-data.tar.gz"
 
 [[ "$MODE" == "pack" ]] && exit 0
 
 if [[ -z "$TAG" ]]; then
-  last="$(gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -E '^data-v[0-9]+$' | sed 's/data-v//' | sort -n | tail -1)"
-  TAG="data-v$(( ${last:-0} + 1 ))"
+  last="$(gh release list ${repo_args[@]+"${repo_args[@]}"} --limit 200 --json tagName --jq '.[].tagName' | grep -E "^${PREFIX}[0-9]+\$" | sed "s/^${PREFIX}//" | sort -n | tail -1)"
+  TAG="${PREFIX}$(( ${last:-0} + 1 ))"
 fi
-[[ "$TAG" =~ ^data-v[0-9]+$ ]] || { echo "标签要写成 data-vN：$TAG" >&2; exit 1; }
-gh release view "$TAG" >/dev/null 2>&1 && { echo "$TAG 已存在，数据版本不覆盖" >&2; exit 1; }
+[[ "$TAG" =~ ^([a-z0-9]+-)?data-v[0-9]+$ ]] || { echo "标签要写成 data-vN 或 <前缀>-data-vN：$TAG" >&2; exit 1; }
+gh release view "$TAG" ${repo_args[@]+"${repo_args[@]}"} >/dev/null 2>&1 && { echo "$TAG 已存在，数据版本不覆盖" >&2; exit 1; }
 
 sha_of() { grep " ./$1\$" "$OUT/SHA256SUMS" | cut -d' ' -f1; }
-gh release create "$TAG" --prerelease --target "$TARGET" --title "产品数据 $TAG" \
+gh release create "$TAG" ${repo_args[@]+"${repo_args[@]}"} --prerelease --target "$TARGET" --title "产品数据 $TAG" \
   --notes "单个 qingjian-data.tar.gz 包含运行时词库、语言模型、释义表、含章·通变（hanzhang-tongbian-small.qjm）和含章·知微（hanzhang-zhiwei-small.qjm）。仓库 tools/release/data.lock 钉住压缩包的 SHA-256。" \
   "$OUT/qingjian-data.tar.gz"
 
-cat > "$LOCK" <<EOF
-# 产品数据版本，data-bundle.sh 写、data-fetch.sh 读；不要手改
-tag = $TAG
-qingjian-data.tar.gz = $(sha_of qingjian-data.tar.gz)
-EOF
+{
+  echo "# 产品数据版本，data-bundle.sh 写、data-fetch.sh 读；不要手改"
+  [[ -n "$REPO" ]] && echo "repo = $REPO"
+  echo "tag = $TAG"
+  echo "qingjian-data.tar.gz = $(sha_of qingjian-data.tar.gz)"
+} > "$LOCK"
 echo "已发 ${TAG}，锁文件已更新（记得提交）"

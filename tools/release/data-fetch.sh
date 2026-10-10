@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 按 tools/release/data.lock 下载并校验单包产品数据；旧锁仍可读取分离的模型附件。
+# 从哪个仓库的 Release 取看锁文件的 repo 字段，没写就是上游 qingjian-team/qingjian（分叉在自己仓库发数据时写上）。
 #
 #   tools/release/data-fetch.sh            # 下载 + 校验 + 解开
 #   tools/release/data-fetch.sh --verify   # 只校验 target/release-data/ 里已下载的文件
@@ -8,12 +9,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LOCK="$ROOT/tools/release/data.lock"
 OUT="$ROOT/target/release-data"
-REPO="qingjian-team/qingjian"
 ASSETS=(qingjian-data.tar.gz)
 cd "$ROOT"
 
 [[ -f "$LOCK" ]] || { echo "缺少 $LOCK" >&2; exit 1; }
 lock_value() { sed -nE "s/^$1 *= *//p" "$LOCK" | head -1 | tr -d '[:space:]'; }
+REPO="$(lock_value repo)"
+REPO="${REPO:-qingjian-team/qingjian}"
 sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 
 TAG="$(lock_value tag)"
