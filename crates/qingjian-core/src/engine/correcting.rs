@@ -28,6 +28,11 @@ impl Engine {
         if !correction::eligible(scope) || self.learner.raw_count(scope) > 0 {
             return None;
         }
+        // 用户对这整段拼音教过答案（分次或分段选完造出的用户词，整段记过选择）：原样就是他要的，不纠。
+        // 不拦的话 `shufuzhene` 教会了 舒服着呢，还会被纠成 `shufuzheen` → 舒服着嗯，学到的词跟着原串一起消失
+        if self.taught_whole_scope(scope) {
+            return None;
+        }
         // 整段就是个英文词（hello）：用户多半在打英文，别把它「纠」成 喝了哦
         if self
             .english
@@ -108,5 +113,15 @@ impl Engine {
         }
         tracing::debug!(original = %found.original, corrected = %found.corrected, score, raw = raw_score, "拼写纠正");
         Some(found)
+    }
+
+    /// 用户词里有整串拼音正好是 `scope` 的词，且用户对这段拼音选过它。
+    fn taught_whole_scope(&self, scope: &str) -> bool {
+        self.learner.user_words().is_some_and(|words| {
+            words.entries().any(|word| {
+                word.pinyin.chars().filter(|c| *c != ' ').eq(scope.chars())
+                    && self.learner.choice_weight(scope, word.text) > 0
+            })
+        })
     }
 }

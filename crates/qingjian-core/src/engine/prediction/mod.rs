@@ -321,6 +321,7 @@ impl Engine {
             erased: 0,
             log_id,
             phrase: None,
+            phrase_learned: false,
         };
         self.remember_commit(commit);
         traditional_text

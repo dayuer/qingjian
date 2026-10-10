@@ -28,8 +28,11 @@ pub struct LastCommit {
     /// 输入日志里这次上屏的序号，撤销时指回去。
     pub log_id: u64,
 
-    /// 整段拼音分几次选完时记的「整段 → 合成词」选择（学习键, 合成词），撤销时一并退回。
+    /// 整段拼音分几次选完、或分段连打时记的「整段 → 合成词」选择（学习键, 合成词），撤销时一并退回。
     pub phrase: Option<(String, String)>,
+
+    /// 连打短语正好在这次上屏凑够次数造成了用户词：撤销时连词一起退掉，只留之前几次的选择。
+    pub phrase_learned: bool,
 }
 
 impl LastCommit {
@@ -45,6 +48,7 @@ impl LastCommit {
             erased: 0,
             log_id: 0,
             phrase: None,
+            phrase_learned: false,
         }
     }
 

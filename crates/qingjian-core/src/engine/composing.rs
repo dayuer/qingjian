@@ -209,6 +209,10 @@ impl Engine {
     }
 
     pub fn clear(&mut self) {
+        // 丢掉了没上屏的拼音才算打断连打短语；空着时清一下（壳收起键盘前常这么做）不算
+        if !self.composition.is_empty() {
+            self.chain.break_run();
+        }
         self.composition.clear();
         self.aux_code = None;
         self.chain.leave_buffer();

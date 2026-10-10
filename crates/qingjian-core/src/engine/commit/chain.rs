@@ -19,7 +19,14 @@ pub struct CommitChain {
 
     /// 这段拼音整段的学习键（按输入串记选择用的全部字母），第一个词上屏前记下。
     buffer_key: String,
+
+    /// 连着分几段打、每段整段选完的词（`shufu` 选 舒服、`zhe` 选 着、`ne` 选 呢），最多留 [`RUN_MAX_WORDS`] 个；
+    /// 三个以上合起来不超过四字时当短语记（见 `Engine::extend_run`）。
+    run: Vec<(String, Vec<String>)>,
 }
+
+/// 连打短语最多看几个词：短语不超过四字，四个单字就到头了。
+const RUN_MAX_WORDS: usize = 4;
 
 impl CommitChain {
     /// 上一个词（若有）。
@@ -75,12 +82,31 @@ impl CommitChain {
         &self.buffer_key
     }
 
+    /// 一段拼音整段选完一个词：接到连打短语的末尾。
+    pub fn extend_run(&mut self, text: &str, syllables: &[String]) {
+        if self.run.len() == RUN_MAX_WORDS {
+            self.run.remove(0);
+        }
+        self.run.push((text.to_owned(), syllables.to_vec()));
+    }
+
+    /// 连打短语里的词，按顺序。
+    pub fn run(&self) -> &[(String, Vec<String>)] {
+        &self.run
+    }
+
+    /// 这次上屏不是「一段整段选完一个词」：连打短语从头算。
+    pub fn break_run(&mut self) {
+        self.run.clear();
+    }
+
     /// 打断链。
     pub fn reset(&mut self) {
         self.previous = None;
         self.earlier = None;
         self.same_buffer = false;
         self.buffer_words.clear();
+        self.run.clear();
     }
 
     /// 缓冲区被清空或整段被别的东西吃掉：链不断，但下一个词不算同一段拼音。

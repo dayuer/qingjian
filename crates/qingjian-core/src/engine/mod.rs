@@ -402,6 +402,9 @@ const RECENT_COMMITS: usize = 4;
 /// 自动造出的词最多几个字：再长就不是词而是短语了。
 const AUTO_WORD_MAX_CHARS: usize = 4;
 
+/// 连打短语（三段以上分开打、每段整段选完，合起来不超过四字，见 `commit/run.rs`）选几次造词。
+const PHRASE_RUN_THRESHOLD: u32 = 3;
+
 /// 用户自己点选的词，转移记几份；整句路径里顺带的记一份。
 /// 整句是模型自己算出来的，按空格接受它会把这条路径喂回模型，形成自我强化；用户明确改选的词要能压过这种回声。
 pub const EXPLICIT_TRANSITION_WEIGHT: u32 = 2;
