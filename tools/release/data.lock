@@ -1,3 +1,4 @@
 # 产品数据版本，data-bundle.sh 写、data-fetch.sh 读；不要手改
-tag = data-v3
-qingjian-data.tar.gz = 42ad08fb2fe9f497c0ab191c120f05386f6adcc9d713c3283200aaed690e62f3
+repo = dayuer/qingjian
+tag = sujian-data-v1
+qingjian-data.tar.gz = bac13071cb2635b0d1f6d21519f04a2e60a7037f12f3a96c8b771d875ff0b41b
