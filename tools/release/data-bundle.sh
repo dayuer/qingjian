@@ -37,8 +37,15 @@ done
 # 禁止向上游发布：没指定仓库时按 gh 实际会用的那个（origin 推断）算，解析不出来也不发。打包之前就查，免得白打
 if [[ "$MODE" == upload ]]; then
   [[ -n "$REPO" ]] || REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
-  [[ -n "$REPO" ]] || { echo "解析不出要发到哪个仓库，用 --repo 指定" >&2; exit 1; }
-  [[ "$REPO" == qingjian-team/* ]] && { echo "禁止向上游发布（$REPO）：分叉用 --repo 指向自己的仓库" >&2; exit 1; }
+  if [[ -z "$REPO" ]]; then
+    echo "解析不出要发到哪个仓库，用 --repo 指定" >&2
+    exit 1
+  fi
+  # GitHub 的 owner 不区分大小写（Qingjian-Team/qingjian 也是上游），先转小写再比；macOS 的 bash 3.2 没有 ${REPO,,}
+  if [[ "$(printf '%s' "$REPO" | tr '[:upper:]' '[:lower:]')" == qingjian-team/* ]]; then
+    echo "禁止向上游发布（$REPO）：分叉用 --repo 指向自己的仓库" >&2
+    exit 1
+  fi
 fi
 repo_args=(--repo "$REPO")
 
