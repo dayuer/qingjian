@@ -112,9 +112,17 @@ if [[ -f "$DATA_DIR/dict.tsv" || -f "$DATA_DIR/dict.qj" ]]; then
   fi
   cp "$DATA_DIR/dict.qj" "$APP/Contents/Resources/"
   # 领域词库（lexicon 拆出的 dicts/*.qj）随包放 Resources/dicts/，缺省只开成语，偏好设置「词库」页可勾选
+  # tools/release/exclude-dicts.txt 列的几本不装（与数据包同一份名单）；拷完再核一遍，名单里的出现在包里就失败
   if ls "$DATA_DIR"/dicts/*.qj >/dev/null 2>&1; then
     mkdir -p "$APP/Contents/Resources/dicts"
-    cp "$DATA_DIR"/dicts/*.qj "$APP/Contents/Resources/dicts/"
+    excluded_dicts="$(grep -v '^#' tools/release/exclude-dicts.txt | sed '/^[[:space:]]*$/d')"
+    for dict in "$DATA_DIR"/dicts/*.qj; do
+      grep -qxF "$(basename "$dict")" <<< "$excluded_dicts" && continue
+      cp "$dict" "$APP/Contents/Resources/dicts/"
+    done
+    for name in $excluded_dicts; do
+      [[ ! -e "$APP/Contents/Resources/dicts/$name" ]] || { echo "错误：排除名单里的 $name 进了 app" >&2; exit 1; }
+    done
   fi
   [[ -f "$DATA_DIR/lm.qj" ]] && cp "$DATA_DIR/lm.qj" "$APP/Contents/Resources/"
   # 含章·知微（字级 Transformer）：三件套与单文件放 data/models/hanzhang-zhiwei/。
