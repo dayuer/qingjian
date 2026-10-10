@@ -46,10 +46,10 @@ import sys
 from datetime import datetime
 
 TOLERANCE = 0.3
-# sujian 361214b + data-v3（dict 7fafe1b8、lm f9fb7b44）+ 通变 8 位（2c326abf）量的，见 docs/plan/dictionary-layering.md 5.1
+# sujian c8a9ec58 + sujian-data-v1（dict 0c24a7ae、lm 94d18e77）+ 通变 8 位（2c326abf）量的，见 docs/plan/dictionary-layering.md 5.1
 BASELINE = {
-    "none": {"评测首选": 34.2, "评测前三": 39.9, "评测字准": 77.5, "clean2词首选": 89.9, "clean2整句首选": 69.6},
-    "fusion": {"评测首选": 38.8, "评测前三": 57.7, "评测字准": 79.9, "clean2词首选": 89.8, "clean2整句首选": 74.6},
+    "none": {"评测首选": 34.2, "评测前三": 39.9, "评测字准": 77.5, "clean2词首选": 90.0, "clean2整句首选": 69.6},
+    "fusion": {"评测首选": 38.8, "评测前三": 57.7, "评测字准": 79.9, "clean2词首选": 89.9, "clean2整句首选": 74.6},
 }
 
 def percent(text, pattern):

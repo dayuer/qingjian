@@ -109,7 +109,7 @@ du -h "$OUT/qingjian-data.tar.gz"
 [[ "$MODE" == "pack" ]] && exit 0
 
 if [[ -z "$TAG" ]]; then
-  last="$(gh release list ${repo_args[@]+"${repo_args[@]}"} --limit 200 --json tagName --jq '.[].tagName' | grep -E "^${PREFIX}[0-9]+\$" | sed "s/^${PREFIX}//" | sort -n | tail -1)"
+  last="$(gh release list ${repo_args[@]+"${repo_args[@]}"} --limit 200 --json tagName --jq '.[].tagName' | grep -E "^${PREFIX}[0-9]+\$" | sed "s/^${PREFIX}//" | sort -n | tail -1 || true)"
   TAG="${PREFIX}$(( ${last:-0} + 1 ))"
 fi
 [[ "$TAG" =~ ^([a-z0-9]+-)?data-v[0-9]+$ ]] || { echo "标签要写成 data-vN 或 <前缀>-data-vN：$TAG" >&2; exit 1; }
