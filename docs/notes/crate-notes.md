@@ -257,6 +257,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 - `--typing` 逐键计时（性能测试用 release 构建跑，目标每键 10 ms 以内）。
 - `--chinese-first` 打开中文优先（`[general] chinese_first = true` 的排法），配合 `--replay` 比两种英文词位置。
 - `--homophone-snapshot <文件>`（配 `--check`）同音竞争回归（对标报告 P0-2）：按无调音节串分组、每组前 5 名写快照
+  - **快照是从「引擎实际加载的词库」算的**（`--dict` 解析到什么就是什么：`data/generated/dict.qj` → `.tsv` → `assets/lexicon/dict.tsv`；CI 里没有产品数据，落到最后那个）。所以本地 `--check` 只在「加载到的词库与快照同源」时才有意义。
+  - 快照头现在记**词库指纹**（全部条目按 读音/词/词频 排序后的 64 位哈希 + 条目数），`--check` 先比对指纹：不一致直接报 `homophone snapshot was built from a different dictionary`，不再把「换了词库」报成「同音竞争变了」；旧格式（无指纹）只提示一句、继续比成员。2026-10-09：用 `--dict` 指另一份词库比入库快照，报出 14,479 处「差异」、995 处「报警」，实际只是两份不同词库在比。
   （`apps/cli/snapshots/homophones.tsv`，按基础词库 `assets/lexicon/dict.tsv` 算，不含领域包与网络用语包）；
   `--check` 与快照比对，不一致非零退出并打印逐组差异，`【报警】` 标在「旧首位被挤下去且旧首位词频是新首位 3 倍以上」那种上；CI 跑这一步。
   改了词库（增词 / 调词频）就在同一个提交里重生成快照，否则 CI 红。

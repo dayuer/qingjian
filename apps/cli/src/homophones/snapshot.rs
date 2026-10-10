@@ -113,13 +113,16 @@ impl Difference {
 }
 
 /// 写快照。
-pub fn write(groups: &Groups, path: &Path) -> Result<(), CliError> {
+pub fn write(groups: &Groups, fingerprint: &str, path: &Path) -> Result<(), CliError> {
     let mut file = std::io::BufWriter::new(std::fs::File::create(path)?);
     writeln!(
         file,
         "# 青简同音快照：按无调音节串分组，每组前 {TOP} 名（词频降序，同频按词面）。\n\
          # 由 `qingjian-cli --homophone-snapshot <文件>` 生成，改词库后要在同一个提交里重生成；\n\
          # CI 跑 `--homophone-snapshot <文件> --check`，不一致就失败（被高频词让位的那种会在输出里标报警）。\n\
+         # 词库指纹：{fingerprint}\n\
+         #   指纹 = 词库全部条目（词 / 读音 / 词频）的 64 位哈希 + 条目数 —— 快照是从**引擎实际加载的词库**\n\
+         #   算的（`--dict` 解析到什么就是什么），没有指纹时 `--check` 只是在比两份不同的词库（2026-10-09 踩过）。\n\
          # 音节\t名次\t词\t词频"
     )?;
     for (pinyin, list) in groups {
@@ -137,8 +140,12 @@ pub fn write(groups: &Groups, path: &Path) -> Result<(), CliError> {
 }
 
 /// 读快照。
-pub fn read(path: &Path) -> Result<Groups, CliError> {
+pub fn read(path: &Path) -> Result<(Option<String>, Groups), CliError> {
     let source = std::fs::read_to_string(path)?;
+    let fingerprint = source.lines().find_map(|line| {
+        line.strip_prefix("# 词库指纹：")
+            .map(|rest| rest.trim().to_owned())
+    });
     let mut groups: Groups = BTreeMap::new();
     for line in source.lines() {
         if line.is_empty() || line.starts_with('#') {
@@ -163,7 +170,7 @@ pub fn read(path: &Path) -> Result<Groups, CliError> {
                 frequency,
             });
     }
-    Ok(groups)
+    Ok((fingerprint, groups))
 }
 
 /// 比两份快照，按组交回差异（组内按名次、组间按音节，稳定）。
@@ -248,9 +255,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("snap.tsv");
         let original = groups(&[("bai gei", &[("败给", 1413), ("白给", 1331)])]);
-        write(&original, &path).unwrap();
-        let read_back = read(&path).unwrap();
+        write(&original, "abcd1234 条目 2", &path).unwrap();
+        let (fingerprint, read_back) = read(&path).unwrap();
         assert_eq!(read_back, original);
+        assert_eq!(
+            fingerprint.as_deref(),
+            Some("abcd1234 条目 2"),
+            "指纹要原样带回"
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 
