@@ -378,6 +378,8 @@ impl Session {
         }
         // 叠加层换了：格子缓存里的排序作废（learner_mut 会清缓存），这个人的用户词快照重建
         self.engine.learner_mut().scope_changed();
+        // 换了聊天对象：模型里缓存的前文与按键状态属于上一个人，丢掉
+        self.engine.forget_neural_context();
         self.rebuild_hints();
         self.refresh_candidates();
     }
