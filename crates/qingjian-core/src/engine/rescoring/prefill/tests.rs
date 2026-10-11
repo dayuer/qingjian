@@ -183,3 +183,25 @@ fn prefill_does_not_swallow_a_queued_score() {
     let stats = engine.last_rescore_stats().expect("打分回来了");
     assert_eq!((stats.reused_tokens, stats.prefix_tokens), (3, 5));
 }
+
+/// 知微不看按键：同一前文下按键变了分数表不清，三次查询里 邮箱 / 油箱 只打一次（看按键的每键都打）。
+#[test]
+fn keyless_word_scores_survive_keystrokes() {
+    for (keyless, expected) in [(true, 1), (false, 3)] {
+        let word = Recorder {
+            keyless,
+            ..Recorder::default()
+        };
+        let mut engine = engine().with_word_scorer(Box::new(word.clone()), Some(1.0));
+        for input in ["youxiang", "youxian", "youxiang"] {
+            engine.set_input(input);
+            engine.query().unwrap();
+        }
+        let scored = word
+            .events()
+            .iter()
+            .filter(|e| e.starts_with("score:") && e.contains("油箱"))
+            .count();
+        assert_eq!(scored, expected, "keyless={keyless}: {:?}", word.events());
+    }
+}

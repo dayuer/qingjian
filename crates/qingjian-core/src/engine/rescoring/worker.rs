@@ -75,7 +75,6 @@ pub(crate) struct RescoreWorker {
     next_id: AtomicU64,
 
     /// 打分器的分数依不依赖按键（[`SentenceScorer::uses_keys`]）：打分器进了线程就问不到了，起线程前问好。
-    #[allow(dead_code)]
     uses_keys: bool,
 
     /// 最近一次送去预填的前文：同一段不重复送。只是省事，模型那边按 token 比较，送重了也不会算错。
@@ -128,7 +127,6 @@ impl RescoreWorker {
         self.handle.is_some()
     }
 
-    #[allow(dead_code)]
     pub fn uses_keys(&self) -> bool {
         self.uses_keys
     }

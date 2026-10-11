@@ -115,7 +115,12 @@ impl Engine {
             return;
         }
         let context = self.rescoring_context();
-        let keys = self.composition.scope().to_owned();
+        // 知微不看按键：按键不进条件，分数表跨按键留着（B4），只有前文变了才清
+        let keys = if self.word_scorer_uses_keys() {
+            self.composition.scope().to_owned()
+        } else {
+            String::new()
+        };
         let mut cache = self.word_cache.borrow_mut();
         cache.ensure_condition(&context, &keys);
         let missing: Vec<String> = slots
@@ -163,6 +168,15 @@ impl Engine {
             items[slot] = candidate;
         }
         self.last_rescored.set(true);
+    }
+
+    /// 接着的知微打分器的分数依不依赖按键；没接按依赖算（与旧行为一致）。
+    fn word_scorer_uses_keys(&self) -> bool {
+        match (&self.word_scorer, &self.word_rescorer) {
+            (Some(scorer), _) => scorer.uses_keys(),
+            (None, Some(worker)) => worker.uses_keys(),
+            (None, None) => true,
+        }
     }
 
     /// 知微那边有没分的候选等着送后台。
