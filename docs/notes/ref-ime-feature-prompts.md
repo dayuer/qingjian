@@ -231,3 +231,81 @@ RefIME 把 28 种变换（邻键、换位、漏敲、多敲、前后鼻音、平
 - **D1 模糊音按键级展开**（#319、#306 / PR #330）：[ref-ime-impl/d1-fuzzy-as-augmenter.md](ref-ime-impl/d1-fuzzy-as-augmenter.md)，原型 [proto/d1-fuzzy-sources.diff](ref-ime-impl/proto/d1-fuzzy-sources.diff)。
 - **D2 云请求触发**（#177、#341）：[ref-ime-impl/d2-cloud-request-strategy.md](ref-ime-impl/d2-cloud-request-strategy.md)。
 - **D3 学习闸门（英文词）**（#545、todo「个人英文词表没有衰减」）：[ref-ime-impl/d3-learning-gate.md](ref-ime-impl/d3-learning-gate.md)，原型 [proto/d3-english-gate.diff](ref-ime-impl/proto/d3-english-gate.diff)。
+
+
+---
+
+## D 九键
+
+来源：[ref-ime-t9.md](ref-ime-t9.md)（RefIME 九键引擎的逐函数取证）。素笺现在完全没有九键：`crates/qingjian-core` 与 `cloud/ios/Keyboard` 都没有。
+编号接上面的 D1～D3，从 D4 起。D4 是地基，D5～D7 依赖它；D4、D5、D6 动 Core，D7 只动 iOS 壳。
+
+## D4 九键输入：键串当字母集合进音节解析
+
+```
+背景：RefIME 的九键没有单独的引擎。壳把每次按键送成这个键的字母串（"abc"、"def"…，键 1 是分隔符），音节 trie 搜索时一个键串匹配其中任一字母；
+全键盘是集合大小为 1 的特例，纠错、整句、排序全部复用。只有云请求与端到端模型才用数字串。见 ref-ime-t9.md 第 1 节。
+
+任务：给青简 Core 加九键拼音方案。
+- 配置：[general] 里加一个键盘布局设置（例如 layout = "full" | "t9"），和现有 scheme（全拼 / 双拼 / 注音）正交；九键只支持全拼，
+  选了双拼或注音时九键设置不生效并在设置页说明。中 / 英切换仍是布尔，不因九键改变任何既有按键行为（docs/contributing.md「输入方案是配置项，不是模式」）。
+- Core：输入单元从 char 推广为「字母集合」（九键 2～9 映射 abc / def / ghi / jkl / mno / pqrs / tuv / wxyz；1 是分隔符，等同全拼里的 '）。
+  落在 crates/qingjian-core/src/parser（trie.rs、segmentation.rs、syllable.rs）：trie 走一步时遍历集合内字母；切分歧义保留成多条切分交给 sentence/ 整句，不在解析阶段消。
+  组合串的显示（composition.rs）在没锁定时显示数字或首选切分的拼音，二选一做成常数，先跟 RefIME 一样显示首选拼音。
+- 输入长度上限、每列切分数上限写常数，九键的组合爆炸要有剪枝（按前缀合法性剪，不按频率剪）。
+- 范围文件：crates/qingjian-core/src/parser/*、composition.rs、engine/ 的按键入口；crates/qingjian-platform/src/config/ 加配置项；docs/user/getting-started/keys.md 与配置页同步；
+  docs/notes/crate-notes.md 记新常数。
+验收：单测覆盖 94664 → zhong / xing'o 等多切分都在、键 1 强制切分、全拼行为零变化（现有测试全过）；apps/cli 加 --t9 开关（输入数字串），
+  跑一份把现有评测句转成数字串的回放，记下首选命中率作为基线写进 crate-notes。
+不做：九键双拼、九键笔画；数字直接当数字上屏（D6）；拼音栏（D5）。
+```
+
+## D5 左侧拼音栏与锁定音节
+
+```
+背景：RefIME 的拼音栏列的是「从当前锁定终点出发的第一段所有可能音节」，按拼音去重排序；图里一条都没有且只按了 2～4 个键时，
+把各键字母做组合、凡是合法拼音（含冷僻音节）也列出来。用户点选后，被选段在输入序列里换成这个拼音的确定字母并补一个分隔符，
+其后的键原样重放，所以所有候选的第一段被锁定；退格先撤销这次锁定、还原当时的列表。见 ref-ime-t9.md 1.4、第 4 节。
+
+任务：在 Core 里实现拼音栏数据与锁定，壳只负责显示与点选。
+- Core 对外加两个接口：取当前拼音栏列表（每项 {拼音, 不透明 id}）、按 id 锁定；锁定记录进撤销栈，退格先弹锁定。
+- 锁定实现成「被选段的输入单元换成单字母集合 + 分隔符」，复用 D4 的解析，不另加约束分支。
+- 排序：先按该音节在首选整句里是否出现，再按音节频率；冷僻兜底项排最后。
+- 范围文件：crates/qingjian-core/src/engine/（门面加接口）、parser/、history.rs（撤销）；Engine 帧里带拼音栏列表，平台层不做任何筛选或排序。
+验收：单测覆盖 94664 列出 xi / zh / … 、锁定 zhong 后候选首字都读 zhong、退格还原列表、冷僻兜底（2～4 键）；全拼方案下接口返回空列表。
+不做：全键盘下的拼音栏；拼音栏的视觉（D7）。
+```
+
+## D6 九键纠错、简拼召回与排序特征
+
+```
+背景：RefIME 九键的纠错有三层：逐键邻键（3×3 网格只取上下左右，键 1 不参与）、通用的漏按 / 多按、按整段数字串查「常见按错 → 正确拼音」表；
+分隔符段不纠错。换键次数单独做排序特征（t9_rpl），九键的排序参数整套与全键盘分开。用户词可以每字一键按声母召回（SearchT9JPSyllables）。见 ref-ime-t9.md 第 2、3、6 节。
+
+任务：
+- 邻键：在 crates/qingjian-core/src/correction/typo 加九键邻键表（2:3 5，3:2 6，4:5 7，5:2 4 6 8，6:3 5 9，7:4 8，8:5 7 9，9:6 8），
+  换键作为带标记的纠错边进入现有纠错框架，标记进 ranking/ 的特征；代价常数与全键盘分开，用 D4 的九键回放重新扫，不抄 RefIME 的数。
+- 简拼：九键下每个键串的每个字母都当声母首字母，查用户词与常用词的简拼索引；只在输入全是单键且长度 ≥ 2 时启用，权重常数单独一组。
+- 排序：ranking/ 里九键用独立的一组常数（同一套代码，按布局取参数）。
+- 数字：九键里长按数字键上屏数字由壳处理（D7）；Core 只在整段输入看起来像号码 / 日期时追加一个原样数字候选，排在拼音候选之后，可在 [general] 关掉。
+- 范围文件：correction/、ranking/、sentence/（换键计数进整句打分）、storage/（若简拼索引要新字段）；crate-notes 记常数与回放结果。
+验收：回放里注入「随机一个键换成邻键」的噪声，首选命中率比不纠错高；全拼回放数字不变；简拼召回有单测（每字一键召回用户词）。
+不做：从 RefIME 拿任何纠错表或参数；触摸坐标个性化（见 B2）。
+```
+
+## D7 iOS 九键键盘壳
+
+```
+背景：素笺 iOS 键盘（cloud/ios/Keyboard）只有全键盘。D4～D6 完成后，壳只需要九键布局、拼音栏视图与把按键翻译成 Core 输入；
+平台层不允许出现排序、词库访问或文本变换（docs/contributing.md）。
+
+任务：
+- 布局：在 Key.swift / KeyRow.swift / KeyboardView.swift 一侧加九键布局（左列符号 / 拼音栏、中间 3×3、右列退格 / 重输 / 回车），
+  布局切换读 [general] 的九键设置，不新增「模式」按钮；中 / 英切换照旧。
+- 输入：按键只发「键号」给 Core（Engine.swift 的桥接加一个按键类型），不在 Swift 里展开字母。
+- 拼音栏：左列显示 D5 的列表，可滚动；点选调 Core 的锁定接口；列表为空时显示符号键。
+- 长按数字键上屏数字、键 1 的分隔符与标点在 docs/user/getting-started/keys.md 写清楚。
+- 范围文件：cloud/ios/Keyboard/Sources/{Key,KeyRow,KeyboardView,KeyboardPanel,Engine,HintRow}.swift 等；App 设置页加开关；docs/user/ 同步。
+验收：真机（写明 iOS 版本与机型）在备忘录里打「中国人民」「xing'o 类切分」「锁定拼音后退格」三组操作截图；内存峰值不比全键盘高 10% 以上。
+不做：九键笔画、九键英文 multi-tap；自定义九键（RefIME 的 DiyTnine）。
+```
