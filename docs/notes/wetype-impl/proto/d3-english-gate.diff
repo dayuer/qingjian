@@ -1,0 +1,173 @@
+diff --git a/apps/cli/src/repl.rs b/apps/cli/src/repl.rs
+index 857b2c82..c4c51785 100644
+--- a/apps/cli/src/repl.rs
++++ b/apps/cli/src/repl.rs
+@@ -32,6 +32,18 @@ pub fn run(engine: &mut Engine, limit: usize) -> Result<(), CliError> {
+             commit(engine, last.take(), index);
+             continue;
+         }
++        if line == ":cur" {
++            match engine.query() {
++                Ok(q) => {
++                    for (i, c) in q.candidates.items.iter().take(limit).enumerate() {
++                        println!("   {}. {} {:?}", i + 1, c.text, c.kind);
++                    }
++                    last = Some(q);
++                }
++                Err(e) => println!("  {e}"),
++            }
++            continue;
++        }
+         if line == ":raw" {
+             last = None;
+             println!("原样上屏: {}", engine.take_raw());
+@@ -65,6 +77,7 @@ fn commit(engine: &mut Engine, last: Option<Query>, index: usize) {
+     match last.and_then(|q| q.candidates.items.into_iter().nth(index.wrapping_sub(1))) {
+         Some(candidate) => {
+             println!("上屏: {}", engine.commit(&candidate));
++            println!("剩余: [{}]", engine.composition().scope());
+         }
+         None => println!("没有第 {index} 个候选"),
+     }
+diff --git a/crates/qingjian-core/src/engine/commit/mod.rs b/crates/qingjian-core/src/engine/commit/mod.rs
+index 00630237..760c2043 100644
+--- a/crates/qingjian-core/src/engine/commit/mod.rs
++++ b/crates/qingjian-core/src/engine/commit/mod.rs
+@@ -153,8 +153,13 @@ impl Engine {
+             // 英文词与快捷候选对应整段作用域；选中的英文词记次数并进个人英文词表，下次同样的前缀它靠前
+             CandidateKind::English | CandidateKind::Shortcut | CandidateKind::Custom(_) => {
+                 if candidate.kind == CandidateKind::English {
+-                    self.learner.record(candidate);
+-                    self.note_english_commit(&candidate.text);
++                    // D3 原型：同一段拼音里前面已经上屏过词，剩下的残段（`ia`、`ulai`）选中的英文候选不学
++                    if split {
++                        self.reset_bip39_streak();
++                    } else {
++                        self.learner.record(candidate);
++                        self.note_english_commit(&candidate.text);
++                    }
+                 }
+                 self.whole_scope()
+             }
+diff --git a/crates/qingjian-core/src/engine/composing.rs b/crates/qingjian-core/src/engine/composing.rs
+index b35707f7..fb76940f 100644
+--- a/crates/qingjian-core/src/engine/composing.rs
++++ b/crates/qingjian-core/src/engine/composing.rs
+@@ -370,7 +370,11 @@ impl Engine {
+         // 双拼下全部键都能解成完整音节的（`nihc`）不是英文，是用户要原样打出双拼键。
+         // 整段能读成「拼音头 + 英文尾」的（`woxiangxuexirust`）不学：那是我们没给对候选、用户放弃了，
+         // 把整串学成英文词会反过来堵掉混输那条路
++        // D3 原型：同一段拼音里前面已经上屏过词，这是残段
++        let remainder = self.chain.same_buffer();
+         let english_word = looks_like_english_word(&raw, self.english_mode)
++            && (self.english_mode || !remainder)
++            && (self.english_mode || raw.len() >= 4 || (raw.len() == 3 && self.listed_english(&raw)))
+             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()))
+             && (self.english_mode || self.split_english_tail(&raw).is_none())
+             // 分叉补丁：改一处就是两个音节以上的完整拼音（`woilaiceshi` → wolaiceshi）是敲错了的中文，
+diff --git a/crates/qingjian-core/src/engine/extras.rs b/crates/qingjian-core/src/engine/extras.rs
+index ab69f437..721fbf4b 100644
+--- a/crates/qingjian-core/src/engine/extras.rs
++++ b/crates/qingjian-core/src/engine/extras.rs
+@@ -122,8 +122,12 @@ impl Engine {
+             && chosen <= english_weight
+             && !short_acronym
+             && !short_capitalized;
++        // D3 原型：同一段字母下中文选得比这个英文词多 3 次以上，英文让到第一页末尾（第 5 位）
++        let demoted = !english_first && chosen >= english_weight.saturating_add(3);
+         let mut position = if items.is_empty() || english_first {
+             0
++        } else if demoted {
++            items.len().min(4)
+         } else {
+             1
+         };
+diff --git a/crates/qingjian-core/src/engine/tests/mod.rs b/crates/qingjian-core/src/engine/tests/mod.rs
+index a7c5d325..3b9c047a 100644
+--- a/crates/qingjian-core/src/engine/tests/mod.rs
++++ b/crates/qingjian-core/src/engine/tests/mod.rs
+@@ -17,6 +17,7 @@ mod privacy;
+ mod raw;
+ mod shuangpin;
+ mod zhuyin;
++mod d3_proto;
+ 
+ use std::collections::HashMap;
+ 
+//! D3 原型（不进仓库）：选几次排第一、残段英文不学。
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use super::*;
+
+/// 静态首选故意给错：式 词频压过 是，地 压过 的（模拟上游旧数据里 #425 / #475 的局面）。
+const D3: &str = "式\tshi\t90000\n是\tshi\t50000\n十\tshi\t30000\n地\tdi\t90000\n的\tde\t50000\n都\tdou\t30000\n我\two\t90000\n来\tlai\t50000\n我啦\two la\t3000\n我来\two lai\t2000\n";
+
+struct Spy {
+    inner: CountingLearner,
+    english: Arc<Mutex<Vec<String>>>,
+}
+
+impl Learner for Spy {
+    fn record(&mut self, c: &Candidate) { self.inner.record(c) }
+    fn weight(&self, t: &str) -> u32 { self.inner.weight(t) }
+    fn record_choice(&mut self, i: &str, t: &str) { self.inner.record_choice(i, t) }
+    fn choice_weight(&self, i: &str, t: &str) -> u32 { self.inner.choice_weight(i, t) }
+    fn learn_english(&mut self, w: &str) { self.english.lock().unwrap().push(w.to_owned()) }
+}
+
+fn spy_engine() -> (Engine, Arc<Mutex<Vec<String>>>) {
+    let english = Arc::new(Mutex::new(Vec::new()));
+    let engine = Engine::new(Dictionary::parse(D3).unwrap())
+        .with_english(WordList::parse("I\ti\t6000\nIA\tia\t3000\n").unwrap())
+        .with_learner(Box::new(Spy { inner: CountingLearner(HashMap::new()), english: english.clone() }));
+    (engine, english)
+}
+
+fn picks_until_first(engine: &mut Engine, input: &str, target: &str, max: usize) -> Vec<usize> {
+    let mut ranks = Vec::new();
+    for _ in 0..=max {
+        engine.set_input(input);
+        let items = engine.query().unwrap().candidates.items;
+        let rank = items.iter().position(|c| c.text == target).map_or(0, |p| p + 1);
+        ranks.push(rank);
+        if rank == 1 || rank == 0 { break; }
+        let c = items[rank - 1].clone();
+        engine.commit(&c);
+        engine.clear();
+    }
+    ranks
+}
+
+#[test]
+fn d3_how_many_picks_until_first() {
+    let (mut engine, _) = spy_engine();
+    let shi = picks_until_first(&mut engine, "shi", "是", 10);
+    let d = picks_until_first(&mut engine, "d", "的", 10);
+    eprintln!("D3 shi→是 名次序列 {shi:?}；d→的 名次序列 {d:?}");
+    // 反向：选过 是 一次后再选 式 几次回到第一
+    let back = picks_until_first(&mut engine, "shi", "式", 10);
+    eprintln!("D3 回选 式 名次序列 {back:?}");
+}
+
+#[test]
+fn d3_remainder_english_is_not_learned() {
+    let (mut engine, english) = spy_engine();
+    engine.set_input("wolai");
+    let items = engine.query().unwrap().candidates.items;
+    let wola = items.iter().find(|c| c.text == "我啦").cloned().unwrap();
+    engine.commit(&wola);
+    eprintln!("D3 剩余 {:?}", engine.composition().scope());
+    let items = engine.query().unwrap().candidates.items;
+    eprintln!("D3 残段候选 {:?}", items.iter().map(|c| (&c.text, c.kind)).collect::<Vec<_>>());
+    if let Some(i) = items.iter().find(|c| c.kind == CandidateKind::English).cloned() {
+        engine.commit(&i);
+    }
+    eprintln!("D3 学到的英文 {:?}", english.lock().unwrap());
+    assert!(english.lock().unwrap().is_empty());
+    engine.set_input("i");
+    let i = engine.query().unwrap().candidates.items[0].clone();
+    engine.commit(&i);
+    assert_eq!(*english.lock().unwrap(), vec!["I".to_owned()]);
+}

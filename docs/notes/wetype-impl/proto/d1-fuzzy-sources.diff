@@ -1,0 +1,464 @@
+diff --git a/crates/qingjian-core/src/correction/mod.rs b/crates/qingjian-core/src/correction/mod.rs
+index 5591a721..a4943bbe 100644
+--- a/crates/qingjian-core/src/correction/mod.rs
++++ b/crates/qingjian-core/src/correction/mod.rs
+@@ -42,14 +42,17 @@ pub fn eligible(input: &str) -> bool {
+ 
+ /// 切出来的拼音「不像话」：有切不动的尾巴，或非末尾的音节里有简拼 / 残缺。
+ /// 英文补全与拼写纠错都用这个判断。
++/// 有只靠模糊音读通的音节（`tin` → ting）也算：纠错照样试，但要比模糊音读法的整句分高出一次编辑的代价才纠。
+ pub fn unlikely_pinyin(best: Option<&Segmentation>, tail: &str) -> bool {
+     !tail.is_empty()
+         || best.is_some_and(|best| {
+             let count = best.syllables.len();
+-            best.syllables
+-                .iter()
+-                .take(count.saturating_sub(1))
+-                .any(|s| !s.complete)
++            best.syllables.iter().any(|s| s.fuzzy)
++                || best
++                    .syllables
++                    .iter()
++                    .take(count.saturating_sub(1))
++                    .any(|s| !s.complete)
+         })
+ }
+ 
+diff --git a/crates/qingjian-core/src/engine/commit/mod.rs b/crates/qingjian-core/src/engine/commit/mod.rs
+index 00630237..5879921c 100644
+--- a/crates/qingjian-core/src/engine/commit/mod.rs
++++ b/crates/qingjian-core/src/engine/commit/mod.rs
+@@ -7,7 +7,7 @@ use super::learning::Learner;
+ use super::query::EnglishTail;
+ use super::{
+     AUTO_WORD_MAX_CHARS, AUTO_WORD_THRESHOLD, AUTO_WORD_THRESHOLD_SAME_BUFFER,
+-    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, segment_longest_prefix,
++    EXPLICIT_TRANSITION_WEIGHT, Engine, choice_key, segment_longest_prefix_with,
+ };
+ use crate::candidate::{Candidate, CandidateKind, CandidateList, Language};
+ use crate::correction::typo;
+@@ -449,7 +449,8 @@ impl Engine {
+             }
+             (None, Some(c)) => self.convert_sentence(&c.segmentation.patterns(), false)?,
+             (None, None) => {
+-                let (segmentations, _) = segment_longest_prefix(scope).ok()?;
++                let (segmentations, _) =
++                    segment_longest_prefix_with(scope, self.fuzzy_sources.as_ref()).ok()?;
+                 self.convert_sentence(&segmentations.first()?.patterns(), true)?
+             }
+         };
+diff --git a/crates/qingjian-core/src/engine/correcting.rs b/crates/qingjian-core/src/engine/correcting.rs
+index ebbd1ca6..106a8293 100644
+--- a/crates/qingjian-core/src/engine/correcting.rs
++++ b/crates/qingjian-core/src/engine/correcting.rs
+@@ -41,7 +41,8 @@ impl Engine {
+         {
+             return None;
+         }
+-        let (segmentations, tail) = segment_longest_prefix(scope).ok()?;
++        let (segmentations, tail) =
++            segment_longest_prefix_with(scope, self.fuzzy_sources.as_ref()).ok()?;
+         // 不像话的拼音试全部一处编辑；末尾单字母的只试相邻换位（`mingtain` → `mingtian`），其余合法拼音不碰
+         let candidates = if correction::unlikely_pinyin(segmentations.first(), tail) {
+             correction::candidates(scope)
+diff --git a/crates/qingjian-core/src/engine/mod.rs b/crates/qingjian-core/src/engine/mod.rs
+index 93312c05..d3ff2303 100644
+--- a/crates/qingjian-core/src/engine/mod.rs
++++ b/crates/qingjian-core/src/engine/mod.rs
+@@ -287,6 +287,9 @@ pub struct Engine {
+     /// 模糊音开关，缺省全关。
+     fuzzy: FuzzyRules,
+ 
++    /// 只有开着的模糊音才读得通的拼写（`tin`、`suang`），切分时也当完整音节；模糊音全关时为 `None`。
++    fuzzy_sources: Option<parser::SyllableTrie>,
++
+     /// 双拼方案，`None` 为全拼。开着时缓冲区里是双拼键，查词前先解成全拼（见 [`crate::shuangpin`]）。
+     shuangpin: Option<Scheme>,
+ 
+@@ -517,6 +520,7 @@ impl Engine {
+             last_question_guess: String::new(),
+             chain: CommitChain::default(),
+             fuzzy: FuzzyRules::default(),
++            fuzzy_sources: None,
+             shuangpin: None,
+             shuangpin_raw_preedit: false,
+             zhuyin: false,
+@@ -606,12 +610,20 @@ fn marked_rest(rest: &str) -> String {
+ /// 整段切不动时退而求其次：找能切分的最长前缀，剩余字母作为尾部返回。
+ /// `kaifv` → (`kai f…` 的切分, `v`)。连第一个字母都切不动才报错。
+ fn segment_longest_prefix(text: &str) -> Result<(Vec<Segmentation>, &str), ParseError> {
+-    match parser::segment(text) {
++    segment_longest_prefix_with(text, None)
++}
++
++/// 同 [`segment_longest_prefix`]，切分时把只有模糊音才读得通的拼写也当完整音节（见 [`parser::segment_with`]）。
++fn segment_longest_prefix_with<'a>(
++    text: &'a str,
++    fuzzy: Option<&parser::SyllableTrie>,
++) -> Result<(Vec<Segmentation>, &'a str), ParseError> {
++    match parser::segment_with(text, fuzzy) {
+         Ok(segmentations) => Ok((segmentations, "")),
+         Err(ParseError::NoSegmentation) => (1..text.len())
+             .rev()
+             .find_map(|end| {
+-                parser::segment(&text[..end])
++                parser::segment_with(&text[..end], fuzzy)
+                     .ok()
+                     .map(|s| (s, &text[end..]))
+             })
+diff --git a/crates/qingjian-core/src/engine/query/phonetic.rs b/crates/qingjian-core/src/engine/query/phonetic.rs
+index 81648628..4240b756 100644
+--- a/crates/qingjian-core/src/engine/query/phonetic.rs
++++ b/crates/qingjian-core/src/engine/query/phonetic.rs
+@@ -32,7 +32,7 @@ impl Engine {
+             (None, Some(tail)) if head_wins => {
+                 parser::segment(&keys[..tail.head_len]).map(|s| (s, ""))
+             }
+-            _ => segment_longest_prefix(keys),
++            _ => segment_longest_prefix_with(keys, self.fuzzy_sources.as_ref()),
+         };
+         // 连第一个字母都切不动（`impor`）：拼音这边没戏，但英文词 / 补全、快捷候选还可以有
+         let (segmentations, tail) = match parsed {
+diff --git a/crates/qingjian-core/src/engine/setup.rs b/crates/qingjian-core/src/engine/setup.rs
+index 1d8f274f..5c50f907 100644
+--- a/crates/qingjian-core/src/engine/setup.rs
++++ b/crates/qingjian-core/src/engine/setup.rs
+@@ -160,7 +160,11 @@ impl Engine {
+             .question_body(self.composition.scope(), self.zhuyin);
+         self.shuangpin
+             .filter(|scheme| scheme.uses_semicolon())
+-            .is_some_and(|scheme| scheme.decode(body).pending_initial())
++            .is_some_and(|scheme| {
++                scheme
++                    .decode_with(body, self.fuzzy_sources.as_ref())
++                    .pending_initial()
++            })
+     }
+ 
+     /// 只用形码：码表挂着、拼音侧关着。
+@@ -204,8 +208,9 @@ impl Engine {
+         if self.zhuyin {
+             Some(EngineDecoded::Zhuyin(crate::zhuyin::decode(keys)))
+         } else {
+-            self.shuangpin
+-                .map(|scheme| EngineDecoded::Shuangpin(scheme.decode(keys)))
++            self.shuangpin.map(|scheme| {
++                EngineDecoded::Shuangpin(scheme.decode_with(keys, self.fuzzy_sources.as_ref()))
++            })
+         }
+     }
+ 
+@@ -235,6 +240,11 @@ impl Engine {
+     pub fn set_fuzzy(&mut self, rules: FuzzyRules) {
+         if self.fuzzy != rules {
+             self.forget_span_cache();
++            let sources = rules.sources();
++            self.fuzzy_sources = (!sources.is_empty()).then(|| {
++                let refs: Vec<&str> = sources.iter().map(String::as_str).collect();
++                crate::parser::SyllableTrie::build(&refs)
++            });
+         }
+         self.fuzzy = rules;
+     }
+diff --git a/crates/qingjian-core/src/fuzzy/rules.rs b/crates/qingjian-core/src/fuzzy/rules.rs
+index 1cf295f7..a952bf3e 100644
+--- a/crates/qingjian-core/src/fuzzy/rules.rs
++++ b/crates/qingjian-core/src/fuzzy/rules.rs
+@@ -158,8 +158,46 @@ impl FuzzyRules {
+         forms
+     }
+ 
++    /// 只有开着的规则才读得通的拼写：本身不是合法音节，套一次规则就是（`tin` → ting、`suang` → shuang）。
++    /// 切分时把它们也当完整音节（WeType 的模糊音是 trie 游标上的按键级变换，源拼写合不合法不要紧）。
++    /// 规则互为逆变换，所以从合法音节反套一次就能枚举全部；规则集很小，全表一遍不到一毫秒。
++    pub fn sources(&self) -> Vec<String> {
++        let mut out: Vec<String> = Vec::new();
++        if !self.any() {
++            return out;
++        }
++        for syllable in parser::SYLLABLES {
++            for form in self.swaps(syllable, true) {
++                if !parser::is_syllable(&form)
++                    && !out.contains(&form)
++                    && form.len() <= parser::MAX_SYLLABLE_LEN
++                    && !self.apply_once(&form, true).is_empty()
++                {
++                    out.push(form);
++                }
++            }
++        }
++        out.sort();
++        out
++    }
++
+     /// 对一种写法各套一次规则得到的新写法（可能不合法，这里过滤掉）。
+     fn apply_once(&self, form: &str, complete: bool) -> Vec<String> {
++        let mut out = self.swaps(form, complete);
++        out.retain(|f| {
++            !f.is_empty()
++                && f != form
++                && if complete {
++                    parser::is_syllable(f)
++                } else {
++                    parser::is_syllable(f) || parser::is_syllable_prefix(f)
++                }
++        });
++        out
++    }
++
++    /// 各套一次规则，不管结果合不合法。
++    fn swaps(&self, form: &str, complete: bool) -> Vec<String> {
+         let mut out = Vec::new();
+         let mut swap_initial = |a: &str, b: &str| {
+             if let Some(rest) = form.strip_prefix(a) {
+@@ -206,15 +244,6 @@ impl FuzzyRules {
+                 swap_final("ing", "in");
+             }
+         }
+-        out.retain(|f| {
+-            !f.is_empty()
+-                && f != form
+-                && if complete {
+-                    parser::is_syllable(f)
+-                } else {
+-                    parser::is_syllable(f) || parser::is_syllable_prefix(f)
+-                }
+-        });
+         out
+     }
+ }
+diff --git a/crates/qingjian-core/src/parser/mod.rs b/crates/qingjian-core/src/parser/mod.rs
+index 463a5e01..8233ccc1 100644
+--- a/crates/qingjian-core/src/parser/mod.rs
++++ b/crates/qingjian-core/src/parser/mod.rs
+@@ -14,6 +14,7 @@ use std::cmp::Reverse;
+ pub use error::ParseError;
+ pub use segmentation::{Segmentation, Syllable};
+ pub use syllable::{INITIALS, MAX_SYLLABLE_LEN, SYLLABLES};
++pub use trie::SyllableTrie;
+ 
+ use syllable::initial_lengths;
+ use trie::SYLLABLE_TRIE;
+@@ -52,6 +53,15 @@ const MAX_SEGMENTATIONS: usize = 8;
+ 
+ /// 切分。返回按「音节少、不完整音节少、前面的音节长」排序的切分，最多 [`MAX_SEGMENTATIONS`] 种。
+ pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
++    segment_with(input, None)
++}
++
++/// 同 [`segment`]，`fuzzy` 是只有模糊音才读得通的拼写（[`crate::FuzzyRules::sources`] 建的 trie）：
++/// 它们也当完整音节切，排在同音节数、同残缺数的合法切分后面。
++pub fn segment_with(
++    input: &str,
++    fuzzy: Option<&SyllableTrie>,
++) -> Result<Vec<Segmentation>, ParseError> {
+     let input = input.trim();
+     if input.is_empty() {
+         return Err(ParseError::Empty);
+@@ -75,7 +85,7 @@ pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
+     }];
+     for (index, chunk) in chunks.iter().enumerate() {
+         let is_last = index + 1 == chunks.len();
+-        let options = segment_chunk(chunk, is_last);
++        let options = segment_chunk(chunk, is_last, fuzzy);
+         if options.is_empty() {
+             return Err(ParseError::NoSegmentation);
+         }
+@@ -90,6 +100,10 @@ pub fn segment(input: &str) -> Result<Vec<Segmentation>, ParseError> {
+         results = next;
+     }
+     prune(&mut results);
++    // 最优切分用不着模糊音时，别的切分也不用：合法拼写的候选与不开模糊音时逐条一致（`dingan` 不冒出 `din gan` 的 定岗）
++    if fuzzy.is_some() && results.first().is_some_and(|best| best.fuzzy_count() == 0) {
++        return segment_with(input, None);
++    }
+     Ok(results)
+ }
+ 
+@@ -100,11 +114,13 @@ fn prune(segmentations: &mut Vec<Segmentation>) {
+     segmentations.truncate(MAX_SEGMENTATIONS);
+ }
+ 
+-/// 音节少的优先；同音节数时不完整音节少的优先；再同则前面的音节越长越优先（贪心的结果排最前）。
+-fn sort_key(segmentation: &Segmentation) -> (usize, usize, Vec<Reverse<usize>>) {
++/// 音节少的优先；同音节数时「不完整 + 只靠模糊音读通」的音节少的优先（`shoufe` 的 `fe…` 前缀排在模糊音的 `fe`→he 前面），
++/// 再同时只靠模糊音的少的优先；再同则前面的音节越长越优先（贪心的结果排最前）。
++fn sort_key(segmentation: &Segmentation) -> (usize, usize, usize, Vec<Reverse<usize>>) {
+     (
+         segmentation.syllables.len(),
+-        segmentation.incomplete_count(),
++        segmentation.incomplete_count() + segmentation.fuzzy_count(),
++        segmentation.fuzzy_count(),
+         segmentation
+             .syllables
+             .iter()
+@@ -115,7 +131,11 @@ fn sort_key(segmentation: &Segmentation) -> (usize, usize, Vec<Reverse<usize>>)
+ 
+ /// 切分不含 `'` 的一段：按位置做动态规划，每个位置只保留最优的几种前缀切分。
+ /// `allow_partial` 为真时末尾允许留一个残缺音节。
+-fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
++fn segment_chunk(
++    chunk: &str,
++    allow_partial: bool,
++    fuzzy: Option<&SyllableTrie>,
++) -> Vec<Segmentation> {
+     let n = chunk.len();
+     let mut best: Vec<Vec<Segmentation>> = vec![Vec::new(); n + 1];
+     best[0].push(Segmentation {
+@@ -128,11 +148,19 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
+         prune(&mut best[start]);
+         let rest = &chunk[start..];
+         let matches = SYLLABLE_TRIE.matches(rest);
+-        // (长度, 是否完整音节)
+-        let mut tokens: Vec<(usize, bool)> = matches.lengths().map(|len| (len, true)).collect();
++        // (长度, 是否完整音节, 是否只靠模糊音)
++        let mut tokens: Vec<(usize, bool, bool)> =
++            matches.lengths().map(|len| (len, true, false)).collect();
++        if let Some(fuzzy) = fuzzy {
++            for len in fuzzy.matches(rest).lengths() {
++                if !tokens.iter().any(|t| t.0 == len && t.1) {
++                    tokens.push((len, true, true));
++                }
++            }
++        }
+         for len in initial_lengths(rest) {
+-            if !tokens.contains(&(len, true)) {
+-                tokens.push((len, false));
++            if !tokens.iter().any(|t| t.0 == len && t.1) {
++                tokens.push((len, false, false));
+             }
+         }
+         // 整个剩余部分作为未打完的音节（`zho` → zhong / zhou …）。它本身是完整音节或纯声母时已经在上面了。
+@@ -140,17 +168,19 @@ fn segment_chunk(chunk: &str, allow_partial: bool) -> Vec<Segmentation> {
+         if allow_partial
+             && matches.whole_is_prefix
+             && !rest_is_complete
+-            && !tokens.contains(&(rest.len(), false))
++            && !tokens.iter().any(|t| t.0 == rest.len() && !t.1)
+         {
+-            tokens.push((rest.len(), false));
++            tokens.push((rest.len(), false, false));
+         }
+-        for (len, complete) in tokens {
++        for (len, complete, only_fuzzy) in tokens {
+             let text = &rest[..len];
+             let extended: Vec<Segmentation> = best[start]
+                 .iter()
+                 .map(|base| {
+                     let mut syllables = base.syllables.clone();
+-                    syllables.push(if complete {
++                    syllables.push(if only_fuzzy {
++                        Syllable::fuzzy(text)
++                    } else if complete {
+                         Syllable::complete(text)
+                     } else {
+                         Syllable::partial(text)
+diff --git a/crates/qingjian-core/src/parser/segmentation.rs b/crates/qingjian-core/src/parser/segmentation.rs
+index 8e154420..13a91f44 100644
+--- a/crates/qingjian-core/src/parser/segmentation.rs
++++ b/crates/qingjian-core/src/parser/segmentation.rs
+@@ -10,6 +10,9 @@ pub struct Syllable {
+ 
+     /// 是完整音节；否则是声母（简拼 `k`）或未打完的前缀（`zho`）。
+     pub complete: bool,
++
++    /// 敲的拼写本身不是合法音节，只有开着的模糊音能把它读成合法音节（`tin` → ting、`suang` → shuang）。
++    pub fuzzy: bool,
+ }
+ 
+ impl Syllable {
+@@ -17,6 +20,16 @@ impl Syllable {
+         Self {
+             text: text.to_owned(),
+             complete: true,
++            fuzzy: false,
++        }
++    }
++
++    /// 只有模糊音才读得通的完整音节。
++    pub fn fuzzy(text: &str) -> Self {
++        Self {
++            text: text.to_owned(),
++            complete: true,
++            fuzzy: true,
+         }
+     }
+ 
+@@ -24,6 +37,7 @@ impl Syllable {
+         Self {
+             text: text.to_owned(),
+             complete: false,
++            fuzzy: false,
+         }
+     }
+ 
+@@ -56,6 +70,11 @@ impl Segmentation {
+         self.syllables.iter().filter(|s| !s.complete).count()
+     }
+ 
++    /// 只有模糊音才读得通的音节个数。
++    pub fn fuzzy_count(&self) -> usize {
++        self.syllables.iter().filter(|s| s.fuzzy).count()
++    }
++
+     pub fn last_is_partial(&self) -> bool {
+         self.syllables.last().is_some_and(|s| !s.complete)
+     }
+diff --git a/crates/qingjian-core/src/shuangpin/scheme.rs b/crates/qingjian-core/src/shuangpin/scheme.rs
+index 0480f08e..5c29e0c4 100644
+--- a/crates/qingjian-core/src/shuangpin/scheme.rs
++++ b/crates/qingjian-core/src/shuangpin/scheme.rs
+@@ -171,6 +171,12 @@ impl Scheme {
+     /// 把敲的键翻成全拼。两键一组从左到右配对；配不出合法音节的位置起全部原样留作尾巴；
+     /// 末尾落单的一键当声母（或元音）前缀；用户自己敲的 `'` 结束当前配对。
+     pub fn decode(self, keys: &str) -> Decoded {
++        self.decode_with(keys, None)
++    }
++
++    /// 同 [`Self::decode`]，`fuzzy` 是只有模糊音才读得通的拼写（[`crate::FuzzyRules::sources`]）：
++    /// 两键配不出合法音节时，声母 + 韵母落在里面也收（`s` + `uang` = `suang`，开着 s/sh 时查 shuang）。
++    pub fn decode_with(self, keys: &str, fuzzy: Option<&parser::SyllableTrie>) -> Decoded {
+         let chars: Vec<char> = keys.chars().collect();
+         let mut units = Vec::with_capacity(chars.len() / 2 + 1);
+         let mut index = 0;
+@@ -183,11 +189,14 @@ impl Scheme {
+             }
+             let second = chars.get(index + 1).copied().filter(|c| *c != '\'');
+             let unit = match second {
+-                Some(second) => self.syllable(first, second).map(|pinyin| Unit {
+-                    keys: [first, second].iter().collect(),
+-                    pinyin,
+-                    complete: true,
+-                }),
++                Some(second) => self
++                    .syllable(first, second)
++                    .or_else(|| self.fuzzy_syllable(first, second, fuzzy?))
++                    .map(|pinyin| Unit {
++                        keys: [first, second].iter().collect(),
++                        pinyin,
++                        complete: true,
++                    }),
+                 None => self.partial(first).map(|pinyin| Unit {
+                     keys: first.to_string(),
+                     pinyin,
+@@ -203,6 +212,20 @@ impl Scheme {
+         Decoded::new(units, chars[index..].iter().collect())
+     }
+ 
++    /// 两键的声母 + 韵母只有模糊音才读得通时的原拼写（`suang`）。
++    fn fuzzy_syllable(
++        self,
++        first: char,
++        second: char,
++        fuzzy: &parser::SyllableTrie,
++    ) -> Option<String> {
++        let initial = self.initial(first)?;
++        self.finals(second)
++            .iter()
++            .map(|final_| format!("{initial}{final_}"))
++            .find(|raw| fuzzy.contains(raw))
++    }
++
+     /// 落单的一键代表的前缀：声母键是声母，元音键是元音本身（`a` 后面可能是 ai / an / ang / ao）。
+     fn partial(self, key: char) -> Option<String> {
+         if let Some(initial) = self.initial(key) {
