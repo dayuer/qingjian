@@ -168,6 +168,16 @@ P2C 教师强制打分 `CharScorer::score_p2c(keys, texts)`：前缀 `<eos> + �
 用 `--neural-weight` 调 λ。评测适配器与产品端 `P2cScorer` 同一条件，只是推理出错时直接终止（不静默回退到基线冒充成功）。
 `--eval-details <输出.jsonl>` 为任意整句评测保存逐句首选、整句候选、全部候选与查询耗时，支持配对比较，仍不上屏、不学习。
 
+**前缀缓存跨调用复用**（B4，素笺分叉，规格见 [ref-ime-impl/b4-b6-context-cache-and-tiers.md](ref-ime-impl/b4-b6-context-cache-and-tiers.md)）：
+`CharScorer` 留一格 `ContextCache`（知微存前文、通变存 `<eos> + 拼音`）。新前缀与旧的完全相同直接用；有公共前缀就 `PrefixCache::truncate`
+截到公共前缀，再 `CharLm::extend_cache` 只算多出来的 token（不过输出层）；没有才整段算。打字是追加、退格是截断，上文刚上屏是追加。
+占用超过 `CONTEXT_CACHE_MAX_BYTES`（4 MB；8 层 / 448 宽 f32 的 65 个 token 约 1.8 MB）用完就丢。知微的前文按 `context_head` 固定左截到
+上下文减 `TAIL_RESERVE`（32），只看前文不看候选，预填（`CharScorer::prefill`）与打分才能算出同一个前缀。增量与整段的数值差：f32 < 1e-4，
+8 位 / Metal f16 < 0.08，名次一致（`context_cache/tests.rs`）。Core 一侧：`set_rescoring_context` 前文变了给两条打分线程送预填（`RescoreWorker::prefill`，
+同一段只送一次），进出私密与壳换学习范围（`Engine::forget_neural_context`）时清空；后台线程打分与预填各只留最新一条、按提交顺序做，预填不会顶掉打分。
+知微 `uses_keys() == false`，词级分数表不拿按键当条件、跨按键保留。`RescoreStats` 的 `reused_tokens / prefix_tokens` 进 iOS 重排日志的 `reused=`。
+延迟探针 `cargo run --release -p qingjian-neural --example context_cache_bench`。
+
 P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang-tongbian/hanzhang-tongbian-small.qjm`（`P2c::convert` 束宽 5，不经词图不经重排），
 量的是重排这层架构的上限代价；2081 句上首选 51.9% / 前五 73.5%，对比重排路径的 42.3% / 45.5%，两条路互补（只有生成对 16.5%、只有重排对 6.9%），
 代价是 `O(生成字数)` 次串行前向。数字与取舍见 [neural-rescoring.md](neural-rescoring.md)。

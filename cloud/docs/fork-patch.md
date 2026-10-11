@@ -279,6 +279,28 @@ jetsam 上限。根治 = 与词库同路的 `.qj` mmap（实测堆驻留 0）。
 
 Mac / Linux / CLI 的壳不动（无键盘那样的内存压力，读 english.tsv 照旧），合并冲突面最小。
 
+### 前缀 K / V 跨按键复用（B4，Core + neural，各平台都生效）
+
+2026-10-11：iOS 键盘唯一的模型是含章·通变，它的前缀是拼音，每键多一个字母，单格缓存要求完全相等，于是每次重排整段重算；
+上屏 / 移光标后第一次重排也在关键路径上整段算。改成按公共前缀截断再增量接续，上文变了后台先预填。规格 docs/notes/ref-ime-impl/b4-b6-context-cache-and-tiers.md。
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `crates/qingjian-neural/src/context_cache/` | 新目录 | `ContextCache`（同序列直接用 / 公共前缀截断后续算 / 超 4MB 不留）与测试 |
+| `crates/qingjian-neural/src/model/mod.rs` | 加 `Clone`、`truncate`、`bytes`、`extend_cache`，加 `mod tests;` | 前缀可截断、可增量接续；`model/tests.rs` 新文件 |
+| `crates/qingjian-neural/src/lib.rs` | 加 1 行 | `mod context_cache;` |
+| `crates/qingjian-neural/src/scorer.rs` | 换缓存字段，`score` / `score_p2c` 的取缓存段各换 2 行，加 6 个方法 | `context_head` 固定左截（缺省 64 字前文与原截法逐位相同）；`prefill` / `forget` / `prefix_reuse` |
+| `crates/qingjian-neural/src/core_scorer.rs` | 加 6 个方法 | 两个实现接新 trait 方法 |
+| `crates/qingjian-neural/examples/context_cache_bench.rs` | 新文件 | 延迟探针 |
+| `crates/qingjian-core/src/sentence/scorer.rs` | 加 4 个缺省方法 | `prefill` / `forget` / `uses_keys` / `prefix_reuse`，缺省保持旧行为 |
+| `crates/qingjian-core/src/engine/rescoring/worker.rs` | 改调度循环，加预填 / 清空任务 | `latest_jobs`：打分与预填各留最新一条、按提交顺序；`Scored.reuse` |
+| `crates/qingjian-core/src/engine/rescoring/prefill/` | 新目录 | `prefill_rescoring_context` / `forget_neural_context` 与测试 |
+| `crates/qingjian-core/src/engine/rescoring/mod.rs` | 加 1 行 mod、`set_rescoring_context` 加 1 行、统计加 2 行 | 前文变了送预填 |
+| `crates/qingjian-core/src/engine/privacy.rs` | 加 1 行 | 进出私密调 `forget_neural_context` |
+
+合并上游时：上游若改了 `CharScorer` 的缓存或 `RescoreWorker` 的调度循环，保留「打分与预填各留最新一条」这条规则（`prefill/tests.rs` 的
+`prefill_does_not_swallow_a_queued_score` 守着），再跑 `cargo test -p qingjian-neural context_cache` 与 CLI 的 `--eval-text` / `--replay` 逐字对比。
+
 ## 合并上游时
 
 1. 冲突只可能出在上表「加 N 行」的那几个文件，按上游的新写法把挂钩行重新加回去。
