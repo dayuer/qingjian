@@ -17,4 +17,10 @@ pub struct RescoreStats {
 
     /// 最长那条路径的字数。
     pub max_chars: usize,
+
+    /// 这次打分从前缀缓存里复用的 token 数（B4；通变是拼音前缀，知微是前文）。
+    pub reused_tokens: usize,
+
+    /// 这次打分的前缀总长（token）。`reused_tokens == prefix_tokens` 是整段命中，0 是整段重算。
+    pub prefix_tokens: usize,
 }
