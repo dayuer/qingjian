@@ -1,3 +1,5 @@
+//! 把 [`CharScorer`] 接到 Core 的 [`SentenceScorer`]：知微按前文打分，通变（[`P2cScorer`]）按按键打分与生成。
+
 use qingjian_core::sentence::SentenceScorer;
 
 use crate::{CharScorer, P2c};
@@ -22,6 +24,24 @@ impl SentenceScorer for CharScorer {
                 Vec::new()
             }
         }
+    }
+
+    fn prefill(&self, context: &str) {
+        if let Err(error) = CharScorer::prefill(self, context) {
+            tracing::warn!(%error, "上文预填失败，打分时再算");
+        }
+    }
+
+    fn forget(&self) {
+        CharScorer::forget(self);
+    }
+
+    fn uses_keys(&self) -> bool {
+        false
+    }
+
+    fn prefix_reuse(&self) -> (usize, usize) {
+        CharScorer::prefix_reuse(self)
     }
 }
 
@@ -49,6 +69,14 @@ impl SentenceScorer for P2cScorer {
                 Vec::new()
             }
         }
+    }
+
+    fn forget(&self) {
+        self.0.forget();
+    }
+
+    fn prefix_reuse(&self) -> (usize, usize) {
+        self.0.prefix_reuse()
     }
 
     fn generate(&self, keys: &str, beam: usize, max_chars: usize) -> Vec<String> {
