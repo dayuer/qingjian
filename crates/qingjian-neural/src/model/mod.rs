@@ -3,6 +3,9 @@
 mod token_table;
 mod weight;
 
+#[cfg(test)]
+mod tests;
+
 use candle_core::{D, DType, Device, Module, Result, Tensor};
 use candle_nn::{Embedding, LayerNorm, Linear, VarBuilder, layer_norm, linear, ops};
 
@@ -29,6 +32,8 @@ struct Block {
 
 /// 一段前文在每层的 K / V（形状 `[1, h, p, d]`）。前文在一次组句里不变，算一次存下来，
 /// 候选接在后面时只算候选自己那几个 token（见 [`CharLm::log_probs_after`]）。
+/// 克隆只复制张量句柄，不复制数据。
+#[derive(Clone)]
 pub struct PrefixCache {
     keys: Vec<Tensor>,
     values: Vec<Tensor>,
@@ -54,6 +59,36 @@ impl PrefixCache {
             values: self.values.iter().map(pick).collect::<Result<_>>()?,
             len: self.len,
         })
+    }
+
+    /// 只留前 `len` 个位置（`len` 不超过现有长度）：前文被改短或改了中间时，公共前缀那段不用重算。
+    /// 每层 `narrow` 出视图，不拷数据；下次接着推进时 `attention` 会拼出新张量。
+    pub fn truncate(&self, len: usize) -> Result<Self> {
+        if len > self.len {
+            candle_core::bail!("truncate to {len} beyond cached {}", self.len);
+        }
+        if len == 0 {
+            return Ok(Self {
+                keys: Vec::new(),
+                values: Vec::new(),
+                len: 0,
+            });
+        }
+        let cut = |t: &Tensor| t.narrow(2, 0, len);
+        Ok(Self {
+            keys: self.keys.iter().map(cut).collect::<Result<_>>()?,
+            values: self.values.iter().map(cut).collect::<Result<_>>()?,
+            len,
+        })
+    }
+
+    /// K / V 占的字节数（按可见元素算）。
+    pub fn bytes(&self) -> usize {
+        self.keys
+            .iter()
+            .chain(&self.values)
+            .map(|t| t.elem_count() * t.dtype().size_in_bytes())
+            .sum()
     }
 }
 
@@ -289,6 +324,17 @@ impl CharLm {
         let idx = Tensor::from_vec(ids.to_vec(), (1, ids.len()), &self.device)?;
         let (_, cache) = self.run(&idx, None, true)?;
         Ok(cache.expect("record was requested"))
+    }
+
+    /// 接着缓存推进一段 token（batch 为 1），只要长出来的缓存、不算输出层。前文追加时增量预填用；
+    /// 对空缓存调用等同 [`Self::prefix_cache`]。
+    pub fn extend_cache(&self, cache: &PrefixCache, ids: &[u32]) -> Result<PrefixCache> {
+        if ids.is_empty() {
+            return Ok(cache.clone());
+        }
+        let idx = Tensor::from_vec(ids.to_vec(), (1, ids.len()), &self.device)?;
+        let (_, grown) = self.hidden(&idx, Some(cache), true)?;
+        Ok(grown.expect("record was requested"))
     }
 
     /// 接着缓存推进一段（`idx` 形状 `[b, t]`），返回最后一位对下一个 token 的 log-softmax（`[b, vocab]`，f32）
