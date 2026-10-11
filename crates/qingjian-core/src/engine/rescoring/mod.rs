@@ -7,6 +7,7 @@
 //! 按键回调永远不等模型：先按词级模型出候选，模型的意见晚几十毫秒到。
 
 mod cache;
+mod prefill;
 mod stats;
 mod word_rescore;
 mod worker;
@@ -57,8 +58,10 @@ impl Engine {
     }
 
     /// 壳告知应用里光标前的文本（每次查询前给；应用给不出就 `None`，退回本会话历史）。
+    /// 前文变了（上屏、移光标、换输入框）就让后台先把它算进模型（B4 预填）。
     pub fn set_rescoring_context(&mut self, before: Option<String>) {
         self.rescoring_before = before;
+        self.prefill_rescoring_context();
     }
 
     /// 把几条整句路径按「路径分 + λ·(神经分 − 静态分)」重排。缓存里缺分的：同步打分器当场补，异步的先记下等壳来取；
@@ -217,6 +220,8 @@ impl Engine {
                     .map(|t| t.chars().count())
                     .max()
                     .unwrap_or(0),
+                reused_tokens: scored.reuse.0,
+                prefix_tokens: scored.reuse.1,
             });
             for (text, score) in scored.texts.iter().zip(scored.scores) {
                 cache.insert(text, score);

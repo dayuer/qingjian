@@ -20,4 +20,21 @@ pub trait SentenceScorer: Send {
     fn continue_text(&self, _before: &str, _max_chars: usize) -> Option<(String, f64)> {
         None
     }
+
+    /// 上文变了，先在后台把上文的模型状态算好，下一次 [`Self::score`] 直接用（参考实现的 `AutoInferTextBeforeCursor`）。
+    /// 不看前文的实现（P2C）什么都不做。
+    fn prefill(&self, _context: &str) {}
+
+    /// 丢掉模型里缓存的前文 / 按键状态：私密输入、换学习范围时调。
+    fn forget(&self) {}
+
+    /// 分数是否依赖用户按键。字级模型不依赖：按键变了分数表不必清。
+    fn uses_keys(&self) -> bool {
+        true
+    }
+
+    /// 最近一次打分的前缀复用：（复用的 token 数, 前缀总长），真机日志看命中率；没有缓存的实现返回 (0, 0)。
+    fn prefix_reuse(&self) -> (usize, usize) {
+        (0, 0)
+    }
 }

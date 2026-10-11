@@ -17,12 +17,19 @@ impl Session {
         self.engine.set_rescore_notifier(notify);
     }
 
-    /// 最近一次整句重排的分段耗时，`queue=…;forward=…;main=…;paths=…;max_chars=…`（毫秒）；还没有过返回 `None`。
+    /// 最近一次整句重排的分段耗时，`queue=…;forward=…;main=…;paths=…;max_chars=…;reused=复用/前缀`
+    /// （毫秒；`reused` 是拼音前缀从缓存里复用的 token 数）；还没有过返回 `None`。
     pub fn rescore_stats(&self) -> Option<String> {
         self.engine.last_rescore_stats().map(|s| {
             format!(
-                "queue={:.1};forward={:.1};main={:.1};paths={};max_chars={}",
-                s.queue_ms, s.forward_ms, s.main_ms, s.paths, s.max_chars
+                "queue={:.1};forward={:.1};main={:.1};paths={};max_chars={};reused={}/{}",
+                s.queue_ms,
+                s.forward_ms,
+                s.main_ms,
+                s.paths,
+                s.max_chars,
+                s.reused_tokens,
+                s.prefix_tokens
             )
         })
     }

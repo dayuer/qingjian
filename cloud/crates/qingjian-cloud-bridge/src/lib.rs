@@ -324,7 +324,7 @@ pub unsafe extern "C" fn qj_rescore_tick(session: *mut Session) -> bool {
     with(session, false, Session::rescore_tick)
 }
 
-/// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…`，毫秒），真机验收写日志用；
+/// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…;reused=复用/前缀`，毫秒），真机验收写日志用；
 /// 还没有过返回空指针。返回的字符串用 [`qj_string_free`] 释放。
 ///
 /// # Safety

@@ -65,6 +65,8 @@ impl Engine {
         self.private = combined;
         self.learner.set_private(combined);
         self.logger.set_muted(combined);
+        // 进出私密都清：进时前文不能留在模型里，出时私密框里敲的按键状态不能带出去（素笺分叉，B4）
+        self.forget_neural_context();
         if combined {
             // 在飞的云结果不能再显示，前文也不能留
             self.prediction_sequence += 1;

@@ -44,7 +44,7 @@ final class Engine {
         qj_session_free(session)
     }
 
-    /// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…`），真机验收的日志用。
+    /// 最近一次整句重排的分段耗时（`queue=…;forward=…;main=…;paths=…;max_chars=…;reused=复用/前缀`），真机验收的日志用。
     var rescoreStats: String? { take(qj_rescore_stats(session)) }
 
     /// 停键多久送整句路径去重排（桥给的数，与 Mac 壳一致）。

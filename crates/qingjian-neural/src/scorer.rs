@@ -1,10 +1,13 @@
+//! 加载好的字级模型：给「前文 + 候选」（知微）或「拼音 + 候选」（通变）打分；前缀的 K / V 跨调用留一格（[`ContextCache`]）。
+
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use qingjian_format::{Container, Kind, Metadata};
 
+use crate::context_cache::{CONTEXT_CACHE_MAX_BYTES, ContextCache};
 use crate::model::PrefixCache;
 use crate::vocab::EOS;
 use crate::{CharLm, ModelConfig, NeuralError, QuantizedWeights, Vocab, find_model, qjm};
@@ -17,9 +20,13 @@ pub struct CharScorer {
     /// `.qjm` 的 `META`（名称 / 许可证 / 署名）；三件套目录没有。
     metadata: Option<Metadata>,
 
-    /// 最近一段前文的 K / V 缓存（前文 token 与缓存）：一次组句里前文不变，候选换了只算候选。
-    cache: Mutex<Option<(Vec<u32>, PrefixCache)>>,
+    /// 最近一段前缀（知微是前文，通变是拼音）的 K / V：前缀不变只算候选，前缀长了或短了只算差的那段。
+    cache: Mutex<ContextCache>,
 }
+
+/// 知微打分时前文最多留这么多 token（含开头的 `<eos>`），从左截：模型上下文减去候选的预留宽度 [`TAIL_RESERVE`]。
+/// 截法只看前文、不看这批候选多长，预填（[`CharScorer::prefill`]）与打分才能算出同一个前缀。
+const TAIL_RESERVE: usize = 32;
 
 impl CharScorer {
     /// 加载模型。`path` 是 `.qjm` 单文件、三件套目录（`model.safetensors` / `config.json` / `vocab.json`），
@@ -111,8 +118,60 @@ impl CharScorer {
             model,
             vocab,
             metadata,
-            cache: Mutex::new(None),
+            cache: Mutex::new(ContextCache::new(CONTEXT_CACHE_MAX_BYTES)),
         }
+    }
+
+    fn lock_cache(&self) -> MutexGuard<'_, ContextCache> {
+        self.cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// 知微打分用的前缀：`<eos> + 前文` 去掉最后一个 token（它放进每行开头给候选第一个字用），
+    /// 从左截到上下文减 [`TAIL_RESERVE`]。返回（前缀, 最后一个 token）。
+    pub(crate) fn context_head(&self, context: &str) -> (Vec<u32>, u32) {
+        let mut full: Vec<u32> = std::iter::once(EOS)
+            .chain(self.vocab.encode(context))
+            .collect();
+        let last = full.pop().expect("has eos");
+        let keep = self.model.config().context.saturating_sub(TAIL_RESERVE);
+        if full.len() > keep {
+            full.drain(..full.len() - keep);
+        }
+        (full, last)
+    }
+
+    /// 上文变了先在后台把它的 K / V 算好（参考实现 `AutoInferTextBeforeCursor`），下一次 [`Self::score`] 直接命中。
+    /// 新前文以旧前文开头（刚上屏）时只算新增的字。
+    pub fn prefill(&self, context: &str) -> Result<(), NeuralError> {
+        let (head, _) = self.context_head(context);
+        self.sync_prefix(&head)?;
+        Ok(())
+    }
+
+    /// 让前缀缓存对应 `ids` 并交出它的 K / V（句柄克隆，交出后就放锁）；超过字节上限的用完不留。
+    pub(crate) fn sync_prefix(&self, ids: &[u32]) -> Result<PrefixCache, NeuralError> {
+        let mut guard = self.lock_cache();
+        let cache = guard.sync(&self.model, ids)?;
+        guard.settle();
+        Ok(cache)
+    }
+
+    /// 丢掉前缀缓存：私密输入、换学习范围时调，前文与拼音的状态不在内存里留着。
+    pub fn forget(&self) {
+        self.lock_cache().clear();
+    }
+
+    /// 最近一次打分的前缀复用：（复用的 token 数, 前缀总长）。
+    pub fn prefix_reuse(&self) -> (usize, usize) {
+        self.lock_cache().last_reuse()
+    }
+
+    /// 前缀缓存里有没有东西（测试看清空用）。
+    #[cfg(test)]
+    pub(crate) fn prefix_cached(&self) -> bool {
+        !self.lock_cache().is_empty()
     }
 
     /// 加载好的模型本体：逐字生成一类的实验直接用它。
@@ -158,17 +217,9 @@ impl CharScorer {
             }
         }
         let idx = Tensor::from_vec(flat, (batch, width), self.model.device())?;
-        let mut guard = self
-            .cache
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if guard.as_ref().is_none_or(|(ids, _)| ids != &head) {
-            let cache = self.model.prefix_cache(&head)?;
-            *guard = Some((head, cache));
-        }
-        let (_, cache) = guard.as_ref().expect("filled above");
-        let picked = self.model.target_log_probs_after(cache, &idx, &targets)?;
-        drop(guard);
+        // 打字是追加、退格是截断：拼音前缀跨按键只算变了的那几个字母
+        let cache = self.sync_prefix(&head)?;
+        let picked = self.model.target_log_probs_after(&cache, &idx, &targets)?;
         Ok(tails
             .iter()
             .zip(picked.chunks(width))
@@ -179,15 +230,12 @@ impl CharScorer {
     /// 每个候选接在 `context` 后面的 `log P(候选 | 前文)`，按字累加。
     /// 序列是 `<eos> + 前文 + 候选`；前文（不含最后一个 token）的 K / V 走缓存，同一段前文只算一次，
     /// 每个候选只算「前文最后一个 token + 候选」这一小段；几个候选拼成一个 batch、末尾补 0 对齐，一次前向。
-    /// 前文加最长候选超过模型上下文时前文从左边截（与训练脚本 `score.py` 一致）。
+    /// 前文先按 [`Self::context_head`] 固定截一次；前文加最长候选还超过模型上下文时再从左边截（与训练脚本 `score.py` 一致）。
     pub fn score(&self, context: &str, texts: &[&str]) -> Result<Vec<f64>, NeuralError> {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
         let limit = self.model.config().context;
-        let full: Vec<u32> = std::iter::once(EOS)
-            .chain(self.vocab.encode(context))
-            .collect();
         // 候选最长不能超过上下文减一（还要留前文的最后一个 token）：再长的从开头截
         let tails: Vec<Vec<u32>> = texts
             .iter()
@@ -202,28 +250,20 @@ impl CharScorer {
         let longest = tails.iter().map(Vec::len).max().unwrap_or(0);
         let width = longest + 1;
         // 缓存的是前文去掉最后一个 token 的部分，最后一个 token 放进每一行的开头，它的输出分布给候选第一个字用
-        let (last, head) = full.split_last().expect("has eos");
+        let (head, last) = self.context_head(context);
         let head = &head[head.len().saturating_sub(limit - width)..];
         let batch = tails.len();
         let mut flat = vec![0u32; batch * width];
         let mut targets = vec![0u32; batch * width];
         for (row, tail) in tails.iter().enumerate() {
-            flat[row * width] = *last;
+            flat[row * width] = last;
             flat[row * width + 1..row * width + 1 + tail.len()].copy_from_slice(tail);
             targets[row * width..row * width + tail.len()].copy_from_slice(tail);
         }
         let idx = Tensor::from_vec(flat, (batch, width), self.model.device())?;
         let targets = Tensor::from_vec(targets, (batch, width, 1), self.model.device())?;
-        let mut guard = self
-            .cache
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if guard.as_ref().is_none_or(|(ids, _)| ids != head) {
-            *guard = Some((head.to_vec(), self.model.prefix_cache(head)?));
-        }
-        let (_, cache) = guard.as_ref().expect("filled above");
-        let lp = self.model.log_probs_after(cache, &idx)?;
-        drop(guard);
+        let cache = self.sync_prefix(head)?;
+        let lp = self.model.log_probs_after(&cache, &idx)?;
         let picked = lp.gather(&targets, 2)?.squeeze(2)?.to_vec2::<f32>()?;
         Ok(tails
             .iter()

@@ -32,7 +32,8 @@ impl CharScorer {
         ids.insert(0, EOS);
         let device = self.model().device();
         let split = ids.len() - 1;
-        let mut cache = self.model().prefix_cache(&ids[..split])?;
+        // 前文部分与 `score` 的前缀常常相同（同一段光标前文），走同一格缓存
+        let mut cache = self.sync_prefix(&ids[..split])?;
         let mut last = Tensor::from_vec(vec![ids[split]], (1, 1), device)?;
         let mut out: Vec<u32> = Vec::new();
         let mut total = 0.0f64;
